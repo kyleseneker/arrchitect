@@ -301,7 +301,9 @@ type BazarrProvider struct {
 	// +optional
 	Enabled *bool `json:"enabled,omitempty"`
 
-	// settings is a map of provider-specific settings. Values starting with "ENV:" are substituted from secrets.
+	// settings is a map of provider-specific settings. A value written
+	// ENV:<secret>:<key> is read from that key of a Secret in the resource's
+	// namespace.
 	// +optional
 	Settings map[string]string `json:"settings,omitempty"`
 }

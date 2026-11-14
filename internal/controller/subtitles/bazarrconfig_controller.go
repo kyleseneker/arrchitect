@@ -283,15 +283,15 @@ func (r *BazarrConfigReconciler) bazarrProviderForm(ctx context.Context, namespa
 			// "ENV:secretName:secretKey" reads the value from a Secret.
 			resolvedVal := v
 			if strings.HasPrefix(v, "ENV:") {
-				parts := strings.SplitN(v[4:], ":", 2)
-				if len(parts) == 2 {
-					ref := commonv1alpha1.SecretKeyRef{Name: parts[0], Key: parts[1]}
-					secret, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, namespace, ref)
-					if err != nil {
-						return nil, fmt.Errorf("resolving secret for provider %s field %s: %w", p.Name, k, err)
-					}
-					resolvedVal = secret
+				name, key, ok := strings.Cut(v[4:], ":")
+				if !ok || name == "" || key == "" {
+					return nil, fmt.Errorf("provider %s field %s: ENV: takes <secret>:<key>, got %q", p.Name, k, v)
 				}
+				secret, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, namespace, commonv1alpha1.SecretKeyRef{Name: name, Key: key})
+				if err != nil {
+					return nil, fmt.Errorf("resolving secret for provider %s field %s: %w", p.Name, k, err)
+				}
+				resolvedVal = secret
 			}
 			form.Set(fmt.Sprintf("settings-%s-%s", p.Name, k), resolvedVal)
 		}

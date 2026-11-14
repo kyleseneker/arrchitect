@@ -348,8 +348,10 @@ spec:
                     settings:
                       additionalProperties:
                         type: string
-                      description: settings is a map of provider-specific settings.
-                        Values starting with "ENV:" are substituted from secrets.
+                      description: |-
+                        settings is a map of provider-specific settings. A value written
+                        ENV:<secret>:<key> is read from that key of a Secret in the resource's
+                        namespace.
                       type: object
                   required:
                   - name

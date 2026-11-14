@@ -373,9 +373,9 @@ func ResolveProwlarrFields(ctx context.Context, c client.Reader, namespace, owne
 var secretKeyRefType = reflect.TypeFor[commonv1alpha1.SecretKeyRef]()
 
 // ReferencesSecret reports whether a config refers to the named Secret
-// anywhere. Every Secret reference in the API is a SecretKeyRef, so walking the
-// config finds new ones as fields are added rather than relying on a list kept
-// by hand.
+// anywhere. Every Secret reference in the API is a SecretKeyRef or a Bazarr
+// provider setting written ENV:<secret>:<key>, so walking the config finds new
+// ones as fields are added rather than relying on a list kept by hand.
 func ReferencesSecret(config any, name string) bool {
 	return slices.ContainsFunc(SecretKeyRefs(config), func(ref commonv1alpha1.SecretKeyRef) bool { return ref.Name == name })
 }
@@ -413,6 +413,12 @@ func collectSecretKeyRefs(v reflect.Value, refs *[]commonv1alpha1.SecretKeyRef) 
 	case reflect.Map:
 		for it := v.MapRange(); it.Next(); {
 			collectSecretKeyRefs(it.Value(), refs)
+		}
+	case reflect.String:
+		if rest, ok := strings.CutPrefix(v.String(), "ENV:"); ok {
+			if name, key, ok := strings.Cut(rest, ":"); ok && name != "" && key != "" {
+				*refs = append(*refs, commonv1alpha1.SecretKeyRef{Name: name, Key: key})
+			}
 		}
 	}
 }

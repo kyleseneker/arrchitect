@@ -26,6 +26,7 @@ import (
 	downloadsv1alpha1 "github.com/kyleseneker/media-operator/api/downloads/v1alpha1"
 	indexersv1alpha1 "github.com/kyleseneker/media-operator/api/indexers/v1alpha1"
 	pvrv1alpha1 "github.com/kyleseneker/media-operator/api/pvr/v1alpha1"
+	subtitlesv1alpha1 "github.com/kyleseneker/media-operator/api/subtitles/v1alpha1"
 	"github.com/kyleseneker/media-operator/internal/engine"
 	"github.com/kyleseneker/media-operator/internal/metrics"
 )
@@ -327,6 +328,9 @@ func TestReferencesSecretFindsEveryReference(t *testing.T) {
 			Servers: []downloadsv1alpha1.SabnzbdServer{{Name: "s", PasswordSecretRef: &ref}},
 		},
 		"a map value": map[string]commonv1alpha1.SecretKeyRef{"x": ref},
+		"a Bazarr provider setting": subtitlesv1alpha1.BazarrConfigSpec{
+			Providers: []subtitlesv1alpha1.BazarrProvider{{Name: "opensubtitlescom", Settings: map[string]string{"password": "ENV:target:k"}}},
+		},
 	} {
 		assert.True(t, ReferencesSecret(config, "target"), name)
 		assert.False(t, ReferencesSecret(config, "other"), name)
