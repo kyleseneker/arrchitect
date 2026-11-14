@@ -146,9 +146,9 @@ func TestReconcilePersistsStatusThroughSubresource(t *testing.T) {
 	assert.NotNil(t, got.Status.LastSyncTime, "lastSyncTime not persisted")
 }
 
-// A finalizer genuinely blocks deletion here, so an orphan policy that fails to
+// A finalizer genuinely blocks deletion here, so a delete policy that fails to
 // clear it would wedge `kubectl delete` rather than passing silently.
-func TestDeleteWithOrphanPolicyReleasesTheObject(t *testing.T) {
+func TestDeleteWithDeletePolicyReleasesTheObject(t *testing.T) {
 	c := startAPIServer(t)
 	ctx := context.Background()
 	url := fakeTdarrServer(t)
@@ -157,7 +157,10 @@ func TestDeleteWithOrphanPolicyReleasesTheObject(t *testing.T) {
 		Name: "tdarr-credentials", Namespace: "default",
 		Data: map[string][]byte{"api-key": []byte("k")},
 	}), "creating secret")
-	require.NoError(t, c.Create(ctx, tdarrCR(url)), "creating CR")
+	declared := tdarrCR(url)
+	deletePolicy := "delete"
+	declared.Spec.Reconcile.DeletionPolicy = &deletePolicy
+	require.NoError(t, c.Create(ctx, declared), "creating CR")
 
 	r := &transcode.TdarrConfigReconciler{Client: c, Scheme: c.Scheme(), Recorder: events.NewFakeRecorder(50)}
 	key := types.NamespacedName{Name: "tdarr", Namespace: "default"}

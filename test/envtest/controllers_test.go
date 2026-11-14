@@ -217,8 +217,8 @@ func controllerCases() []controllerCase {
 	}
 }
 
-// Every kind must persist status through the subresource and release its
-// finalizer on delete. Both are API-server behaviours a fake client fakes away.
+// Every kind must persist status through the subresource and, without a delete
+// policy, hold no finalizer. Both are API-server behaviours a fake client fakes away.
 func TestControllersPersistStatusAndReleaseOnDelete(t *testing.T) {
 	cases := controllerCases()
 	adders := make([]func(*runtime.Scheme) error, 0, len(cases))
@@ -251,20 +251,11 @@ func TestControllersPersistStatusAndReleaseOnDelete(t *testing.T) {
 
 			got := tc.newObj()
 			require.NoError(t, c.Get(ctx, key, got), "re-reading CR")
-			require.NotEmpty(t, got.GetFinalizers(), "no finalizer set, so the deletion half of this test proves nothing")
+			require.Empty(t, got.GetFinalizers(), "an orphan resource must not wait on the operator to be deleted")
 
 			require.NoError(t, c.Delete(ctx, got), "deleting CR")
-			deadline := time.Now().Add(30 * time.Second)
-			for {
-				_, err := r.Reconcile(ctx, ctrl.Request{NamespacedName: key})
-				require.NoError(t, err, "reconcile during deletion")
-				err = c.Get(ctx, key, tc.newObj())
-				if apierrors.IsNotFound(err) {
-					return
-				}
-				require.False(t, time.Now().After(deadline), "CR still present after deletion; the finalizer was never cleared")
-				time.Sleep(200 * time.Millisecond)
-			}
+			err = c.Get(ctx, key, tc.newObj())
+			require.True(t, apierrors.IsNotFound(err), "CR still present after deletion: %v", err)
 		})
 	}
 }
