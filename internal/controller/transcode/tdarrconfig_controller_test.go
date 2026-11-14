@@ -324,7 +324,7 @@ func TestAlwaysOnScheduleNamesEachHourAsTdarrDoes(t *testing.T) {
 
 // A new library processes every hour; an existing library keeps the schedule
 // set in Tdarr, since an update only carries the declared fields.
-func TestOnlyANewLibraryGetsTheAlwaysOnSchedule(t *testing.T) {
+func TestOnlyANewLibraryGetsTheAlwaysOnScheduleAndNoIgnoredFolders(t *testing.T) {
 	for _, found := range []bool{false, true} {
 		app := &fakeTdarr{docFound: found, stored: map[string]any{"_id": "movies", "name": "Old name"}}
 		cfg := tdarrConfig(app.serve(t))
@@ -338,9 +338,11 @@ func TestOnlyANewLibraryGetsTheAlwaysOnSchedule(t *testing.T) {
 		if found {
 			assert.Equal(t, "update", writes[0].mode)
 			assert.NotContains(t, writes[0].obj, "schedule", "an update reset the schedule set in Tdarr")
+			assert.NotContains(t, writes[0].obj, "foldersToIgnore", "an update reset the folders ignored in Tdarr")
 		} else {
 			assert.Equal(t, "insert", writes[0].mode)
 			assert.Len(t, writes[0].obj["schedule"], 7*24)
+			assert.Equal(t, "", writes[0].obj["foldersToIgnore"], "Tdarr's scanner splits foldersToIgnore")
 		}
 	}
 }
@@ -360,11 +362,8 @@ func TestPluginStackIsWrittenAsPluginIDs(t *testing.T) {
 	}, got["pluginIDs"])
 }
 
-func TestLibraryDocAlwaysCarriesFoldersToIgnoreAsString(t *testing.T) {
-	got := buildTdarrLibraryDoc(transcodev1alpha1.TdarrLibrary{ID: "movies", Name: "Movies"})
-	require.Equal(t, "", got["foldersToIgnore"], "foldersToIgnore must default to an empty string")
-
-	got = buildTdarrLibraryDoc(transcodev1alpha1.TdarrLibrary{
+func TestLibraryDocCarriesFoldersToIgnore(t *testing.T) {
+	got := buildTdarrLibraryDoc(transcodev1alpha1.TdarrLibrary{
 		ID: "movies", Name: "Movies", FoldersToIgnore: "extras,featurettes",
 	})
 	assert.Equal(t, "extras,featurettes", got["foldersToIgnore"], "foldersToIgnore not carried through")
