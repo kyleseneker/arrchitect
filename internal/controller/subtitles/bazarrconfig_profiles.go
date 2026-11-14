@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"net/url"
 	"slices"
 	"strconv"
@@ -19,7 +20,8 @@ const (
 
 // bazarrProfiles is the language profile list to save. Bazarr deletes every
 // stored profile a save leaves out, so the list carries the profiles the spec
-// doesn't declare and leaves out only those prune deletes.
+// doesn't declare and leaves out only those prune deletes. A declared profile
+// that exists keeps what the spec can't express, such as its cutoff.
 type bazarrProfiles struct {
 	existing []map[string]any
 	declared []string
@@ -48,7 +50,21 @@ func planBazarrProfiles(declaredJSON string, existing []map[string]any, prune bo
 				len(drop), profilesKind, engine.DefaultMaxPruneCount)
 		}
 	}
-	send := declared
+	stored := make(map[string]map[string]any, len(existing))
+	for _, e := range existing {
+		stored[profileKey(e)] = e
+	}
+	send := make([]map[string]any, 0, len(declared)+len(existing))
+	for _, d := range declared {
+		if e, ok := stored[profileKey(d)]; ok {
+			kept := maps.Clone(e)
+			for _, k := range []string{"profileId", "name", "items"} {
+				kept[k] = d[k]
+			}
+			d = kept
+		}
+		send = append(send, d)
+	}
 	for _, e := range existing {
 		key := profileKey(e)
 		if !slices.Contains(p.declared, key) && !slices.Contains(drop, key) {
