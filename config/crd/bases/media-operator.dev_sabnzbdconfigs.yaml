@@ -359,8 +359,9 @@ spec:
                       description: connections is the number of simultaneous connections.
                       type: integer
                     enable:
-                      default: true
-                      description: enable controls whether this server is active.
+                      description: |-
+                        enable controls whether this server is active. A new server is enabled
+                        unless this is false.
                       type: boolean
                     host:
                       description: host is the hostname of the Usenet server.
