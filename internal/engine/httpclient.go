@@ -2,6 +2,7 @@ package engine
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"crypto/tls"
 	"encoding/json"
@@ -11,29 +12,78 @@ import (
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
+	"slices"
 	"strings"
 	"time"
 
 	"github.com/kyleseneker/media-operator/internal/metrics"
+	"github.com/kyleseneker/media-operator/internal/reconciler"
 )
 
 const outcomeError = "error"
 
-// APIError represents a non-2xx HTTP response from a target app.
-// Error() returns only the status code, which is safe for CR status conditions.
-// Body contains the full response for debug logging.
+// APIError represents a non-2xx HTTP response from a target app. Error()
+// carries the status code and the reason the app gave, with any secret the
+// operator read removed, so it can go in a status condition. Body contains the
+// full response for debug logging.
 type APIError struct {
 	StatusCode int
 	Body       []byte
 }
 
 func (e *APIError) Error() string {
+	if detail := apiErrorDetail(e.Body); detail != "" {
+		return fmt.Sprintf("API request failed with status %d: %s", e.StatusCode, detail)
+	}
 	return fmt.Sprintf("API request failed with status %d", e.StatusCode)
 }
 
 // DetailedMessage returns the status code and full response body for debug logging.
 func (e *APIError) DetailedMessage() string {
-	return fmt.Sprintf("API returned %d: %s", e.StatusCode, string(e.Body))
+	return fmt.Sprintf("API returned %d: %s", e.StatusCode, reconciler.Redact(string(e.Body)))
+}
+
+// maxErrorDetail caps the app's reason in an error.
+const maxErrorDetail = 300
+
+// apiErrorDetail is the reason an app gave in an error response: each
+// validation failure as property: message, never the value it rejected; a JSON
+// message; or short plain text. A web page gives none.
+func apiErrorDetail(body []byte) string {
+	var detail string
+	var failures []struct {
+		PropertyName string `json:"propertyName"`
+		ErrorMessage string `json:"errorMessage"`
+	}
+	var reply struct {
+		Message string `json:"message"`
+		Title   string `json:"title"`
+		Detail  string `json:"detail"`
+	}
+	text := strings.TrimSpace(string(body))
+	switch {
+	case json.Unmarshal(body, &failures) == nil:
+		var parts []string
+		for _, f := range failures {
+			part := f.ErrorMessage
+			if f.PropertyName != "" {
+				part = f.PropertyName + ": " + part
+			}
+			if f.ErrorMessage != "" && !slices.Contains(parts, part) {
+				parts = append(parts, part)
+			}
+		}
+		detail = strings.Join(parts, "; ")
+	case json.Unmarshal(body, &reply) == nil:
+		detail = cmp.Or(reply.Message, reply.Detail, reply.Title)
+	case text != "" && !strings.HasPrefix(text, "<") && !strings.ContainsAny(text, "\n\r"):
+		detail = text
+	}
+	detail = reconciler.Redact(detail)
+	if runes := []rune(detail); len(runes) > maxErrorDetail {
+		detail = string(runes[:maxErrorDetail]) + "..."
+	}
+	return detail
 }
 
 // HTTPClient is a generic HTTP client that supports all auth strategies.

@@ -1,6 +1,7 @@
 package reconciler
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -39,4 +40,11 @@ func TestSetCondition_UpdateExisting(t *testing.T) {
 	assert.Equal(t, "SyncFailed", conditions[0].Reason)
 	assert.Equal(t, "something broke", conditions[0].Message)
 	assert.Equal(t, int64(2), conditions[0].ObservedGeneration)
+}
+
+func TestSetConditionKeepsTheMessageWithinWhatTheAPIServerAccepts(t *testing.T) {
+	var conditions []metav1.Condition
+	SetCondition(&conditions, 1, "Synced", "False", "SyncFailed", strings.Repeat("x", maxConditionMessage+10))
+	assert.Len(t, []rune(conditions[0].Message), maxConditionMessage)
+	assert.True(t, strings.HasSuffix(conditions[0].Message, "..."))
 }

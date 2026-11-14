@@ -164,6 +164,9 @@ func Run(ctx context.Context, o Options) (Result, error) {
 	if !ok {
 		return Result{}, fmt.Errorf("unsupported app %q; supported: %s", o.App, strings.Join(Apps(), ", "))
 	}
+	for _, secret := range []string{o.APIKey, o.Password, o.Token} {
+		reconciler.RememberSecret(secret)
+	}
 	if o.Name == "" {
 		o.Name = o.App
 	}

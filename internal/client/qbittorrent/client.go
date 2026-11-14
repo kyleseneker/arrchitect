@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/kyleseneker/media-operator/internal/engine"
+	"github.com/kyleseneker/media-operator/internal/reconciler"
 )
 
 // Client is an HTTP client for the qBittorrent WebUI API v2.
@@ -115,7 +116,7 @@ func (c *Client) Login(ctx context.Context) error {
 	}
 
 	if resp := strings.TrimSpace(string(body)); resp != "" && !strings.EqualFold(resp, "Ok.") {
-		return fmt.Errorf("login failed: %s", resp)
+		return fmt.Errorf("login failed: %s", reconciler.Redact(resp))
 	}
 
 	// The cookie jar captured the session cookie automatically. Register it with

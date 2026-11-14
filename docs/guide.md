@@ -41,7 +41,7 @@ get` shows both. The `Synced` reason is one of:
 | Reason | Meaning |
 | --- | --- |
 | `Synced` | The app matches the resource. |
-| `SyncFailed` | Some settings could not be applied; the message says which. |
+| `SyncFailed` | Some settings could not be applied; the message says which, and the reason the app gave. |
 | `AppUnreachable` | The app did not respond, or rejected the credentials. |
 | `SecretNotFound` | A Secret or key the connection needs does not exist. |
 | `InvalidConfig` | The resource asks for something the operator does not support. |
