@@ -31,6 +31,7 @@ import (
 )
 
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
+// +kubebuilder:rbac:groups=events.k8s.io,resources=events,verbs=create;patch
 
 const DefaultReconcileInterval = engine.DefaultReconcileInterval
 
