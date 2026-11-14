@@ -242,25 +242,56 @@ func TestAutobrrTypeMapsToAutobrrConstants(t *testing.T) {
 	assert.Equal(t, "NICKSERV", autobrrIRCAuth("NickServ"))
 }
 
-// A stored resource that already holds every declared value, with Autobrr's
-// redacted password, must not be rewritten.
-func TestUpsertAutobrrSkipsWhatAlreadyMatches(t *testing.T) {
+// Autobrr reads a password back as <redacted>, so whether it changed is known
+// only from what was last written.
+func TestUpsertAutobrrComparesRedactedSecretsByWhatWasWritten(t *testing.T) {
 	existing := []map[string]any{{
 		"id": float64(4), "name": "qBittorrent", "type": "QBITTORRENT", "password": "<redacted>", "tls": false,
 	}}
 	obj := map[string]any{"name": "qBittorrent", "type": "QBITTORRENT", "password": "s3cret"}
-	updated := false
-	ab := &autobrrSync{}
-	err := ab.upsert("download client", "qBittorrent", existing, obj,
-		func() error { require.Fail(t, "must not create"); return nil },
-		func(int, map[string]any) error { updated = true; return nil })
-	require.NoError(t, err)
-	assert.False(t, updated, "an unchanged download client was rewritten")
+	writes := 0
+	ab := &autobrrSync{owner: "media/" + t.Name()}
+	upsert := func() {
+		t.Helper()
+		require.NoError(t, ab.upsert(context.Background(), "download client", "qBittorrent", existing, obj,
+			func() error { require.Fail(t, "must not create"); return nil },
+			func(int, map[string]any) error { writes++; return nil }, nil))
+	}
 
+	upsert()
+	assert.Equal(t, 1, writes, "with nothing recorded the secret is sent once")
+	upsert()
+	assert.Equal(t, 1, writes, "an unchanged download client was rewritten")
+	obj["password"] = "rotated"
+	upsert()
+	assert.Equal(t, 2, writes, "a rotated secret must be written")
 	obj["type"] = "DELUGE_V2"
-	require.NoError(t, ab.upsert("download client", "qBittorrent", existing, obj,
-		func() error { return nil }, func(int, map[string]any) error { updated = true; return nil }))
-	assert.True(t, updated, "a real change must be written")
+	upsert()
+	assert.Equal(t, 3, writes, "a real change must be written")
+
+	observer := &autobrrSync{owner: "media/" + t.Name() + "-observe"}
+	observer.Observe = true
+	require.NoError(t, observer.upsert(context.Background(), "download client", "qBittorrent", existing,
+		map[string]any{"name": "qBittorrent", "type": "QBITTORRENT", "password": "s3cret"}, nil, nil, nil))
+	assert.Empty(t, observer.Drift(), "observe mode can't know a secret it never wrote")
+}
+
+func TestUpsertAutobrrRemembersTheSecretsItCreatedWith(t *testing.T) {
+	stored := []map[string]any{}
+	obj := map[string]any{"name": "qBittorrent", "type": "QBITTORRENT", "password": "s3cret"}
+	ab := &autobrrSync{owner: "media/" + t.Name()}
+	list := func(context.Context) ([]map[string]any, error) { return stored, nil }
+	require.NoError(t, ab.upsert(context.Background(), "download client", "qBittorrent", stored, obj,
+		func() error {
+			stored = append(stored, map[string]any{"id": float64(1), "name": "qBittorrent", "type": "QBITTORRENT", "password": "<redacted>"})
+			return nil
+		}, nil, list))
+
+	require.NoError(t, ab.upsert(context.Background(), "download client", "qBittorrent", stored, obj, nil,
+		func(int, map[string]any) error {
+			require.Fail(t, "a new client was rewritten on the next pass")
+			return nil
+		}, list))
 }
 
 func TestAddRequiredFilterListsKeepsDeclaredValues(t *testing.T) {
@@ -352,6 +383,44 @@ func TestAutobrrDownloadClientKeepsItsAPIKeyInSettings(t *testing.T) {
 	require.NotNil(t, body)
 	assert.Equal(t, map[string]any{"apikey": "test-key"}, body["settings"])
 	assert.NotContains(t, body, "api_key")
+	assert.Equal(t, true, body["enabled"], "a new download client is enabled")
+}
+
+func TestAutobrrUpdatesKeepWhatTheResourceLeavesOut(t *testing.T) {
+	app := &fakeAutobrr{existing: map[string][]map[string]any{
+		"downloaders": {{"id": float64(5), "name": "qBit", "type": "QBITTORRENT", "host": "old", "enabled": false}},
+		"irc": {{
+			"id": float64(3), "name": "Libera", "enabled": false, "server": "irc.libera.chat", "port": float64(6697),
+			"nick": "old", "tls": true, "invite_command": "/msg bot invite",
+			"auth":     map[string]any{"mechanism": "SASL_PLAIN", "account": "me", "password": "<redacted>"},
+			"channels": []any{map[string]any{"id": float64(1), "name": "#keep"}, map[string]any{"id": float64(2), "name": "#drop"}},
+		}},
+	}}
+	cfg := autobrrConfig(app.serve(t))
+	cfg.Spec.DownloadClients = []automationv1alpha1.AutobrrDownloadClient{{Name: "qBit", Type: "qBittorrent", Host: "new"}}
+	cfg.Spec.IRCNetworks = []automationv1alpha1.AutobrrIRCNetwork{{
+		Name: "Libera", Server: "irc.libera.chat", Port: 6697, Nick: "new",
+		Channels: []automationv1alpha1.AutobrrIRCChannel{{Name: "#keep"}},
+	}}
+
+	runAutobrr(t, cfg, true)
+
+	app.mu.Lock()
+	defer app.mu.Unlock()
+	downloader := app.bodies["PUT /api/downloaders"]
+	require.NotNil(t, downloader)
+	assert.Equal(t, "new", downloader["host"])
+	assert.Equal(t, false, downloader["enabled"])
+
+	network := app.bodies["PUT /api/irc/network/3"]
+	require.NotNil(t, network)
+	assert.Equal(t, "new", network["nick"])
+	assert.Equal(t, false, network["enabled"])
+	assert.Equal(t, true, network["tls"])
+	assert.Equal(t, "/msg bot invite", network["invite_command"])
+	assert.Equal(t, map[string]any{"mechanism": "SASL_PLAIN", "account": "me", "password": "<redacted>"}, network["auth"])
+	assert.Equal(t, []any{map[string]any{"id": float64(1), "name": "#keep"}}, network["channels"],
+		"Autobrr replaces the channels with the ones sent")
 }
 
 func isID(segment string) bool {

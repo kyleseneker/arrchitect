@@ -58,9 +58,9 @@ type AutobrrDownloadClient struct {
 	// +required
 	Name string `json:"name"`
 
-	// enable controls whether this download client is active.
+	// enable controls whether this download client is active. A new download
+	// client is enabled unless this is false.
 	// +optional
-	// +kubebuilder:default=true
 	Enable *bool `json:"enable,omitempty"`
 
 	// type is the download client type. Deluge means Deluge 2 (Autobrr's DELUGE_V2).
@@ -124,9 +124,9 @@ type AutobrrIndexer struct {
 	// +required
 	Name string `json:"name"`
 
-	// enable controls whether this indexer is active.
+	// enable controls whether this indexer is active. A new indexer is enabled
+	// unless this is false.
 	// +optional
-	// +kubebuilder:default=true
 	Enable *bool `json:"enable,omitempty"`
 
 	// identifier is the Autobrr indexer definition, such as "ipt" or "btn", or
@@ -149,9 +149,9 @@ type AutobrrIRCNetwork struct {
 	// +required
 	Name string `json:"name"`
 
-	// enable controls whether this IRC network connection is active.
+	// enable controls whether this IRC network connection is active. A new
+	// network is enabled unless this is false.
 	// +optional
-	// +kubebuilder:default=true
 	Enable *bool `json:"enable,omitempty"`
 
 	// server is the IRC server address (e.g., "irc.example.com").
@@ -171,9 +171,9 @@ type AutobrrIRCNetwork struct {
 	Nick string `json:"nick"`
 
 	// authMechanism is the authentication mechanism (SASL_PLAIN, NickServ, None).
+	// A new network uses None unless this is set.
 	// +optional
 	// +kubebuilder:validation:Enum=SASL_PLAIN;NickServ;None
-	// +kubebuilder:default=None
 	AuthMechanism string `json:"authMechanism,omitempty"`
 
 	// authAccountSecretRef references a Secret containing the auth account name.
@@ -210,9 +210,9 @@ type AutobrrFeed struct {
 	// +required
 	Name string `json:"name"`
 
-	// enable controls whether this feed is active.
+	// enable controls whether this feed is active. A new feed is enabled unless
+	// this is false.
 	// +optional
-	// +kubebuilder:default=true
 	Enable *bool `json:"enable,omitempty"`
 
 	// type is the feed type.
@@ -228,9 +228,9 @@ type AutobrrFeed struct {
 	// +optional
 	APIKeySecretRef *commonv1alpha1.SecretKeyRef `json:"apiKeySecretRef,omitempty"`
 
-	// interval is the feed polling interval in minutes.
+	// interval is the feed polling interval in minutes. A new feed polls every
+	// 15 minutes unless this is set.
 	// +optional
-	// +kubebuilder:default=15
 	Interval *int `json:"interval,omitempty"`
 
 	// indexerRef is the name of the indexer this feed belongs to: a torznab,
@@ -245,9 +245,9 @@ type AutobrrFilter struct {
 	// +required
 	Name string `json:"name"`
 
-	// enable controls whether this filter is active.
+	// enable controls whether this filter is active. A new filter is enabled
+	// unless this is false.
 	// +optional
-	// +kubebuilder:default=true
 	Enable *bool `json:"enable,omitempty"`
 
 	// priority controls filter evaluation order. Lower values are evaluated first.
@@ -524,9 +524,9 @@ type AutobrrFilterAction struct {
 	// +required
 	Name string `json:"name"`
 
-	// enable controls whether this action is active.
+	// enable controls whether this action is active. A new action is enabled
+	// unless this is false.
 	// +optional
-	// +kubebuilder:default=true
 	Enable *bool `json:"enable,omitempty"`
 
 	// type is the action type. Deluge means Deluge 2 (Autobrr's DELUGE_V2).
