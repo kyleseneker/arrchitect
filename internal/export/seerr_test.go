@@ -69,3 +69,12 @@ func TestSeerrExportsSettingsServicesAndNotifications(t *testing.T) {
 	require.Contains(t, discord.SecretOptions, "webhookUrl")
 	assert.Equal(t, "https://hook", res.Secret.StringData[discord.SecretOptions["webhookUrl"].Key])
 }
+
+func TestIsCredentialOption(t *testing.T) {
+	for _, name := range []string{"botAPI", "accessToken", "authPass", "webhookUrl", "pgpPrivateKey"} {
+		assert.True(t, isCredentialOption(name), name)
+	}
+	for _, name := range []string{"chatId", "botUsername", "enableMentions", "smtpHost"} {
+		assert.False(t, isCredentialOption(name), name)
+	}
+}

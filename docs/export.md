@@ -44,6 +44,8 @@ kubectl -n media run export --rm -i --quiet --restart=Never \
 | `--namespace` | Namespace of the resource and Secret |
 | `--secret` | Name of the Secret; defaults to `<name>-credentials` |
 | `--exclude` | Comma-separated spec fields to leave out |
+| `--secret-file` | Write the Secret to this file instead of with the config |
+| `--enforce` | Leave out observe mode |
 | `--insecure-skip-verify` | Skip TLS certificate verification |
 
 FlareSolverr and Maintainerr need no credentials. Every other app takes
@@ -52,7 +54,9 @@ FlareSolverr and Maintainerr need no credentials. Every other app takes
 ## Output
 
 Credentials the app returns are written to the Secret. Ones it masks are left
-empty and listed on stderr; fill them in before applying.
+out of it and listed on stderr; add them before applying. Until then the
+resource reports the missing key. Use `--secret-file` to keep the Secret out of
+a file you commit.
 
 Fields still at the app's defaults are omitted where the app reports its
 defaults. The command also prints a warning for anything the resource can't
@@ -65,7 +69,7 @@ Recyclarr does.
 
 ## Applying the result
 
-Set `spec.reconcile.driftPolicy: observe` before the first apply. The resource
-should report `Synced` with reason `Observed`. If it reports `DriftDetected`
-instead, the condition's message lists what differs; resolve those before
-removing observe mode.
+The resource is written in observe mode, `spec.reconcile.driftPolicy: observe`,
+so applying it changes nothing in the app. It should report `Synced` with
+reason `Observed`. If it reports `DriftDetected` instead, the condition's
+message lists what differs; resolve those before removing observe mode.

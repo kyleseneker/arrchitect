@@ -38,6 +38,19 @@ func TestRunExcludeDropsTheSectionAndItsCredentials(t *testing.T) {
 	assert.Equal(t, []string{"download-client-qbit-password"}, res.Unfilled)
 }
 
+// An empty value would reach the app on the first write and wipe the
+// credential; a missing key is reported instead.
+func TestRunLeavesTheCredentialsTheAppHidesOutOfTheSecret(t *testing.T) {
+	cfg, res := exportSonarr(t, Options{})
+	assert.Contains(t, res.Unfilled, "download-client-qbit-password")
+	assert.NotContains(t, res.Secret.StringData, "download-client-qbit-password")
+	require.NotNil(t, cfg.Spec.Reconcile)
+	assert.Equal(t, "observe", *cfg.Spec.Reconcile.DriftPolicy, "a first apply must not write to the app")
+
+	cfg, _ = exportSonarr(t, Options{Enforce: true})
+	assert.Nil(t, cfg.Spec.Reconcile)
+}
+
 func TestResultYAMLHasNoServerFields(t *testing.T) {
 	_, res := exportSonarr(t, Options{})
 	out, err := res.YAML()

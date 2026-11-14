@@ -6,9 +6,12 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"maps"
+	"net"
 	"net/http"
+	"net/url"
 	"reflect"
 	"regexp"
 	"slices"
@@ -52,12 +55,16 @@ type Options struct {
 	SecretName         string
 	Exclude            []string
 	InsecureSkipVerify bool
+	// Enforce leaves observe mode out, so the operator writes to the app as
+	// soon as the config is applied.
+	Enforce bool
 }
 
 // Result is an exported config and the Secret it reads credentials from.
-// Unfilled lists the Secret keys whose values the app would not reveal,
-// Warnings what the app has that the config cannot express, and Unreadable
-// the spec fields, as section.field, that the app does not report.
+// Unfilled lists the Secret keys whose values the app would not reveal, which
+// the Secret leaves out; Warnings what the app has that the config cannot
+// express; and Unreadable the spec fields, as section.field, that the app does
+// not report.
 type Result struct {
 	Config     client.Object
 	Secret     *corev1.Secret
@@ -195,7 +202,7 @@ func Run(ctx context.Context, o Options) (Result, error) {
 	}
 	spec, err := a.export(r)
 	if err != nil {
-		return Result{}, err
+		return Result{}, explain(o, err)
 	}
 	for _, x := range o.Exclude {
 		delete(spec, x)
@@ -209,6 +216,13 @@ func Run(ctx context.Context, o Options) (Result, error) {
 		conn["apiKeySecretRef"] = map[string]any{"name": o.SecretName, "key": apiKeyKey}
 	}
 	spec["connection"] = conn
+	if !o.Enforce {
+		spec["reconcile"] = map[string]any{"driftPolicy": "observe"}
+	}
+	if loopback(o.ConnectionURL) {
+		r.warn("connection.url is %s, which the operator won't reach from inside the cluster; pass --connection-url",
+			o.ConnectionURL)
+	}
 	raw, err := json.Marshal(map[string]any{
 		"apiVersion": "media-operator.dev/v1alpha1",
 		"kind":       reflect.TypeOf(obj).Elem().Name(),
@@ -229,12 +243,13 @@ func Run(ctx context.Context, o Options) (Result, error) {
 	}
 	var unfilled []string
 	for _, key := range referencedKeys(obj, o.SecretName) {
-		secret.StringData[key] = r.creds.values[key]
-		if r.creds.values[key] == "" {
+		if value := r.creds.values[key]; value != "" {
+			secret.StringData[key] = value
+		} else {
 			unfilled = append(unfilled, key)
 		}
 	}
-	if len(secret.StringData) == 0 {
+	if len(secret.StringData) == 0 && len(unfilled) == 0 {
 		secret = nil
 	}
 	return Result{Config: obj, Secret: secret, Unfilled: unfilled, Warnings: r.warnings, Unreadable: r.unreadable}, nil
@@ -242,31 +257,86 @@ func Run(ctx context.Context, o Options) (Result, error) {
 
 // YAML renders the Secret and the config as one multi-document YAML stream.
 func (r Result) YAML() ([]byte, error) {
-	var docs []string
-	objs := []any{r.Config}
-	if r.Secret != nil {
-		objs = []any{r.Secret, r.Config}
+	config, err := documentYAML(r.Config)
+	if err != nil || r.Secret == nil {
+		return config, err
 	}
-	for _, obj := range objs {
-		raw, err := json.Marshal(obj)
-		if err != nil {
-			return nil, err
-		}
-		var m map[string]any
-		if err := json.Unmarshal(raw, &m); err != nil {
-			return nil, err
-		}
-		delete(m, "status")
-		if meta, ok := m["metadata"].(map[string]any); ok {
-			delete(meta, "creationTimestamp")
-		}
-		out, err := yaml.Marshal(m)
-		if err != nil {
-			return nil, err
-		}
-		docs = append(docs, string(out))
+	secret, err := r.SecretYAML()
+	if err != nil {
+		return nil, err
 	}
-	return []byte(strings.Join(docs, "---\n")), nil
+	return append(append(secret, "---\n"...), config...), nil
+}
+
+// ConfigYAML renders the config alone.
+func (r Result) ConfigYAML() ([]byte, error) {
+	return documentYAML(r.Config)
+}
+
+// SecretYAML renders the Secret alone, or nothing when the config reads no
+// credentials.
+func (r Result) SecretYAML() ([]byte, error) {
+	if r.Secret == nil {
+		return nil, nil
+	}
+	return documentYAML(r.Secret)
+}
+
+func documentYAML(obj any) ([]byte, error) {
+	raw, err := json.Marshal(obj)
+	if err != nil {
+		return nil, err
+	}
+	var m map[string]any
+	if err := json.Unmarshal(raw, &m); err != nil {
+		return nil, err
+	}
+	delete(m, "status")
+	if meta, ok := m["metadata"].(map[string]any); ok {
+		delete(meta, "creationTimestamp")
+	}
+	return yaml.Marshal(m)
+}
+
+// explain says what a failed read most likely means for the URL and
+// credentials given.
+func explain(o Options, err error) error {
+	var apiErr *engine.APIError
+	var syntaxErr *json.SyntaxError
+	switch {
+	case errors.As(err, &apiErr) && (apiErr.StatusCode == http.StatusUnauthorized || apiErr.StatusCode == http.StatusForbidden):
+		flags := "--api-key"
+		switch a := apps[o.App]; {
+		case a.login:
+			flags = "--username and --password"
+		case a.token:
+			flags = "--token"
+		}
+		return fmt.Errorf("reading %s at %s: the app refused the credentials (status %d); check %s",
+			o.App, o.URL, apiErr.StatusCode, flags)
+	case errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusNotFound:
+		return fmt.Errorf("reading %s at %s: not found (status 404); check --url points at %s, including any base path",
+			o.App, o.URL, o.App)
+	case errors.As(err, &syntaxErr):
+		return fmt.Errorf("reading %s at %s: the answer wasn't the app's API, such as a sign-in page from a proxy in front of it; "+
+			"check --url", o.App, o.URL)
+	}
+	return fmt.Errorf("reading %s at %s: %w", o.App, o.URL, err)
+}
+
+// loopback reports whether rawURL names this machine, which a port-forward
+// does and the operator's pod can't reach.
+func loopback(rawURL string) bool {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return false
+	}
+	host := u.Hostname()
+	if host == "localhost" {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
 }
 
 type credentials struct {
