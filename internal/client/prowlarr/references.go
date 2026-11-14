@@ -19,7 +19,7 @@ func ResolveReferences(ctx context.Context, client *engine.HTTPClient, spec inde
 	tagIDs := map[string]int{}
 	check := func(resource, name string, labels []string) error {
 		for _, label := range labels {
-			id, err := tags.Resolve(label)
+			id, err := tags.Resolve(engine.TagLabel(label))
 			if err != nil {
 				return fmt.Errorf("%s(%s): tag: %w", resource, name, err)
 			}

@@ -1167,6 +1167,28 @@ func TestNewItemsGetTheAppsDefaults(t *testing.T) {
 	assert.Equal(t, true, app.items["importlist"][0]["enabled"])
 }
 
+func TestUppercaseTagLabelsSettle(t *testing.T) {
+	app := &rebuildAPI{}
+	hc := app.client(t)
+	opts := Options{
+		Tags:            []commonv1alpha1.Tag{{Label: "4K"}},
+		DownloadClients: []commonv1alpha1.DownloadClient{{Name: "qBit", Protocol: "torrent", Implementation: "QBittorrent", Host: "qbit", Port: 8080, TagLabels: []string{"4K"}}},
+	}
+
+	result, err := Reconcile(context.Background(), hc, "v3", struct{}{}, opts, engine.SyncPolicy{}, nil)
+	require.NoError(t, err)
+	require.Empty(t, result.Errors)
+	require.Len(t, app.items["tag"], 1)
+	assert.Equal(t, "4k", app.items["tag"][0]["label"])
+	assert.Equal(t, []any{app.items["tag"][0]["id"]}, app.items["downloadclient"][0]["tags"])
+
+	writes := len(app.writes)
+	result, err = Reconcile(context.Background(), hc, "v3", struct{}{}, opts, engine.SyncPolicy{}, result.Managed)
+	require.NoError(t, err)
+	require.Empty(t, result.Errors)
+	assert.Len(t, app.writes, writes)
+}
+
 func TestRemotePathMappingWindowsIdentity(t *testing.T) {
 	a := map[string]any{"host": "seedbox", "remotePath": `C:\Downloads`}
 	b := map[string]any{"host": "seedbox", "remotePath": `C:\Downloads\`}

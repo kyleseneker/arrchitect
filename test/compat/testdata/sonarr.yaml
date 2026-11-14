@@ -54,7 +54,7 @@ spec:
       remotePath: /downloads/tv
       localPath: /data/media/tv
   tags:
-    - label: anime
+    - label: Anime
     - label: hdr
   downloadClients:
     - name: qBittorrent
@@ -217,7 +217,7 @@ spec:
       preferredSize: 0
   delayProfiles:
     - tagLabels:
-        - anime
+        - Anime
       preferredProtocol: torrent
       usenetDelay: 60
       bypassIfAboveCustomFormatScore: true
