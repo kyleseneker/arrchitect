@@ -19,6 +19,8 @@ resources:
 
 watchNamespace: ""  # Empty watches all namespaces. Set to restrict (e.g., "arr")
 
+extraArgs: []
+
 securityContext:
   allowPrivilegeEscalation: false
   readOnlyRootFilesystem: true
