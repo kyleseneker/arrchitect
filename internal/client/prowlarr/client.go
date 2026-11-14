@@ -19,11 +19,26 @@ func ProwlarrDefinition() engine.AppDefinition {
 			// Tags first — other resources reference tag IDs.
 			{Name: "tags", Path: "/api/v1/tag", MatchField: "label", Policy: engine.CreateOrUpdate},
 			{Name: "appProfiles", Path: "/api/v1/appprofile", MatchField: "name", Policy: engine.CreateOrUpdate},
-			{Name: "applications", Path: "/api/v1/applications", MatchField: "name", Policy: engine.CreateOrUpdate, Prunable: true},
-			{Name: "indexers", Path: "/api/v1/indexer", MatchField: "name", Policy: engine.CreateOrUpdate, Prunable: true},
-			{Name: "proxies", Path: "/api/v1/indexerproxy", MatchField: "name", Policy: engine.CreateOrUpdate, Prunable: true},
-			{Name: "downloadClients", Path: "/api/v1/downloadclient", MatchField: "name", Policy: engine.CreateOrUpdate, Prunable: true},
-			{Name: "notifications", Path: "/api/v1/notification", MatchField: "name", Policy: engine.CreateOrUpdate, Prunable: true},
+			{
+				Name: "applications", Path: "/api/v1/applications", MatchField: "name", Policy: engine.CreateOrUpdate, Prunable: true,
+				CreateDefaults: map[string]any{"fields": []any{}, "tags": []any{}},
+			},
+			{
+				Name: "indexers", Path: "/api/v1/indexer", MatchField: "name", Policy: engine.CreateOrUpdate, Prunable: true,
+				CreateDefaults: map[string]any{"enable": true, "fields": []any{}, "tags": []any{}},
+			},
+			{
+				Name: "proxies", Path: "/api/v1/indexerproxy", MatchField: "name", Policy: engine.CreateOrUpdate, Prunable: true,
+				CreateDefaults: map[string]any{"tags": []any{}},
+			},
+			{
+				Name: "downloadClients", Path: "/api/v1/downloadclient", MatchField: "name", Policy: engine.CreateOrUpdate, Prunable: true,
+				CreateDefaults: map[string]any{"enable": true, "fields": []any{}, "categories": []any{}, "tags": []any{}},
+			},
+			{
+				Name: "notifications", Path: "/api/v1/notification", MatchField: "name", Policy: engine.CreateOrUpdate, Prunable: true,
+				CreateDefaults: map[string]any{"fields": []any{}, "tags": []any{}},
+			},
 		},
 	}
 }
@@ -115,35 +130,29 @@ func ProwlarrResources(opts ProwlarrOptions, tagIDs map[string]int) map[string][
 // BuildProwlarrApplicationPayload builds the API payload for a Prowlarr application.
 // apiKey is the resolved secret value.
 func BuildProwlarrApplicationPayload(app indexersv1alpha1.ProwlarrApplication, apiKey string, tagIDs map[string]int) map[string]any {
-	syncCats := make([]any, len(app.SyncCategories))
-	for i, c := range app.SyncCategories {
-		syncCats[i] = c
+	fields := []map[string]any{
+		{"name": "baseUrl", "value": app.BaseUrl},
+		{"name": "apiKey", "value": apiKey},
 	}
-	tags := resolveTags(app.Tags, tagIDs)
-	return map[string]any{
-		"name": app.Name, "syncLevel": app.SyncLevel,
-		"implementation": app.Implementation, "configContract": app.ConfigContract,
-		"fields": []map[string]any{
-			{"name": "prowlarrUrl", "value": app.ProwlarrUrl},
-			{"name": "baseUrl", "value": app.BaseUrl},
-			{"name": "apiKey", "value": apiKey},
-			{"name": "syncCategories", "value": syncCats},
-		},
-		"tags": tags,
+	if app.ProwlarrUrl != "" {
+		fields = append(fields, map[string]any{"name": "prowlarrUrl", "value": app.ProwlarrUrl})
 	}
+	if app.SyncCategories != nil {
+		fields = append(fields, map[string]any{"name": "syncCategories", "value": intSliceToInterface(app.SyncCategories)})
+	}
+	payload := map[string]any{
+		"name": app.Name, "implementation": app.Implementation, "configContract": app.ConfigContract,
+		"fields": fields,
+	}
+	if app.SyncLevel != "" {
+		payload["syncLevel"] = app.SyncLevel
+	}
+	setTags(payload, app.Tags, tagIDs)
+	return payload
 }
 
 // BuildProwlarrIndexerPayload builds the API payload for a Prowlarr indexer.
 func BuildProwlarrIndexerPayload(idx indexersv1alpha1.ProwlarrIndexer, tagIDs map[string]int) map[string]any {
-	enable := idx.Enable == nil || *idx.Enable
-	fields := make([]map[string]any, 0, len(idx.Fields))
-	for _, f := range idx.Fields {
-		val := ""
-		if f.Value != nil {
-			val = *f.Value
-		}
-		fields = append(fields, map[string]any{"name": f.Name, "value": val})
-	}
 	// Prowlarr's indexer schema lists every tracker definition, too large to read
 	// each pass; Torznab, Newznab and Cardigann all follow this naming.
 	configContract := idx.Implementation + "Settings"
@@ -151,10 +160,13 @@ func BuildProwlarrIndexerPayload(idx indexersv1alpha1.ProwlarrIndexer, tagIDs ma
 		configContract = idx.ConfigContract
 	}
 	desired := map[string]any{
-		"name": idx.Name, "enable": enable,
-		"implementation": idx.Implementation, "configContract": configContract,
-		"fields": fields, "tags": resolveTags(idx.Tags, tagIDs),
+		"name": idx.Name, "implementation": idx.Implementation, "configContract": configContract,
 	}
+	pvrclient.SetOptionalBool(desired, "enable", idx.Enable)
+	if idx.Fields != nil {
+		desired["fields"] = fieldsPayload(idx.Fields)
+	}
+	setTags(desired, idx.Tags, tagIDs)
 	if idx.AppProfileId != nil {
 		desired["appProfileId"] = *idx.AppProfileId
 	}
@@ -170,53 +182,42 @@ func BuildProwlarrProxyPayload(proxy indexersv1alpha1.ProwlarrProxy, tagIDs map[
 	if proxy.RequestTimeout != nil {
 		fields = append(fields, map[string]any{"name": "requestTimeout", "value": *proxy.RequestTimeout})
 	}
-	return map[string]any{
+	payload := map[string]any{
 		"name": proxy.Name, "implementation": proxy.Implementation,
 		"configContract": proxy.ConfigContract, "fields": fields,
-		"tags": resolveTags(proxy.Tags, tagIDs),
 	}
+	setTags(payload, proxy.Tags, tagIDs)
+	return payload
 }
 
 // BuildProwlarrDownloadClientPayload builds the API payload for a Prowlarr download client.
 func BuildProwlarrDownloadClientPayload(dc indexersv1alpha1.ProwlarrDownloadClient, tagIDs map[string]int) map[string]any {
-	enable := dc.Enable == nil || *dc.Enable
-
 	configContract := dc.Implementation + "Settings"
 	if dc.ConfigContract != "" {
 		configContract = dc.ConfigContract
 	}
 
-	fields := make([]map[string]any, 0, len(dc.Fields))
-	for _, f := range dc.Fields {
-		val := ""
-		if f.Value != nil {
-			val = *f.Value
-		}
-		fields = append(fields, map[string]any{"name": f.Name, "value": val})
-	}
-
-	categories := make([]map[string]any, 0, len(dc.Categories))
-	for _, cat := range dc.Categories {
-		cats := make([]any, len(cat.Categories))
-		for i, c := range cat.Categories {
-			cats[i] = c
-		}
-		categories = append(categories, map[string]any{
-			"clientCategory": cat.ClientCategory,
-			"categories":     cats,
-		})
-	}
-
 	desired := map[string]any{
 		"name":           dc.Name,
-		"enable":         enable,
 		"protocol":       dc.Protocol,
 		"implementation": dc.Implementation,
 		"configContract": configContract,
-		"fields":         fields,
-		"categories":     categories,
-		"tags":           resolveTags(dc.Tags, tagIDs),
 	}
+	pvrclient.SetOptionalBool(desired, "enable", dc.Enable)
+	if dc.Fields != nil {
+		desired["fields"] = fieldsPayload(dc.Fields)
+	}
+	if dc.Categories != nil {
+		categories := make([]map[string]any, 0, len(dc.Categories))
+		for _, cat := range dc.Categories {
+			categories = append(categories, map[string]any{
+				"clientCategory": cat.ClientCategory,
+				"categories":     intSliceToInterface(cat.Categories),
+			})
+		}
+		desired["categories"] = categories
+	}
+	setTags(desired, dc.Tags, tagIDs)
 
 	if dc.Priority != nil {
 		desired["priority"] = *dc.Priority
@@ -234,15 +235,30 @@ func intSliceToInterface(s []int) []any {
 	return r
 }
 
-// resolveTags maps tag labels to the IDs Prowlarr assigned them. ResolveReferences
-// rejects unknown labels before payloads are built; any that remain are dropped
-// rather than sent as-is, since Prowlarr expects integers.
-func resolveTags(labels []string, tagIDs map[string]int) []any {
+func fieldsPayload(declared []indexersv1alpha1.ProwlarrField) []map[string]any {
+	fields := make([]map[string]any, 0, len(declared))
+	for _, f := range declared {
+		val := ""
+		if f.Value != nil {
+			val = *f.Value
+		}
+		fields = append(fields, map[string]any{"name": f.Name, "value": val})
+	}
+	return fields
+}
+
+// setTags maps declared tag labels to the IDs Prowlarr assigned them.
+// ResolveReferences rejects unknown labels before payloads are built; any that
+// remain are dropped rather than sent as-is, since Prowlarr expects integers.
+func setTags(payload map[string]any, labels []string, tagIDs map[string]int) {
+	if labels == nil {
+		return
+	}
 	out := make([]any, 0, len(labels))
 	for _, l := range labels {
 		if id, ok := tagIDs[l]; ok {
 			out = append(out, id)
 		}
 	}
-	return out
+	payload["tags"] = out
 }
