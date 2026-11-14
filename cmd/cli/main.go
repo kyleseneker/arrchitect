@@ -80,6 +80,9 @@ func exportCommand(ctx context.Context, args []string, stdout, stderr io.Writer)
 	exclude := fs.String("exclude", "",
 		"comma-separated spec fields to leave out, such as indexers when Prowlarr syncs them")
 	fs.BoolVar(&o.InsecureSkipVerify, "insecure-skip-verify", false, "skip TLS certificate verification")
+	fs.BoolVar(&o.Enforce, "enforce", false,
+		"leave out observe mode, so the operator writes to the app as soon as the config is applied")
+	secretFile := fs.String("secret-file", "", "write the Secret to this file instead of with the config")
 
 	if len(args) > 0 && (args[0] == "-h" || args[0] == "--help") {
 		fs.Usage()
@@ -121,6 +124,16 @@ func exportCommand(ctx context.Context, args []string, stdout, stderr io.Writer)
 		return err
 	}
 	out, err := res.YAML()
+	if *secretFile != "" {
+		var secret []byte
+		if secret, err = res.SecretYAML(); err != nil {
+			return err
+		}
+		if err := os.WriteFile(*secretFile, secret, 0o600); err != nil {
+			return err
+		}
+		out, err = res.ConfigYAML()
+	}
 	if err != nil {
 		return err
 	}
@@ -131,7 +144,7 @@ func exportCommand(ctx context.Context, args []string, stdout, stderr io.Writer)
 		_, _ = fmt.Fprintln(stderr, "warning:", w)
 	}
 	if res.Secret != nil && len(res.Unfilled) > 0 {
-		_, _ = fmt.Fprintf(stderr, "%s doesn't reveal these credentials; fill them in Secret %s before applying: %s\n",
+		_, _ = fmt.Fprintf(stderr, "%s doesn't reveal these credentials; add them to Secret %s before applying: %s\n",
 			o.App, res.Secret.Name, strings.Join(res.Unfilled, ", "))
 	}
 	return nil

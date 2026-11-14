@@ -17,7 +17,7 @@ var seerrNotificationAgents = []string{
 	"discord", "email", "gotify", "lunasea", "ntfy", "pushbullet", "pushover", "slack", "telegram", "webhook", "webpush",
 }
 
-var credentialOptions = []string{"token", "password", "pass", "key", "secret", "auth", "webhookurl"}
+var credentialOptions = []string{"token", "password", "pass", "key", "secret", "auth", "webhookurl", "botapi"}
 
 // isCredentialOption reports whether a notification option's name looks like
 // it holds a credential.
