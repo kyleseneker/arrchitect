@@ -95,7 +95,7 @@ func (r *ProwlarrConfigReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	// Persist prerequisite ownership even if a subsequent lookup or secret fails.
 	ctrlcommon.UpdateStatusManaged(&config, result.Managed)
-	resolved, tagIDs, terr := prowlarrclient.ResolveReferences(ctx, hc, config.Spec)
+	resolved, tagIDs, terr := prowlarrclient.ResolveReferences(ctx, hc, config.Spec, policy.Observe)
 	indexersWithSecrets := indexers
 	indexers = resolved.Indexers
 	for i := range indexers {

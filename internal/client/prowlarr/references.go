@@ -10,11 +10,20 @@ import (
 
 // ResolveReferences operates on a copy: IDs belong to the current application,
 // not to the Kubernetes spec. Missing references must never become empty tags.
-func ResolveReferences(ctx context.Context, client *engine.HTTPClient, spec indexersv1alpha1.ProwlarrConfigSpec) (indexersv1alpha1.ProwlarrConfigSpec, map[string]int, error) {
+// In observe mode, tags and sync profiles the spec declares resolve even when
+// Prowlarr lacks them; see engine.PlannedID.
+func ResolveReferences(
+	ctx context.Context, client *engine.HTTPClient, spec indexersv1alpha1.ProwlarrConfigSpec, observe bool,
+) (indexersv1alpha1.ProwlarrConfigSpec, map[string]int, error) {
 	resolved := spec.DeepCopy()
 	tags, err := engine.FetchNamedIDs(ctx, client, "/api/v1/tag", "label")
 	if err != nil {
 		return *resolved, nil, err
+	}
+	if observe {
+		for _, t := range spec.Tags {
+			tags.Plan(engine.TagLabel(t.Label))
+		}
 	}
 	tagIDs := map[string]int{}
 	check := func(resource, name string, labels []string) error {
@@ -64,6 +73,11 @@ func ResolveReferences(ctx context.Context, client *engine.HTTPClient, spec inde
 			profiles, err = engine.FetchNamedIDs(ctx, client, "/api/v1/appprofile", "name")
 			if err != nil {
 				return *resolved, nil, err
+			}
+			if observe {
+				for _, p := range spec.AppProfiles {
+					profiles.Plan(p.Name)
+				}
 			}
 		}
 		id, err := profiles.Resolve(idx.AppProfileName)

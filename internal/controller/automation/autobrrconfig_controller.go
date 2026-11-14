@@ -115,7 +115,10 @@ type autobrrSync struct {
 	namespace string
 	owner     string
 	prune     bool
-	owned     *engine.Ownership
+	// declared names the indexers and download clients the spec declares, which
+	// observe mode may find missing while other items refer to them.
+	declared map[string][]string
+	owned    *engine.Ownership
 
 	definitions []map[string]any
 }
@@ -135,6 +138,13 @@ func (s *autobrrSync) created(kind, name string, create func() error) func() err
 // download clients by name.
 func (s *autobrrSync) run(ctx context.Context, spec *automationv1alpha1.AutobrrConfigSpec) []string {
 	logger := log.FromContext(ctx)
+	s.declared = map[string][]string{}
+	for _, idx := range spec.Indexers {
+		s.declared["indexers"] = append(s.declared["indexers"], idx.Name)
+	}
+	for _, dc := range spec.DownloadClients {
+		s.declared["downloadClients"] = append(s.declared["downloadClients"], dc.Name)
+	}
 	var syncErrors []string
 	failed := map[string]bool{}
 	fail := func(section, name string, err error) {
@@ -464,7 +474,7 @@ func (s *autobrrSync) feed(ctx context.Context, feed automationv1alpha1.AutobrrF
 	switch {
 	case err != nil:
 		return fmt.Errorf("indexer: %w", err)
-	case !found && s.Observe && len(s.Drift()) > 0:
+	case !found && s.planned("indexers", feed.IndexerRef):
 		s.RecordDrift("feed", feed.Name)
 		return nil
 	case !found:
@@ -550,7 +560,7 @@ func (s *autobrrSync) filter(ctx context.Context, filter automationv1alpha1.Auto
 		switch {
 		case err != nil:
 			return err
-		case missing != "" && s.Observe && len(s.Drift()) > 0:
+		case missing != "" && s.planned("indexers", missing):
 			s.RecordDrift("filter", filter.Name)
 			return nil
 		case missing != "":
@@ -621,8 +631,7 @@ func (s *autobrrSync) actions(
 			switch {
 			case err != nil:
 				return fmt.Errorf("action %q download client: %w", a.Name, err)
-			case !found && s.Observe && len(s.Drift()) > 0:
-				// The download client may be one observe mode found missing.
+			case !found && s.planned("downloadClients", a.ClientRef):
 				s.RecordDrift("action", a.Name)
 				continue
 			case !found:
@@ -755,6 +764,13 @@ func (s *autobrrSync) rememberCreated(
 		}
 		return
 	}
+}
+
+// planned reports whether observe mode can't find an item because the spec
+// declares it and observe mode creates nothing, so a reference to it is a
+// difference rather than a failure.
+func (s *autobrrSync) planned(kind, name string) bool {
+	return s.Observe && slices.Contains(s.declared[kind], name)
 }
 
 func (s *autobrrSync) secretKey(kind, name string) string {
