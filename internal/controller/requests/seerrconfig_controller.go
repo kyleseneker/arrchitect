@@ -86,6 +86,8 @@ func (r *SeerrConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	if !isInitialized {
 		if err := r.setup(ctx, sc, writes, owned, &config); err != nil {
+			// A setup that failed partway may have created connections already.
+			ctrlcommon.UpdateStatusManaged(&config, owned.Managed())
 			ctrlcommon.UpdateStatus(ctx, r.Client, &config, false, engine.ReasonSyncFailed, err.Error())
 			return ctrl.Result{RequeueAfter: 60 * time.Second}, nil
 		}
