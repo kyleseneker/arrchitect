@@ -129,8 +129,10 @@ func NewClient(hc *engine.HTTPClient) *Client {
 }
 
 // Ping checks if Autobrr is reachable.
+// Ping reads Autobrr's config, which needs the API key, so a wrong key fails
+// here rather than on the first write.
 func (c *Client) Ping(ctx context.Context) error {
-	return c.hc.Ping(ctx, "/api/healthz/liveness")
+	return c.hc.Ping(ctx, "/api/config")
 }
 
 // --- Download Clients ---

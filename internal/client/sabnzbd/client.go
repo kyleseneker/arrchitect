@@ -111,14 +111,22 @@ func (c *Client) apiParams(mode string, extra string) url.Values {
 	return params
 }
 
+// Ping reads one setting. That needs the full API key, so a wrong key fails
+// here; SABnzbd answers it with HTTP 200 and status false.
 func (c *Client) Ping(ctx context.Context) error {
-	_, err := c.hc.DoForm(ctx, "/api", c.apiParams("version", ""))
-	return err
+	data, err := c.hc.DoForm(ctx, "/api", c.apiParams("get_config", "section=misc&keyword=port"))
+	if err != nil {
+		return err
+	}
+	return refusal(data, "sabnzbd refused the request")
 }
 
 func (c *Client) GetConfig(ctx context.Context) (map[string]any, error) {
 	data, err := c.hc.DoForm(ctx, "/api", c.apiParams("get_config", ""))
 	if err != nil {
+		return nil, err
+	}
+	if err := refusal(data, "sabnzbd refused the request"); err != nil {
 		return nil, err
 	}
 	var result map[string]any
@@ -158,12 +166,17 @@ func (c *Client) write(ctx context.Context, params url.Values) error {
 	if err != nil {
 		return err
 	}
+	return refusal(data, "sabnzbd rejected the change")
+}
+
+// refusal returns the error SABnzbd reports with HTTP 200 and status false.
+func refusal(data []byte, what string) error {
 	var reply struct {
 		Status *bool  `json:"status"`
 		Error  string `json:"error"`
 	}
 	if json.Unmarshal(data, &reply) == nil && reply.Status != nil && !*reply.Status {
-		return fmt.Errorf("sabnzbd rejected the change: %s", reply.Error)
+		return fmt.Errorf("%s: %s", what, reply.Error)
 	}
 	return nil
 }

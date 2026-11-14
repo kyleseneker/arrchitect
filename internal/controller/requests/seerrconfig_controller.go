@@ -76,7 +76,11 @@ func (r *SeerrConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	}
 
 	if err := r.establishSession(ctx, sc, &config); err != nil {
-		ctrlcommon.UpdateStatusUnreachable(ctx, r.Client, &config, engine.ReasonSecretNotFound, err.Error())
+		reason := engine.ReasonAppUnreachable
+		if reconciler.IsSecretError(err) {
+			reason = engine.ReasonSecretNotFound
+		}
+		ctrlcommon.UpdateStatusUnreachable(ctx, r.Client, &config, reason, err.Error())
 		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
 	}
 
@@ -636,6 +640,9 @@ func (r *SeerrConfigReconciler) establishSession(ctx context.Context, sc *seerrc
 			return err
 		}
 		sc.SetAPIKey(apiKey)
+		if _, err := sc.GetAPIKey(ctx); err != nil {
+			return fmt.Errorf("checking the API key: %w", err)
+		}
 		return nil
 	}
 	if err := r.authenticate(ctx, sc, config); err != nil {
