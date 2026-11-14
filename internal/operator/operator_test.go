@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestResolveEnabledControllers(t *testing.T) {
@@ -18,7 +19,14 @@ func TestResolveEnabledControllers(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, resolveEnabledControllers(controllers, tt.enable, tt.disable))
+			got, err := resolveEnabledControllers(controllers, tt.enable, tt.disable)
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got)
 		})
 	}
+
+	_, err := resolveEnabledControllers(controllers, "sonar", "")
+	assert.ErrorContains(t, err, `unknown controller "sonar"; this binary runs sonarr, radarr, lidarr`)
+	_, err = resolveEnabledControllers(controllers, "*", "prowlarr")
+	assert.ErrorContains(t, err, `unknown controller "prowlarr"`)
 }

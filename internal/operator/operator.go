@@ -5,6 +5,7 @@ package operator
 import (
 	"crypto/tls"
 	"flag"
+	"fmt"
 	"os"
 	"strings"
 
@@ -19,6 +20,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/config"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/filters"
@@ -64,6 +66,7 @@ func Run(binary string, addToScheme func(*runtime.Scheme) error, controllers ...
 	var enableControllers string
 	var watchNamespace string
 	var disableControllers string
+	var maxConcurrentReconciles int
 	var tlsOpts []func(*tls.Config)
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8443", "The address the metrics endpoint binds to. "+
 		"Use :8443 for HTTPS or :8080 for HTTP, or set to 0 to disable the metrics service.")
@@ -88,13 +91,19 @@ func Run(binary string, addToScheme func(*runtime.Scheme) error, controllers ...
 		"Comma-separated list of controllers to disable (applied after --enable-controllers).")
 	flag.StringVar(&watchNamespace, "watch-namespace", "",
 		"Namespace to watch for custom resources. Empty means all namespaces.")
-	opts := zap.Options{
-		Development: true,
-	}
+	flag.IntVar(&maxConcurrentReconciles, "max-concurrent-reconciles", 1,
+		"How many resources of one kind reconcile at once. Raise it when one slow app holds up the others.")
+	opts := zap.Options{}
 	opts.BindFlags(flag.CommandLine)
 	flag.Parse()
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
+
+	enabled, err := resolveEnabledControllers(controllers, enableControllers, disableControllers)
+	if err != nil {
+		setupLog.Error(err, "Invalid controller selection")
+		os.Exit(1)
+	}
 
 	// if the enable-http2 flag is false (the default), http/2 should be disabled
 	// due to its vulnerabilities. More specifically, disabling http/2 will
@@ -159,13 +168,12 @@ func Run(binary string, addToScheme func(*runtime.Scheme) error, controllers ...
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "media-operator-" + binary + ".media-operator.dev",
 		Cache:                  cacheOptions,
+		Controller:             config.Controller{MaxConcurrentReconciles: maxConcurrentReconciles},
 	})
 	if err != nil {
 		setupLog.Error(err, "Failed to start manager")
 		os.Exit(1)
 	}
-
-	enabled := resolveEnabledControllers(controllers, enableControllers, disableControllers)
 
 	for _, c := range controllers {
 		if !enabled[c.Name] {
@@ -197,32 +205,38 @@ func Run(binary string, addToScheme func(*runtime.Scheme) error, controllers ...
 }
 
 // resolveEnabledControllers computes which controllers are enabled based on the
-// --enable-controllers and --disable-controllers flags.
-func resolveEnabledControllers(controllers []Controller, enable, disable string) map[string]bool {
+// --enable-controllers and --disable-controllers flags. A name the binary
+// doesn't run is an error rather than a controller silently left off.
+func resolveEnabledControllers(controllers []Controller, enable, disable string) (map[string]bool, error) {
 	known := make(map[string]bool, len(controllers))
+	names := make([]string, 0, len(controllers))
 	for _, c := range controllers {
 		known[c.Name] = false
+		names = append(names, c.Name)
+	}
+	set := func(list string, value bool) error {
+		for name := range strings.SplitSeq(list, ",") {
+			name = strings.TrimSpace(name)
+			if name == "" {
+				continue
+			}
+			if _, ok := known[name]; !ok {
+				return fmt.Errorf("unknown controller %q; this binary runs %s", name, strings.Join(names, ", "))
+			}
+			known[name] = value
+		}
+		return nil
 	}
 
 	if strings.TrimSpace(enable) == "*" {
 		for name := range known {
 			known[name] = true
 		}
-	} else {
-		for name := range strings.SplitSeq(enable, ",") {
-			name = strings.TrimSpace(name)
-			if name != "" {
-				known[name] = true
-			}
-		}
+	} else if err := set(enable, true); err != nil {
+		return nil, err
 	}
-
-	for name := range strings.SplitSeq(disable, ",") {
-		name = strings.TrimSpace(name)
-		if name != "" {
-			known[name] = false
-		}
+	if err := set(disable, false); err != nil {
+		return nil, err
 	}
-
-	return known
+	return known, nil
 }

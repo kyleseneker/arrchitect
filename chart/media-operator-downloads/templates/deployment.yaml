@@ -29,6 +29,9 @@ spec:
             {{- if not .Values.metrics.enabled }}
             - --metrics-bind-address=0
             {{- end }}
+            {{- with .Values.extraArgs }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
           ports:
             {{- if .Values.metrics.enabled }}
             - name: metrics
