@@ -235,13 +235,9 @@ func buildRuleGroup(
 		return nil, nil, err
 	}
 
-	var schedule any
-	if g.Schedule != "" {
-		schedule = g.Schedule
-	}
-	collection := map[string]any{
-		"visibleOnHome": isTrue(g.VisibleOnHome), "visibleOnRecommended": isTrue(g.VisibleOnRecommended),
-	}
+	collection := map[string]any{}
+	setDeclared(collection, "visibleOnHome", g.VisibleOnHome)
+	setDeclared(collection, "visibleOnRecommended", g.VisibleOnRecommended)
 	// Maintainerr keeps the stored value when a save leaves deleteAfterDays out
 	// or null, so it can only be managed while it is set.
 	if g.ActionAfterDays != nil {
@@ -256,15 +252,23 @@ func buildRuleGroup(
 		}
 	}
 	send = map[string]any{
-		"name": g.Name, "description": g.Description, "libraryId": library["id"], "dataType": dataType,
-		"isActive": g.Active == nil || *g.Active, "useRules": true, "ruleHandlerCronSchedule": schedule,
-		"arrAction": action, "listExclusions": isTrue(g.ListExclusions),
-		"cleanupLeftoverFolders": isTrue(g.CleanupLeftoverFolders), "forceSeerr": isTrue(g.ForceSeerr),
-		"tagInArr": isTrue(g.TagInArr), "keepInMaintainerrOnly": isTrue(g.KeepInMaintainerrOnly),
+		"name": g.Name, "libraryId": library["id"], "dataType": dataType, "useRules": true, "arrAction": action,
 		"radarrSettingsId": radarr, "sonarrSettingsId": sonarr,
 		"radarrQualityProfileId": radarrProfile, "sonarrQualityProfileId": sonarrProfile,
 		"collection": collection, "rules": sendRules,
 	}
+	if g.Description != "" {
+		send["description"] = g.Description
+	}
+	if g.Schedule != "" {
+		send["ruleHandlerCronSchedule"] = g.Schedule
+	}
+	setDeclared(send, "isActive", g.Active)
+	setDeclared(send, "listExclusions", g.ListExclusions)
+	setDeclared(send, "cleanupLeftoverFolders", g.CleanupLeftoverFolders)
+	setDeclared(send, "forceSeerr", g.ForceSeerr)
+	setDeclared(send, "tagInArr", g.TagInArr)
+	setDeclared(send, "keepInMaintainerrOnly", g.KeepInMaintainerrOnly)
 	if g.Notifications != nil {
 		if send["notifications"], err = notificationIDs(g.Notifications, env.notifications); err != nil {
 			return nil, nil, err
@@ -616,17 +620,28 @@ func overlayRuleGroup(current, send map[string]any) map[string]any {
 // newRuleGroupBody is the save for a new group, with Maintainerr's defaults for
 // what the CR does not manage.
 func newRuleGroupBody(send map[string]any) map[string]any {
-	body := maps.Clone(send)
-	collection := map[string]any{"manualCollection": false, "manualCollectionName": "", "keepLogsForMonths": 6}
+	body := map[string]any{
+		"description": "", "isActive": true, "ruleHandlerCronSchedule": nil, "listExclusions": false,
+		"cleanupLeftoverFolders": false, "forceSeerr": false, "tagInArr": false, "keepInMaintainerrOnly": false,
+		"notifications": []any{},
+	}
+	maps.Copy(body, send)
+	collection := map[string]any{
+		"manualCollection": false, "manualCollectionName": "", "keepLogsForMonths": 6,
+		"visibleOnHome": false, "visibleOnRecommended": false,
+	}
 	maps.Copy(collection, send["collection"].(map[string]any))
 	body["collection"] = collection
-	if _, ok := body["notifications"]; !ok {
-		body["notifications"] = []any{}
-	}
 	return body
 }
 
 func isTrue(b *bool) bool { return b != nil && *b }
+
+func setDeclared(m map[string]any, key string, value *bool) {
+	if value != nil {
+		m[key] = *value
+	}
+}
 
 // mustJSON round-trips a value through JSON so it compares like a decoded
 // response: numbers as float64, slices as []any.

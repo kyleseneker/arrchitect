@@ -393,10 +393,9 @@ spec:
                       minimum: 0
                       type: integer
                     active:
-                      default: true
                       description: |-
                         active runs the rule group. Inactive groups keep their collection but are
-                        not evaluated or acted on.
+                        not evaluated or acted on. A new group is active unless this is false.
                       type: boolean
                     arrAction:
                       description: |-

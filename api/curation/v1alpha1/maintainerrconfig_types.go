@@ -273,9 +273,8 @@ type MaintainerrRuleGroup struct {
 	DataType string `json:"dataType,omitempty"`
 
 	// active runs the rule group. Inactive groups keep their collection but are
-	// not evaluated or acted on.
+	// not evaluated or acted on. A new group is active unless this is false.
 	// +optional
-	// +kubebuilder:default=true
 	Active *bool `json:"active,omitempty"`
 
 	// arrAction is what Maintainerr does with media once actionAfterDays have
