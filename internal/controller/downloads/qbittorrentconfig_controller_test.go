@@ -374,6 +374,21 @@ func TestQBRecordsTheCategoriesItCreates(t *testing.T) {
 	assert.Equal(t, []string{"created"}, got.Status.ManagedResources["categories"])
 }
 
+func TestQBLeavesAnUndeclaredCategorySavePathAlone(t *testing.T) {
+	app := &fakeQB{categories: qbCategories("tv")}
+	cfg := qbConfig(app.serve(t))
+	cfg.Spec.Categories = []downloadsv1alpha1.QBittorrentCategory{{Name: "tv"}}
+
+	runQB(t, cfg)
+	assert.Empty(t, app.writes)
+
+	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{DriftPolicy: new("observe")}
+	got := runQB(t, cfg)
+	synced := meta.FindStatusCondition(got.Status.Conditions, "Synced")
+	require.NotNil(t, synced)
+	assert.Equal(t, "Observed", synced.Reason)
+}
+
 func TestQBObserveReportsACategoryPruneWouldDelete(t *testing.T) {
 	app := &fakeQB{categories: qbCategories("tv", "old")}
 	cfg := qbConfig(app.serve(t), "tv")
