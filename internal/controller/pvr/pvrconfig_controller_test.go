@@ -18,6 +18,7 @@ import (
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -37,9 +38,12 @@ const conditionTrue = "True"
 
 type buildOpts struct {
 	downloadClient bool
-	naming         bool
-	prune          bool
-	managed        map[string][]string
+	// missingPassword points the download client's password at a Secret that
+	// doesn't exist.
+	missingPassword bool
+	naming          bool
+	prune           bool
+	managed         map[string][]string
 }
 
 type pvrApp struct {
@@ -62,6 +66,9 @@ func baseSpec(o buildOpts) (commonv1alpha1.AppConnection, []commonv1alpha1.RootF
 			Name: "qBittorrent", Protocol: "torrent", Implementation: "QBittorrent",
 			Host: "qbittorrent", Port: 8080, Category: "media",
 		}}
+		if o.missingPassword {
+			dcs[0].PasswordSecretRef = &commonv1alpha1.SecretKeyRef{Name: "missing", Key: "password"}
+		}
 	}
 	var rec *commonv1alpha1.ReconcileConfig
 	if o.prune {
@@ -368,6 +375,30 @@ func TestReconcileMissingSecretDoesNotContactApp(t *testing.T) {
 			c := run(t, app, cfg) // no Secret
 			assert.False(t, fa.sawPrefix("GET", "/api/"), "reconciler contacted the app despite failing to resolve its API key")
 			assert.NotEqual(t, conditionTrue, conditionStatus(t, c, app, "Synced"), "Synced = True despite a missing secret")
+		})
+	}
+}
+
+// A Secret only one kind uses holds back that kind, not the app.
+func TestReconcileMissingItemSecretSkipsOnlyItsKind(t *testing.T) {
+	for _, app := range pvrApps {
+		t.Run(app.name, func(t *testing.T) {
+			fa, url := newFakeArr(t, app.apiVer, nil)
+			cfg := app.build(url, buildOpts{downloadClient: true, missingPassword: true, naming: true})
+			c := run(t, app, apiKeySecret(), cfg)
+
+			assert.True(t, fa.saw("POST", fa.path("rootfolder")), "the root folder was held back too")
+			assert.True(t, fa.sawPrefix("PUT", fa.path("config/naming/")), "the settings were held back too")
+			assert.False(t, fa.saw("POST", fa.path("downloadclient")), "a download client was written without its password")
+			assert.Equal(t, conditionTrue, conditionStatus(t, c, app, "Ready"), "the app is reachable")
+			assert.NotEqual(t, conditionTrue, conditionStatus(t, c, app, "Synced"))
+
+			obj := app.empty()
+			require.NoError(t, c.Get(context.Background(), types.NamespacedName{Name: "app", Namespace: "media"}, obj))
+			synced := apimeta.FindStatusCondition(*obj.GetConditions(), "Synced")
+			require.NotNil(t, synced)
+			assert.Equal(t, "SyncFailed", synced.Reason)
+			assert.Contains(t, synced.Message, `downloadClients: download client "qBittorrent" password: secret "missing" not found`)
 		})
 	}
 }

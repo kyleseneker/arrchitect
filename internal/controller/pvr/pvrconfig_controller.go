@@ -2,6 +2,7 @@ package pvr
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"k8s.io/client-go/tools/events"
@@ -47,8 +48,12 @@ func reconcilePVR(ctx context.Context, c client.Client, recorder events.EventRec
 	opts.CategoryField = cfg.app.CategoryField
 	opts.ImportListFields = cfg.app.ImportListFields
 	opts.MetadataProfiles = cfg.app.MetadataProfiles
+	// A kind whose items name a Secret that can't be read is left out of the
+	// pass, neither written nor pruned, and reported; the rest still syncs.
+	var unresolved []string
 	if opts.DCSecrets, err = ctrlcommon.ResolveDownloadClientSecrets(ctx, c, namespace, opts.DownloadClients); err != nil {
-		return missingSecret(err)
+		unresolved = append(unresolved, fmt.Sprintf("downloadClients: %v", err))
+		opts.DownloadClients = nil
 	}
 	tlsCfg, err := engine.ResolveTLSConfig(ctx, c, namespace, conn.TLS)
 	if err != nil {
@@ -68,13 +73,13 @@ func reconcilePVR(ctx context.Context, c client.Client, recorder events.EventRec
 	}
 
 	if opts.Indexers, err = ctrlcommon.ResolveIndexerSecrets(ctx, c, namespace, opts.Indexers); err != nil {
-		return missingSecret(err)
+		unresolved = append(unresolved, fmt.Sprintf("indexers: %v", err))
 	}
 	if opts.Notifications, err = ctrlcommon.ResolveNotificationSecrets(ctx, c, namespace, opts.Notifications); err != nil {
-		return missingSecret(err)
+		unresolved = append(unresolved, fmt.Sprintf("notifications: %v", err))
 	}
 	if opts.ImportLists, err = ctrlcommon.ResolveImportListSecrets(ctx, c, namespace, opts.ImportLists); err != nil {
-		return missingSecret(err)
+		unresolved = append(unresolved, fmt.Sprintf("importLists: %v", err))
 	}
 
 	result, err := pvrclient.Reconcile(ctx, hc, cfg.app.APIVersion, cfg.spec, opts, ctrlcommon.Policy(cfg.policy), *obj.GetManagedResources())
@@ -82,6 +87,7 @@ func reconcilePVR(ctx context.Context, c client.Client, recorder events.EventRec
 		ctrlcommon.UpdateStatus(ctx, c, obj, false, engine.ReasonSyncFailed, err.Error())
 		return ctrl.Result{RequeueAfter: ctrlcommon.ReconcileInterval(cfg.policy)}, nil
 	}
+	result.Errors = append(unresolved, result.Errors...)
 	ctrlcommon.UpdateStatusManaged(obj, result.Managed)
 	ctrlcommon.EmitPruneEvents(recorder, obj, result.Pruned)
 	ctrlcommon.UpdateResultStatus(ctx, c, obj, result)

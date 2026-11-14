@@ -77,15 +77,19 @@ func (r *TdarrConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		App: "tdarr", Observe: ctrlcommon.ObserveOnly(config.Spec.Reconcile), tc: tc,
 		prune: ctrlcommon.PruneEnabled(config.Spec.Reconcile), owned: engine.NewOwnership("tdarr", config.Status.ManagedResources),
 	}
-	if settings := config.Spec.Settings; settings != nil && settings.NotificationsDiscordWebhookSecretRef != nil {
+	spec := config.Spec
+	var unresolved []string
+	if settings := spec.Settings; settings != nil && settings.NotificationsDiscordWebhookSecretRef != nil {
 		webhook, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, *settings.NotificationsDiscordWebhookSecretRef)
 		if err != nil {
-			ctrlcommon.UpdateStatusUnreachable(ctx, r.Client, &config, engine.ReasonSecretNotFound, err.Error())
-			return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
+			// The settings are left out of the pass; the rest still syncs.
+			unresolved = append(unresolved, fmt.Sprintf("settings: %v", err))
+			spec.Settings = nil
+		} else {
+			sync.discordWebhook = &webhook
 		}
-		sync.discordWebhook = &webhook
 	}
-	syncErrors := sync.run(ctx, &config.Spec)
+	syncErrors := append(unresolved, sync.run(ctx, &spec)...)
 	ctrlcommon.UpdateStatusManaged(&config, sync.owned.Managed())
 	ctrlcommon.EmitPruneEvents(r.Recorder, &config, sync.owned.Pruned())
 	ctrlcommon.UpdateSyncStatus(ctx, r.Client, &config, sync.Observe, sync.Drift(), syncErrors)

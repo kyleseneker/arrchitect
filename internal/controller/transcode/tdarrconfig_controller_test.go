@@ -750,3 +750,23 @@ func TestTdarrWritesGlobalSettingsWithTheWebhookFromItsSecret(t *testing.T) {
 	}}, app.settingsWrites[0], "the Secret reference itself must never reach Tdarr")
 	assert.Equal(t, conditionTrue, tdarrCondition(t, c, "Synced"))
 }
+
+// A missing webhook Secret holds back the settings, not the libraries.
+func TestTdarrMissingWebhookSecretSkipsOnlyTheSettings(t *testing.T) {
+	app := &fakeTdarr{docFound: false}
+	cfg := tdarrConfig(app.serve(t))
+	cfg.Spec.Libraries = []transcodev1alpha1.TdarrLibrary{{ID: "lib1", Name: "Movies", Folder: "/media/movies"}}
+	cfg.Spec.Settings = &transcodev1alpha1.TdarrSettings{
+		NotificationsTranscodeError:          new(true),
+		NotificationsDiscordWebhookSecretRef: &commonv1alpha1.SecretKeyRef{Name: "tdarr-credentials", Key: "missing"},
+	}
+
+	c := runTdarr(t, cfg, true)
+
+	assert.True(t, app.ranOp("insert"), "the library was held back too")
+	app.mu.Lock()
+	assert.Empty(t, app.settingsWrites, "settings were written without their webhook")
+	app.mu.Unlock()
+	assert.Equal(t, conditionTrue, tdarrCondition(t, c, "Ready"))
+	assert.NotEqual(t, conditionTrue, tdarrCondition(t, c, "Synced"))
+}

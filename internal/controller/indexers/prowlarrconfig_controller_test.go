@@ -18,6 +18,7 @@ import (
 	ctrlcommon "github.com/kyleseneker/media-operator/internal/controller/common"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -341,4 +342,32 @@ func TestProwlarrResolvesDownloadClientAndNotificationSecrets(t *testing.T) {
 		raw, _ := json.Marshal(posts[0]["fields"])
 		require.Contains(t, string(raw), `"s3cret"`, "%s was sent without its Secret value", path)
 	}
+}
+
+// A Secret only one kind uses holds back that kind, not the rest of Prowlarr.
+func TestProwlarrMissingItemSecretSkipsOnlyItsKind(t *testing.T) {
+	app := &fakeProwlarr{}
+	url := app.serve(t)
+
+	cfg := prowlarrConfig(url)
+	cfg.Spec.Indexers = []indexersv1alpha1.ProwlarrIndexer{{
+		Name: "nzbgeek", Implementation: "Newznab", ConfigContract: "NewznabSettings",
+	}}
+	cfg.Spec.DownloadClients = []indexersv1alpha1.ProwlarrDownloadClient{{
+		Name: "qBittorrent", Implementation: "QBittorrent", Protocol: "torrent",
+		Fields: []indexersv1alpha1.ProwlarrField{{Name: "password", ValueFrom: &commonv1alpha1.SecretKeyRef{Name: "missing", Key: "password"}}},
+	}}
+	c := runProwlarr(t, cfg, prowlarrSecret())
+
+	assert.NotEmpty(t, app.postsTo("/api/v1/indexer"), "the indexer was held back too")
+	assert.Empty(t, app.postsTo("/api/v1/downloadclient"), "a download client was written without its password")
+	var got indexersv1alpha1.ProwlarrConfig
+	require.NoError(t, c.Get(context.Background(), types.NamespacedName{Name: "prowlarr", Namespace: "media"}, &got))
+	ready := meta.FindStatusCondition(got.Status.Conditions, "Ready")
+	require.NotNil(t, ready)
+	assert.Equal(t, metav1.ConditionTrue, ready.Status)
+	synced := meta.FindStatusCondition(got.Status.Conditions, "Synced")
+	require.NotNil(t, synced)
+	assert.Equal(t, "SyncFailed", synced.Reason)
+	assert.Contains(t, synced.Message, `downloadClients: download client qBittorrent field "password": secret "missing" not found`)
 }

@@ -67,13 +67,17 @@ func (r *ProwlarrConfigReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{RequeueAfter: 60 * time.Second}, nil
 	}
 
+	// A kind whose items name a Secret that can't be read is left out of the
+	// pass, neither written nor pruned, and reported; the rest still syncs.
+	var unresolved []string
 	indexers := make([]indexersv1alpha1.ProwlarrIndexer, len(config.Spec.Indexers))
 	copy(indexers, config.Spec.Indexers)
 	for i := range indexers {
 		f, ferr := ctrlcommon.ResolveProwlarrFields(ctx, r.Client, config.Namespace, "indexer "+indexers[i].Name, indexers[i].Fields)
 		if ferr != nil {
-			ctrlcommon.UpdateStatus(ctx, r.Client, &config, false, engine.ReasonSecretNotFound, ferr.Error())
-			return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
+			unresolved = append(unresolved, fmt.Sprintf("indexers: %v", ferr))
+			indexers = nil
+			break
 		}
 		indexers[i].Fields = f
 	}
@@ -82,8 +86,9 @@ func (r *ProwlarrConfigReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	for i := range downloadClients {
 		f, ferr := ctrlcommon.ResolveProwlarrFields(ctx, r.Client, config.Namespace, "download client "+downloadClients[i].Name, downloadClients[i].Fields)
 		if ferr != nil {
-			ctrlcommon.UpdateStatus(ctx, r.Client, &config, false, engine.ReasonSecretNotFound, ferr.Error())
-			return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
+			unresolved = append(unresolved, fmt.Sprintf("downloadClients: %v", ferr))
+			downloadClients = nil
+			break
 		}
 		downloadClients[i].Fields = f
 	}
@@ -96,10 +101,12 @@ func (r *ProwlarrConfigReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	// Persist prerequisite ownership even if a subsequent lookup or secret fails.
 	ctrlcommon.UpdateStatusManaged(&config, result.Managed)
 	resolved, tagIDs, terr := prowlarrclient.ResolveReferences(ctx, hc, config.Spec, policy.Observe)
-	indexersWithSecrets := indexers
-	indexers = resolved.Indexers
-	for i := range indexers {
-		indexers[i].Fields = indexersWithSecrets[i].Fields
+	if indexers != nil {
+		indexersWithSecrets := indexers
+		indexers = resolved.Indexers
+		for i := range indexers {
+			indexers[i].Fields = indexersWithSecrets[i].Fields
+		}
 	}
 	if terr != nil {
 		ctrlcommon.UpdateStatus(ctx, r.Client, &config, false, engine.ReasonSyncFailed, terr.Error())
@@ -108,14 +115,12 @@ func (r *ProwlarrConfigReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	notifications, nerr := ctrlcommon.ResolveNotificationSecrets(ctx, r.Client, config.Namespace, resolved.Notifications)
 	if nerr != nil {
-		ctrlcommon.UpdateStatus(ctx, r.Client, &config, false, engine.ReasonSecretNotFound, nerr.Error())
-		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
+		unresolved = append(unresolved, fmt.Sprintf("notifications: %v", nerr))
 	}
 
 	appPayloads, aerr := r.buildApplicationPayloads(ctx, config.Namespace, config.Spec.Applications, tagIDs)
 	if aerr != nil {
-		ctrlcommon.UpdateStatus(ctx, r.Client, &config, false, engine.ReasonSecretNotFound, aerr.Error())
-		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
+		unresolved = append(unresolved, fmt.Sprintf("applications: %v", aerr))
 	}
 
 	resources := prowlarrclient.ProwlarrResources(prowlarrclient.ProwlarrOptions{
@@ -128,7 +133,7 @@ func (r *ProwlarrConfigReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	rest := engine.ReconcileApp(ctx, hc, def, nil, resources, policy, result.Managed)
 	result.Synced = append(result.Synced, rest.Synced...)
-	result.Errors = append(result.Errors, rest.Errors...)
+	result.Errors = append(append(result.Errors, unresolved...), rest.Errors...)
 	result.Drift = append(result.Drift, rest.Drift...)
 	result.Pruned = append(result.Pruned, rest.Pruned...)
 	result.Managed = rest.Managed
