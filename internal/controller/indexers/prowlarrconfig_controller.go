@@ -33,7 +33,7 @@ type ProwlarrConfigReconciler struct {
 func (r *ProwlarrConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	var config indexersv1alpha1.ProwlarrConfig
 	if err := r.Get(ctx, req.NamespacedName, &config); err != nil {
-		return ctrl.Result{}, client.IgnoreNotFound(err)
+		return ctrl.Result{}, ctrlcommon.IgnoreDeleted(&config, req.NamespacedName, err)
 	}
 
 	cleanup := func(ctx context.Context) error {

@@ -15,6 +15,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/events"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -422,4 +424,18 @@ func TestDriftSummaryNamesTheFirstTen(t *testing.T) {
 	}
 	assert.Equal(t, "indexers(0), indexers(1), indexers(2), indexers(3), indexers(4), indexers(5), "+
 		"indexers(6), indexers(7), indexers(8), indexers(9) and 3 more", driftSummary(drift))
+}
+
+func TestIgnoreDeletedDropsTheSyncedSeries(t *testing.T) {
+	obj := &pvrv1alpha1.SonarrConfig{Name: "gone", Namespace: "media"}
+	key := types.NamespacedName{Name: "gone", Namespace: "media"}
+	metrics.ConfigSynced.WithLabelValues("SonarrConfig", "media", "gone").Set(0)
+
+	err := IgnoreDeleted(obj, key, fmt.Errorf("connection refused"))
+	assert.EqualError(t, err, "connection refused")
+	assert.True(t, metrics.ConfigSynced.DeleteLabelValues("SonarrConfig", "media", "gone"), "a read failure isn't a deletion")
+
+	metrics.ConfigSynced.WithLabelValues("SonarrConfig", "media", "gone").Set(0)
+	assert.NoError(t, IgnoreDeleted(obj, key, apierrors.NewNotFound(schema.GroupResource{Resource: "sonarrconfigs"}, "gone")))
+	assert.False(t, metrics.ConfigSynced.DeleteLabelValues("SonarrConfig", "media", "gone"), "the series outlived the resource")
 }

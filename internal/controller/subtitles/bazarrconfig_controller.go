@@ -46,7 +46,7 @@ func (r *BazarrConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 	var config subtitlesv1alpha1.BazarrConfig
 	if err := r.Get(ctx, req.NamespacedName, &config); err != nil {
-		return ctrl.Result{}, client.IgnoreNotFound(err)
+		return ctrl.Result{}, ctrlcommon.IgnoreDeleted(&config, req.NamespacedName, err)
 	}
 
 	cleanup := func(ctx context.Context) error { return r.cleanup(ctx, &config) }

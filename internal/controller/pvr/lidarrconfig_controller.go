@@ -29,7 +29,7 @@ type LidarrConfigReconciler struct {
 func (r *LidarrConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	var config pvrv1alpha1.LidarrConfig
 	if err := r.Get(ctx, req.NamespacedName, &config); err != nil {
-		return ctrl.Result{}, client.IgnoreNotFound(err)
+		return ctrl.Result{}, ctrlcommon.IgnoreDeleted(&config, req.NamespacedName, err)
 	}
 	s := config.Spec
 	return reconcilePVR(ctx, r.Client, r.Recorder, pvrConfig{
