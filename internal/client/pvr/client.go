@@ -161,6 +161,9 @@ type Options struct {
 
 	// schemas caches each provider kind's /schema listing for one reconcile.
 	schemas map[string][]map[string]any
+	// planned names, by kind, what observe mode may find missing that the
+	// resource declares, so references to them resolve; see engine.PlannedID.
+	planned map[string][]string
 }
 
 // schema returns the cached listing for a provider kind, reading it when absent.
@@ -183,6 +186,7 @@ func Resources(ctx context.Context, client *engine.HTTPClient, apiVersion string
 		if err != nil {
 			return nil, err
 		}
+		tagIDs.Plan(opts.planned["tags"]...)
 	}
 
 	builders := []struct {
@@ -210,7 +214,7 @@ func Resources(ctx context.Context, client *engine.HTTPClient, apiVersion string
 			return qualityDefinitionResources(ctx, client, apiVersion, opts.QualityDefinitions)
 		}},
 		{"qualityProfiles", len(opts.QualityProfiles), func() ([]map[string]any, error) {
-			return qualityProfileResources(ctx, client, apiVersion, opts.QualityProfiles)
+			return qualityProfileResources(ctx, client, apiVersion, opts.QualityProfiles, opts.planned["customFormats"])
 		}},
 		{"notifications", len(opts.Notifications), func() ([]map[string]any, error) {
 			return notificationResources(ctx, client, apiVersion, opts, tagIDs)
@@ -327,6 +331,7 @@ func importListResources(
 	if err != nil {
 		return nil, err
 	}
+	profiles.Plan(opts.planned["qualityProfiles"]...)
 	var metadataProfiles engine.NamedIDs
 	if opts.MetadataProfiles {
 		if metadataProfiles, err = engine.FetchNamedIDs(ctx, client, fmt.Sprintf("/api/%s/metadataprofile", apiVersion), "name"); err != nil {
@@ -813,6 +818,9 @@ func Reconcile(ctx context.Context, client *engine.HTTPClient, apiVersion string
 	// rather than all at once up front.
 	opts = withSchemas(ctx, client, apiVersion, opts)
 	fieldProblems := ValidateOptionFields(ctx, client, apiVersion, opts)
+	if policy.Observe {
+		opts.planned = plannedNames(opts)
+	}
 
 	result := engine.ReconcileResult{Managed: managed}
 	if len(opts.Tags) > 0 {
@@ -834,11 +842,11 @@ func Reconcile(ctx context.Context, client *engine.HTTPClient, apiVersion string
 	result.Errors = append(result.Errors, fieldProblems...)
 
 	if len(opts.DelayProfiles) > 0 {
-		mergeResult(&result, reconcileDelayProfiles(ctx, client, apiVersion, opts.DelayProfiles, policy, result.Managed))
+		mergeResult(&result, reconcileDelayProfiles(ctx, client, apiVersion, opts.DelayProfiles, policy, result.Managed, opts.planned["tags"]))
 	}
 
 	if len(opts.QualityProfiles) > 0 {
-		stage := Options{QualityProfiles: opts.QualityProfiles}
+		stage := Options{QualityProfiles: opts.QualityProfiles, planned: opts.planned}
 		qpRes, qerr := Resources(ctx, client, apiVersion, stage)
 		if qerr != nil {
 			result.Errors = append(result.Errors, fmt.Sprintf("qualityProfiles: %v", qerr))
@@ -850,7 +858,7 @@ func Reconcile(ctx context.Context, client *engine.HTTPClient, apiVersion string
 	// Root folders in Lidarr and Readarr reference quality profiles, and import
 	// lists reference root folders, so they apply between the two.
 	if len(opts.RootFolders) > 0 {
-		stage := Options{RootFolders: opts.RootFolders, MetadataProfiles: opts.MetadataProfiles}
+		stage := Options{RootFolders: opts.RootFolders, MetadataProfiles: opts.MetadataProfiles, planned: opts.planned}
 		rfRes, rerr := Resources(ctx, client, apiVersion, stage)
 		if rerr != nil {
 			result.Errors = append(result.Errors, fmt.Sprintf("rootFolders: %v", rerr))
@@ -862,7 +870,7 @@ func Reconcile(ctx context.Context, client *engine.HTTPClient, apiVersion string
 	if len(opts.ImportLists) > 0 {
 		stage := Options{
 			ImportLists: opts.ImportLists, ImportListFields: opts.ImportListFields,
-			MetadataProfiles: opts.MetadataProfiles, schemas: opts.schemas,
+			MetadataProfiles: opts.MetadataProfiles, schemas: opts.schemas, planned: opts.planned,
 		}
 		ilRes, ierr := Resources(ctx, client, apiVersion, stage)
 		if ierr != nil {
@@ -873,6 +881,22 @@ func Reconcile(ctx context.Context, client *engine.HTTPClient, apiVersion string
 	}
 
 	return result, nil
+}
+
+// plannedNames lists what the resource declares that others in it may refer to
+// by name: tags, quality profiles and custom formats.
+func plannedNames(opts Options) map[string][]string {
+	planned := map[string][]string{}
+	for _, t := range opts.Tags {
+		planned["tags"] = append(planned["tags"], engine.TagLabel(t.Label))
+	}
+	for _, qp := range opts.QualityProfiles {
+		planned["qualityProfiles"] = append(planned["qualityProfiles"], qp.Name)
+	}
+	for _, cf := range opts.CustomFormats {
+		planned["customFormats"] = append(planned["customFormats"], cf.Name)
+	}
+	return planned
 }
 
 func mergeResult(dst *engine.ReconcileResult, src engine.ReconcileResult) {
@@ -907,12 +931,15 @@ func remotePathMappingKey(item map[string]any) string {
 	return string(key)
 }
 
-func qualityProfileResources(ctx context.Context, client *engine.HTTPClient, apiVersion string, profiles []commonv1alpha1.QualityProfile) ([]map[string]any, error) {
+func qualityProfileResources(
+	ctx context.Context, client *engine.HTTPClient, apiVersion string, profiles []commonv1alpha1.QualityProfile, plannedFormats []string,
+) ([]map[string]any, error) {
 	// Resolve custom format name → ID mapping for formatItems references.
 	formats, err := engine.FetchNamedIDs(ctx, client, fmt.Sprintf("/api/%s/customformat", apiVersion), "name")
 	if err != nil {
 		return nil, err
 	}
+	formats.Plan(plannedFormats...)
 	definitions, err := client.GetJSONList(ctx, fmt.Sprintf("/api/%s/qualitydefinition", apiVersion))
 	if err != nil {
 		return nil, err
@@ -1176,6 +1203,7 @@ func rootFolderResources(ctx context.Context, client *engine.HTTPClient, apiVers
 		if qualities, err = engine.FetchNamedIDs(ctx, client, fmt.Sprintf("/api/%s/qualityprofile", apiVersion), "name"); err != nil {
 			return nil, err
 		}
+		qualities.Plan(opts.planned["qualityProfiles"]...)
 		if metadata, err = engine.FetchNamedIDs(ctx, client, fmt.Sprintf("/api/%s/metadataprofile", apiVersion), "name"); err != nil {
 			return nil, err
 		}
@@ -1276,7 +1304,7 @@ type delayProfileStage struct {
 // a profile before any joins another.
 func reconcileDelayProfiles(
 	ctx context.Context, client *engine.HTTPClient, apiVersion string, declared []commonv1alpha1.DelayProfile,
-	policy engine.SyncPolicy, managed map[string][]string,
+	policy engine.SyncPolicy, managed map[string][]string, plannedTags []string,
 ) engine.ReconcileResult {
 	s := &delayProfileStage{
 		client: client,
@@ -1285,7 +1313,7 @@ func reconcileDelayProfiles(
 		writes: &engine.Writes{App: client.AppLabel(), Observe: policy.Observe},
 		prune:  policy.Prune,
 	}
-	errs := s.run(ctx, fmt.Sprintf("/api/%s/tag", apiVersion), declared)
+	errs := s.run(ctx, fmt.Sprintf("/api/%s/tag", apiVersion), declared, plannedTags)
 	return engine.ReconcileResult{
 		Synced:  s.synced,
 		Errors:  errs,
@@ -1295,11 +1323,12 @@ func reconcileDelayProfiles(
 	}
 }
 
-func (s *delayProfileStage) run(ctx context.Context, tagPath string, declared []commonv1alpha1.DelayProfile) []string {
+func (s *delayProfileStage) run(ctx context.Context, tagPath string, declared []commonv1alpha1.DelayProfile, plannedTags []string) []string {
 	tags, err := engine.FetchNamedIDs(ctx, s.client, tagPath, "label")
 	if err != nil {
 		return []string{fmt.Sprintf("%s: %v", delayProfilesKind, err)}
 	}
+	tags.Plan(plannedTags...)
 	s.labels = map[int]string{}
 	for label, ids := range tags {
 		for _, id := range ids {

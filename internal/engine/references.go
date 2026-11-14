@@ -51,6 +51,22 @@ func (ids NamedIDs) Find(name string) (id int, found bool, err error) {
 	}
 }
 
+// PlannedID stands for an item observe mode found the resource declares and
+// the app lacks. A payload naming it differs from what the app has, so the
+// item that refers to it is reported as a difference; observe mode writes
+// nothing, so the ID never reaches the app.
+const PlannedID = -1
+
+// Plan adds the names among declared that ids lacks, as PlannedID. Only
+// observe mode plans: enforcing creates the items before they are referenced.
+func (ids NamedIDs) Plan(declared ...string) {
+	for _, name := range declared {
+		if _, ok := ids[name]; !ok {
+			ids[name] = []int{PlannedID}
+		}
+	}
+}
+
 // Resolve returns the ID of the single resource with the given name.
 func (ids NamedIDs) Resolve(name string) (int, error) {
 	id, found, err := ids.Find(name)
@@ -59,7 +75,7 @@ func (ids NamedIDs) Resolve(name string) (int, error) {
 		return 0, err
 	case !found:
 		return 0, fmt.Errorf("reference %q does not exist", name)
-	case id <= 0:
+	case id <= 0 && id != PlannedID:
 		return 0, fmt.Errorf("reference %q has an invalid ID", name)
 	}
 	return id, nil

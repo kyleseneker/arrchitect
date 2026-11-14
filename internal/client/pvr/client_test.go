@@ -975,15 +975,38 @@ func TestMissingTagBlocksDependentWritesAndRetainsOwnership(t *testing.T) {
 	require.Equal(t, []string{"POST tag"}, app.writes)
 }
 
-func TestObserveFreshReferencesDoesNotWrite(t *testing.T) {
+// Observe mode creates nothing, so a reference to an item the resource declares
+// can't resolve yet. The item that refers to it is a difference enforcing would
+// settle, not a failure.
+func TestObserveReportsReferencesToDeclaredItemsAsDifferences(t *testing.T) {
 	app := &rebuildAPI{}
 	hc := app.client(t)
-	opts := Options{Tags: []commonv1alpha1.Tag{{Label: "tv"}}, DownloadClients: []commonv1alpha1.DownloadClient{{Name: "downloads", TagLabels: []string{"tv"}}}}
+	opts := Options{
+		Tags:            []commonv1alpha1.Tag{{Label: "TV"}},
+		DownloadClients: []commonv1alpha1.DownloadClient{{Name: "downloads", TagLabels: []string{"tv"}}},
+		CustomFormats:   []commonv1alpha1.CustomFormat{{Name: "x265"}},
+		QualityProfiles: []commonv1alpha1.QualityProfile{{Name: "HD", FormatItems: []commonv1alpha1.QualityProfileFormatItem{{Name: "x265", Score: 10}}}},
+		ImportLists:     []commonv1alpha1.ImportList{{Name: "list", Implementation: "Trakt", QualityProfileName: "HD"}},
+		DelayProfiles:   []commonv1alpha1.DelayProfile{{TagLabels: []string{"tv"}}},
+	}
 	result, err := Reconcile(context.Background(), hc, "v3", struct{}{}, opts, engine.SyncPolicy{Observe: true}, nil)
 	require.NoError(t, err)
-	require.NotEmpty(t, result.Errors)
-	require.Empty(t, app.writes)
-	require.Empty(t, result.Managed)
+	assert.Empty(t, result.Errors)
+	assert.Subset(t, result.Drift, []string{
+		"tags(tv)", "downloadClients(downloads)", "customFormats(x265)", "qualityProfiles(HD)", "importLists(list)",
+	})
+	assert.Empty(t, app.writes)
+	assert.Empty(t, result.Managed)
+}
+
+func TestObserveStillFailsAReferenceToAnUndeclaredItem(t *testing.T) {
+	app := &rebuildAPI{}
+	hc := app.client(t)
+	opts := Options{DownloadClients: []commonv1alpha1.DownloadClient{{Name: "downloads", TagLabels: []string{"typo"}}}}
+	result, err := Reconcile(context.Background(), hc, "v3", struct{}{}, opts, engine.SyncPolicy{Observe: true}, nil)
+	require.NoError(t, err)
+	assert.Equal(t, []string{`downloadClients(downloads): tag: reference "typo" does not exist`}, result.Errors)
+	assert.Empty(t, app.writes)
 }
 
 func TestReferenceFailuresNeverDropAssociations(t *testing.T) {
@@ -1598,7 +1621,7 @@ func (a *delayAPI) client(t *testing.T) *engine.HTTPClient {
 
 func (a *delayAPI) reconcile(t *testing.T, hc *engine.HTTPClient, declared []commonv1alpha1.DelayProfile, policy engine.SyncPolicy, managed map[string][]string) engine.ReconcileResult {
 	t.Helper()
-	return reconcileDelayProfiles(context.Background(), hc, "v3", declared, policy, managed)
+	return reconcileDelayProfiles(context.Background(), hc, "v3", declared, policy, managed, nil)
 }
 
 func (a *delayAPI) byTags(tags ...float64) map[string]any {

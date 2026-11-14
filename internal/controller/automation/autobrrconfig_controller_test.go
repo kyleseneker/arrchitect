@@ -218,6 +218,23 @@ func TestAutobrrObserveReportsMissingResourcesWithoutWriting(t *testing.T) {
 	assert.Equal(t, "DriftDetected", synced.Reason)
 }
 
+func TestAutobrrObserveTellsADeclaredIndexerFromATypo(t *testing.T) {
+	for ref, want := range map[string]string{"torznab-a": "DriftDetected", "typo": "SyncFailed"} {
+		app := &fakeAutobrr{existing: map[string][]map[string]any{"indexer/schema": autobrrDefinitions}}
+		cfg := observedAutobrr(app.serve(t), "torznab-a")
+		cfg.Spec.Feeds = []automationv1alpha1.AutobrrFeed{{Name: "Feed", Type: "Torznab", URL: "http://feed", IndexerRef: ref}}
+
+		c := runAutobrr(t, cfg, true)
+
+		var got automationv1alpha1.AutobrrConfig
+		require.NoError(t, c.Get(context.Background(), types.NamespacedName{Name: "autobrr", Namespace: "media"}, &got))
+		synced := meta.FindStatusCondition(got.Status.Conditions, "Synced")
+		require.NotNil(t, synced)
+		assert.Equal(t, want, synced.Reason, "a feed referring to %q", ref)
+		assert.Empty(t, autobrrWrites(app))
+	}
+}
+
 func TestAutobrrObserveMatchesWhatExists(t *testing.T) {
 	app := &fakeAutobrr{existing: map[string][]map[string]any{
 		"indexer":        {{"id": float64(2), "name": "torznab-a"}},

@@ -69,11 +69,15 @@ func (s *maintainerrSync) ruleGroups(
 	ctx context.Context, groups []curationv1alpha1.MaintainerrRuleGroup, servers map[maintainerrclient.Arr]engine.NamedIDs,
 	notifications engine.NamedIDs,
 ) []string {
-	// Rule groups resolve against the media server and the apps configured
-	// before them. When observe mode has found those differing, a group that
-	// cannot be resolved is counted as differing too, not as a failure: on a
-	// fresh Maintainerr nothing it refers to exists yet.
-	unresolvable := s.Observe && len(s.Drift()) > 0
+	// Rule groups resolve against the media server, the Sonarr and Radarr
+	// servers and the notifications configured before them. When observe mode
+	// has found one of those differing, a group that cannot be resolved is
+	// counted as differing too, not as a failure: on a fresh Maintainerr nothing
+	// it refers to exists yet. Any other difference doesn't excuse it.
+	unresolvable := s.Observe && slices.ContainsFunc(s.Drift(), func(d string) bool {
+		kind, _, _ := strings.Cut(d, "(")
+		return slices.Contains([]string{"mediaServer", string(maintainerrclient.Sonarr), string(maintainerrclient.Radarr), "notification"}, kind)
+	})
 	fail := func(err error) []string {
 		if unresolvable {
 			for i := range groups {

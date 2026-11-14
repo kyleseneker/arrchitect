@@ -60,8 +60,12 @@ Some things can't be compared by reading:
 - qBittorrent, Jellyfin and Seerr still sign in to read protected settings.
 - An uninitialized Jellyfin or Seerr is reported as needing setup; the wizard
   doesn't run.
-- A new Maintainerr reports rule groups as different until the media server and
-  the Sonarr and Radarr servers they use exist.
+- An item that refers by name to something the same resource declares, such as
+  a tag, a quality profile or an indexer, is reported as different while that
+  thing doesn't exist yet. A name the resource doesn't declare and the app
+  doesn't have fails, as it would when writing.
+- A new Maintainerr reports rule groups as different until the media server,
+  the Sonarr and Radarr servers and the notifications they use exist.
 - Root folders are compared by existence.
 - Passwords and API keys that an app masks count as different only if the
   operator wrote them and the Secret has changed since.

@@ -567,6 +567,23 @@ func TestMaintainerrObserveReportsUnresolvableGroupsOnceTheRestMatches(t *testin
 	assert.Contains(t, synced.Message, `no Jellyfin property "nope"`)
 }
 
+// A difference rule groups don't depend on, here the jobs schedule, doesn't
+// excuse a rule group that can't be resolved.
+func TestMaintainerrObserveDoesNotExcuseABrokenGroupForAnUnrelatedDifference(t *testing.T) {
+	app := newFakeMaintainerr()
+	url := app.serve(t)
+	newMaintainerrRun(t, jellyfinSpec(url)).reconcile(t)
+
+	spec := observeSpec(jellyfinSpec(url))
+	spec.Jobs.Rules = "0 1 * * *"
+	spec.RuleGroups[0].Sections[0].Rules[0].FirstValue = "Jellyfin.nope"
+	run := newMaintainerrRun(t, spec)
+	run.reconcile(t)
+	synced := run.condition(t, "Synced")
+	assert.Equal(t, engine.ReasonSyncFailed, synced.Reason, synced.Message)
+	assert.Contains(t, synced.Message, `no Jellyfin property "nope"`)
+}
+
 // Maintainerr strips settings keys it does not know without an error, so a spec
 // field the builder never maps is silently inert.
 func TestMaintainerrJobsFieldsAllReachThePayload(t *testing.T) {
