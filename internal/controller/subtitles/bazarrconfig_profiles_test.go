@@ -64,6 +64,26 @@ func TestBazarrKeepsProfilesItDoesNotDeclare(t *testing.T) {
 	assert.Equal(t, []string{"1"}, managed[profilesKind])
 }
 
+func TestBazarrKeepsWhatADeclaredProfileLeavesOut(t *testing.T) {
+	stored := storedProfile(1, "old name")
+	stored["cutoff"] = float64(1)
+	stored["mustContain"] = []any{"WEB"}
+	stored["originalFormat"] = float64(1)
+	app := &fakeBazarr{profiles: []map[string]any{stored}}
+
+	runBazarr(t, profilesConfig(app.serve(t), 1), bazarrSecrets())
+
+	raw, ok := app.formValue(profilesField)
+	require.True(t, ok, "the renamed profile was not saved")
+	var sent []map[string]any
+	require.NoError(t, json.Unmarshal([]byte(raw), &sent))
+	require.Len(t, sent, 1)
+	assert.Equal(t, "declared", sent[0]["name"])
+	assert.Equal(t, float64(1), sent[0]["cutoff"])
+	assert.Equal(t, []any{"WEB"}, sent[0]["mustContain"])
+	assert.Equal(t, float64(1), sent[0]["originalFormat"])
+}
+
 func TestBazarrPrunesOnlyProfilesItCreated(t *testing.T) {
 	app := &fakeBazarr{profiles: []map[string]any{
 		storedProfile(1, "declared"), storedProfile(2, "old"), storedProfile(3, "hand-made"),
