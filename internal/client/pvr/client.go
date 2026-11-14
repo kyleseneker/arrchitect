@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"maps"
 	"net/http"
@@ -170,7 +171,10 @@ func (o Options) schema(ctx context.Context, client *engine.HTTPClient, apiVersi
 	return FetchSchema(ctx, client, apiVersion, kind)
 }
 
-// Resources builds the resources map from the options.
+// Resources builds the resources map from the options. A kind that can't be
+// built, such as one naming a tag that doesn't exist, is left out of the map,
+// so it is neither written nor pruned, and reported in the error; the other
+// kinds are still built.
 func Resources(ctx context.Context, client *engine.HTTPClient, apiVersion string, opts Options) (map[string][]map[string]any, error) {
 	var tagIDs engine.NamedIDs
 	if hasTagLabels(opts) {
@@ -217,13 +221,15 @@ func Resources(ctx context.Context, client *engine.HTTPClient, apiVersion string
 	}
 
 	resources := make(map[string][]map[string]any)
+	var problems []string
 	for _, b := range builders {
 		if b.count == 0 {
 			continue
 		}
 		items, err := b.build()
 		if err != nil {
-			return nil, err
+			problems = append(problems, err.Error())
+			continue
 		}
 		resources[b.name] = items
 	}
@@ -234,6 +240,9 @@ func Resources(ctx context.Context, client *engine.HTTPClient, apiVersion string
 		metrics.ManagedResources.WithLabelValues(app, resourceType).Set(float64(len(items)))
 	}
 
+	if len(problems) > 0 {
+		return resources, errors.New(strings.Join(problems, "; "))
+	}
 	return resources, nil
 }
 
@@ -819,8 +828,7 @@ func Reconcile(ctx context.Context, client *engine.HTTPClient, apiVersion string
 	base.DelayProfiles = nil
 	resources, err := Resources(ctx, client, apiVersion, base)
 	if err != nil {
-		result.Errors = append(result.Errors, fmt.Sprintf("building resources: %v", err))
-		return result, nil
+		result.Errors = append(result.Errors, err.Error())
 	}
 	mergeResult(&result, engine.ReconcileApp(ctx, client, def, sections, resources, policy, result.Managed))
 	result.Errors = append(result.Errors, fieldProblems...)
