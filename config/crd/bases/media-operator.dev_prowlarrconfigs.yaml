@@ -237,9 +237,9 @@ spec:
                         Defaults to "<implementation>Settings" if not set.
                       type: string
                     enable:
-                      default: true
-                      description: enable controls whether this download client is
-                        active.
+                      description: |-
+                        enable controls whether this download client is active. A new download
+                        client is enabled unless this is false.
                       type: boolean
                     fields:
                       description: fields defines the download client's configuration
@@ -322,8 +322,9 @@ spec:
                         for the implementation.
                       type: string
                     enable:
-                      default: true
-                      description: enable controls whether this indexer is active.
+                      description: |-
+                        enable controls whether this indexer is active. A new indexer is enabled
+                        unless this is false.
                       type: boolean
                     fields:
                       description: fields defines configuration fields for the indexer.

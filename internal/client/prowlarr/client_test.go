@@ -104,6 +104,19 @@ func TestBuildProwlarrApplicationPayload(t *testing.T) {
 	assert.Equal(t, []any{1, 2}, tags, "labels must be resolved to the IDs Prowlarr assigned")
 }
 
+func TestBuildProwlarrApplicationPayloadLeavesOutWhatTheResourceLeavesOut(t *testing.T) {
+	p := BuildProwlarrApplicationPayload(indexersv1alpha1.ProwlarrApplication{
+		Name: "Sonarr", Implementation: "Sonarr", ConfigContract: "SonarrSettings", BaseUrl: "http://sonarr:8989",
+	}, "key", nil)
+
+	assert.NotContains(t, p, "syncLevel")
+	assert.NotContains(t, p, "tags")
+	assert.Equal(t, []map[string]any{
+		{"name": "baseUrl", "value": "http://sonarr:8989"},
+		{"name": "apiKey", "value": "key"},
+	}, p["fields"], "the Prowlarr URL and sync categories stay as Prowlarr has them")
+}
+
 func TestBuildProwlarrIndexerPayload(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -111,16 +124,14 @@ func TestBuildProwlarrIndexerPayload(t *testing.T) {
 		check func(t *testing.T, p map[string]any)
 	}{
 		{
-			name: "defaults",
+			name: "leaves out what the resource leaves out",
 			idx: indexersv1alpha1.ProwlarrIndexer{
 				Name: "NZBgeek", Implementation: "Newznab", ConfigContract: "NewznabSettings",
 			},
 			check: func(t *testing.T, p map[string]any) {
-				assert.Equal(t, true, p["enable"])
-				_, hasAppProfile := p["appProfileId"]
-				assert.False(t, hasAppProfile)
-				_, hasPriority := p["priority"]
-				assert.False(t, hasPriority)
+				for _, key := range []string{"enable", "appProfileId", "priority", "fields", "tags"} {
+					assert.NotContains(t, p, key)
+				}
 			},
 		},
 		{
@@ -199,15 +210,15 @@ func TestBuildProwlarrDownloadClientPayload(t *testing.T) {
 		check func(t *testing.T, p map[string]any)
 	}{
 		{
-			name: "defaults",
+			name: "leaves out what the resource leaves out",
 			dc: indexersv1alpha1.ProwlarrDownloadClient{
 				Name: "qBit", Protocol: "torrent", Implementation: "QBittorrent",
 			},
 			check: func(t *testing.T, p map[string]any) {
-				assert.Equal(t, true, p["enable"])
 				assert.Equal(t, "QBittorrentSettings", p["configContract"])
-				_, hasPriority := p["priority"]
-				assert.False(t, hasPriority)
+				for _, key := range []string{"enable", "priority", "fields", "categories", "tags"} {
+					assert.NotContains(t, p, key)
+				}
 			},
 		},
 		{
@@ -258,13 +269,23 @@ func TestIntSliceToInterface(t *testing.T) {
 	}
 }
 
-func TestResolveTagsMapsLabelsToIDs(t *testing.T) {
-	ids := map[string]int{"flaresolverr": 7, "public": 9}
-	got := resolveTags([]string{"flaresolverr", "public"}, ids)
-	assert.Equal(t, []any{7, 9}, got)
+func TestSetTagsMapsLabelsToIDs(t *testing.T) {
+	payload := map[string]any{}
+	setTags(payload, []string{"flaresolverr", "public"}, map[string]int{"flaresolverr": 7, "public": 9})
+	assert.Equal(t, []any{7, 9}, payload["tags"])
 }
 
-func TestResolveTagsDropsUnknownLabels(t *testing.T) {
-	got := resolveTags([]string{"never-declared"}, map[string]int{"other": 1})
-	assert.Empty(t, got, "an unknown label must not be sent as a string; Prowlarr expects integer tag IDs")
+func TestSetTagsDropsUnknownLabels(t *testing.T) {
+	payload := map[string]any{}
+	setTags(payload, []string{"never-declared"}, map[string]int{"other": 1})
+	assert.Equal(t, []any{}, payload["tags"], "an unknown label must not be sent as a string; Prowlarr expects integer tag IDs")
+}
+
+func TestSetTagsLeavesUndeclaredTagsAlone(t *testing.T) {
+	payload := map[string]any{}
+	setTags(payload, nil, map[string]int{"other": 1})
+	assert.NotContains(t, payload, "tags")
+
+	setTags(payload, []string{}, nil)
+	assert.Equal(t, []any{}, payload["tags"], "an empty list clears the tags")
 }

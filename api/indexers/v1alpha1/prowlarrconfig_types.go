@@ -140,9 +140,9 @@ type ProwlarrIndexer struct {
 	// +required
 	ConfigContract string `json:"configContract"`
 
-	// enable controls whether this indexer is active.
+	// enable controls whether this indexer is active. A new indexer is enabled
+	// unless this is false.
 	// +optional
-	// +kubebuilder:default=true
 	Enable *bool `json:"enable,omitempty"`
 
 	// appProfileId is the application profile ID for this indexer.
@@ -217,9 +217,9 @@ type ProwlarrDownloadClient struct {
 	// +required
 	Name string `json:"name"`
 
-	// enable controls whether this download client is active.
+	// enable controls whether this download client is active. A new download
+	// client is enabled unless this is false.
 	// +optional
-	// +kubebuilder:default=true
 	Enable *bool `json:"enable,omitempty"`
 
 	// protocol is the download protocol.
