@@ -286,12 +286,24 @@ func findJellyfinLibrary(ctx context.Context, jf *jellyfinclient.Client, name st
 	if err != nil {
 		return nil, fmt.Errorf("listing libraries: %w", err)
 	}
+	return singleLibrary(libraries, "Name", name)
+}
+
+// singleLibrary returns the library whose field holds name, or nil when none
+// does. Libraries are kept as declared, folders included, so two with one name
+// is an error rather than a guess that could empty the wrong one.
+func singleLibrary(libraries []map[string]any, field, name string) (map[string]any, error) {
+	var found map[string]any
 	for _, l := range libraries {
-		if l["Name"] == name {
-			return l, nil
+		if l[field] != name {
+			continue
 		}
+		if found != nil {
+			return nil, fmt.Errorf("more than one library is named %q", name)
+		}
+		found = l
 	}
-	return nil, nil
+	return found, nil
 }
 
 // jellyfinLibraryOptions renders the declared library options under
@@ -388,21 +400,22 @@ func observeJellyfinConfig(ctx context.Context, jf *jellyfinclient.Client, spec 
 	}
 	for _, library := range spec.Libraries {
 		var current map[string]any
-		for _, existing := range libraries {
-			if existing["Name"] == library.Name {
-				// Compared as decoded JSON, the form the desired side takes.
-				raw, err := json.Marshal(map[string]any{
-					"CollectionType": jellyfinCollectionType(existing),
-					"Locations":      slices.Sorted(slices.Values(jellyfinLocations(existing))),
-					"LibraryOptions": existing["LibraryOptions"],
-				})
-				if err == nil {
-					err = json.Unmarshal(raw, &current)
-				}
-				if err != nil {
-					return err
-				}
-				break
+		existing, err := singleLibrary(libraries, "Name", library.Name)
+		if err != nil {
+			return err
+		}
+		if existing != nil {
+			// Compared as decoded JSON, the form the desired side takes.
+			raw, err := json.Marshal(map[string]any{
+				"CollectionType": jellyfinCollectionType(existing),
+				"Locations":      slices.Sorted(slices.Values(jellyfinLocations(existing))),
+				"LibraryOptions": existing["LibraryOptions"],
+			})
+			if err == nil {
+				err = json.Unmarshal(raw, &current)
+			}
+			if err != nil {
+				return err
 			}
 		}
 		desired := map[string]any{

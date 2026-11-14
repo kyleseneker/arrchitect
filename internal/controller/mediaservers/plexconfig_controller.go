@@ -98,19 +98,15 @@ func reconcilePlexLibraries(
 	}
 	var syncErrors []string
 	for _, lib := range libraries {
-		var current map[string]any
-		for _, e := range existing {
-			if e["title"] == lib.Name {
-				current = e
-			}
-		}
-		var err error
-		if current == nil {
+		current, err := singleLibrary(existing, "title", lib.Name)
+		switch {
+		case err != nil:
+		case current == nil:
 			agent, scanner, lang := plexLibraryDefaults(lib)
 			err = w.Apply("libraries", lib.Name, func() error {
 				return pc.CreateLibrary(ctx, lib.Name, lib.Type, agent, scanner, lang, lib.Paths)
 			})
-		} else {
+		default:
 			err = updatePlexLibrary(ctx, pc, w, lib, current)
 		}
 		if err != nil {

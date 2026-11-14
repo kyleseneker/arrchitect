@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -352,6 +353,26 @@ func TestAutobrrFeedLinksItsIndexerByID(t *testing.T) {
 	assert.Equal(t, "TORZNAB", body["type"])
 	assert.Equal(t, float64(defaultFeedTimeout), body["timeout"])
 	assert.NotContains(t, body, "indexer")
+}
+
+func TestAutobrrRefusesAnIndexerNameTwoIndexersShare(t *testing.T) {
+	app := &fakeAutobrr{existing: map[string][]map[string]any{
+		"indexer": {
+			{"id": float64(5), "name": "Generic", "implementation": "torznab"},
+			{"id": float64(6), "name": "Generic", "implementation": "torznab"},
+		},
+	}}
+	cfg := autobrrConfig(app.serve(t))
+	cfg.Spec.Feeds = []automationv1alpha1.AutobrrFeed{{Name: "Generic", Type: "Torznab", URL: "http://feed", IndexerRef: "Generic"}}
+
+	c := runAutobrr(t, cfg, true)
+
+	assert.Nil(t, app.posted("/api/feeds"), "a feed was linked to one of two indexers")
+	var got automationv1alpha1.AutobrrConfig
+	require.NoError(t, c.Get(context.Background(), types.NamespacedName{Name: "autobrr", Namespace: "media"}, &got))
+	synced := meta.FindStatusCondition(got.Status.Conditions, "Synced")
+	require.NotNil(t, synced)
+	assert.Contains(t, synced.Message, `reference "Generic" is ambiguous (2 matches)`)
 }
 
 func TestAutobrrFilterSendsTagsAsTextAndIndexersByID(t *testing.T) {

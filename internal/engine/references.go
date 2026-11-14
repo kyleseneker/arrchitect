@@ -19,6 +19,12 @@ func FetchNamedIDs(ctx context.Context, client *HTTPClient, path, field string) 
 	if err != nil {
 		return nil, fmt.Errorf("reading references from %s: %w", path, err)
 	}
+	return NamedIDsOf(items, field), nil
+}
+
+// NamedIDsOf indexes each item's ID by the given name field. An ID that isn't
+// a positive whole number is recorded as 0.
+func NamedIDsOf(items []map[string]any, field string) NamedIDs {
 	ids := NamedIDs{}
 	for _, item := range items {
 		name, _ := item[field].(string)
@@ -28,22 +34,35 @@ func FetchNamedIDs(ctx context.Context, client *HTTPClient, path, field string) 
 		}
 		ids[name] = append(ids[name], int(id))
 	}
-	return ids, nil
+	return ids
+}
+
+// Find returns the ID of the single item with the given name; found is false
+// when none has it. More than one is an error, so a reference never picks one
+// of several items silently.
+func (ids NamedIDs) Find(name string) (id int, found bool, err error) {
+	switch values := ids[name]; len(values) {
+	case 0:
+		return 0, false, nil
+	case 1:
+		return values[0], true, nil
+	default:
+		return 0, true, fmt.Errorf("reference %q is ambiguous (%d matches)", name, len(values))
+	}
 }
 
 // Resolve returns the ID of the single resource with the given name.
 func (ids NamedIDs) Resolve(name string) (int, error) {
-	values := ids[name]
-	if len(values) == 0 {
+	id, found, err := ids.Find(name)
+	switch {
+	case err != nil:
+		return 0, err
+	case !found:
 		return 0, fmt.Errorf("reference %q does not exist", name)
-	}
-	if len(values) != 1 {
-		return 0, fmt.Errorf("reference %q is ambiguous (%d matches)", name, len(values))
-	}
-	if values[0] <= 0 {
+	case id <= 0:
 		return 0, fmt.Errorf("reference %q has an invalid ID", name)
 	}
-	return values[0], nil
+	return id, nil
 }
 
 // ResolveTags resolves tag labels to IDs. Without labels, the legacy numeric

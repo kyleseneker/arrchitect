@@ -258,6 +258,20 @@ func TestReconcileRefusesToChangeALibrarysType(t *testing.T) {
 	assert.False(t, app.saw("DELETE", "/Library/VirtualFolders/Paths"))
 }
 
+func TestReconcileRefusesALibraryNameTwoLibrariesShare(t *testing.T) {
+	app := &fakeJellyfin{setupComplete: true, existingLibs: []map[string]any{
+		{"Name": "Movies", "CollectionType": "movies", "Locations": []string{"/media/movies"}},
+		{"Name": "Movies", "CollectionType": "movies", "Locations": []string{"/media/other"}},
+	}}
+	url := app.serve(t)
+
+	c := runJellyfin(t, adminSecret(), jellyfinConfig(url,
+		mediaserversv1alpha1.JellyfinLibrary{Name: "Movies", CollectionType: "movies", Paths: []string{"/media/movies"}}))
+
+	assert.NotEqual(t, conditionTrue, jellyfinSynced(t, c))
+	assert.False(t, app.saw("DELETE", "/Library/VirtualFolders/Paths"), "removing a folder from one of two libraries is a guess")
+}
+
 func TestReconcileMissingSecretDoesNotContactApp(t *testing.T) {
 	app := &fakeJellyfin{setupComplete: true}
 	url := app.serve(t)

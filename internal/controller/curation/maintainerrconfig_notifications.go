@@ -8,6 +8,7 @@ import (
 
 	curationv1alpha1 "github.com/kyleseneker/media-operator/api/curation/v1alpha1"
 	maintainerrclient "github.com/kyleseneker/media-operator/internal/client/maintainerr"
+	"github.com/kyleseneker/media-operator/internal/engine"
 	"github.com/kyleseneker/media-operator/internal/reconciler"
 )
 
@@ -18,7 +19,7 @@ const defaultAboutScale = 3
 
 // notifications saves each declared notification and returns every
 // notification Maintainerr has by name, for the rule groups that name them.
-func (s *maintainerrSync) notifications(ctx context.Context, declared []curationv1alpha1.MaintainerrNotification) (map[string]int, []string) {
+func (s *maintainerrSync) notifications(ctx context.Context, declared []curationv1alpha1.MaintainerrNotification) (engine.NamedIDs, []string) {
 	stored, err := s.mc.ListNotifications(ctx)
 	if err != nil {
 		return nil, []string{fmt.Sprintf("notifications: listing: %v", err)}
@@ -34,14 +35,7 @@ func (s *maintainerrSync) notifications(ctx context.Context, declared []curation
 			return nil, append(errs, fmt.Sprintf("notifications: listing: %v", err))
 		}
 	}
-	ids := make(map[string]int, len(stored))
-	for _, n := range stored {
-		name, _ := n["name"].(string)
-		if id, ok := n["id"].(float64); ok && name != "" {
-			ids[name] = int(id)
-		}
-	}
-	return ids, errs
+	return engine.NamedIDsOf(stored, "name"), errs
 }
 
 func (s *maintainerrSync) notification(ctx context.Context, n *curationv1alpha1.MaintainerrNotification, stored []map[string]any) error {
@@ -125,12 +119,12 @@ func notificationBody(n *curationv1alpha1.MaintainerrNotification, secrets map[s
 }
 
 // notificationIDs resolves the notifications a rule group names.
-func notificationIDs(names []string, ids map[string]int) ([]any, error) {
+func notificationIDs(names []string, ids engine.NamedIDs) ([]any, error) {
 	resolved := make([]int, 0, len(names))
 	for _, name := range names {
-		id, ok := ids[name]
-		if !ok {
-			return nil, fmt.Errorf("maintainerr has no notification named %q", name)
+		id, err := oneNamed(ids, "notification", name)
+		if err != nil {
+			return nil, err
 		}
 		resolved = append(resolved, id)
 	}
