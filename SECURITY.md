@@ -33,5 +33,7 @@ Worth understanding before you deploy it:
   Resource names appear in `media_operator_config_synced` labels; no credentials
   do.
 
-Credentials are never written to CR specs or status. If you find one leaking into
-a log line or a status message, that's a bug worth reporting privately.
+Credentials are never written to CR specs or status. A status message carries
+the reason an app gives for refusing a change, with every Secret value the
+operator has read removed from it. If you find a credential leaking into a log
+line or a status message, that's a bug worth reporting privately.

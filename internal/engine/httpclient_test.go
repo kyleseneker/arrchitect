@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"strings"
 	"testing"
 
 	"github.com/prometheus/client_golang/prometheus/testutil"
@@ -15,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kyleseneker/media-operator/internal/metrics"
+	"github.com/kyleseneker/media-operator/internal/reconciler"
 )
 
 func TestValidateBaseURL(t *testing.T) {
@@ -109,6 +111,40 @@ func TestAPIError_Error(t *testing.T) {
 	err := &APIError{StatusCode: 500, Body: []byte(`{"error":"secret details"}`)}
 	assert.Contains(t, err.Error(), "500")
 	assert.NotContains(t, err.Error(), "secret")
+}
+
+func TestAPIErrorCarriesTheAppsReason(t *testing.T) {
+	reconciler.RememberSecret("s3cret-api-error-test")
+	tests := []struct {
+		name string
+		body string
+		want string
+	}{
+		{
+			name: "validation failures, without the rejected values",
+			body: `[{"propertyName":"Host","errorMessage":"Unable to connect","attemptedValue":"s3cret-api-error-test"},` +
+				`{"propertyName":"Host","errorMessage":"Unable to connect"},{"propertyName":"","errorMessage":"Check the log"}]`,
+			want: "API request failed with status 400: Host: Unable to connect; Check the log",
+		},
+		{name: "a message", body: `{"message":"Indexer is in use"}`, want: "API request failed with status 400: Indexer is in use"},
+		{name: "problem details", body: `{"title":"Bad Request","detail":"Path is not valid"}`, want: "API request failed with status 400: Path is not valid"},
+		{name: "plain text", body: "Fails.", want: "API request failed with status 400: Fails."},
+		{name: "a web page", body: "<html><body>Sign in</body></html>", want: "API request failed with status 400"},
+		{name: "an unknown shape", body: `{"error":"x"}`, want: "API request failed with status 400"},
+		{
+			name: "a secret the app echoes",
+			body: `{"message":"Unable to connect to http://indexer/api?apikey=s3cret-api-error-test"}`,
+			want: "API request failed with status 400: Unable to connect to http://indexer/api?apikey=<redacted>",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, (&APIError{StatusCode: 400, Body: []byte(tt.body)}).Error())
+		})
+	}
+
+	long := (&APIError{StatusCode: 500, Body: []byte(`{"message":"` + strings.Repeat("é", 400) + `"}`)}).Error()
+	assert.Equal(t, "API request failed with status 500: "+strings.Repeat("é", maxErrorDetail)+"...", long)
 }
 
 func TestAPIError_DetailedMessage(t *testing.T) {

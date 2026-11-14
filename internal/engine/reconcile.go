@@ -478,7 +478,7 @@ func Refusal(err error) (string, bool) {
 		Message string `json:"message"`
 	}
 	if json.Unmarshal(apiErr.Body, &body) == nil && body.Message != "" {
-		return body.Message, true
+		return reconciler.Redact(body.Message), true
 	}
 	return fmt.Sprintf("status %d", apiErr.StatusCode), true
 }

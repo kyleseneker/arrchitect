@@ -44,5 +44,6 @@ func ResolveSecretKeyRef(ctx context.Context, c client.Reader, namespace string,
 		return "", &SecretError{msg: fmt.Sprintf("key %q not found in secret %q", ref.Key, ref.Name)}
 	}
 
+	RememberSecret(string(val))
 	return string(val), nil
 }

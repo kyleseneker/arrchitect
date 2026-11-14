@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/kyleseneker/media-operator/internal/engine"
+	"github.com/kyleseneker/media-operator/internal/reconciler"
 )
 
 // Client is an HTTP client for the FlareSolverr API v1.
@@ -40,7 +41,7 @@ func (c *Client) do(ctx context.Context, body any) (*response, error) {
 	}
 
 	if result.Status != "ok" {
-		return nil, fmt.Errorf("FlareSolverr error: %s", result.Message)
+		return nil, fmt.Errorf("FlareSolverr error: %s", reconciler.Redact(result.Message))
 	}
 
 	return &result, nil

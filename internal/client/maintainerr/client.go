@@ -8,6 +8,7 @@ import (
 	"net/http"
 
 	"github.com/kyleseneker/media-operator/internal/engine"
+	"github.com/kyleseneker/media-operator/internal/reconciler"
 )
 
 // Client wraps engine.HTTPClient with the Maintainerr 3 API.
@@ -186,7 +187,7 @@ func ruleGroupRejection(data []byte, err error) ([]byte, error) {
 	if json.Unmarshal(apiErr.Body, &body) != nil || body.Message == nil {
 		return data, err
 	}
-	return data, fmt.Errorf("maintainerr rejected the rule group (%d): %v", apiErr.StatusCode, body.Message)
+	return data, fmt.Errorf("maintainerr rejected the rule group (%d): %s", apiErr.StatusCode, reconciler.Redact(fmt.Sprint(body.Message)))
 }
 
 // ListNotifications returns the notification configurations.
@@ -225,5 +226,5 @@ func (c *Client) checked(data []byte, err error) error {
 	if result.Message == "" {
 		result.Message = "no reason given"
 	}
-	return fmt.Errorf("maintainerr refused the change: %s", result.Message)
+	return fmt.Errorf("maintainerr refused the change: %s", reconciler.Redact(result.Message))
 }

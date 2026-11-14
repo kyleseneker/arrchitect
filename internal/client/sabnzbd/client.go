@@ -7,6 +7,7 @@ import (
 	"net/url"
 
 	"github.com/kyleseneker/media-operator/internal/engine"
+	"github.com/kyleseneker/media-operator/internal/reconciler"
 )
 
 // Folders maps SabnzbdFolders fields, and the deprecated general.scriptDir, to
@@ -176,7 +177,7 @@ func refusal(data []byte, what string) error {
 		Error  string `json:"error"`
 	}
 	if json.Unmarshal(data, &reply) == nil && reply.Status != nil && !*reply.Status {
-		return fmt.Errorf("%s: %s", what, reply.Error)
+		return fmt.Errorf("%s: %s", what, reconciler.Redact(reply.Error))
 	}
 	return nil
 }
