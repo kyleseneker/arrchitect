@@ -41,7 +41,7 @@ func (r *PlexConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 
 	var config mediaserversv1alpha1.PlexConfig
 	if err := r.Get(ctx, req.NamespacedName, &config); err != nil {
-		return ctrl.Result{}, client.IgnoreNotFound(err)
+		return ctrl.Result{}, ctrlcommon.IgnoreDeleted(&config, req.NamespacedName, err)
 	}
 
 	if done, after := ctrlcommon.HandleLifecycle(ctx, r.Client, r.Recorder, &config, ctrlcommon.Lifecycle{}); done {

@@ -13,6 +13,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/events"
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -153,6 +154,16 @@ func UpdateStatus(ctx context.Context, c client.Client, obj ConfigResource, sync
 	*obj.GetObservedGeneration() = generation
 	recordSynced(obj, synced)
 	writeStatus(ctx, c, obj)
+}
+
+// IgnoreDeleted is client.IgnoreNotFound for a reconcile's first read. A
+// resource that is gone also loses its config_synced series, so an alert on a
+// deleted resource clears.
+func IgnoreDeleted(obj ConfigResource, key types.NamespacedName, err error) error {
+	if apierrors.IsNotFound(err) {
+		metrics.ConfigSynced.DeleteLabelValues(reflect.TypeOf(obj).Elem().Name(), key.Namespace, key.Name)
+	}
+	return client.IgnoreNotFound(err)
 }
 
 func recordSynced(obj ConfigResource, synced bool) {
