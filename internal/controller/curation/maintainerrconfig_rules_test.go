@@ -207,6 +207,35 @@ func TestStoredRuleGroupCoversWhatWasSaved(t *testing.T) {
 		"a value added to a rule in Maintainerr's UI must count as a difference")
 }
 
+func TestRuleGroupUpdateKeepsWhatTheResourceLeavesOut(t *testing.T) {
+	g := &curationv1alpha1.MaintainerrRuleGroup{
+		Name: "g", Library: "Movies", ArrAction: "delete", RadarrServer: "Radarr", ActionAfterDays: new(int32(30)),
+		Sections: []curationv1alpha1.MaintainerrRuleSection{{Rules: []curationv1alpha1.MaintainerrRule{
+			rule("", "Plex.addDate", "BEFORE"),
+		}}},
+	}
+	send, _, err := buildRuleGroup(g, testRuleEnv("plex"), nil)
+	require.NoError(t, err)
+	current := map[string]any{
+		"id": 4.0, "name": "g", "description": "made in the UI", "isActive": false, "ruleHandlerCronSchedule": "0 3 * * *",
+		"listExclusions": true, "tagInArr": true,
+		"collection": map[string]any{"visibleOnHome": true, "deleteAfterDays": 10.0},
+	}
+
+	body := overlayRuleGroup(current, send)
+
+	assert.Equal(t, "made in the UI", body["description"])
+	assert.Equal(t, false, body["isActive"])
+	assert.Equal(t, "0 3 * * *", body["ruleHandlerCronSchedule"])
+	assert.Equal(t, true, body["listExclusions"])
+	assert.Equal(t, true, body["tagInArr"])
+	assert.Equal(t, map[string]any{"visibleOnHome": true, "deleteAfterDays": int32(30)}, body["collection"])
+
+	created := newRuleGroupBody(send)
+	assert.Equal(t, true, created["isActive"], "a new group is active")
+	assert.Equal(t, false, created["listExclusions"])
+}
+
 func TestMaskPlexTokenMatchesMaintainerr(t *testing.T) {
 	assert.Equal(t, "", maskPlexToken(""))
 	assert.Equal(t, "****", maskPlexToken("abcdef"))
