@@ -1025,6 +1025,25 @@ func TestMissingQualityReferencesBlockWrites(t *testing.T) {
 	}
 }
 
+func TestABadReferenceBlocksOnlyItsKind(t *testing.T) {
+	app := &rebuildAPI{items: map[string][]map[string]any{
+		"downloadclient": {{"id": float64(1), "name": "Old", "implementation": "QBittorrent"}},
+	}}
+	hc := app.client(t)
+	opts := Options{
+		DownloadClients: []commonv1alpha1.DownloadClient{{Name: "qBit", Protocol: "torrent", Implementation: "QBittorrent", Host: "qbit", Port: 8080, TagLabels: []string{"missing"}}},
+		Indexers:        []commonv1alpha1.Indexer{{Name: "Geek", Protocol: "usenet", Implementation: "Newznab"}},
+	}
+
+	result, err := Reconcile(context.Background(), hc, "v3", struct{}{}, opts, engine.SyncPolicy{Prune: true},
+		map[string][]string{"downloadClients": {"Old"}})
+	require.NoError(t, err)
+
+	assert.Equal(t, []string{`downloadClients(qBit): tag: reference "missing" does not exist`}, result.Errors)
+	assert.Equal(t, []string{"POST indexer"}, app.writes, "the indexer is still written, and nothing touches download clients")
+	assert.Equal(t, []string{"Old"}, result.Managed["downloadClients"], "a kind that failed isn't pruned")
+}
+
 func TestRemotePathMappingLifecycle(t *testing.T) {
 	app := &rebuildAPI{}
 	hc := app.client(t)
