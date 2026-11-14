@@ -19,6 +19,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -131,6 +133,8 @@ type fakeSeerr struct {
 	// notifications holds each agent's settings. Like Seerr, a POST replaces
 	// the agent whole.
 	notifications map[string]map[string]any
+	// refuseKey answers every request but the public settings with 401.
+	refuseKey bool
 }
 
 func (f *fakeSeerr) jellyfinServer() map[string]any {
@@ -253,10 +257,7 @@ func (f *fakeSeerr) serve(t *testing.T) string {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		if r.URL.RawQuery != "" {
-			f.rejected = append(f.rejected, r.Method+" "+r.URL.RequestURI())
-			w.WriteHeader(http.StatusBadRequest)
-			_ = json.NewEncoder(w).Encode(map[string]any{"message": "Unknown query parameter"})
+		if f.reject(w, r) {
 			return
 		}
 		libraryPrefix := mediaServerLibraries(r.URL.Path)
@@ -316,6 +317,22 @@ func (f *fakeSeerr) serve(t *testing.T) string {
 	return srv.URL
 }
 
+// reject answers what Seerr refuses: a query parameter it doesn't know, and,
+// with refuseKey set, the API key.
+func (f *fakeSeerr) reject(w http.ResponseWriter, r *http.Request) bool {
+	switch {
+	case f.refuseKey && r.URL.Path != "/api/v1/settings/public":
+		w.WriteHeader(http.StatusUnauthorized)
+	case r.URL.RawQuery != "":
+		f.rejected = append(f.rejected, r.Method+" "+r.URL.RequestURI())
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]any{"message": "Unknown query parameter"})
+	default:
+		return false
+	}
+	return true
+}
+
 // replaceWhole serves the settings Seerr replaces with the body it receives: a
 // Sonarr or Radarr server's update, and a notification agent.
 func (f *fakeSeerr) replaceWhole(w http.ResponseWriter, r *http.Request, body map[string]any) bool {
@@ -367,7 +384,7 @@ func seerrConfig(addr string) *requestsv1alpha1.SeerrConfig {
 	}
 }
 
-func runSeerr(t *testing.T, cfg *requestsv1alpha1.SeerrConfig) {
+func runSeerr(t *testing.T, cfg *requestsv1alpha1.SeerrConfig) *requestsv1alpha1.SeerrConfig {
 	t.Helper()
 	scheme := runtime.NewScheme()
 	require.NoError(t, clientgoscheme.AddToScheme(scheme), "adding client-go scheme")
@@ -380,6 +397,12 @@ func runSeerr(t *testing.T, cfg *requestsv1alpha1.SeerrConfig) {
 		Name: "seerr", Namespace: "media",
 	})
 	require.NoError(t, err, "reconcile")
+	var got requestsv1alpha1.SeerrConfig
+	if err := c.Get(context.Background(), types.NamespacedName{Name: "seerr", Namespace: "media"}, &got); err != nil {
+		require.True(t, apierrors.IsNotFound(err), "re-reading the resource: %v", err)
+		return nil
+	}
+	return &got
 }
 
 // A supplied API key is used directly. Logging in anyway would be pointless and,
@@ -526,6 +549,17 @@ func TestSeerrFirstRunWaitsForJellyfinLibraries(t *testing.T) {
 
 	require.True(t, app.saw("POST", "/api/v1/settings/jellyfin/library/sync"), "never asked Seerr to sync the Jellyfin libraries")
 	assert.False(t, app.saw("POST", "/api/v1/settings/initialize"), "completed initialization with no libraries to enable")
+}
+
+func TestSeerrReportsARefusedAPIKeyAsUnreachable(t *testing.T) {
+	app := &fakeSeerr{initialized: true, refuseKey: true}
+
+	got := runSeerr(t, seerrWithAPIKey(app.serve(t)))
+
+	ready := meta.FindStatusCondition(got.Status.Conditions, "Ready")
+	require.NotNil(t, ready)
+	assert.Equal(t, metav1.ConditionFalse, ready.Status)
+	assert.Equal(t, "AppUnreachable", ready.Reason, "the Secret exists; Seerr refused the key in it")
 }
 
 func jellyfinServerConfig(addr string) *requestsv1alpha1.SeerrConfig {

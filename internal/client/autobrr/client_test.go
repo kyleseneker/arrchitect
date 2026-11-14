@@ -29,12 +29,21 @@ func newTestClient(t *testing.T, handler http.HandlerFunc) *Client {
 	return NewClient(hc)
 }
 
-func TestPing(t *testing.T) {
-	c := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/api/healthz/liveness", r.URL.Path)
-		w.WriteHeader(http.StatusOK)
-	})
-	assert.NoError(t, c.Ping(context.Background()))
+func TestPingNeedsTheAPIKey(t *testing.T) {
+	for _, refuse := range []bool{false, true} {
+		c := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+			assert.Equal(t, "/api/config", r.URL.Path, "the liveness endpoint answers without a key")
+			if refuse {
+				w.WriteHeader(http.StatusForbidden)
+			}
+		})
+		err := c.Ping(context.Background())
+		if refuse {
+			assert.Error(t, err)
+		} else {
+			assert.NoError(t, err)
+		}
+	}
 }
 
 func TestListDownloadClients(t *testing.T) {

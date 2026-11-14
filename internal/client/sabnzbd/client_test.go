@@ -25,15 +25,26 @@ func newTestClient(t *testing.T, handler http.HandlerFunc) *Client {
 	return NewClient(hc, "test-api-key")
 }
 
-func TestPing(t *testing.T) {
-	c := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/api", r.URL.Path)
-		body, _ := io.ReadAll(r.Body)
-		assert.Contains(t, string(body), "mode=version")
-		assert.Contains(t, string(body), "apikey=test-api-key")
-		_, _ = w.Write([]byte(`"4.0.0"`))
-	})
-	assert.NoError(t, c.Ping(context.Background()))
+func TestPingNeedsTheAPIKey(t *testing.T) {
+	for _, refuse := range []bool{false, true} {
+		c := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+			assert.Equal(t, "/api", r.URL.Path)
+			body, _ := io.ReadAll(r.Body)
+			assert.Contains(t, string(body), "mode=get_config", "version answers without a key")
+			assert.Contains(t, string(body), "apikey=test-api-key")
+			if refuse {
+				_, _ = w.Write([]byte(`{"status": false, "error": "API Key Incorrect"}`))
+				return
+			}
+			_, _ = w.Write([]byte(`{"config": {"misc": {"port": "8080"}}}`))
+		})
+		err := c.Ping(context.Background())
+		if refuse {
+			assert.ErrorContains(t, err, "API Key Incorrect")
+		} else {
+			assert.NoError(t, err)
+		}
+	}
 }
 
 func TestGetConfig(t *testing.T) {

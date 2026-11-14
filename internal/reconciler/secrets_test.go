@@ -2,6 +2,8 @@ package reconciler
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -42,6 +44,7 @@ func TestResolveSecretKeyRef_SecretNotFound(t *testing.T) {
 	})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "not found")
+	assert.True(t, IsSecretError(fmt.Errorf("wrapped: %w", err)))
 }
 
 func TestResolveSecretKeyRef_KeyNotFound(t *testing.T) {
@@ -57,4 +60,6 @@ func TestResolveSecretKeyRef_KeyNotFound(t *testing.T) {
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "key")
 	assert.Contains(t, err.Error(), "not found")
+	assert.True(t, IsSecretError(err))
+	assert.False(t, IsSecretError(errors.New("status 401")))
 }
