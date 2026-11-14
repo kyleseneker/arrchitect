@@ -43,7 +43,7 @@ get` shows both. The `Synced` reason is one of:
 | `Synced` | The app matches the resource. |
 | `SyncFailed` | Some settings could not be applied; the message says which. |
 | `AppUnreachable` | The app did not respond, or rejected the credentials. |
-| `SecretNotFound` | A referenced Secret or key does not exist. |
+| `SecretNotFound` | A Secret or key the connection needs does not exist. |
 | `InvalidConfig` | The resource asks for something the operator does not support. |
 | `Observed` | Observe mode found no differences. |
 | `DriftDetected` | Observe mode found differences. |
@@ -139,7 +139,11 @@ minutes, records a warning event and removes the finalizer.
 ## Credentials
 
 Credentials come from Secrets, referenced by name and key. Any kind of Secret
-works, including Sealed and External Secrets.
+works, including Sealed and External Secrets. When a Secret the connection
+needs is missing, `Ready` is `False` with reason `SecretNotFound` and nothing
+is synced. When one an item needs is missing, that kind of item is neither
+written nor pruned and is named in a `SyncFailed` message; the rest still
+syncs.
 
 The `fields` of Sonarr, Radarr, Lidarr and Readarr indexers, notifications and
 import lists, and of Prowlarr indexers, download clients and notifications, can
