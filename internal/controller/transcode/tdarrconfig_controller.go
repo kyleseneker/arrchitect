@@ -182,6 +182,10 @@ func (s *tdarrSync) settings(ctx context.Context, settings *transcodev1alpha1.Td
 func (s *tdarrSync) library(ctx context.Context, lib transcodev1alpha1.TdarrLibrary) error {
 	// A new library processes every hour; a schedule set in Tdarr afterwards is kept.
 	onCreate := map[string]any{"schedule": alwaysOnSchedule()}
+	// Tdarr's scanner splits foldersToIgnore, so a new library can't go without it.
+	if lib.FoldersToIgnore == "" {
+		onCreate["foldersToIgnore"] = ""
+	}
 	if err := s.upsertDoc(ctx, "LibrarySettingsJSONDB", lib.ID, buildTdarrLibraryDoc(lib), onCreate); err != nil {
 		return err
 	}
@@ -345,9 +349,11 @@ func tdarrPluginIDs(plugins []string) []any {
 // buildTdarrLibraryDoc renders the library document Tdarr stores.
 func buildTdarrLibraryDoc(lib transcodev1alpha1.TdarrLibrary) map[string]any {
 	obj := map[string]any{
-		"_id":             lib.ID,
-		"name":            lib.Name,
-		"foldersToIgnore": lib.FoldersToIgnore,
+		"_id":  lib.ID,
+		"name": lib.Name,
+	}
+	if lib.FoldersToIgnore != "" {
+		obj["foldersToIgnore"] = lib.FoldersToIgnore
 	}
 	if lib.Folder != "" {
 		obj["folder"] = lib.Folder
