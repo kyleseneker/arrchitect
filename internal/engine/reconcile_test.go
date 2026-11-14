@@ -434,6 +434,93 @@ func TestReconcileResource_UpdateExisting(t *testing.T) {
 	assert.True(t, putCalled)
 }
 
+func TestCreateDefaultsGoToNewItemsOnly(t *testing.T) {
+	existing := []map[string]any{}
+	var posted, put map[string]any
+	hc := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			_ = json.NewEncoder(w).Encode(existing)
+		case http.MethodPost:
+			require.NoError(t, json.NewDecoder(r.Body).Decode(&posted))
+			w.WriteHeader(http.StatusCreated)
+		case http.MethodPut:
+			require.NoError(t, json.NewDecoder(r.Body).Decode(&put))
+		}
+	})
+	endpoint := ResourceEndpoint{
+		Name: "downloadClients", Path: "/api/v3/downloadclient", MatchField: "name", Policy: CreateOrUpdate,
+		CreateDefaults: map[string]any{"enable": true, "priority": 1, "tags": []any{}},
+	}
+	desired := map[string]any{"name": "qBit", "priority": 5}
+
+	require.NoError(t, reconcileResource(context.Background(), hc, endpoint, desired, false))
+	assert.Equal(t, map[string]any{"name": "qBit", "enable": true, "priority": float64(5), "tags": []any{}}, posted)
+
+	existing = []map[string]any{{"id": 3, "name": "qBit", "enable": false, "priority": 2, "tags": []any{7}}}
+	require.NoError(t, reconcileResource(context.Background(), hc, endpoint, desired, false))
+	assert.Equal(t, map[string]any{"id": float64(3), "name": "qBit", "enable": false, "priority": float64(5), "tags": []any{float64(7)}}, put,
+		"an existing item keeps what the resource leaves out")
+	assert.Equal(t, map[string]any{"enable": true, "priority": 1, "tags": []any{}}, endpoint.CreateDefaults)
+}
+
+func TestExactListsRemoveEntriesTheResourceLeavesOut(t *testing.T) {
+	current := map[string]any{"id": float64(4), "name": "x265", "specifications": []any{
+		map[string]any{"name": "HEVC", "negate": false, "fields": []any{map[string]any{"name": "value", "value": "x265", "label": "Regex"}}},
+		map[string]any{"name": "Not Remux", "negate": true},
+	}}
+	var puts []map[string]any
+	hc := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			_ = json.NewEncoder(w).Encode([]map[string]any{current})
+		case http.MethodPut:
+			var body map[string]any
+			require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+			puts = append(puts, body)
+			current = body
+		}
+	})
+	endpoint := ResourceEndpoint{
+		Name: "customFormats", Path: "/api/v3/customformat", MatchField: "name", Policy: CreateOrUpdate,
+		ExactLists: []string{"specifications"},
+	}
+	desired := map[string]any{"name": "x265", "specifications": []map[string]any{
+		{"name": "HEVC", "fields": []map[string]any{{"name": "value", "value": "x265"}}},
+	}}
+
+	require.NoError(t, reconcileResource(context.Background(), hc, endpoint, desired, false))
+	require.Len(t, puts, 1)
+	assert.Equal(t, []any{map[string]any{
+		"name": "HEVC", "negate": false, "fields": []any{map[string]any{"name": "value", "value": "x265", "label": "Regex"}},
+	}}, puts[0]["specifications"])
+
+	require.NoError(t, reconcileResource(context.Background(), hc, endpoint, desired, false))
+	assert.Len(t, puts, 1, "a trimmed list settles")
+
+	delete(desired, "specifications")
+	current["specifications"] = append(current["specifications"].([]any), map[string]any{"name": "Made In UI"})
+	require.NoError(t, reconcileResource(context.Background(), hc, endpoint, desired, false))
+	assert.Len(t, puts, 1, "an undeclared list is left alone")
+}
+
+func TestObserveReportsAnEntryAnExactListWouldRemove(t *testing.T) {
+	hc := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, http.MethodGet, r.Method)
+		_ = json.NewEncoder(w).Encode([]map[string]any{{"id": 4, "name": "x265", "specifications": []any{
+			map[string]any{"name": "HEVC"}, map[string]any{"name": "Not Remux"},
+		}}})
+	})
+	endpoint := ResourceEndpoint{
+		Name: "customFormats", Path: "/api/v3/customformat", MatchField: "name", Policy: CreateOrUpdate,
+		ExactLists: []string{"specifications"},
+	}
+	_, drift, err := reconcileResourceTracked(context.Background(), hc, endpoint,
+		map[string]any{"name": "x265", "specifications": []map[string]any{{"name": "HEVC"}}}, true)
+	require.NoError(t, err)
+	assert.True(t, drift)
+}
+
 func TestReconcileResource_CreateOnly(t *testing.T) {
 	handler := func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {

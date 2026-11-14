@@ -96,12 +96,10 @@ type SonarrConfigSpec struct {
 type SonarrMediaManagement struct {
 	// copyUsingHardlinks uses hardlinks instead of copies when importing.
 	// +optional
-	// +kubebuilder:default=true
 	CopyUsingHardlinks *bool `json:"copyUsingHardlinks,omitempty"`
 
 	// deleteEmptyFolders removes empty series folders after cleanup.
 	// +optional
-	// +kubebuilder:default=true
 	DeleteEmptyFolders *bool `json:"deleteEmptyFolders,omitempty"`
 
 	// importExtraFiles imports additional files (subtitles, etc.) alongside media.
@@ -222,12 +220,10 @@ type SonarrIndexerConfig struct {
 type SonarrDownloadClientConfig struct {
 	// enableCompletedDownloadHandling auto-imports completed downloads.
 	// +optional
-	// +kubebuilder:default=true
 	EnableCompletedDownloadHandling *bool `json:"enableCompletedDownloadHandling,omitempty"`
 
 	// autoRedownloadFailed automatically searches when a download fails.
 	// +optional
-	// +kubebuilder:default=true
 	AutoRedownloadFailed *bool `json:"autoRedownloadFailed,omitempty"`
 
 	// autoRedownloadFailedFromInteractiveSearch auto-searches failed interactive searches.

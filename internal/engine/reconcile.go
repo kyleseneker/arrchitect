@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"net/http"
 	"reflect"
 	"slices"
@@ -281,12 +282,16 @@ func reconcileResourceTracked(
 				if !ok {
 					return false, false, fmt.Errorf("resource %q has no id", desiredMatch)
 				}
-				out, err := reconciler.MergeDesired(e, desired)
+				current, trimmed, err := withoutUndeclared(e, desired, endpoint.ExactLists)
+				if err != nil {
+					return false, false, err
+				}
+				out, err := reconciler.MergeDesired(current, desired)
 				if err != nil {
 					return false, false, err
 				}
 				key := client.secretKey(endpoint.Name, desiredMatch)
-				if !out.Changed && !reconciler.SecretsDiffer(key, out.SecretDigest, observe) {
+				if !trimmed && !out.Changed && !reconciler.SecretsDiffer(key, out.SecretDigest, observe) {
 					return false, false, nil
 				}
 				if observe {
@@ -311,7 +316,13 @@ func reconcileResourceTracked(
 		metrics.DriftObservedTotal.WithLabelValues(client.AppLabel(), endpoint.Name, desiredMatch).Inc()
 		return false, true, nil
 	}
-	body, err := client.Do(ctx, http.MethodPost, endpoint.Path, desired)
+	create := desired
+	if len(endpoint.CreateDefaults) > 0 {
+		if create, _, err = reconciler.MergeDesiredOverCurrent(endpoint.CreateDefaults, desired); err != nil {
+			return false, false, err
+		}
+	}
+	body, err := client.Do(ctx, http.MethodPost, endpoint.Path, create)
 	if err != nil {
 		return false, false, err
 	}
@@ -324,6 +335,46 @@ func reconcileResourceTracked(
 		}
 	}
 	return true, false, nil
+}
+
+// withoutUndeclared drops the entries of each exact list in current whose name
+// desired doesn't declare, and reports whether it dropped any.
+func withoutUndeclared(current, desired map[string]any, lists []string) (map[string]any, bool, error) {
+	out, trimmed := current, false
+	for _, key := range lists {
+		raw, ok := desired[key]
+		if !ok {
+			continue
+		}
+		data, err := json.Marshal(raw)
+		if err != nil {
+			return nil, false, fmt.Errorf("reading declared %s: %w", key, err)
+		}
+		var declared []struct {
+			Name string `json:"name"`
+		}
+		if err := json.Unmarshal(data, &declared); err != nil {
+			return nil, false, fmt.Errorf("reading declared %s: %w", key, err)
+		}
+		names := make(map[string]bool, len(declared))
+		for _, d := range declared {
+			names[d.Name] = true
+		}
+		existing, _ := current[key].([]any)
+		kept := slices.DeleteFunc(slices.Clone(existing), func(e any) bool {
+			name, _ := e.(map[string]any)["name"].(string)
+			return !names[name]
+		})
+		if len(kept) == len(existing) {
+			continue
+		}
+		if !trimmed {
+			out = maps.Clone(current)
+		}
+		out[key] = kept
+		trimmed = true
+	}
+	return out, trimmed, nil
 }
 
 // secretKey isolates last-written secrets by target and Kubernetes owner. Quoted

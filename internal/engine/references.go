@@ -46,9 +46,13 @@ func (ids NamedIDs) Resolve(name string) (int, error) {
 }
 
 // ResolveTags resolves tag labels to IDs. Without labels, the legacy numeric
-// IDs are returned unchanged.
+// IDs are returned unchanged, and an empty label list with no IDs is no tags.
+// Nil means neither was declared.
 func (ids NamedIDs) ResolveTags(labels []string, legacy []int) ([]int, error) {
 	if len(labels) == 0 {
+		if labels != nil && legacy == nil {
+			return []int{}, nil
+		}
 		return legacy, nil
 	}
 	out := make([]int, 0, len(labels))

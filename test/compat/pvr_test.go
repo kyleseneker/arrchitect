@@ -32,6 +32,21 @@ func TestSonarr(t *testing.T) {
 	sonarr.exec(t, "mkdir -p /data/media/tv && chown -R abc:abc /data")
 	seedDelayProfile(t, directClient(t, sonarr.url(), key), "/api/v3", "hdr",
 		map[string]any{"enableUsenet": true, "enableTorrent": true, "preferredProtocol": "usenet"})
+	condition := func(name, implementation string, value any) map[string]any {
+		return map[string]any{
+			"name": name, "implementation": implementation,
+			"fields": []any{map[string]any{"name": "value", "value": value}},
+		}
+	}
+	_, err := directClient(t, sonarr.url(), key).Do(context.Background(), http.MethodPost, "/api/v3/customformat",
+		map[string]any{
+			"name": "WEBDL", "includeCustomFormatWhenRenaming": true,
+			"specifications": []any{
+				condition("WEBDL", "SourceSpecification", 3),
+				condition("Made In UI", "ReleaseTitleSpecification", "ui"),
+			},
+		})
+	require.NoError(t, err)
 	qbit, qbitPassword := startQBittorrent(t)
 	fakes := startFakes(t)
 	proxy := newRecordingProxy(t, sonarr.url())
@@ -65,6 +80,12 @@ func TestSonarr(t *testing.T) {
 			require.NoError(t, err)
 			require.Len(t, lists, 1)
 			assert.Equal(t, "all", lists[0]["shouldMonitor"], "import list monitor did not reach Sonarr")
+
+			webdl := requireNamed(t, hc, "/api/v3/customformat", "WEBDL")
+			assert.Equal(t, true, webdl["includeCustomFormatWhenRenaming"], "a field the resource leaves out stays as it was")
+			specs, _ := webdl["specifications"].([]any)
+			require.Len(t, specs, 1, "a condition the resource doesn't list is removed")
+			assert.Equal(t, "WEBDL", specs[0].(map[string]any)["name"])
 
 			bluray := qualityDefinition(t, hc, "/api/v3", "Bluray-1080p")
 			assert.Equal(t, "Blu-ray 1080p", bluray["title"])
@@ -241,15 +262,19 @@ func TestReadarr(t *testing.T) {
 
 func requireNamed(t *testing.T, hc interface {
 	GetJSONList(context.Context, string) ([]map[string]any, error)
-}, path, name string) {
+}, path, name string) map[string]any {
 	t.Helper()
 	items, err := hc.GetJSONList(context.Background(), path)
 	require.NoError(t, err)
 	names := make([]any, 0, len(items))
 	for _, item := range items {
+		if item["name"] == name {
+			return item
+		}
 		names = append(names, item["name"])
 	}
-	assert.Contains(t, names, name, "%s has no %q", path, name)
+	require.FailNow(t, "missing item", "%s has no %q among %v", path, name, names)
+	return nil
 }
 
 // seedDelayProfile adds a tag and a delay profile holding it, as if made in the

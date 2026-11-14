@@ -124,24 +124,32 @@ func TestBuildDownloadClientPayload(t *testing.T) {
 		check         func(t *testing.T, p map[string]any)
 	}{
 		{
-			name: "defaults",
+			name: "leaves out what the resource leaves out",
 			dc: commonv1alpha1.DownloadClient{
 				Name: "qBit", Protocol: "torrent", Implementation: "QBittorrent",
-				Host: "qbit", Port: 8080, Category: "tv",
+				Host: "qbit", Port: 8080,
 			},
 			categoryField: "tvCategory",
 			check: func(t *testing.T, p map[string]any) {
 				assert.Equal(t, "qBit", p["name"])
-				assert.Equal(t, true, p["enable"])
-				assert.Equal(t, 1, p["priority"])
-				assert.Equal(t, true, p["removeCompletedDownloads"])
-				assert.Equal(t, true, p["removeFailedDownloads"])
 				assert.Equal(t, "QBittorrentSettings", p["configContract"])
-
-				fields := p["fields"].([]map[string]any)
-				hostField := fields[0]
-				assert.Equal(t, "host", hostField["name"])
-				assert.Equal(t, "qbit", hostField["value"])
+				for _, key := range []string{"enable", "priority", "removeCompletedDownloads", "removeFailedDownloads", "tags"} {
+					assert.NotContains(t, p, key)
+				}
+				assert.Equal(t, []map[string]any{
+					{"name": "host", "value": "qbit"},
+					{"name": "port", "value": 8080},
+				}, p["fields"], "useSsl and the category stay as the app has them")
+			},
+		},
+		{
+			name: "an empty tag list clears the tags",
+			dc: commonv1alpha1.DownloadClient{
+				Name: "qBit", Protocol: "torrent", Implementation: "QBittorrent", Host: "qbit", Port: 8080, Tags: []int{},
+			},
+			categoryField: "tvCategory",
+			check: func(t *testing.T, p map[string]any) {
+				assert.Equal(t, []any{}, p["tags"])
 			},
 		},
 		{
@@ -244,18 +252,27 @@ func TestBuildIndexerPayload(t *testing.T) {
 		check func(t *testing.T, p map[string]any)
 	}{
 		{
-			name: "defaults",
+			name: "leaves out what the resource leaves out",
 			idx: commonv1alpha1.Indexer{
 				Name: "NZBgeek", Protocol: "usenet", Implementation: "Newznab",
 			},
 			check: func(t *testing.T, p map[string]any) {
 				assert.NotContains(t, p, "enable", "indexers have no enable property; sending one is permanent drift")
-				assert.Equal(t, true, p["enableRss"])
+				for _, key := range []string{"enableRss", "enableAutomaticSearch", "enableInteractiveSearch", "priority", "fields", "tags"} {
+					assert.NotContains(t, p, key)
+				}
+				assert.Equal(t, "NewznabSettings", p["configContract"])
+			},
+		},
+		{
+			name: "enable true turns on the uses left out",
+			idx: commonv1alpha1.Indexer{
+				Name: "On", Protocol: "torrent", Implementation: "Torznab", Enable: new(true), EnableRss: new(false),
+			},
+			check: func(t *testing.T, p map[string]any) {
+				assert.Equal(t, false, p["enableRss"])
 				assert.Equal(t, true, p["enableAutomaticSearch"])
 				assert.Equal(t, true, p["enableInteractiveSearch"])
-				assert.Equal(t, "NewznabSettings", p["configContract"])
-				_, hasPriority := p["priority"]
-				assert.False(t, hasPriority)
 			},
 		},
 		{
@@ -312,6 +329,8 @@ func TestBuildNotificationPayload(t *testing.T) {
 				assert.Equal(t, "DiscordSettings", p["configContract"])
 				_, hasOnGrab := p["onGrab"]
 				assert.False(t, hasOnGrab, "nil bools should not be set")
+				assert.NotContains(t, p, "fields")
+				assert.NotContains(t, p, "tags")
 			},
 		},
 		{
@@ -353,7 +372,17 @@ func TestBuildImportListPayload(t *testing.T) {
 			il:   commonv1alpha1.ImportList{Name: "Trakt", Implementation: "TraktListImport"},
 			check: func(t *testing.T, p map[string]any) {
 				assert.NotContains(t, p, "enable")
+				assert.NotContains(t, p, "fields")
+				assert.NotContains(t, p, "tags")
 				assert.Equal(t, "TraktListImportSettings", p["configContract"])
+			},
+		},
+		{
+			name:    "radarr leaves enabled alone when it is left out",
+			il:      commonv1alpha1.ImportList{Name: "List", Implementation: "RadarrListImport"},
+			monitor: radarr,
+			check: func(t *testing.T, p map[string]any) {
+				assert.NotContains(t, p, "enabled")
 			},
 		},
 		{
@@ -462,10 +491,7 @@ func TestBuildCustomFormatPayload(t *testing.T) {
 			name: "minimal",
 			cf:   commonv1alpha1.CustomFormat{Name: "BR-DISK"},
 			check: func(t *testing.T, p map[string]any) {
-				assert.Equal(t, "BR-DISK", p["name"])
-				assert.Equal(t, false, p["includeCustomFormatWhenRenaming"])
-				specs := p["specifications"].([]map[string]any)
-				assert.Empty(t, specs)
+				assert.Equal(t, map[string]any{"name": "BR-DISK"}, p)
 			},
 		},
 		{
@@ -1040,6 +1066,105 @@ func TestRemotePathMappingLifecycle(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, app.items["remotepathmapping"], 1)
 	require.Equal(t, "manual", app.items["remotepathmapping"][0]["host"])
+}
+
+func TestExistingItemsKeepWhatTheResourceLeavesOut(t *testing.T) {
+	app := &rebuildAPI{items: map[string][]map[string]any{
+		"downloadclient": {{
+			"id": float64(1), "name": "qBit", "protocol": "torrent", "implementation": "QBittorrent", "configContract": "QBittorrentSettings",
+			"enable": false, "priority": float64(3), "removeCompletedDownloads": false, "removeFailedDownloads": true, "tags": []any{float64(4)},
+			"fields": []any{
+				map[string]any{"name": "host", "value": "old"},
+				map[string]any{"name": "port", "value": float64(8080)},
+				map[string]any{"name": "useSsl", "value": true},
+				map[string]any{"name": "tvCategory", "value": "tv-hd"},
+			},
+		}},
+		"indexer": {{
+			"id": float64(2), "name": "Geek", "protocol": "usenet", "implementation": "Newznab", "configContract": "NewznabSettings",
+			"enableRss": false, "enableAutomaticSearch": true, "enableInteractiveSearch": true, "priority": float64(25), "tags": []any{float64(4)},
+			"fields": []any{map[string]any{"name": "baseUrl", "value": "https://api.nzbgeek.info"}},
+		}},
+		"notification": {{
+			"id": float64(3), "name": "Discord", "implementation": "Discord", "configContract": "DiscordSettings",
+			"onGrab": true, "tags": []any{float64(4)}, "fields": []any{map[string]any{"name": "webHookUrl", "value": "https://discord.test/hook"}},
+		}},
+	}}
+	hc := app.client(t)
+	ctx := context.Background()
+	opts := Options{
+		CategoryField:   "tvCategory",
+		DownloadClients: []commonv1alpha1.DownloadClient{{Name: "qBit", Protocol: "torrent", Implementation: "QBittorrent", Host: "qbit", Port: 8080}},
+		Indexers:        []commonv1alpha1.Indexer{{Name: "Geek", Protocol: "usenet", Implementation: "Newznab", Priority: new(10)}},
+		Notifications:   []commonv1alpha1.Notification{{Name: "Discord", Implementation: "Discord", OnDownload: new(true)}},
+	}
+
+	result, err := Reconcile(ctx, hc, "v3", struct{}{}, opts, engine.SyncPolicy{}, nil)
+	require.NoError(t, err)
+	require.Empty(t, result.Errors)
+
+	dc := app.items["downloadclient"][0]
+	assert.Equal(t, false, dc["enable"])
+	assert.Equal(t, float64(3), dc["priority"])
+	assert.Equal(t, false, dc["removeCompletedDownloads"])
+	assert.Equal(t, []any{float64(4)}, dc["tags"])
+	assert.Equal(t, []any{
+		map[string]any{"name": "host", "value": "qbit"},
+		map[string]any{"name": "port", "value": float64(8080)},
+		map[string]any{"name": "useSsl", "value": true},
+		map[string]any{"name": "tvCategory", "value": "tv-hd"},
+	}, dc["fields"])
+
+	idx := app.items["indexer"][0]
+	assert.Equal(t, float64(10), idx["priority"])
+	assert.Equal(t, false, idx["enableRss"])
+	assert.Equal(t, []any{float64(4)}, idx["tags"])
+	assert.Equal(t, []any{map[string]any{"name": "baseUrl", "value": "https://api.nzbgeek.info"}}, idx["fields"])
+
+	notification := app.items["notification"][0]
+	assert.Equal(t, true, notification["onGrab"])
+	assert.Equal(t, true, notification["onDownload"])
+	assert.Equal(t, []any{float64(4)}, notification["tags"])
+	assert.Equal(t, []any{map[string]any{"name": "webHookUrl", "value": "https://discord.test/hook"}}, notification["fields"])
+
+	writes := len(app.writes)
+	result, err = Reconcile(ctx, hc, "v3", struct{}{}, opts, engine.SyncPolicy{}, result.Managed)
+	require.NoError(t, err)
+	require.Empty(t, result.Errors)
+	assert.Len(t, app.writes, writes)
+}
+
+func TestNewItemsGetTheAppsDefaults(t *testing.T) {
+	app := &rebuildAPI{}
+	hc := app.client(t)
+	opts := Options{
+		CategoryField:   "movieCategory",
+		DownloadClients: []commonv1alpha1.DownloadClient{{Name: "qBit", Protocol: "torrent", Implementation: "QBittorrent", Host: "qbit", Port: 8080}},
+		Indexers:        []commonv1alpha1.Indexer{{Name: "Geek", Protocol: "usenet", Implementation: "Newznab"}},
+		ImportLists:     []commonv1alpha1.ImportList{{Name: "Trakt", Implementation: "TraktListImport"}},
+		ImportListFields: ImportListFields{
+			Enable: "enabled", AutomaticAdd: "enableAuto", Monitor: "monitor", MonitorAll: "movieOnly",
+		},
+	}
+
+	result, err := Reconcile(context.Background(), hc, "v3", struct{}{}, opts, engine.SyncPolicy{}, nil)
+	require.NoError(t, err)
+	require.Empty(t, result.Errors)
+
+	dc := app.items["downloadclient"][0]
+	assert.Equal(t, true, dc["enable"])
+	assert.Equal(t, float64(1), dc["priority"])
+	assert.Equal(t, true, dc["removeCompletedDownloads"])
+	assert.Equal(t, true, dc["removeFailedDownloads"])
+	assert.Equal(t, []any{}, dc["tags"])
+
+	idx := app.items["indexer"][0]
+	assert.Equal(t, true, idx["enableRss"])
+	assert.Equal(t, true, idx["enableAutomaticSearch"])
+	assert.Equal(t, true, idx["enableInteractiveSearch"])
+	assert.Equal(t, []any{}, idx["fields"])
+
+	assert.Equal(t, true, app.items["importlist"][0]["enabled"])
 }
 
 func TestRemotePathMappingWindowsIdentity(t *testing.T) {

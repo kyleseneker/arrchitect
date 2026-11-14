@@ -296,9 +296,9 @@ spec:
                         Defaults to "<implementation>Settings" if not set.
                       type: string
                     enable:
-                      default: true
-                      description: enable controls whether this download client is
-                        active.
+                      description: |-
+                        enable controls whether this download client is active. A new download
+                        client is enabled unless this is false.
                       type: boolean
                     fields:
                       description: |-
@@ -361,9 +361,9 @@ spec:
                       description: port is the port of the download client.
                       type: integer
                     priority:
-                      default: 1
-                      description: priority is the download client priority. Lower
-                        values are higher priority.
+                      description: |-
+                        priority is the download client priority. Lower values are higher priority.
+                        A new download client gets 1.
                       maximum: 50
                       minimum: 1
                       type: integer
@@ -374,14 +374,14 @@ spec:
                       - usenet
                       type: string
                     removeCompletedDownloads:
-                      default: true
-                      description: removeCompletedDownloads controls whether completed
-                        downloads are removed.
+                      description: |-
+                        removeCompletedDownloads controls whether completed downloads are removed.
+                        A new download client removes them unless this is false.
                       type: boolean
                     removeFailedDownloads:
-                      default: true
-                      description: removeFailedDownloads controls whether failed downloads
-                        are removed.
+                      description: |-
+                        removeFailedDownloads controls whether failed downloads are removed. A new
+                        download client removes them unless this is false.
                       type: boolean
                     tagLabels:
                       description: |-
@@ -439,8 +439,9 @@ spec:
                         Defaults to "<implementation>Settings" if not set.
                       type: string
                     enable:
-                      default: true
-                      description: enable controls whether this import list is active.
+                      description: |-
+                        enable controls whether this import list is active. A new import list is
+                        enabled unless this is false.
                       type: boolean
                     enableAutomaticAdd:
                       description: enableAutomaticAdd automatically adds items from
@@ -577,22 +578,24 @@ spec:
                         Defaults to "<implementation>Settings" if not set.
                       type: string
                     enable:
-                      default: true
-                      description: enable controls whether this indexer is active.
+                      description: |-
+                        enable controls whether this indexer is active. False turns off RSS,
+                        automatic and interactive search; true turns on those not set below.
                       type: boolean
                     enableAutomaticSearch:
-                      default: true
-                      description: enableAutomaticSearch enables automatic search
-                        for this indexer.
+                      description: |-
+                        enableAutomaticSearch enables automatic search for this indexer. A new
+                        indexer searches unless this or enable is false.
                       type: boolean
                     enableInteractiveSearch:
-                      default: true
-                      description: enableInteractiveSearch enables interactive (manual)
-                        search for this indexer.
+                      description: |-
+                        enableInteractiveSearch enables interactive (manual) search for this
+                        indexer. A new indexer allows it unless this or enable is false.
                       type: boolean
                     enableRss:
-                      default: true
-                      description: enableRss enables RSS feed polling for this indexer.
+                      description: |-
+                        enableRss enables RSS feed polling for this indexer. A new indexer
+                        polls unless this or enable is false.
                       type: boolean
                     fields:
                       description: fields defines the indexer's configuration fields
