@@ -53,7 +53,7 @@ func (r *LidarrConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 func (r *LidarrConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&pvrv1alpha1.LidarrConfig{}, builder.WithPredicates(ctrlcommon.ConfigChangedPredicate())).
-		Watches(&corev1.Secret{}, ctrlcommon.EnqueueForSecret(r.Client, &pvrv1alpha1.LidarrConfigList{})).
+		WatchesMetadata(&corev1.Secret{}, ctrlcommon.EnqueueForSecret(r.Client, &pvrv1alpha1.LidarrConfigList{})).
 		Named("lidarrconfig").
 		Complete(r)
 }

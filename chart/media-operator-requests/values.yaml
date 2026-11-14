@@ -17,7 +17,7 @@ resources:
     cpu: 200m
     memory: 128Mi
 
-watchNamespace: ""  # Empty watches all namespaces. Set to restrict (e.g., "arr")
+watchNamespace: ""  # Empty watches all namespaces. Set to restrict, comma-separated (e.g., "media,arr")
 
 extraArgs: []
 

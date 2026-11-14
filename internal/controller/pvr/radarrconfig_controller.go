@@ -53,7 +53,7 @@ func (r *RadarrConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 func (r *RadarrConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&pvrv1alpha1.RadarrConfig{}, builder.WithPredicates(ctrlcommon.ConfigChangedPredicate())).
-		Watches(&corev1.Secret{}, ctrlcommon.EnqueueForSecret(r.Client, &pvrv1alpha1.RadarrConfigList{})).
+		WatchesMetadata(&corev1.Secret{}, ctrlcommon.EnqueueForSecret(r.Client, &pvrv1alpha1.RadarrConfigList{})).
 		Named("radarrconfig").
 		Complete(r)
 }

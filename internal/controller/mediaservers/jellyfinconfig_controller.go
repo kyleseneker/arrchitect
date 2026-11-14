@@ -360,7 +360,7 @@ func buildPathInfos(paths []string) []map[string]any {
 func (r *JellyfinConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&mediaserversv1alpha1.JellyfinConfig{}, builder.WithPredicates(ctrlcommon.ConfigChangedPredicate())).
-		Watches(&corev1.Secret{}, ctrlcommon.EnqueueForSecret(r.Client, &mediaserversv1alpha1.JellyfinConfigList{})).
+		WatchesMetadata(&corev1.Secret{}, ctrlcommon.EnqueueForSecret(r.Client, &mediaserversv1alpha1.JellyfinConfigList{})).
 		Named("jellyfinconfig").
 		Complete(r)
 }

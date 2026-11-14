@@ -535,7 +535,7 @@ func seerrDiffers(current, payload map[string]any) bool {
 func (r *SeerrConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&requestsv1alpha1.SeerrConfig{}, builder.WithPredicates(ctrlcommon.ConfigChangedPredicate())).
-		Watches(&corev1.Secret{}, ctrlcommon.EnqueueForSecret(r.Client, &requestsv1alpha1.SeerrConfigList{})).
+		WatchesMetadata(&corev1.Secret{}, ctrlcommon.EnqueueForSecret(r.Client, &requestsv1alpha1.SeerrConfigList{})).
 		Named("seerrconfig").
 		Complete(r)
 }

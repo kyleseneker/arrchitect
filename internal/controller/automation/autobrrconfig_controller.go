@@ -660,7 +660,7 @@ func (s *autobrrSync) actions(
 func (r *AutobrrConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&automationv1alpha1.AutobrrConfig{}, builder.WithPredicates(ctrlcommon.ConfigChangedPredicate())).
-		Watches(&corev1.Secret{}, ctrlcommon.EnqueueForSecret(r.Client, &automationv1alpha1.AutobrrConfigList{})).
+		WatchesMetadata(&corev1.Secret{}, ctrlcommon.EnqueueForSecret(r.Client, &automationv1alpha1.AutobrrConfigList{})).
 		Named("autobrrconfig").
 		Complete(r)
 }

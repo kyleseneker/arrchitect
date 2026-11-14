@@ -625,7 +625,7 @@ func (s *tdarrSync) convergeWorkerLimit(ctx context.Context, nodeID, workerType 
 func (r *TdarrConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&transcodev1alpha1.TdarrConfig{}, builder.WithPredicates(ctrlcommon.ConfigChangedPredicate())).
-		Watches(&corev1.Secret{}, ctrlcommon.EnqueueForSecret(r.Client, &transcodev1alpha1.TdarrConfigList{})).
+		WatchesMetadata(&corev1.Secret{}, ctrlcommon.EnqueueForSecret(r.Client, &transcodev1alpha1.TdarrConfigList{})).
 		Named("tdarrconfig").
 		Complete(r)
 }

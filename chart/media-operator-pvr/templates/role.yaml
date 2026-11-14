@@ -1,11 +1,13 @@
-{{- if .Values.watchNamespace }}
+{{- range $ns := splitList "," .Values.watchNamespace }}
+{{- with trim $ns }}
+---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: {{ include "media-operator.fullname" . }}
-  namespace: {{ .Values.watchNamespace }}
+  name: {{ include "media-operator.fullname" $ }}
+  namespace: {{ . }}
   labels:
-    {{- include "media-operator.labels" . | nindent 4 }}
+    {{- include "media-operator.labels" $ | nindent 4 }}
 rules:
   - apiGroups:
       - ""
@@ -15,4 +17,5 @@ rules:
       - get
       - list
       - watch
+{{- end }}
 {{- end }}

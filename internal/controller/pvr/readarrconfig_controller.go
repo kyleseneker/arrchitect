@@ -53,7 +53,7 @@ func (r *ReadarrConfigReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 func (r *ReadarrConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&pvrv1alpha1.ReadarrConfig{}, builder.WithPredicates(ctrlcommon.ConfigChangedPredicate())).
-		Watches(&corev1.Secret{}, ctrlcommon.EnqueueForSecret(r.Client, &pvrv1alpha1.ReadarrConfigList{})).
+		WatchesMetadata(&corev1.Secret{}, ctrlcommon.EnqueueForSecret(r.Client, &pvrv1alpha1.ReadarrConfigList{})).
 		Named("readarrconfig").
 		Complete(r)
 }

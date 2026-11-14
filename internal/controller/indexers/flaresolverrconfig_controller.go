@@ -139,7 +139,7 @@ func sessionNames(sessions []indexersv1alpha1.FlareSolverrSession) []string {
 func (r *FlareSolverrConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&indexersv1alpha1.FlareSolverrConfig{}, builder.WithPredicates(ctrlcommon.ConfigChangedPredicate())).
-		Watches(&corev1.Secret{}, ctrlcommon.EnqueueForSecret(r.Client, &indexersv1alpha1.FlareSolverrConfigList{})).
+		WatchesMetadata(&corev1.Secret{}, ctrlcommon.EnqueueForSecret(r.Client, &indexersv1alpha1.FlareSolverrConfigList{})).
 		Named("flaresolverrconfig").
 		Complete(r)
 }

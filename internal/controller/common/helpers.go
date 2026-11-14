@@ -220,9 +220,6 @@ func EnqueueForSecret(c client.Client, list client.ObjectList) handler.EventHand
 
 func configsForSecret(c client.Client, list client.ObjectList) handler.MapFunc {
 	return func(ctx context.Context, obj client.Object) []reconcile.Request {
-		if _, ok := obj.(*corev1.Secret); !ok {
-			return nil
-		}
 		configs := list.DeepCopyObject().(client.ObjectList)
 		if err := c.List(ctx, configs, client.InNamespace(obj.GetNamespace())); err != nil {
 			log.FromContext(ctx).Error(err, "listing configs for a changed Secret", "secret", obj.GetName())

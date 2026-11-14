@@ -155,7 +155,7 @@ func (r *ProwlarrConfigReconciler) buildApplicationPayloads(ctx context.Context,
 func (r *ProwlarrConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&indexersv1alpha1.ProwlarrConfig{}, builder.WithPredicates(ctrlcommon.ConfigChangedPredicate())).
-		Watches(&corev1.Secret{}, ctrlcommon.EnqueueForSecret(r.Client, &indexersv1alpha1.ProwlarrConfigList{})).
+		WatchesMetadata(&corev1.Secret{}, ctrlcommon.EnqueueForSecret(r.Client, &indexersv1alpha1.ProwlarrConfigList{})).
 		Named("prowlarrconfig").
 		Complete(r)
 }
