@@ -205,9 +205,9 @@ type SabnzbdServer struct {
 	// +optional
 	Retention *int `json:"retention,omitempty"`
 
-	// enable controls whether this server is active.
+	// enable controls whether this server is active. A new server is enabled
+	// unless this is false.
 	// +optional
-	// +kubebuilder:default=true
 	Enable *bool `json:"enable,omitempty"`
 
 	// sslVerify is how strictly the server's certificate is checked when ssl is on.
