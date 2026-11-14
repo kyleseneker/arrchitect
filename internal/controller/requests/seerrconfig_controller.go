@@ -304,10 +304,18 @@ func (r *SeerrConfigReconciler) reconcileServiceConnections(
 	return problems
 }
 
-// seerrServiceDefaults are values Seerr needs that a declared server may leave out.
-var seerrServiceDefaults = map[string]map[string]any{
-	"sonarr": {"enableSeasonFolders": false},
-	"radarr": {"minimumAvailability": "released"},
+// seerrServiceCreateDefaults are values Seerr needs for a new server that a
+// declared one may leave out. Seerr replaces a server whole on update, so an
+// existing one is sent back with the declared values over it instead.
+var seerrServiceCreateDefaults = map[string]map[string]any{
+	"sonarr": {
+		"useSsl": false, "activeProfileId": 0, "activeProfileName": "", "activeDirectory": "",
+		"is4k": false, "isDefault": false, "enableSeasonFolders": false,
+	},
+	"radarr": {
+		"useSsl": false, "activeProfileId": 0, "activeProfileName": "", "activeDirectory": "",
+		"is4k": false, "isDefault": false, "minimumAvailability": "released",
+	},
 }
 
 func (r *SeerrConfigReconciler) reconcileServiceConnection(
@@ -322,11 +330,6 @@ func (r *SeerrConfigReconciler) reconcileServiceConnection(
 	if err != nil {
 		return fmt.Errorf("resolving profile: %w", err)
 	}
-	for key, value := range seerrServiceDefaults[kind] {
-		if _, ok := payload[key]; !ok {
-			payload[key] = value
-		}
-	}
 
 	for _, e := range existing {
 		if name, ok := e["name"].(string); ok && name == svc.Name {
@@ -337,14 +340,22 @@ func (r *SeerrConfigReconciler) reconcileServiceConnection(
 			if !seerrDiffers(e, payload) {
 				return nil
 			}
+			body, _, err := reconciler.MergeDesiredOverCurrent(e, payload)
+			if err != nil {
+				return err
+			}
 			return w.Apply(kind, name, func() error {
-				return sc.Put(ctx, fmt.Sprintf("/api/v1/settings/%s/%d", kind, int(id)), payload)
+				return sc.Put(ctx, fmt.Sprintf("/api/v1/settings/%s/%d", kind, int(id)), body)
 			})
 		}
 	}
 
+	body, _, err := reconciler.MergeDesiredOverCurrent(seerrServiceCreateDefaults[kind], payload)
+	if err != nil {
+		return err
+	}
 	return w.Apply(kind, svc.Name, func() error {
-		if _, err := sc.Post(ctx, "/api/v1/settings/"+kind, payload); err != nil {
+		if _, err := sc.Post(ctx, "/api/v1/settings/"+kind, body); err != nil {
 			return err
 		}
 		owned.Created(kind, svc.Name)
@@ -369,16 +380,9 @@ func (r *SeerrConfigReconciler) notificationSecrets(
 
 func buildServicePayload(svc *requestsv1alpha1.SeerrServiceConnection, apiKey string) map[string]any {
 	payload := map[string]any{
-		"name":              svc.Name,
-		"hostname":          svc.Hostname,
-		"apiKey":            apiKey,
-		"port":              0,
-		"useSsl":            false,
-		"activeProfileId":   0,
-		"activeProfileName": svc.ActiveProfileName,
-		"activeDirectory":   svc.ActiveDirectory,
-		"is4k":              false,
-		"isDefault":         false,
+		"name":     svc.Name,
+		"hostname": svc.Hostname,
+		"apiKey":   apiKey,
 	}
 	if svc.Port != nil {
 		payload["port"] = *svc.Port
@@ -503,8 +507,12 @@ func reconcileSeerrNotificationAgent(
 	if !seerrDiffers(current, payload) {
 		return nil
 	}
+	body, _, err := reconciler.MergeDesiredOverCurrent(current, payload)
+	if err != nil {
+		return err
+	}
 	return w.Apply("notifications", agent.Agent, func() error {
-		_, err := sc.Post(ctx, path, payload)
+		_, err := sc.Post(ctx, path, body)
 		return err
 	})
 }

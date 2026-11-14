@@ -34,21 +34,6 @@ import (
 	"github.com/kyleseneker/media-operator/internal/metrics"
 )
 
-func TestBuildServicePayloadAlwaysSendsRequiredFields(t *testing.T) {
-	required := []string{
-		"name", "hostname", "port", "apiKey", "useSsl",
-		"activeProfileId", "activeProfileName", "activeDirectory",
-		"is4k", "isDefault",
-	}
-
-	svc := &requestsv1alpha1.SeerrServiceConnection{Name: "Sonarr", Hostname: "sonarr.svc"}
-	payload := buildServicePayload(svc, "key")
-
-	for _, key := range required {
-		assert.Contains(t, payload, key, "%q missing; Seerr's OpenAPI marks it required and rejects the request with 400", key)
-	}
-}
-
 func observeSeerr(t *testing.T, cfg *requestsv1alpha1.SeerrConfig) metav1.Condition {
 	t.Helper()
 	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{DriftPolicy: new("observe")}
@@ -143,6 +128,9 @@ type fakeSeerr struct {
 	// into it, keeping keys Seerr does not use.
 	jellyfin map[string]any
 	plex     map[string]any
+	// notifications holds each agent's settings. Like Seerr, a POST replaces
+	// the agent whole.
+	notifications map[string]map[string]any
 }
 
 func (f *fakeSeerr) jellyfinServer() map[string]any {
@@ -245,6 +233,9 @@ func (f *fakeSeerr) serve(t *testing.T) string {
 	if f.services == nil {
 		f.services = map[string][]map[string]any{}
 	}
+	if f.notifications == nil {
+		f.notifications = map[string]map[string]any{}
+	}
 	ln, err := net.Listen("tcp", net.JoinHostPort(routableAddr(t), "0"))
 	if err != nil {
 		t.Skipf("cannot bind a routable listener: %v", err)
@@ -283,6 +274,7 @@ func (f *fakeSeerr) serve(t *testing.T) string {
 				return
 			}
 			_ = json.NewEncoder(w).Encode(append([]map[string]any{}, f.services[kind]...))
+		case f.replaceWhole(w, r, body):
 		case r.Method == http.MethodDelete && strings.HasPrefix(r.URL.Path, "/api/v1/settings/"):
 			kind, id, _ := strings.Cut(strings.TrimPrefix(r.URL.Path, "/api/v1/settings/"), "/")
 			f.services[kind] = slices.DeleteFunc(f.services[kind], func(s map[string]any) bool { return fmt.Sprint(s["id"]) == id })
@@ -322,6 +314,36 @@ func (f *fakeSeerr) serve(t *testing.T) string {
 	srv.Start()
 	t.Cleanup(srv.Close)
 	return srv.URL
+}
+
+// replaceWhole serves the settings Seerr replaces with the body it receives: a
+// Sonarr or Radarr server's update, and a notification agent.
+func (f *fakeSeerr) replaceWhole(w http.ResponseWriter, r *http.Request, body map[string]any) bool {
+	switch {
+	case r.Method == http.MethodPut && (strings.HasPrefix(r.URL.Path, "/api/v1/settings/sonarr/") ||
+		strings.HasPrefix(r.URL.Path, "/api/v1/settings/radarr/")):
+		kind, id, _ := strings.Cut(strings.TrimPrefix(r.URL.Path, "/api/v1/settings/"), "/")
+		for i, s := range f.services[kind] {
+			if fmt.Sprint(s["id"]) == id {
+				body["id"] = s["id"]
+				f.services[kind][i] = body
+			}
+		}
+		_ = json.NewEncoder(w).Encode(body)
+	case strings.HasPrefix(r.URL.Path, "/api/v1/settings/notifications/"):
+		agent := strings.TrimPrefix(r.URL.Path, "/api/v1/settings/notifications/")
+		if r.Method == http.MethodPost {
+			f.notifications[agent] = body
+		}
+		stored := f.notifications[agent]
+		if stored == nil {
+			stored = map[string]any{}
+		}
+		_ = json.NewEncoder(w).Encode(stored)
+	default:
+		return false
+	}
+	return true
 }
 
 func seerrSecret() *corev1.Secret {
@@ -571,17 +593,78 @@ func TestSeerrServiceFieldsAllReachThePayload(t *testing.T) {
 		})
 }
 
-// Seerr rejects a service that omits these, so they are sent even when the CR
-// leaves them unset.
-func TestSeerrServicePayloadAlwaysSendsRequiredKeys(t *testing.T) {
-	got := buildServicePayload(&requestsv1alpha1.SeerrServiceConnection{
-		Name: "Sonarr", Hostname: "sonarr.arr.svc",
-	}, "resolved-key")
+// Seerr rejects a new server that omits these, so they are sent even when the
+// resource leaves them out.
+func TestSeerrSendsWhatANewServerRequires(t *testing.T) {
+	app := &fakeSeerr{initialized: true}
+	cfg := seerrWithAPIKey(app.serve(t))
+	port := 8989
+	cfg.Spec.Sonarr = []requestsv1alpha1.SeerrServiceConnection{{
+		Name: "Sonarr", Hostname: "sonarr", Port: &port, APIKeySecretRef: commonv1alpha1.SecretKeyRef{Name: "seerr-secrets", Key: "api-key"},
+	}}
 
-	for _, k := range []string{"name", "hostname", "apiKey", "port", "useSsl", "activeProfileId", "is4k", "isDefault"} {
-		assert.Contains(t, got, k, "required key %q missing from a minimal service payload", k)
+	runSeerr(t, cfg)
+
+	app.mu.Lock()
+	defer app.mu.Unlock()
+	require.Len(t, app.services["sonarr"], 1)
+	created := app.services["sonarr"][0]
+	for _, k := range []string{
+		"name", "hostname", "apiKey", "port", "useSsl", "activeProfileId", "activeProfileName", "activeDirectory",
+		"is4k", "isDefault", "enableSeasonFolders",
+	} {
+		assert.Contains(t, created, k, "%q missing; Seerr's OpenAPI marks it required and rejects the request with 400", k)
 	}
-	assert.Equal(t, "resolved-key", got["apiKey"], "apiKey is not the resolved secret value")
+	assert.Equal(t, "supplied-key", created["apiKey"], "apiKey is not the resolved secret value")
+}
+
+// Seerr stores an updated server as the body it receives, so what the resource
+// leaves out has to be sent back as Seerr has it.
+func TestSeerrServerUpdateKeepsWhatTheResourceLeavesOut(t *testing.T) {
+	app := &fakeSeerr{initialized: true, services: map[string][]map[string]any{
+		"sonarr": {{
+			"id": float64(0), "name": "Sonarr", "hostname": "old-sonarr", "port": float64(8989), "apiKey": "supplied-key",
+			"isDefault": true, "is4k": false, "tags": []any{float64(3)}, "activeLanguageProfileId": float64(1),
+		}},
+	}}
+	cfg := seerrWithAPIKey(app.serve(t))
+	port := 8989
+	cfg.Spec.Sonarr = []requestsv1alpha1.SeerrServiceConnection{{
+		Name: "Sonarr", Hostname: "sonarr", Port: &port, APIKeySecretRef: commonv1alpha1.SecretKeyRef{Name: "seerr-secrets", Key: "api-key"},
+	}}
+
+	runSeerr(t, cfg)
+
+	app.mu.Lock()
+	defer app.mu.Unlock()
+	server := app.services["sonarr"][0]
+	assert.Equal(t, "sonarr", server["hostname"])
+	assert.Equal(t, true, server["isDefault"], "Seerr routes requests to the default server")
+	assert.Equal(t, []any{float64(3)}, server["tags"])
+	assert.Equal(t, float64(1), server["activeLanguageProfileId"])
+}
+
+func TestSeerrNotificationKeepsWhatTheResourceLeavesOut(t *testing.T) {
+	app := &fakeSeerr{initialized: true, notifications: map[string]map[string]any{
+		"discord": {"enabled": false, "types": float64(4), "options": map[string]any{
+			"webhookUrl": "https://discord.test/hook", "botAvatarUrl": "https://img.test/a.png",
+		}},
+	}}
+	cfg := seerrWithAPIKey(app.serve(t))
+	cfg.Spec.Notifications = []requestsv1alpha1.SeerrNotificationAgent{{
+		Agent: "discord", Enabled: new(true),
+		Options: map[string]commonv1alpha1.FieldValue{"botUsername": {Raw: []byte(`"Seerr"`)}},
+	}}
+
+	runSeerr(t, cfg)
+
+	app.mu.Lock()
+	defer app.mu.Unlock()
+	assert.Equal(t, map[string]any{
+		"enabled": true, "types": float64(4), "options": map[string]any{
+			"webhookUrl": "https://discord.test/hook", "botAvatarUrl": "https://img.test/a.png", "botUsername": "Seerr",
+		},
+	}, app.notifications["discord"])
 }
 
 func seerrServiceNames(f *fakeSeerr, kind string) []string {
