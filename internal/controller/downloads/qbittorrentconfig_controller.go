@@ -283,6 +283,9 @@ func reconcileQBCategory(
 		owned.Created("categories", cat.Name)
 		return nil
 	}
+	if cat.SavePath == "" {
+		return nil
+	}
 	changed, err := engine.CorrectDifference("qbittorrent", "categories", cat.Name, current, map[string]any{"savePath": qbPath(cat.SavePath)})
 	if err != nil || !changed {
 		return err
@@ -327,7 +330,11 @@ func observeQBConfig(
 	}
 	for _, category := range spec.Categories {
 		current, _ := categories[category.Name].(map[string]any)
-		if err := w.Compare("categories", category.Name, current, map[string]any{"savePath": qbPath(category.SavePath)}); err != nil {
+		desired := map[string]any{}
+		if category.SavePath != "" {
+			desired["savePath"] = qbPath(category.SavePath)
+		}
+		if err := w.Compare("categories", category.Name, current, desired); err != nil {
 			return err
 		}
 	}
