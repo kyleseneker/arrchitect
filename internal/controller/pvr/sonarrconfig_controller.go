@@ -53,7 +53,7 @@ func (r *SonarrConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 func (r *SonarrConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&pvrv1alpha1.SonarrConfig{}, builder.WithPredicates(ctrlcommon.ConfigChangedPredicate())).
-		Watches(&corev1.Secret{}, ctrlcommon.EnqueueForSecret(r.Client, &pvrv1alpha1.SonarrConfigList{})).
+		WatchesMetadata(&corev1.Secret{}, ctrlcommon.EnqueueForSecret(r.Client, &pvrv1alpha1.SonarrConfigList{})).
 		Named("sonarrconfig").
 		Complete(r)
 }

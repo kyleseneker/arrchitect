@@ -192,7 +192,7 @@ func plexLibraryDefaults(lib mediaserversv1alpha1.PlexLibrary) (agent, scanner, 
 func (r *PlexConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&mediaserversv1alpha1.PlexConfig{}, builder.WithPredicates(ctrlcommon.ConfigChangedPredicate())).
-		Watches(&corev1.Secret{}, ctrlcommon.EnqueueForSecret(r.Client, &mediaserversv1alpha1.PlexConfigList{})).
+		WatchesMetadata(&corev1.Secret{}, ctrlcommon.EnqueueForSecret(r.Client, &mediaserversv1alpha1.PlexConfigList{})).
 		Named("plexconfig").
 		Complete(r)
 }

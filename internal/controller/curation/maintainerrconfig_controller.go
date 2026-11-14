@@ -423,7 +423,7 @@ func serviceURL(url string) string {
 func (r *MaintainerrConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&curationv1alpha1.MaintainerrConfig{}, builder.WithPredicates(ctrlcommon.ConfigChangedPredicate())).
-		Watches(&corev1.Secret{}, ctrlcommon.EnqueueForSecret(r.Client, &curationv1alpha1.MaintainerrConfigList{})).
+		WatchesMetadata(&corev1.Secret{}, ctrlcommon.EnqueueForSecret(r.Client, &curationv1alpha1.MaintainerrConfigList{})).
 		Named("maintainerrconfig").
 		Complete(r)
 }

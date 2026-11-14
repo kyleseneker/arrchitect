@@ -38,6 +38,7 @@ import (
 	"github.com/kyleseneker/media-operator/internal/controller/requests"
 	"github.com/kyleseneker/media-operator/internal/controller/subtitles"
 	"github.com/kyleseneker/media-operator/internal/engine"
+	"github.com/kyleseneker/media-operator/internal/operator"
 )
 
 // controllerCase describes one kind well enough to drive it through a create,
@@ -269,6 +270,7 @@ func TestSecretChangeReconcilesTheConfigReferringToIt(t *testing.T) {
 		Scheme:     c.Scheme(),
 		Metrics:    metricsserver.Options{BindAddress: "0"},
 		Controller: config.Controller{SkipNameValidation: new(true)},
+		Client:     operator.ClientOptions(),
 	})
 	require.NoError(t, err)
 	rec := &indexers.FlareSolverrConfigReconciler{

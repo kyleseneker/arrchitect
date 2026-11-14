@@ -352,9 +352,8 @@ func TestEnqueueForSecretQueuesOnlyConfigsThatReferToIt(t *testing.T) {
 	).Build()
 	configs := configsForSecret(c, &pvrv1alpha1.SonarrConfigList{})
 
-	reqs := configs(context.Background(), &corev1.Secret{Name: "ca", Namespace: "media"})
-	assert.Equal(t, []reconcile.Request{{Name: "uses", Namespace: "media"}}, reqs)
-	assert.Nil(t, configs(context.Background(), &corev1.Pod{Name: "ca", Namespace: "media"}), "only Secrets are mapped")
+	reqs := configs(context.Background(), &metav1.PartialObjectMetadata{Name: "ca", Namespace: "media"})
+	assert.Equal(t, []reconcile.Request{{Name: "uses", Namespace: "media"}}, reqs, "Secrets are watched by metadata only")
 }
 
 func newSecretClient() *fake.ClientBuilder {

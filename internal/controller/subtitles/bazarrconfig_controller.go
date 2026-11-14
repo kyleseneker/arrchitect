@@ -415,7 +415,7 @@ func sameBazarrProfiles(current []map[string]any, desiredJSON string) bool {
 func (r *BazarrConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&subtitlesv1alpha1.BazarrConfig{}, builder.WithPredicates(ctrlcommon.ConfigChangedPredicate())).
-		Watches(&corev1.Secret{}, ctrlcommon.EnqueueForSecret(r.Client, &subtitlesv1alpha1.BazarrConfigList{})).
+		WatchesMetadata(&corev1.Secret{}, ctrlcommon.EnqueueForSecret(r.Client, &subtitlesv1alpha1.BazarrConfigList{})).
 		Named("bazarrconfig").
 		Complete(r)
 }

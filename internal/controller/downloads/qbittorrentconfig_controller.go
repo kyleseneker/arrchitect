@@ -297,7 +297,7 @@ func reconcileQBCategory(
 func (r *QBittorrentConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&downloadsv1alpha1.QBittorrentConfig{}, builder.WithPredicates(ctrlcommon.ConfigChangedPredicate())).
-		Watches(&corev1.Secret{}, ctrlcommon.EnqueueForSecret(r.Client, &downloadsv1alpha1.QBittorrentConfigList{})).
+		WatchesMetadata(&corev1.Secret{}, ctrlcommon.EnqueueForSecret(r.Client, &downloadsv1alpha1.QBittorrentConfigList{})).
 		Named("qbittorrentconfig").
 		Complete(r)
 }

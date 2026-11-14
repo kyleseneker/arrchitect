@@ -5,6 +5,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 )
 
 func TestResolveEnabledControllers(t *testing.T) {
@@ -29,4 +30,9 @@ func TestResolveEnabledControllers(t *testing.T) {
 	assert.ErrorContains(t, err, `unknown controller "sonar"; this binary runs sonarr, radarr, lidarr`)
 	_, err = resolveEnabledControllers(controllers, "*", "prowlarr")
 	assert.ErrorContains(t, err, `unknown controller "prowlarr"`)
+}
+
+func TestWatchedNamespaces(t *testing.T) {
+	assert.Nil(t, watchedNamespaces(""), "empty watches every namespace")
+	assert.Equal(t, map[string]cache.Config{"media": {}, "arr": {}}, watchedNamespaces("media, arr,"))
 }

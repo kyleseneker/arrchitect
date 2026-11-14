@@ -13,6 +13,7 @@ import (
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -90,7 +91,7 @@ func Run(binary string, addToScheme func(*runtime.Scheme) error, controllers ...
 	flag.StringVar(&disableControllers, "disable-controllers", "",
 		"Comma-separated list of controllers to disable (applied after --enable-controllers).")
 	flag.StringVar(&watchNamespace, "watch-namespace", "",
-		"Namespace to watch for custom resources. Empty means all namespaces.")
+		"Comma-separated namespaces to watch for custom resources. Empty means all namespaces.")
 	flag.IntVar(&maxConcurrentReconciles, "max-concurrent-reconciles", 1,
 		"How many resources of one kind reconcile at once. Raise it when one slow app holds up the others.")
 	opts := zap.Options{}
@@ -154,10 +155,9 @@ func Run(binary string, addToScheme func(*runtime.Scheme) error, controllers ...
 		metricsServerOptions.KeyName = metricsCertKey
 	}
 
-	cacheOptions := cache.Options{}
-	if watchNamespace != "" {
-		cacheOptions.DefaultNamespaces = map[string]cache.Config{watchNamespace: {}}
-		setupLog.Info("Watching a single namespace", "namespace", watchNamespace)
+	cacheOptions := cache.Options{DefaultNamespaces: watchedNamespaces(watchNamespace)}
+	if len(cacheOptions.DefaultNamespaces) > 0 {
+		setupLog.Info("Watching namespaces", "namespaces", watchNamespace)
 	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
@@ -168,6 +168,7 @@ func Run(binary string, addToScheme func(*runtime.Scheme) error, controllers ...
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "media-operator-" + binary + ".media-operator.dev",
 		Cache:                  cacheOptions,
+		Client:                 ClientOptions(),
 		Controller:             config.Controller{MaxConcurrentReconciles: maxConcurrentReconciles},
 	})
 	if err != nil {
@@ -202,6 +203,28 @@ func Run(binary string, addToScheme func(*runtime.Scheme) error, controllers ...
 		setupLog.Error(err, "Failed to run manager")
 		os.Exit(1)
 	}
+}
+
+// ClientOptions read Secrets from the API server when they are used. The
+// controllers watch Secrets by metadata only, so no binary keeps a copy of
+// every Secret it can see.
+func ClientOptions() client.Options {
+	return client.Options{Cache: &client.CacheOptions{DisableFor: []client.Object{&corev1.Secret{}}}}
+}
+
+// watchedNamespaces turns --watch-namespace into the cache's namespaces. Nil
+// watches every namespace.
+func watchedNamespaces(flagValue string) map[string]cache.Config {
+	var namespaces map[string]cache.Config
+	for ns := range strings.SplitSeq(flagValue, ",") {
+		if ns = strings.TrimSpace(ns); ns != "" {
+			if namespaces == nil {
+				namespaces = map[string]cache.Config{}
+			}
+			namespaces[ns] = cache.Config{}
+		}
+	}
+	return namespaces
 }
 
 // resolveEnabledControllers computes which controllers are enabled based on the

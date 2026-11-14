@@ -124,7 +124,7 @@ func (r *SabnzbdConfigReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 func (r *SabnzbdConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&downloadsv1alpha1.SabnzbdConfig{}, builder.WithPredicates(ctrlcommon.ConfigChangedPredicate())).
-		Watches(&corev1.Secret{}, ctrlcommon.EnqueueForSecret(r.Client, &downloadsv1alpha1.SabnzbdConfigList{})).
+		WatchesMetadata(&corev1.Secret{}, ctrlcommon.EnqueueForSecret(r.Client, &downloadsv1alpha1.SabnzbdConfigList{})).
 		Named("sabnzbdconfig").
 		Complete(r)
 }

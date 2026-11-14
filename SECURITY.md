@@ -19,7 +19,9 @@ Worth understanding before you deploy it:
 - **It holds every API key in your media stack.** Sonarr, Radarr, Plex tokens,
   download client passwords — anything you reference from a CR gets read out of a
   Secret and sent to the corresponding app. Its ServiceAccount can read Secrets in
-  whatever namespaces it watches. Set `watchNamespace` to narrow that down.
+  whatever namespaces it watches. Set `watchNamespace` to one or more namespaces,
+  comma-separated, to narrow that down. It reads a Secret only when a resource
+  uses it and doesn't keep Secret contents in memory.
 - **It can delete things in those apps.** `prune` and
   `deletionPolicy: delete` are both opt-in and both scoped to resources the
   operator created, but they are real delete calls.
