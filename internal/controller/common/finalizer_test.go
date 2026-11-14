@@ -109,6 +109,24 @@ func TestUnreachableAppRetriesButDoesNotWedgeForever(t *testing.T) {
 	assert.False(t, controllerutil.ContainsFinalizer(c2, Finalizer), "a dead app must not wedge deletion past the give-up window")
 }
 
+// An item the app won't delete stays won't-delete on every retry, so it is
+// reported and the finalizer is released rather than waiting out the give-up.
+func TestDeletionReportsWhatTheAppRefusesAndReleases(t *testing.T) {
+	c := newConfig(DeletionPolicyDelete, time.Minute)
+	cl := testClient(c).Build()
+	recorder := events.NewFakeRecorder(1)
+
+	_, err := HandleDeletion(context.Background(), cl, recorder, c, func(context.Context) error {
+		return &engine.KeptError{App: "seerr", Kept: []engine.KeptResource{{
+			Type: "sonarr", Name: "Sonarr", Reason: "in use",
+		}}}
+	})
+
+	require.NoError(t, err)
+	assert.False(t, controllerutil.ContainsFinalizer(c, Finalizer))
+	assert.Equal(t, `Warning ResourceKept Kept sonarr "Sonarr", which the operator created: seerr refused to delete it: in use`, <-recorder.Events)
+}
+
 func TestUnsupportedOrObserveDeletionDoesNotSilentlySucceed(t *testing.T) {
 	for _, observe := range []bool{false, true} {
 		t.Run(fmt.Sprint(observe), func(t *testing.T) {

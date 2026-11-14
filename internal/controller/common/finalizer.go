@@ -71,7 +71,11 @@ func HandleDeletion(ctx context.Context, c client.Client, recorder events.EventR
 			cleanupErr = fmt.Errorf("deletionPolicy delete is not supported by this integration")
 		case ownsNothing(obj):
 		default:
-			cleanupErr = remove(ctx)
+			var kept []*engine.KeptError
+			kept, cleanupErr = engine.SplitKept(remove(ctx))
+			for _, k := range kept {
+				EmitKeptEvents(recorder, obj, k.App, k.Kept)
+			}
 		}
 		if err := cleanupErr; err != nil {
 			if expired(obj) {
@@ -182,13 +186,20 @@ func CleanupApp(ctx context.Context, c client.Reader, recorder events.EventRecor
 	}
 	deleted, kept, err := engine.DeleteManagedResources(ctx, hc, def, managed)
 	EmitPruneEvents(recorder, obj, deleted)
-	if recorder != nil {
-		for _, k := range kept {
-			recorder.Eventf(obj, nil, corev1.EventTypeWarning, "ResourceKept", "Cleanup",
-				"Kept %s %q, which the operator created: %s refused to delete it: %s", k.Type, k.Name, app, k.Reason)
-		}
-	}
+	EmitKeptEvents(recorder, obj, app, kept)
 	return err
+}
+
+// EmitKeptEvents emits a ResourceKept warning for each item the app refused to
+// delete during cleanup.
+func EmitKeptEvents(recorder events.EventRecorder, obj ConfigResource, app string, kept []engine.KeptResource) {
+	if recorder == nil {
+		return
+	}
+	for _, k := range kept {
+		recorder.Eventf(obj, nil, corev1.EventTypeWarning, "ResourceKept", "Cleanup",
+			"Kept %s %q, which the operator created: %s refused to delete it: %s", k.Type, k.Name, app, k.Reason)
+	}
 }
 
 // ownsNothing reports whether status.managedResources records nothing, so
