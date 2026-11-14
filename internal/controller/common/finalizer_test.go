@@ -152,6 +152,43 @@ func TestLifecycleRejectsInvalidDeletionPolicies(t *testing.T) {
 	}
 }
 
+// Only a resource the operator will clean up holds the finalizer, so uninstalling
+// the operator or deleting its namespace never leaves the rest in Terminating.
+func TestOnlyASupportedDeletePolicyHoldsTheFinalizer(t *testing.T) {
+	remove := func(context.Context) error { return nil }
+	observe := DriftPolicyObserve
+	for _, tc := range []struct {
+		name    string
+		policy  string
+		observe bool
+		lc      Lifecycle
+		want    bool
+	}{
+		{name: "orphan by default", lc: Lifecycle{Remove: remove}},
+		{name: "orphan", policy: "orphan", lc: Lifecycle{Remove: remove}},
+		{name: "delete", policy: DeletionPolicyDelete, lc: Lifecycle{Remove: remove}, want: true},
+		{name: "delete where unsupported", policy: DeletionPolicyDelete},
+		{name: "delete in observe mode", policy: DeletionPolicyDelete, observe: true, lc: Lifecycle{Remove: remove}},
+	} {
+		for _, had := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/had=%v", tc.name, had), func(t *testing.T) {
+				obj := newConfig(tc.policy, 0)
+				if !had {
+					obj.Finalizers = nil
+				}
+				if tc.observe {
+					obj.Spec.Reconcile.DriftPolicy = &observe
+				}
+				c := testClient(obj).WithStatusSubresource(obj).Build()
+
+				HandleLifecycle(context.Background(), c, nil, obj, tc.lc)
+
+				assert.Equal(t, tc.want, controllerutil.ContainsFinalizer(obj, Finalizer))
+			})
+		}
+	}
+}
+
 // An integration that cannot prune must say so: ignoring prune would leave
 // resources removed from the spec in place while the spec claims otherwise.
 func TestLifecycleRejectsPruneWhereUnsupported(t *testing.T) {

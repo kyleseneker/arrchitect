@@ -18,7 +18,9 @@ import (
 	"github.com/kyleseneker/media-operator/internal/reconciler"
 )
 
-// Finalizer is added to every config resource so deletion can be handled.
+// Finalizer holds a resource with deletionPolicy delete until the operator has
+// removed what it created. Other resources don't carry it, so they never wait
+// on the operator to be deleted.
 const Finalizer = "media-operator.dev/finalizer"
 
 // DeletionGiveUpAfter bounds how long deletion will retry against an
@@ -29,12 +31,16 @@ const DeletionGiveUpAfter = 10 * time.Minute
 // DeletionPolicyDelete removes the resources the operator created.
 const DeletionPolicyDelete = "delete"
 
-// EnsureFinalizer adds the finalizer if it is missing.
-func EnsureFinalizer(ctx context.Context, c client.Client, obj ConfigResource) error {
-	if controllerutil.ContainsFinalizer(obj, Finalizer) {
+// SetFinalizer adds the finalizer when want is set and removes it otherwise.
+func SetFinalizer(ctx context.Context, c client.Client, obj ConfigResource, want bool) error {
+	if controllerutil.ContainsFinalizer(obj, Finalizer) == want {
 		return nil
 	}
-	controllerutil.AddFinalizer(obj, Finalizer)
+	if want {
+		controllerutil.AddFinalizer(obj, Finalizer)
+	} else {
+		controllerutil.RemoveFinalizer(obj, Finalizer)
+	}
 	return c.Update(ctx, obj)
 }
 
@@ -125,20 +131,20 @@ func HandleLifecycle(ctx context.Context, c client.Client, recorder events.Event
 		}
 		return true, 0
 	}
-	if err := EnsureFinalizer(ctx, c, obj); err != nil {
-		logger.Error(err, "adding finalizer; retrying")
+	rc := obj.GetReconcileConfig()
+	deletes := rc != nil && rc.DeletionPolicy != nil && *rc.DeletionPolicy == DeletionPolicyDelete
+	unsupported := deletes && (lc.Remove == nil || ObserveOnly(rc))
+	if err := SetFinalizer(ctx, c, obj, deletes && !unsupported); err != nil {
+		logger.Error(err, "updating finalizer; retrying")
 		return true, 30 * time.Second
 	}
-	rc := obj.GetReconcileConfig()
-	if rc != nil && rc.DeletionPolicy != nil && *rc.DeletionPolicy == DeletionPolicyDelete {
-		if lc.Remove == nil || ObserveOnly(rc) {
-			message := "deletionPolicy delete is not supported by this integration; use orphan"
-			if ObserveOnly(rc) {
-				message = "deletionPolicy delete conflicts with driftPolicy observe; use orphan"
-			}
-			UpdateStatusUnreachable(ctx, c, obj, engine.ReasonInvalidConfig, message)
-			return true, ReconcileInterval(rc)
+	if unsupported {
+		message := "deletionPolicy delete is not supported by this integration; use orphan"
+		if ObserveOnly(rc) {
+			message = "deletionPolicy delete conflicts with driftPolicy observe; use orphan"
 		}
+		UpdateStatusUnreachable(ctx, c, obj, engine.ReasonInvalidConfig, message)
+		return true, ReconcileInterval(rc)
 	}
 	if PruneEnabled(rc) && !lc.Prune {
 		UpdateStatusUnreachable(ctx, c, obj, engine.ReasonInvalidConfig,

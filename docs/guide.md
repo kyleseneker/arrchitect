@@ -120,7 +120,9 @@ Jellyfin and Plex reject `prune: true` with `InvalidConfig`.
 
 Deleting a resource leaves the app unchanged. With
 `spec.reconcile.deletionPolicy: delete`, the operator first deletes the items it
-created, the same kinds prune covers. Everything else is kept.
+created, the same kinds prune covers. Everything else is kept. Only resources
+with `delete` carry the operator's finalizer, so removing the operator never
+leaves the others stuck deleting.
 
 `delete` is supported for the apps in the prune table, and not in observe mode;
 Jellyfin and Plex reject it with `InvalidConfig`. An item the app won't delete
