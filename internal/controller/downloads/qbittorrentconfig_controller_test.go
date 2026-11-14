@@ -433,3 +433,55 @@ func TestQBDisabledLimitIsNotCompared(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 2.0, enabled["max_ratio"])
 }
+
+func TestCompleteLimitPairsSendsBothHalves(t *testing.T) {
+	tests := []struct {
+		name    string
+		payload map[string]any
+		current map[string]any
+		want    map[string]any
+		err     string
+	}{
+		{
+			name:    "a switch turned on carries the stored limit",
+			payload: map[string]any{"max_ratio_enabled": true},
+			current: map[string]any{"max_ratio_enabled": false, "max_ratio": 2.5},
+			want:    map[string]any{"max_ratio_enabled": true, "max_ratio": 2.5},
+		},
+		{
+			name:    "a switch turned on with no limit anywhere is refused rather than sent as 0",
+			payload: map[string]any{"max_seeding_time_enabled": true},
+			current: map[string]any{"max_seeding_time_enabled": false, "max_seeding_time": -1.0},
+			err:     "maxSeedingTimeEnabled is true, but the limit isn't set",
+		},
+		{
+			name:    "a limit carries the switch qBittorrent has on",
+			payload: map[string]any{"max_ratio": 1.5},
+			current: map[string]any{"max_ratio_enabled": true, "max_ratio": 2.0},
+			want:    map[string]any{"max_ratio_enabled": true, "max_ratio": 1.5},
+		},
+		{
+			name:    "a limit whose switch is off in qBittorrent isn't applied",
+			payload: map[string]any{"max_inactive_seeding_time": 60},
+			current: map[string]any{"max_inactive_seeding_time_enabled": false, "max_inactive_seeding_time": -1.0},
+			want:    map[string]any{},
+		},
+		{
+			name:    "both halves declared are left alone",
+			payload: map[string]any{"max_ratio_enabled": true, "max_ratio": 1.0},
+			current: map[string]any{"max_ratio_enabled": false, "max_ratio": -1.0},
+			want:    map[string]any{"max_ratio_enabled": true, "max_ratio": 1.0},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := completeLimitPairs(tt.payload, tt.current)
+			if tt.err != "" {
+				assert.ErrorContains(t, err, tt.err)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, tt.payload)
+		})
+	}
+}

@@ -110,7 +110,8 @@ type QBittorrentPreferences struct {
 	MaxRatioEnabled *bool `json:"maxRatioEnabled,omitempty"`
 
 	// maxRatio is the global share ratio limit (e.g., "2.0").
-	// Represented as a string to preserve decimal precision in JSON.
+	// Represented as a string to preserve decimal precision in JSON. It applies
+	// while maxRatioEnabled is true, here or in qBittorrent.
 	// +optional
 	MaxRatio *string `json:"maxRatio,omitempty"`
 
@@ -123,7 +124,8 @@ type QBittorrentPreferences struct {
 	// +optional
 	MaxSeedingTimeEnabled *bool `json:"maxSeedingTimeEnabled,omitempty"`
 
-	// maxSeedingTime is the global seeding time limit in minutes.
+	// maxSeedingTime is the global seeding time limit in minutes. It applies
+	// while maxSeedingTimeEnabled is true, here or in qBittorrent.
 	// +optional
 	MaxSeedingTime *int `json:"maxSeedingTime,omitempty"`
 
@@ -339,7 +341,9 @@ type QBittorrentPreferences struct {
 	// +optional
 	MaxInactiveSeedingTimeEnabled *bool `json:"maxInactiveSeedingTimeEnabled,omitempty"`
 
-	// maxInactiveSeedingTime is the global inactive seeding time limit in minutes.
+	// maxInactiveSeedingTime is the global inactive seeding time limit in
+	// minutes. It applies while maxInactiveSeedingTimeEnabled is true, here or
+	// in qBittorrent.
 	// +optional
 	MaxInactiveSeedingTime *int `json:"maxInactiveSeedingTime,omitempty"`
 }
