@@ -2,6 +2,7 @@ package downloads
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"maps"
 	"net"
@@ -302,15 +303,13 @@ func (r *SabnzbdConfigReconciler) cleanup(ctx context.Context, config *downloads
 		return err
 	}
 	owned := engine.NewOwnership("sabnzbd", config.Status.ManagedResources)
+	var errs []error
 	for _, section := range []string{"servers", "categories"} {
-		err := owned.Cleanup(section, sabnzbdNames(current, section), func(name string) error {
+		errs = append(errs, owned.Cleanup(section, sabnzbdNames(current, section), func(name string) error {
 			return sc.DeleteNamed(ctx, section, name)
-		})
-		if err != nil {
-			return err
-		}
+		}))
 	}
-	return nil
+	return errors.Join(errs...)
 }
 
 func sabnzbdNames(current map[string]any, section string) []string {

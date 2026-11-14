@@ -211,19 +211,17 @@ func (r *SeerrConfigReconciler) cleanup(ctx context.Context, config *requestsv1a
 		return err
 	}
 	owned := engine.NewOwnership("seerr", config.Status.ManagedResources)
+	var errs []error
 	for _, kind := range []string{"sonarr", "radarr"} {
 		names, ids, err := seerrServices(ctx, sc, kind)
-		if err != nil {
-			return err
+		if err == nil {
+			err = owned.Cleanup(kind, names, func(name string) error {
+				return sc.Delete(ctx, fmt.Sprintf("/api/v1/settings/%s/%d", kind, ids[name]))
+			})
 		}
-		err = owned.Cleanup(kind, names, func(name string) error {
-			return sc.Delete(ctx, fmt.Sprintf("/api/v1/settings/%s/%d", kind, ids[name]))
-		})
-		if err != nil {
-			return err
-		}
+		errs = append(errs, err)
 	}
-	return nil
+	return errors.Join(errs...)
 }
 
 func seerrServices(ctx context.Context, sc *seerrclient.Client, kind string) ([]string, map[string]int, error) {
