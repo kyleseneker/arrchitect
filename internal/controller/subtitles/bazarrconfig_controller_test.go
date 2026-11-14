@@ -337,3 +337,20 @@ func newTestBazarrClient(t *testing.T, addr string) *bazarrclient.Client {
 	require.NoError(t, err)
 	return bazarrclient.NewClient(hc)
 }
+
+func TestBazarrProviderSettingsReadENVFromASecret(t *testing.T) {
+	scheme := runtime.NewScheme()
+	require.NoError(t, clientgoscheme.AddToScheme(scheme))
+	r := &BazarrConfigReconciler{Client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(bazarrSecrets()).Build()}
+
+	form, err := r.bazarrProviderForm(context.Background(), "media", []subtitlesv1alpha1.BazarrProvider{{
+		Name: "opensubtitlescom", Settings: map[string]string{"password": "ENV:bazarr-secrets:sonarr-api-key"},
+	}})
+	require.NoError(t, err)
+	assert.Equal(t, "sonarr-key", form.Get("settings-opensubtitlescom-password"))
+
+	_, err = r.bazarrProviderForm(context.Background(), "media", []subtitlesv1alpha1.BazarrProvider{{
+		Name: "opensubtitlescom", Settings: map[string]string{"password": "ENV:OPENSUBTITLES_PASSWORD"},
+	}})
+	assert.ErrorContains(t, err, "ENV: takes <secret>:<key>", "a malformed reference must not be sent to Bazarr as the password")
+}
