@@ -551,6 +551,20 @@ func TestSeerrFirstRunWaitsForJellyfinLibraries(t *testing.T) {
 	assert.False(t, app.saw("POST", "/api/v1/settings/initialize"), "completed initialization with no libraries to enable")
 }
 
+func TestSeerrFailedSetupKeepsTrackOfTheServersItCreated(t *testing.T) {
+	app := &fakeSeerr{}
+	cfg := firstRunJellyfinConfig(app.serve(t))
+	port := 8989
+	cfg.Spec.Sonarr = []requestsv1alpha1.SeerrServiceConnection{{
+		Name: "Sonarr", Hostname: "sonarr", Port: &port, APIKeySecretRef: commonv1alpha1.SecretKeyRef{Name: "seerr-secrets", Key: "api-key"},
+	}}
+
+	got := runSeerr(t, cfg)
+
+	require.Equal(t, []string{"Sonarr"}, seerrServiceNames(app, "sonarr"))
+	assert.Equal(t, []string{"Sonarr"}, got.Status.ManagedResources["sonarr"], "prune and deletion could never remove it")
+}
+
 func TestSeerrReportsARefusedAPIKeyAsUnreachable(t *testing.T) {
 	app := &fakeSeerr{initialized: true, refuseKey: true}
 
