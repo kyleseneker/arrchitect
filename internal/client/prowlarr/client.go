@@ -77,7 +77,7 @@ func ProwlarrResources(opts ProwlarrOptions, tagIDs map[string]int) map[string][
 	if len(opts.Tags) > 0 {
 		tags := make([]map[string]any, 0, len(opts.Tags))
 		for _, t := range opts.Tags {
-			tags = append(tags, map[string]any{"label": t.Label})
+			tags = append(tags, map[string]any{"label": engine.TagLabel(t.Label)})
 		}
 		resources["tags"] = tags
 	}

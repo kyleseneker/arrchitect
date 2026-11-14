@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"slices"
+	"strings"
 )
 
 // NamedIDs maps a name to every ID an app assigned it. Duplicates are retained
@@ -57,7 +58,7 @@ func (ids NamedIDs) ResolveTags(labels []string, legacy []int) ([]int, error) {
 	}
 	out := make([]int, 0, len(labels))
 	for _, label := range labels {
-		id, err := ids.Resolve(label)
+		id, err := ids.Resolve(TagLabel(label))
 		if err != nil {
 			return nil, fmt.Errorf("tag: %w", err)
 		}
@@ -66,4 +67,10 @@ func (ids NamedIDs) ResolveTags(labels []string, legacy []int) ([]int, error) {
 		}
 	}
 	return out, nil
+}
+
+// TagLabel is a tag label as the apps store it. Sonarr, Radarr, Lidarr, Readarr
+// and Prowlarr lowercase a label when they save it.
+func TagLabel(label string) string {
+	return strings.ToLower(label)
 }

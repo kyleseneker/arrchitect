@@ -240,7 +240,7 @@ func Resources(ctx context.Context, client *engine.HTTPClient, apiVersion string
 func tagResources(declared []commonv1alpha1.Tag) []map[string]any {
 	tags := make([]map[string]any, 0, len(declared))
 	for _, t := range declared {
-		tags = append(tags, map[string]any{"label": t.Label})
+		tags = append(tags, map[string]any{"label": engine.TagLabel(t.Label)})
 	}
 	return tags
 }
