@@ -25,7 +25,8 @@ Download clients, indexers, notifications and other lists are matched by name.
 Root folders are created if missing and otherwise left alone. Jellyfin and
 Plex libraries are created if missing and otherwise kept as declared, folders
 included: a folder the resource doesn't list is removed from the library.
-Libraries are never deleted, and changing a library's type means recreating it.
+Libraries are never deleted, changing a library's type means recreating it,
+and a name two libraries share is refused rather than guessed.
 
 On a fresh install, the operator runs the Jellyfin and Seerr setup wizards.
 Seerr's needs Seerr 3.5.0 or later, and when set up through Jellyfin it waits

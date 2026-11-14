@@ -149,7 +149,7 @@ func (s *maintainerrSync) run(ctx context.Context, spec *curationv1alpha1.Mainta
 		}
 	}
 
-	servers := map[maintainerrclient.Arr]map[string]int{}
+	servers := map[maintainerrclient.Arr]engine.NamedIDs{}
 	for _, arr := range []struct {
 		kind     maintainerrclient.Arr
 		declared []curationv1alpha1.MaintainerrArrServer
@@ -179,7 +179,7 @@ func (s *maintainerrSync) run(ctx context.Context, spec *curationv1alpha1.Mainta
 		}
 	}
 
-	var notifications map[string]int
+	var notifications engine.NamedIDs
 	if len(spec.Notifications) > 0 || slices.ContainsFunc(spec.RuleGroups, func(g curationv1alpha1.MaintainerrRuleGroup) bool {
 		return g.Notifications != nil
 	}) {
@@ -301,7 +301,7 @@ func maskPlexToken(token string) string {
 // server's id by name, for rule groups to refer to.
 func (s *maintainerrSync) arrServers(
 	ctx context.Context, kind maintainerrclient.Arr, declared []curationv1alpha1.MaintainerrArrServer,
-) (map[string]int, error) {
+) (engine.NamedIDs, error) {
 	stored, err := s.mc.ListArr(ctx, kind)
 	if err != nil {
 		return nil, fmt.Errorf("listing servers: %w", err)
@@ -320,13 +320,7 @@ func (s *maintainerrSync) arrServers(
 			return nil, fmt.Errorf("listing servers: %w", err)
 		}
 	}
-	ids := map[string]int{}
-	for _, e := range stored {
-		name, _ := e["serverName"].(string)
-		if id, ok := e["id"].(float64); ok {
-			ids[name] = int(id)
-		}
-	}
+	ids := engine.NamedIDsOf(stored, "serverName")
 	if len(errs) > 0 {
 		return ids, fmt.Errorf("%s", strings.Join(errs, "; "))
 	}

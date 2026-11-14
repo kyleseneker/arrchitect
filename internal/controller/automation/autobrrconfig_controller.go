@@ -318,7 +318,11 @@ func (s *autobrrSync) indexer(ctx context.Context, idx automationv1alpha1.Autobr
 			if err != nil {
 				return nil, err
 			}
-			created, err := s.ac.GetIndexer(ctx, ids[idx.Name])
+			id, _, err := ids.Find(idx.Name)
+			if err != nil {
+				return nil, err
+			}
+			created, err := s.ac.GetIndexer(ctx, id)
 			if err != nil {
 				return nil, err
 			}
@@ -456,12 +460,14 @@ func (s *autobrrSync) feed(ctx context.Context, feed automationv1alpha1.AutobrrF
 	if err != nil {
 		return err
 	}
-	indexerID, ok := indexerIDs[feed.IndexerRef]
+	indexerID, found, err := indexerIDs.Find(feed.IndexerRef)
 	switch {
-	case !ok && s.Observe && len(s.Drift()) > 0:
+	case err != nil:
+		return fmt.Errorf("indexer: %w", err)
+	case !found && s.Observe && len(s.Drift()) > 0:
 		s.RecordDrift("feed", feed.Name)
 		return nil
-	case !ok:
+	case !found:
 		return fmt.Errorf("references indexer %q, which does not exist", feed.IndexerRef)
 	}
 
@@ -507,19 +513,12 @@ func (s *autobrrSync) feed(ctx context.Context, feed automationv1alpha1.AutobrrF
 }
 
 // indexerIDs maps each Autobrr indexer's name to its id.
-func (s *autobrrSync) indexerIDs(ctx context.Context) (map[string]int, error) {
+func (s *autobrrSync) indexerIDs(ctx context.Context) (engine.NamedIDs, error) {
 	indexers, err := s.ac.ListIndexers(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("listing indexers: %w", err)
 	}
-	ids := map[string]int{}
-	for _, i := range indexers {
-		name, _ := i["name"].(string)
-		if id, ok := i["id"].(float64); ok && name != "" {
-			ids[name] = int(id)
-		}
-	}
-	return ids, nil
+	return engine.NamedIDsOf(indexers, "name"), nil
 }
 
 func (s *autobrrSync) filter(ctx context.Context, filter automationv1alpha1.AutobrrFilter) error {
@@ -531,14 +530,7 @@ func (s *autobrrSync) filter(ctx context.Context, filter automationv1alpha1.Auto
 	if err != nil {
 		return fmt.Errorf("listing download clients: %w", err)
 	}
-	clientIDs := map[string]int{}
-	for _, d := range downloaders {
-		if name, _ := d["name"].(string); name != "" {
-			if id, ok := d["id"].(float64); ok {
-				clientIDs[name] = int(id)
-			}
-		}
-	}
+	clientIDs := engine.NamedIDsOf(downloaders, "name")
 
 	obj, err := autobrrFields(filter, autobrrclient.FilterFields)
 	if err != nil {
@@ -590,8 +582,11 @@ func (s *autobrrSync) filterIndexers(ctx context.Context, names []string) ([]any
 	}
 	resolved := make([]int, 0, len(names))
 	for _, name := range names {
-		id, ok := ids[name]
-		if !ok {
+		id, found, err := ids.Find(name)
+		switch {
+		case err != nil:
+			return nil, "", fmt.Errorf("indexer: %w", err)
+		case !found:
 			return nil, name, nil
 		}
 		resolved = append(resolved, id)
@@ -606,7 +601,7 @@ func (s *autobrrSync) filterIndexers(ctx context.Context, names []string) ([]any
 
 // actions creates or updates a filter's actions by name.
 func (s *autobrrSync) actions(
-	ctx context.Context, filterID int, filter automationv1alpha1.AutobrrFilter, clientIDs map[string]int,
+	ctx context.Context, filterID int, filter automationv1alpha1.AutobrrFilter, clientIDs engine.NamedIDs,
 ) error {
 	existing, err := s.ac.ListActions(ctx, filterID)
 	if err != nil {
@@ -622,13 +617,15 @@ func (s *autobrrSync) actions(
 		setEnabled(aObj, a.Enable)
 		if a.ClientRef != "" {
 			// Autobrr links an action to a downloader by its numeric ID.
-			id, ok := clientIDs[a.ClientRef]
+			id, found, err := clientIDs.Find(a.ClientRef)
 			switch {
-			case !ok && s.Observe && len(s.Drift()) > 0:
+			case err != nil:
+				return fmt.Errorf("action %q download client: %w", a.Name, err)
+			case !found && s.Observe && len(s.Drift()) > 0:
 				// The download client may be one observe mode found missing.
 				s.RecordDrift("action", a.Name)
 				continue
-			case !ok:
+			case !found:
 				return fmt.Errorf("action %q references download client %q, which does not exist", a.Name, a.ClientRef)
 			}
 			aObj["client_id"] = id

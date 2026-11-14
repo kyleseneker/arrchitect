@@ -329,6 +329,13 @@ func TestBazarrDefaultProfilesResolveByName(t *testing.T) {
 	require.ErrorContains(t, err, `movieDefaultProfile: Bazarr has no language profile named "French"`)
 	assert.False(t, form.Has("settings-general-movie_default_profile"), "an unknown name is never sent")
 	assert.Equal(t, "3", form.Get("settings-general-serie_default_profile"))
+
+	app.profiles = append(app.profiles, map[string]any{"profileId": float64(8), "name": "Spanish"})
+	spec.General.MovieDefaultProfile = "Spanish"
+	form = bazarrclient.StructToFormData("general", spec.General)
+	err = resolveBazarrDefaultProfiles(context.Background(), bc, spec, form)
+	require.ErrorContains(t, err, `movieDefaultProfile: Bazarr has more than one language profile named "Spanish"`)
+	assert.False(t, form.Has("settings-general-movie_default_profile"), "an ambiguous name never picks one of the profiles")
 }
 
 func newTestBazarrClient(t *testing.T, addr string) *bazarrclient.Client {

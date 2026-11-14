@@ -13,6 +13,7 @@ import (
 
 	curationv1alpha1 "github.com/kyleseneker/media-operator/api/curation/v1alpha1"
 	maintainerrclient "github.com/kyleseneker/media-operator/internal/client/maintainerr"
+	"github.com/kyleseneker/media-operator/internal/engine"
 	"github.com/kyleseneker/media-operator/internal/reconciler"
 )
 
@@ -50,8 +51,8 @@ type ruleEnv struct {
 	mediaServer   string
 	apps          map[string]ruleApp
 	libraries     []map[string]any
-	servers       map[maintainerrclient.Arr]map[string]int
-	notifications map[string]int
+	servers       map[maintainerrclient.Arr]engine.NamedIDs
+	notifications engine.NamedIDs
 }
 
 type ruleApp struct {
@@ -65,8 +66,8 @@ type ruleProp struct {
 }
 
 func (s *maintainerrSync) ruleGroups(
-	ctx context.Context, groups []curationv1alpha1.MaintainerrRuleGroup, servers map[maintainerrclient.Arr]map[string]int,
-	notifications map[string]int,
+	ctx context.Context, groups []curationv1alpha1.MaintainerrRuleGroup, servers map[maintainerrclient.Arr]engine.NamedIDs,
+	notifications engine.NamedIDs,
 ) []string {
 	// Rule groups resolve against the media server and the apps configured
 	// before them. When observe mode has found those differing, a group that
@@ -177,9 +178,9 @@ func (s *maintainerrSync) qualityProfile(
 	if name == "" {
 		return nil, fmt.Errorf("arrAction changeQualityProfile needs radarrServer or sonarrServer")
 	}
-	id, ok := env.servers[kind][name]
-	if !ok {
-		return nil, fmt.Errorf("maintainerr has no %s server named %q", kind, name)
+	id, err := oneNamed(env.servers[kind], string(kind)+" server", name)
+	if err != nil {
+		return nil, err
 	}
 	profiles, err := s.mc.QualityProfiles(ctx, kind, id)
 	if err != nil {
@@ -521,9 +522,18 @@ func serverID(env ruleEnv, kind maintainerrclient.Arr, name string) (any, error)
 	if name == "" {
 		return nil, nil
 	}
-	id, ok := env.servers[kind][name]
-	if !ok {
-		return nil, fmt.Errorf("maintainerr has no %s server named %q", kind, name)
+	return oneNamed(env.servers[kind], string(kind)+" server", name)
+}
+
+// oneNamed returns the ID of the single item named name, refusing a name that
+// matches none or several.
+func oneNamed(ids engine.NamedIDs, what, name string) (int, error) {
+	id, found, err := ids.Find(name)
+	switch {
+	case err != nil:
+		return 0, fmt.Errorf("maintainerr has more than one %s named %q", what, name)
+	case !found:
+		return 0, fmt.Errorf("maintainerr has no %s named %q", what, name)
 	}
 	return id, nil
 }

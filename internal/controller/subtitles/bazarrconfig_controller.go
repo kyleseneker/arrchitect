@@ -230,15 +230,15 @@ func resolveBazarrDefaultProfiles(ctx context.Context, bc *bazarrclient.Client, 
 	if spec.General == nil || (spec.General.SeriesDefaultProfile == "" && spec.General.MovieDefaultProfile == "") {
 		return nil
 	}
-	ids := map[string]int{}
+	declared := engine.NamedIDs{}
 	if spec.Languages != nil {
 		for _, p := range spec.Languages.Profiles {
 			if p.ProfileId != nil {
-				ids[p.Name] = *p.ProfileId
+				declared[p.Name] = append(declared[p.Name], *p.ProfileId)
 			}
 		}
 	}
-	var existing []map[string]any
+	var stored engine.NamedIDs
 	var errs []error
 	for _, d := range []struct{ field, name, enabled string }{
 		{"seriesDefaultProfile", spec.General.SeriesDefaultProfile, "serie_default_enabled"},
@@ -248,21 +248,31 @@ func resolveBazarrDefaultProfiles(ctx context.Context, bc *bazarrclient.Client, 
 			continue
 		}
 		key := "settings-general-" + bazarrclient.SettingName("general", d.field)
-		id, ok := ids[d.name]
-		if !ok && existing == nil {
-			var err error
-			if existing, err = bc.GetLanguageProfiles(ctx); err != nil {
-				form.Del(key)
-				errs = append(errs, fmt.Errorf("%s: reading language profiles: %w", d.field, err))
-				continue
+		id, found, err := declared.Find(d.name)
+		if err == nil && !found {
+			if stored == nil {
+				existing, err := bc.GetLanguageProfiles(ctx)
+				if err != nil {
+					form.Del(key)
+					errs = append(errs, fmt.Errorf("%s: reading language profiles: %w", d.field, err))
+					continue
+				}
+				stored = engine.NamedIDs{}
+				for _, p := range existing {
+					if profileID, ok := p["profileId"].(float64); ok {
+						name, _ := p["name"].(string)
+						stored[name] = append(stored[name], int(profileID))
+					}
+				}
 			}
+			id, found, err = stored.Find(d.name)
 		}
-		for _, p := range existing {
-			if found, isID := p["profileId"].(float64); !ok && isID && p["name"] == d.name {
-				id, ok = int(found), true
-			}
-		}
-		if !ok {
+		switch {
+		case err != nil:
+			form.Del(key)
+			errs = append(errs, fmt.Errorf("%s: Bazarr has more than one language profile named %q", d.field, d.name))
+			continue
+		case !found:
 			form.Del(key)
 			errs = append(errs, fmt.Errorf("%s: Bazarr has no language profile named %q", d.field, d.name))
 			continue

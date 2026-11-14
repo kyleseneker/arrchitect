@@ -176,6 +176,14 @@ func TestPlexRefusesToChangeALibrarysType(t *testing.T) {
 	assert.Empty(t, app.writes())
 }
 
+func TestPlexRefusesALibraryNameTwoLibrariesShare(t *testing.T) {
+	app := &fakePlex{existingLibs: []any{plexMovies("/media/movies"), plexMovies("/media/other")}}
+	cfg := plexConfig(app.serve(t), mediaserversv1alpha1.PlexLibrary{Name: "Movies", Type: "movie", Paths: []string{"/media/movies"}})
+	synced := observePlex(t, cfg)
+	assert.Contains(t, synced.Message, `more than one library is named "Movies"`)
+	assert.Empty(t, app.writes())
+}
+
 func TestPlexMissingTokenDoesNotContactApp(t *testing.T) {
 	app := &fakePlex{}
 	addr := app.serve(t)

@@ -9,6 +9,7 @@ import (
 
 	curationv1alpha1 "github.com/kyleseneker/media-operator/api/curation/v1alpha1"
 	maintainerrclient "github.com/kyleseneker/media-operator/internal/client/maintainerr"
+	"github.com/kyleseneker/media-operator/internal/engine"
 	"github.com/kyleseneker/media-operator/internal/reconciler"
 )
 
@@ -20,9 +21,9 @@ func testRuleEnv(mediaServer string) ruleEnv {
 			{"id": "1", "title": "Movies", "type": "movie"},
 			{"id": "2", "title": "TV Shows", "type": "show"},
 		},
-		servers: map[maintainerrclient.Arr]map[string]int{
-			maintainerrclient.Radarr: {"Radarr": 3},
-			maintainerrclient.Sonarr: {"Sonarr": 4},
+		servers: map[maintainerrclient.Arr]engine.NamedIDs{
+			maintainerrclient.Radarr: {"Radarr": {3}, "Twice": {5, 6}},
+			maintainerrclient.Sonarr: {"Sonarr": {4}},
 		},
 	}
 }
@@ -163,6 +164,19 @@ func TestBuildRuleGroupRejectsSettingsMaintainerrWouldDrop(t *testing.T) {
 	g.ArrAction, g.CleanupLeftoverFolders = "unmonitorDeleteExisting", new(true)
 	_, _, err = buildRuleGroup(g, env, nil)
 	assert.NoError(t, err)
+}
+
+func TestBuildRuleGroupRefusesAServerNameSeveralServersShare(t *testing.T) {
+	g := &curationv1alpha1.MaintainerrRuleGroup{
+		Name: "g", Library: "Movies", ArrAction: "delete", RadarrServer: "Twice",
+		Sections: []curationv1alpha1.MaintainerrRuleSection{{Rules: []curationv1alpha1.MaintainerrRule{rule("", "Plex.viewCount", "EQUALS")}}},
+	}
+	_, _, err := buildRuleGroup(g, testRuleEnv("plex"), nil)
+	assert.EqualError(t, err, `maintainerr has more than one radarr server named "Twice"`)
+
+	g.RadarrServer = "Missing"
+	_, _, err = buildRuleGroup(g, testRuleEnv("plex"), nil)
+	assert.EqualError(t, err, `maintainerr has no radarr server named "Missing"`)
 }
 
 func TestBuildRuleGroupNeedsAValueUnlessTheActionTestsExistence(t *testing.T) {
