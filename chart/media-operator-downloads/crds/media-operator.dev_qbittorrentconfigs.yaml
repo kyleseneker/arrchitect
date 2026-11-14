@@ -257,8 +257,10 @@ spec:
                       torrent. -1 means unlimited.
                     type: integer
                   maxInactiveSeedingTime:
-                    description: maxInactiveSeedingTime is the global inactive seeding
-                      time limit in minutes.
+                    description: |-
+                      maxInactiveSeedingTime is the global inactive seeding time limit in
+                      minutes. It applies while maxInactiveSeedingTimeEnabled is true, here or
+                      in qBittorrent.
                     type: integer
                   maxInactiveSeedingTimeEnabled:
                     description: |-
@@ -268,7 +270,8 @@ spec:
                   maxRatio:
                     description: |-
                       maxRatio is the global share ratio limit (e.g., "2.0").
-                      Represented as a string to preserve decimal precision in JSON.
+                      Represented as a string to preserve decimal precision in JSON. It applies
+                      while maxRatioEnabled is true, here or in qBittorrent.
                     type: string
                   maxRatioAction:
                     description: maxRatioAction is what qBittorrent does when a share
@@ -283,8 +286,9 @@ spec:
                     description: maxRatioEnabled enables the global share ratio limit.
                     type: boolean
                   maxSeedingTime:
-                    description: maxSeedingTime is the global seeding time limit in
-                      minutes.
+                    description: |-
+                      maxSeedingTime is the global seeding time limit in minutes. It applies
+                      while maxSeedingTimeEnabled is true, here or in qBittorrent.
                     type: integer
                   maxSeedingTimeEnabled:
                     description: maxSeedingTimeEnabled enables the global seeding

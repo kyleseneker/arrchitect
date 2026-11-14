@@ -154,17 +154,46 @@ func qbPreferencePayload(prefs *downloadsv1alpha1.QBittorrentPreferences) (map[s
 	}
 	// A disabled limit is stored as -1, and qBittorrent ignores a limit sent with
 	// it, so comparing the declared limit would differ on every pass.
-	for enabled, limit := range map[string]string{
-		"max_ratio_enabled":                 "max_ratio",
-		"max_seeding_time_enabled":          "max_seeding_time",
-		"max_inactive_seeding_time_enabled": "max_inactive_seeding_time",
-	} {
-		if out[enabled] == false {
-			delete(out, limit)
+	for _, pair := range qbLimitPairs {
+		if out[pair.enabled] == false {
+			delete(out, pair.limit)
 		}
 	}
 
 	return out, nil
+}
+
+// qbLimitPairs are the share limits qBittorrent reads as a pair: it applies a
+// limit only when its switch comes with it, and a switch turned on without its
+// limit sets the limit to 0, which finishes every torrent at once.
+var qbLimitPairs = []struct{ enabled, limit, field string }{
+	{"max_ratio_enabled", "max_ratio", "maxRatioEnabled"},
+	{"max_seeding_time_enabled", "max_seeding_time", "maxSeedingTimeEnabled"},
+	{"max_inactive_seeding_time_enabled", "max_inactive_seeding_time", "maxInactiveSeedingTimeEnabled"},
+}
+
+// completeLimitPairs sends the half of a limit pair the spec leaves out as
+// qBittorrent has it. A limit whose switch is off in qBittorrent isn't applied.
+func completeLimitPairs(payload, current map[string]any) error {
+	for _, pair := range qbLimitPairs {
+		on, declaredOn := payload[pair.enabled].(bool)
+		_, declaredLimit := payload[pair.limit]
+		switch {
+		case declaredOn && on && !declaredLimit:
+			stored, ok := current[pair.limit].(float64)
+			if !ok || stored < 0 {
+				return fmt.Errorf("%s is true, but the limit isn't set here or in qBittorrent", pair.field)
+			}
+			payload[pair.limit] = stored
+		case declaredLimit && !declaredOn:
+			if storedOn, _ := current[pair.enabled].(bool); storedOn {
+				payload[pair.enabled] = true
+			} else {
+				delete(payload, pair.limit)
+			}
+		}
+	}
+	return nil
 }
 
 // qbPath is a path as qBittorrent stores it: without a trailing separator.
@@ -190,6 +219,9 @@ func reconcileQBPreferences(ctx context.Context, qb *qbclient.Client, prefs *dow
 	current, err := qb.GetPreferences(ctx)
 	if err != nil {
 		return fmt.Errorf("reading preferences: %w", err)
+	}
+	if err := completeLimitPairs(payload, current); err != nil {
+		return err
 	}
 	changed, err := engine.CorrectDifference("qbittorrent", "settings", "preferences", current, payload)
 	if err != nil || !changed {
@@ -315,6 +347,9 @@ func observeQBConfig(
 			current, err := qb.GetPreferences(ctx)
 			if err != nil {
 				return fmt.Errorf("reading preferences: %w", err)
+			}
+			if err := completeLimitPairs(desired, current); err != nil {
+				return err
 			}
 			if err := w.Compare("settings", "preferences", current, desired); err != nil {
 				return err
