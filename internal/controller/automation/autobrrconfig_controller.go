@@ -75,7 +75,7 @@ func (r *AutobrrConfigReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 	sync := &autobrrSync{
 		App: "autobrr", Observe: ctrlcommon.ObserveOnly(config.Spec.Reconcile),
-		c: r.Client, ac: ac, namespace: config.Namespace,
+		c: r.Client, ac: ac, namespace: config.Namespace, owner: config.Namespace + "/" + config.Name,
 		prune: ctrlcommon.PruneEnabled(config.Spec.Reconcile), owned: engine.NewOwnership("autobrr", config.Status.ManagedResources),
 	}
 	syncErrors := sync.run(ctx, &config.Spec)
@@ -113,6 +113,7 @@ type autobrrSync struct {
 	c         client.Reader
 	ac        *autobrrclient.Client
 	namespace string
+	owner     string
 	prune     bool
 	owned     *engine.Ownership
 
@@ -179,11 +180,11 @@ func (s *autobrrSync) downloadClient(ctx context.Context, dc automationv1alpha1.
 	}
 
 	obj := map[string]any{
-		"name":    dc.Name,
-		"type":    autobrrType(dc.Type),
-		"host":    dc.Host,
-		"enabled": dc.Enable == nil || *dc.Enable,
+		"name": dc.Name,
+		"type": autobrrType(dc.Type),
+		"host": dc.Host,
 	}
+	setEnabled(obj, dc.Enable)
 	if dc.Port != nil {
 		obj["port"] = *dc.Port
 	}
@@ -221,15 +222,17 @@ func (s *autobrrSync) downloadClient(ctx context.Context, dc automationv1alpha1.
 		return fmt.Errorf("settings are not download client fields in Autobrr; set category, savePath and contentLayout on filter actions")
 	}
 
-	return s.upsert("download client", dc.Name, existing, obj,
-		s.created("downloadClients", dc.Name, func() error { return s.ac.CreateDownloadClient(ctx, obj) }),
+	return s.upsert(ctx, "download client", dc.Name, existing, obj,
+		s.created("downloadClients", dc.Name, func() error {
+			return s.ac.CreateDownloadClient(ctx, createBody(obj, map[string]any{"enabled": true}))
+		}),
 		func(id int, current map[string]any) error {
 			body, err := mergedOver(current, obj)
 			if err != nil {
 				return err
 			}
 			return s.ac.UpdateDownloadClient(ctx, id, body)
-		})
+		}, s.ac.ListDownloadClients)
 }
 
 func (s *autobrrSync) indexer(ctx context.Context, idx automationv1alpha1.AutobrrIndexer) error {
@@ -252,9 +255,9 @@ func (s *autobrrSync) indexer(ctx context.Context, idx automationv1alpha1.Autobr
 
 	obj := map[string]any{
 		"name":           idx.Name,
-		"enabled":        idx.Enable == nil || *idx.Enable,
 		"implementation": implementation,
 	}
+	setEnabled(obj, idx.Enable)
 	if len(settings) > 0 {
 		obj["settings"] = settings
 	}
@@ -287,20 +290,41 @@ func (s *autobrrSync) indexer(ctx context.Context, idx automationv1alpha1.Autobr
 		if err != nil {
 			return err
 		}
-		if autobrrCovers(current, desired) {
-			return nil
-		}
-		// An update must carry every stored secret setting, redacted or not.
-		body, err := mergedOver(current, obj)
+		out, err := reconciler.MergeDesired(current, obj)
 		if err != nil {
 			return err
 		}
-		return s.Apply("indexer", idx.Name, func() error { return s.ac.UpdateIndexer(ctx, int(id), body) })
+		key := s.secretKey("indexer", idx.Name)
+		if autobrrCovers(current, desired) && !reconciler.SecretsDiffer(key, out.SecretDigest, s.Observe) {
+			return nil
+		}
+		return s.Apply("indexer", idx.Name, func() error {
+			// An update must carry every stored secret setting, redacted or not.
+			if err := s.ac.UpdateIndexer(ctx, int(id), out.Merged); err != nil {
+				return err
+			}
+			reconciler.RecordSecrets(key, out.SecretDigest)
+			return nil
+		})
 	}
 	return s.Apply("indexer", idx.Name, s.created("indexers", idx.Name, func() error {
-		body := maps.Clone(obj)
+		body := createBody(obj, map[string]any{"enabled": true})
 		body["identifier"] = idx.Identifier
-		return s.ac.CreateIndexer(ctx, body)
+		if err := s.ac.CreateIndexer(ctx, body); err != nil {
+			return err
+		}
+		s.rememberCreated(ctx, s.secretKey("indexer", idx.Name), idx.Name, obj, func(ctx context.Context) ([]map[string]any, error) {
+			ids, err := s.indexerIDs(ctx)
+			if err != nil {
+				return nil, err
+			}
+			created, err := s.ac.GetIndexer(ctx, ids[idx.Name])
+			if err != nil {
+				return nil, err
+			}
+			return []map[string]any{created}, nil
+		})
+		return nil
 	}))
 }
 
@@ -348,12 +372,12 @@ func (s *autobrrSync) ircNetwork(ctx context.Context, irc automationv1alpha1.Aut
 	}
 
 	obj := map[string]any{
-		"name":    irc.Name,
-		"enabled": irc.Enable == nil || *irc.Enable,
-		"server":  irc.Server,
-		"port":    irc.Port,
-		"nick":    irc.Nick,
+		"name":   irc.Name,
+		"server": irc.Server,
+		"port":   irc.Port,
+		"nick":   irc.Nick,
 	}
+	setEnabled(obj, irc.Enable)
 	if irc.TLS != nil {
 		obj["tls"] = *irc.TLS
 	}
@@ -401,9 +425,26 @@ func (s *autobrrSync) ircNetwork(ctx context.Context, irc automationv1alpha1.Aut
 		obj["channels"] = channels
 	}
 
-	return s.upsert("IRC network", irc.Name, existing, obj,
-		s.created("ircNetworks", irc.Name, func() error { return s.ac.CreateIRCNetwork(ctx, obj) }),
-		func(id int, _ map[string]any) error { return s.ac.UpdateIRCNetwork(ctx, id, obj) })
+	return s.upsert(ctx, "IRC network", irc.Name, existing, obj,
+		s.created("ircNetworks", irc.Name, func() error {
+			body := createBody(obj, map[string]any{"enabled": true})
+			auth, _ := body["auth"].(map[string]any)
+			if _, ok := auth["mechanism"]; !ok {
+				body["auth"] = createBody(auth, map[string]any{"mechanism": autobrrIRCAuth("None")})
+			}
+			return s.ac.CreateIRCNetwork(ctx, body)
+		}),
+		func(id int, current map[string]any) error {
+			body, err := mergedOver(current, obj)
+			if err != nil {
+				return err
+			}
+			// Autobrr replaces a network's channels with the ones sent.
+			if _, declared := obj["channels"]; declared {
+				body["channels"] = onlyNamed(body["channels"], irc.Channels)
+			}
+			return s.ac.UpdateIRCNetwork(ctx, id, body)
+		}, s.ac.ListIRCNetworks)
 }
 
 func (s *autobrrSync) feed(ctx context.Context, feed automationv1alpha1.AutobrrFeed) error {
@@ -426,11 +467,11 @@ func (s *autobrrSync) feed(ctx context.Context, feed automationv1alpha1.AutobrrF
 
 	obj := map[string]any{
 		"name":    feed.Name,
-		"enabled": feed.Enable == nil || *feed.Enable,
 		"type":    strings.ToUpper(feed.Type),
 		"url":     feed.URL,
 		"indexer": map[string]any{"id": indexerID},
 	}
+	setEnabled(obj, feed.Enable)
 	if feed.Interval != nil {
 		obj["interval"] = *feed.Interval
 	}
@@ -449,10 +490,11 @@ func (s *autobrrSync) feed(ctx context.Context, feed automationv1alpha1.AutobrrF
 		return body
 	}
 
-	return s.upsert("feed", feed.Name, existing, obj,
+	return s.upsert(ctx, "feed", feed.Name, existing, obj,
 		s.created("feeds", feed.Name, func() error {
-			body := withIndexer(maps.Clone(obj))
-			body["timeout"] = defaultFeedTimeout
+			body := withIndexer(createBody(obj, map[string]any{
+				"enabled": true, "interval": defaultFeedInterval, "timeout": defaultFeedTimeout,
+			}))
 			return s.ac.CreateFeed(ctx, body)
 		}),
 		func(id int, current map[string]any) error {
@@ -461,7 +503,7 @@ func (s *autobrrSync) feed(ctx context.Context, feed automationv1alpha1.AutobrrF
 				return err
 			}
 			return s.ac.UpdateFeed(ctx, id, withIndexer(body))
-		})
+		}, s.ac.ListFeeds)
 }
 
 // indexerIDs maps each Autobrr indexer's name to its id.
@@ -503,7 +545,7 @@ func (s *autobrrSync) filter(ctx context.Context, filter automationv1alpha1.Auto
 		return err
 	}
 	obj["name"] = filter.Name
-	obj["enabled"] = filter.Enable == nil || *filter.Enable
+	setEnabled(obj, filter.Enable)
 	// Autobrr keeps tags as one comma-separated string.
 	if len(filter.Tags) > 0 {
 		obj["tags"] = strings.Join(filter.Tags, ",")
@@ -526,7 +568,7 @@ func (s *autobrrSync) filter(ctx context.Context, filter automationv1alpha1.Auto
 	}
 
 	// A new filter must carry these lists; Autobrr's columns reject null.
-	create := maps.Clone(obj)
+	create := createBody(obj, map[string]any{"enabled": true})
 	addRequiredFilterLists(create)
 	filterID, err := s.upsertFilter(ctx, filter.Name, existing, obj, create)
 	if err != nil {
@@ -577,7 +619,7 @@ func (s *autobrrSync) actions(
 		}
 		aObj["name"] = a.Name
 		aObj["type"] = autobrrType(a.Type)
-		aObj["enabled"] = a.Enable == nil || *a.Enable
+		setEnabled(aObj, a.Enable)
 		if a.ClientRef != "" {
 			// Autobrr links an action to a downloader by its numeric ID.
 			id, ok := clientIDs[a.ClientRef]
@@ -592,14 +634,22 @@ func (s *autobrrSync) actions(
 			aObj["client_id"] = id
 		}
 		// Actions read back without their filter_id, so it is sent but not compared.
-		withFilter := func() map[string]any {
-			body := maps.Clone(aObj)
+		withFilter := func(body map[string]any) map[string]any {
 			body["filter_id"] = filterID
 			return body
 		}
-		if err := s.upsert("action", a.Name, existing, aObj,
-			s.created(actionsKind, filter.Name+"/"+a.Name, func() error { return s.ac.CreateAction(ctx, withFilter()) }),
-			func(id int, _ map[string]any) error { return s.ac.UpdateAction(ctx, id, withFilter()) }); err != nil {
+		if err := s.upsert(ctx, "action", filter.Name+"/"+a.Name, existing, aObj,
+			s.created(actionsKind, filter.Name+"/"+a.Name, func() error {
+				return s.ac.CreateAction(ctx, withFilter(createBody(aObj, map[string]any{"enabled": true})))
+			}),
+			func(id int, current map[string]any) error {
+				body, err := mergedOver(current, aObj)
+				if err != nil {
+					return err
+				}
+				return s.ac.UpdateAction(ctx, id, withFilter(body))
+			},
+			func(ctx context.Context) ([]map[string]any, error) { return s.ac.ListActions(ctx, filterID) }); err != nil {
 			return fmt.Errorf("action %q: %w", a.Name, err)
 		}
 	}
@@ -644,9 +694,15 @@ func autobrrType(name string) string {
 
 // upsert updates an existing resource only when Autobrr does not already hold
 // every declared value; writing on every pass rewrote each one each time.
-func (s *autobrrSync) upsert(kind, name string, existing []map[string]any, obj map[string]any,
+// upsert updates the existing item with obj's name or creates it. Autobrr reads
+// secrets back redacted, so a rotated one is noticed through the digest of what
+// was last written; list rereads the items once one is created to record it.
+func (s *autobrrSync) upsert(ctx context.Context, kind, key string, existing []map[string]any, obj map[string]any,
 	create func() error, update func(id int, current map[string]any) error,
+	list func(context.Context) ([]map[string]any, error),
 ) error {
+	name, _ := obj["name"].(string)
+	secretKey := s.secretKey(kind, key)
 	for _, e := range existing {
 		if n, _ := e["name"].(string); n != name {
 			continue
@@ -660,12 +716,81 @@ func (s *autobrrSync) upsert(kind, name string, existing []map[string]any, obj m
 		if err != nil {
 			return err
 		}
-		if autobrrCovers(e, desired) {
+		out, err := reconciler.MergeDesired(e, obj)
+		if err != nil {
+			return err
+		}
+		if autobrrCovers(e, desired) && !reconciler.SecretsDiffer(secretKey, out.SecretDigest, s.Observe) {
 			return nil
 		}
-		return s.Apply(kind, name, func() error { return update(int(id), e) })
+		return s.Apply(kind, name, func() error {
+			if err := update(int(id), e); err != nil {
+				return err
+			}
+			reconciler.RecordSecrets(secretKey, out.SecretDigest)
+			return nil
+		})
 	}
-	return s.Apply(kind, name, create)
+	return s.Apply(kind, name, func() error {
+		if err := create(); err != nil {
+			return err
+		}
+		s.rememberCreated(ctx, secretKey, name, obj, list)
+		return nil
+	})
+}
+
+// rememberCreated records the secrets a new item was created with, which it
+// reads back redacted, so the next pass doesn't write them again.
+func (s *autobrrSync) rememberCreated(
+	ctx context.Context, secretKey, name string, obj map[string]any, list func(context.Context) ([]map[string]any, error),
+) {
+	items, err := list(ctx)
+	if err != nil {
+		return
+	}
+	for _, e := range items {
+		if e["name"] != name {
+			continue
+		}
+		if out, err := reconciler.MergeDesired(e, obj); err == nil {
+			reconciler.RecordSecrets(secretKey, out.SecretDigest)
+		}
+		return
+	}
+}
+
+func (s *autobrrSync) secretKey(kind, name string) string {
+	return fmt.Sprintf("autobrr/%q/%q/%q", s.owner, kind, name)
+}
+
+func setEnabled(obj map[string]any, enable *bool) {
+	if enable != nil {
+		obj["enabled"] = *enable
+	}
+}
+
+// createBody is obj with defaults beneath it, for a new item.
+func createBody(obj, defaults map[string]any) map[string]any {
+	body := maps.Clone(obj)
+	if body == nil {
+		body = map[string]any{}
+	}
+	for k, v := range defaults {
+		if _, ok := body[k]; !ok {
+			body[k] = v
+		}
+	}
+	return body
+}
+
+// onlyNamed keeps the entries of a list whose name a channel declares.
+func onlyNamed(list any, channels []automationv1alpha1.AutobrrIRCChannel) []any {
+	items, _ := list.([]any)
+	return slices.DeleteFunc(slices.Clone(items), func(item any) bool {
+		name, _ := item.(map[string]any)["name"].(string)
+		return !slices.ContainsFunc(channels, func(ch automationv1alpha1.AutobrrIRCChannel) bool { return ch.Name == name })
+	})
 }
 
 // autobrrCovers compares as reconciler.Covers does, except that a declared
@@ -795,6 +920,9 @@ func autobrrIRCAuth(mechanism string) string {
 
 // defaultFeedTimeout is the request timeout, in seconds, Autobrr's web UI gives a new feed.
 const defaultFeedTimeout = 60
+
+// defaultFeedInterval is the polling interval, in minutes, Autobrr's web UI gives a new feed.
+const defaultFeedInterval = 15
 
 // mergedOver returns the stored object with the declared values over it, so an
 // update keeps what the resource doesn't manage. Autobrr keeps a stored secret

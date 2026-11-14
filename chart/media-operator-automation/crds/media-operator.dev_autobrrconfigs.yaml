@@ -128,9 +128,9 @@ spec:
                       - name
                       type: object
                     enable:
-                      default: true
-                      description: enable controls whether this download client is
-                        active.
+                      description: |-
+                        enable controls whether this download client is active. A new download
+                        client is enabled unless this is false.
                       type: boolean
                     host:
                       description: host is the hostname or URL of the download client.
@@ -233,8 +233,9 @@ spec:
                       - name
                       type: object
                     enable:
-                      default: true
-                      description: enable controls whether this feed is active.
+                      description: |-
+                        enable controls whether this feed is active. A new feed is enabled unless
+                        this is false.
                       type: boolean
                     indexerRef:
                       description: |-
@@ -242,8 +243,9 @@ spec:
                         newznab or rss indexer declared under indexers.
                       type: string
                     interval:
-                      default: 15
-                      description: interval is the feed polling interval in minutes.
+                      description: |-
+                        interval is the feed polling interval in minutes. A new feed polls every
+                        15 minutes unless this is set.
                       type: integer
                     name:
                       description: name is the display name of the feed.
@@ -300,8 +302,9 @@ spec:
                               keeps the torrent while it downloads.
                             type: string
                           enable:
-                            default: true
-                            description: enable controls whether this action is active.
+                            description: |-
+                              enable controls whether this action is active. A new action is enabled
+                              unless this is false.
                             type: boolean
                           execArgs:
                             description: execArgs is the arguments for the exec command.
@@ -484,8 +487,9 @@ spec:
                         matched release.
                       type: integer
                     enable:
-                      default: true
-                      description: enable controls whether this filter is active.
+                      description: |-
+                        enable controls whether this filter is active. A new filter is enabled
+                        unless this is false.
                       type: boolean
                     episodes:
                       description: episodes is a comma-separated list of episodes
@@ -765,8 +769,9 @@ spec:
                         to the definition's first URL.
                       type: string
                     enable:
-                      default: true
-                      description: enable controls whether this indexer is active.
+                      description: |-
+                        enable controls whether this indexer is active. A new indexer is enabled
+                        unless this is false.
                       type: boolean
                     identifier:
                       description: |-
@@ -835,9 +840,9 @@ spec:
                       - name
                       type: object
                     authMechanism:
-                      default: None
-                      description: authMechanism is the authentication mechanism (SASL_PLAIN,
-                        NickServ, None).
+                      description: |-
+                        authMechanism is the authentication mechanism (SASL_PLAIN, NickServ, None).
+                        A new network uses None unless this is set.
                       enum:
                       - SASL_PLAIN
                       - NickServ
@@ -884,9 +889,9 @@ spec:
                         type: object
                       type: array
                     enable:
-                      default: true
-                      description: enable controls whether this IRC network connection
-                        is active.
+                      description: |-
+                        enable controls whether this IRC network connection is active. A new
+                        network is enabled unless this is false.
                       type: boolean
                     inviteCommand:
                       description: inviteCommand is the IRC command to send to request
