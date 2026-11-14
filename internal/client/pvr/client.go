@@ -68,15 +68,35 @@ func Definition(apiVersion string) engine.AppDefinition {
 			// Delay profiles reconcile in their own stage; this entry drives cleanup.
 			{Name: delayProfilesKind, Path: prefix + "/delayprofile", MatchKey: delayProfileID, Policy: engine.CreateOrUpdate, Prunable: true},
 			{Name: "remotePathMappings", Path: prefix + "/remotepathmapping", MatchKey: remotePathMappingKey, Policy: engine.CreateOrUpdate, Prunable: true},
-			{Name: "downloadClients", Path: prefix + "/downloadclient", MatchField: "name", Policy: engine.CreateOrUpdate, Prunable: true},
-			{Name: "indexers", Path: prefix + "/indexer", MatchField: "name", Policy: engine.CreateOrUpdate, Prunable: true},
+			{
+				Name: "downloadClients", Path: prefix + "/downloadclient", MatchField: "name", Policy: engine.CreateOrUpdate, Prunable: true,
+				CreateDefaults: map[string]any{
+					"enable": true, "priority": 1, "removeCompletedDownloads": true, "removeFailedDownloads": true, "tags": []any{},
+				},
+			},
+			{
+				Name: "indexers", Path: prefix + "/indexer", MatchField: "name", Policy: engine.CreateOrUpdate, Prunable: true,
+				CreateDefaults: map[string]any{
+					"enableRss": true, "enableAutomaticSearch": true, "enableInteractiveSearch": true, "fields": []any{}, "tags": []any{},
+				},
+			},
 			// customFormats before qualityProfiles so IDs can be resolved for formatItems.
-			{Name: "customFormats", Path: prefix + "/customformat", MatchField: "name", Policy: engine.CreateOrUpdate, Prunable: true},
+			{
+				Name: "customFormats", Path: prefix + "/customformat", MatchField: "name", Policy: engine.CreateOrUpdate, Prunable: true,
+				CreateDefaults: map[string]any{"includeCustomFormatWhenRenaming": false, "specifications": []any{}},
+				ExactLists:     []string{"specifications"},
+			},
 			{Name: "qualityDefinitions", Path: prefix + "/qualitydefinition", MatchKey: qualityName, Policy: engine.UpdateOnly},
 			{Name: "qualityProfiles", Path: prefix + "/qualityprofile", MatchField: "name", Policy: engine.CreateOrUpdate, Prunable: true},
-			{Name: "notifications", Path: prefix + "/notification", MatchField: "name", Policy: engine.CreateOrUpdate, Prunable: true},
+			{
+				Name: "notifications", Path: prefix + "/notification", MatchField: "name", Policy: engine.CreateOrUpdate, Prunable: true,
+				CreateDefaults: map[string]any{"fields": []any{}, "tags": []any{}},
+			},
 			// importLists last — may reference quality profiles by name.
-			{Name: "importLists", Path: prefix + "/importlist", MatchField: "name", Policy: engine.CreateOrUpdate, Prunable: true},
+			{
+				Name: "importLists", Path: prefix + "/importlist", MatchField: "name", Policy: engine.CreateOrUpdate, Prunable: true,
+				CreateDefaults: map[string]any{"fields": []any{}, "tags": []any{}},
+			},
 		},
 	}
 }
@@ -336,38 +356,24 @@ func importListResources(
 
 // BuildDownloadClientPayload builds the API payload for a download client.
 func BuildDownloadClientPayload(dc commonv1alpha1.DownloadClient, secrets DownloadClientResolvedSecrets, categoryField string) map[string]any {
-	enable := dc.Enable == nil || *dc.Enable
-	removeCompleted := dc.RemoveCompletedDownloads == nil || *dc.RemoveCompletedDownloads
-	removeFailed := dc.RemoveFailedDownloads == nil || *dc.RemoveFailedDownloads
-
-	priority := 1
-	if dc.Priority != nil {
-		priority = *dc.Priority
-	}
-
-	useSsl := false
-	if dc.UseSsl != nil {
-		useSsl = *dc.UseSsl
-	}
-
 	configContract := dc.Implementation + "Settings"
 	if dc.ConfigContract != "" {
 		configContract = dc.ConfigContract
 	}
 
-	// Build the fields array from first-class fields
 	fields := []map[string]any{
 		{"name": "host", "value": dc.Host},
 		{"name": "port", "value": dc.Port},
-		{"name": "useSsl", "value": useSsl},
-		{"name": categoryField, "value": dc.Category},
 	}
-
+	if dc.UseSsl != nil {
+		fields = append(fields, map[string]any{"name": "useSsl", "value": *dc.UseSsl})
+	}
+	if dc.Category != "" {
+		fields = append(fields, map[string]any{"name": categoryField, "value": dc.Category})
+	}
 	if dc.UrlBase != "" {
 		fields = append(fields, map[string]any{"name": "urlBase", "value": dc.UrlBase})
 	}
-
-	// Add auth fields from resolved secrets
 	if secrets.Username != "" {
 		fields = append(fields, map[string]any{"name": "username", "value": secrets.Username})
 	}
@@ -378,8 +384,6 @@ func BuildDownloadClientPayload(dc commonv1alpha1.DownloadClient, secrets Downlo
 		fields = append(fields, map[string]any{"name": "apiKey", "value": secrets.APIKey})
 	}
 
-	// Append any additional implementation-specific fields.
-	// These override or supplement the first-class fields above.
 	knownFields := map[string]bool{
 		"host": true, "port": true, "useSsl": true, "urlBase": true,
 		"username": true, "password": true, "apiKey": true,
@@ -387,8 +391,6 @@ func BuildDownloadClientPayload(dc commonv1alpha1.DownloadClient, secrets Downlo
 	}
 	for _, f := range dc.Fields {
 		if knownFields[f.Name] {
-			// Skip fields already set by first-class fields to avoid duplicates.
-			// Users should use the dedicated CRD fields instead.
 			continue
 		}
 		var val any
@@ -398,54 +400,63 @@ func BuildDownloadClientPayload(dc commonv1alpha1.DownloadClient, secrets Downlo
 		fields = append(fields, map[string]any{"name": f.Name, "value": val})
 	}
 
-	tags := make([]any, len(dc.Tags))
-	for i, t := range dc.Tags {
-		tags[i] = t
+	payload := map[string]any{
+		"name":           dc.Name,
+		"protocol":       dc.Protocol,
+		"implementation": dc.Implementation,
+		"configContract": configContract,
+		"fields":         fields,
 	}
-
-	return map[string]any{
-		"name":                     dc.Name,
-		"enable":                   enable,
-		"protocol":                 dc.Protocol,
-		"priority":                 priority,
-		"removeCompletedDownloads": removeCompleted,
-		"removeFailedDownloads":    removeFailed,
-		"implementation":           dc.Implementation,
-		"configContract":           configContract,
-		"fields":                   fields,
-		"tags":                     tags,
+	SetOptionalBool(payload, "enable", dc.Enable)
+	SetOptionalBool(payload, "removeCompletedDownloads", dc.RemoveCompletedDownloads)
+	SetOptionalBool(payload, "removeFailedDownloads", dc.RemoveFailedDownloads)
+	if dc.Priority != nil {
+		payload["priority"] = *dc.Priority
 	}
+	if dc.Tags != nil {
+		payload["tags"] = BuildTagsPayload(dc.Tags)
+	}
+	return payload
 }
 
 // BuildIndexerPayload builds the API payload for an indexer.
 func BuildIndexerPayload(idx commonv1alpha1.Indexer) map[string]any {
-	// The apps have no on/off switch for an indexer, only the three uses of it,
-	// so enable gates those instead of being sent and dropped as drift.
-	enable := idx.Enable == nil || *idx.Enable
-	enableRss := enable && (idx.EnableRss == nil || *idx.EnableRss)
-	enableAutoSearch := enable && (idx.EnableAutomaticSearch == nil || *idx.EnableAutomaticSearch)
-	enableInteractive := enable && (idx.EnableInteractiveSearch == nil || *idx.EnableInteractiveSearch)
-
 	configContract := idx.Implementation + "Settings"
 	if idx.ConfigContract != "" {
 		configContract = idx.ConfigContract
 	}
 
-	fields := BuildFieldsPayload(idx.Fields)
-	tags := BuildTagsPayload(idx.Tags)
-
 	payload := map[string]any{
-		"name":                    idx.Name,
-		"protocol":                idx.Protocol,
-		"implementation":          idx.Implementation,
-		"configContract":          configContract,
-		"enableRss":               enableRss,
-		"enableAutomaticSearch":   enableAutoSearch,
-		"enableInteractiveSearch": enableInteractive,
-		"fields":                  fields,
-		"tags":                    tags,
+		"name":           idx.Name,
+		"protocol":       idx.Protocol,
+		"implementation": idx.Implementation,
+		"configContract": configContract,
 	}
 
+	// The apps have no on/off switch for an indexer, only the three uses of it,
+	// so enable gates those instead of being sent and dropped as drift.
+	uses := map[string]*bool{
+		"enableRss":               idx.EnableRss,
+		"enableAutomaticSearch":   idx.EnableAutomaticSearch,
+		"enableInteractiveSearch": idx.EnableInteractiveSearch,
+	}
+	for key, use := range uses {
+		switch {
+		case idx.Enable != nil && !*idx.Enable:
+			payload[key] = false
+		case use != nil:
+			payload[key] = *use
+		case idx.Enable != nil:
+			payload[key] = true
+		}
+	}
+
+	if idx.Fields != nil {
+		payload["fields"] = BuildFieldsPayload(idx.Fields)
+	}
+	if idx.Tags != nil {
+		payload["tags"] = BuildTagsPayload(idx.Tags)
+	}
 	if idx.Priority != nil {
 		payload["priority"] = *idx.Priority
 	}
@@ -460,15 +471,16 @@ func BuildNotificationPayload(n commonv1alpha1.Notification) map[string]any {
 		configContract = n.ConfigContract
 	}
 
-	fields := BuildFieldsPayload(n.Fields)
-	tags := BuildTagsPayload(n.Tags)
-
 	payload := map[string]any{
 		"name":           n.Name,
 		"implementation": n.Implementation,
 		"configContract": configContract,
-		"fields":         fields,
-		"tags":           tags,
+	}
+	if n.Fields != nil {
+		payload["fields"] = BuildFieldsPayload(n.Fields)
+	}
+	if n.Tags != nil {
+		payload["tags"] = BuildTagsPayload(n.Tags)
 	}
 
 	// Add trigger booleans — only set non-nil values so the merge preserves API defaults.
@@ -529,26 +541,25 @@ type ImportListFields struct {
 // BuildImportListPayload builds the API payload for an import list.
 // qpIDs maps quality profile names to their IDs.
 func BuildImportListPayload(il commonv1alpha1.ImportList, qpIDs map[string]int, names ImportListFields) map[string]any {
-	enable := il.Enable == nil || *il.Enable
-
 	configContract := il.Implementation + "Settings"
 	if il.ConfigContract != "" {
 		configContract = il.ConfigContract
 	}
 
-	fields := BuildFieldsPayload(il.Fields)
-	tags := BuildTagsPayload(il.Tags)
-
 	payload := map[string]any{
 		"name":           il.Name,
 		"implementation": il.Implementation,
 		"configContract": configContract,
-		"fields":         fields,
-		"tags":           tags,
+	}
+	if il.Fields != nil {
+		payload["fields"] = BuildFieldsPayload(il.Fields)
+	}
+	if il.Tags != nil {
+		payload["tags"] = BuildTagsPayload(il.Tags)
 	}
 
 	if names.Enable != "" {
-		payload[names.Enable] = enable
+		SetOptionalBool(payload, names.Enable, il.Enable)
 	}
 	if names.AutomaticAdd != "" {
 		SetOptionalBool(payload, names.AutomaticAdd, il.EnableAutomaticAdd)
@@ -631,22 +642,14 @@ func SetOptionalBool(payload map[string]any, key string, val *bool) {
 
 // BuildCustomFormatPayload builds the API payload for a custom format.
 func BuildCustomFormatPayload(cf commonv1alpha1.CustomFormat) map[string]any {
-	includeWhenRenaming := false
-	if cf.IncludeCustomFormatWhenRenaming != nil {
-		includeWhenRenaming = *cf.IncludeCustomFormatWhenRenaming
+	payload := map[string]any{"name": cf.Name}
+	SetOptionalBool(payload, "includeCustomFormatWhenRenaming", cf.IncludeCustomFormatWhenRenaming)
+	if cf.Specifications == nil {
+		return payload
 	}
 
 	specs := make([]map[string]any, len(cf.Specifications))
 	for i, s := range cf.Specifications {
-		negate := false
-		if s.Negate != nil {
-			negate = *s.Negate
-		}
-		required := false
-		if s.Required != nil {
-			required = *s.Required
-		}
-
 		fields := make([]map[string]any, len(s.Fields))
 		for j, f := range s.Fields {
 			var val any
@@ -662,17 +665,13 @@ func BuildCustomFormatPayload(cf commonv1alpha1.CustomFormat) map[string]any {
 		specs[i] = map[string]any{
 			"name":           s.Name,
 			"implementation": s.Implementation,
-			"negate":         negate,
-			"required":       required,
 			"fields":         fields,
 		}
+		SetOptionalBool(specs[i], "negate", s.Negate)
+		SetOptionalBool(specs[i], "required", s.Required)
 	}
-
-	return map[string]any{
-		"name":                            cf.Name,
-		"includeCustomFormatWhenRenaming": includeWhenRenaming,
-		"specifications":                  specs,
-	}
+	payload["specifications"] = specs
+	return payload
 }
 
 // BuildQualityProfilePayload builds the API payload for a quality profile.
@@ -788,6 +787,13 @@ func FindCutoffID(items []commonv1alpha1.QualityProfileItem, cutoffName string) 
 // Reconcile runs the full reconciliation for Sonarr, Radarr, Lidarr or Readarr.
 func Reconcile(ctx context.Context, client *engine.HTTPClient, apiVersion string, spec any, opts Options, policy engine.SyncPolicy, managed map[string][]string) (engine.ReconcileResult, error) {
 	def := Definition(apiVersion)
+	if opts.ImportListFields.Enable != "" {
+		for i := range def.Resources {
+			if def.Resources[i].Name == "importLists" {
+				def.Resources[i].CreateDefaults[opts.ImportListFields.Enable] = true
+			}
+		}
+	}
 	sections, err := Sections(spec)
 	if err != nil {
 		return engine.ReconcileResult{}, fmt.Errorf("building sections: %w", err)

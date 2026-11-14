@@ -168,9 +168,9 @@ type DownloadClient struct {
 	// +required
 	Name string `json:"name"`
 
-	// enable controls whether this download client is active.
+	// enable controls whether this download client is active. A new download
+	// client is enabled unless this is false.
 	// +optional
-	// +kubebuilder:default=true
 	Enable *bool `json:"enable,omitempty"`
 
 	// protocol is the download protocol.
@@ -208,20 +208,20 @@ type DownloadClient struct {
 	Category string `json:"category,omitempty"`
 
 	// priority is the download client priority. Lower values are higher priority.
+	// A new download client gets 1.
 	// +optional
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=50
-	// +kubebuilder:default=1
 	Priority *int `json:"priority,omitempty"`
 
 	// removeCompletedDownloads controls whether completed downloads are removed.
+	// A new download client removes them unless this is false.
 	// +optional
-	// +kubebuilder:default=true
 	RemoveCompletedDownloads *bool `json:"removeCompletedDownloads,omitempty"`
 
-	// removeFailedDownloads controls whether failed downloads are removed.
+	// removeFailedDownloads controls whether failed downloads are removed. A new
+	// download client removes them unless this is false.
 	// +optional
-	// +kubebuilder:default=true
 	RemoveFailedDownloads *bool `json:"removeFailedDownloads,omitempty"`
 
 	// usernameSecretRef references a Secret containing the username for authentication.
@@ -503,9 +503,9 @@ type Indexer struct {
 	// +required
 	Name string `json:"name"`
 
-	// enable controls whether this indexer is active.
+	// enable controls whether this indexer is active. False turns off RSS,
+	// automatic and interactive search; true turns on those not set below.
 	// +optional
-	// +kubebuilder:default=true
 	Enable *bool `json:"enable,omitempty"`
 
 	// protocol is the indexer protocol.
@@ -527,19 +527,19 @@ type Indexer struct {
 	// +kubebuilder:validation:Minimum=1
 	Priority *int `json:"priority,omitempty"`
 
-	// enableRss enables RSS feed polling for this indexer.
+	// enableRss enables RSS feed polling for this indexer. A new indexer
+	// polls unless this or enable is false.
 	// +optional
-	// +kubebuilder:default=true
 	EnableRss *bool `json:"enableRss,omitempty"`
 
-	// enableAutomaticSearch enables automatic search for this indexer.
+	// enableAutomaticSearch enables automatic search for this indexer. A new
+	// indexer searches unless this or enable is false.
 	// +optional
-	// +kubebuilder:default=true
 	EnableAutomaticSearch *bool `json:"enableAutomaticSearch,omitempty"`
 
-	// enableInteractiveSearch enables interactive (manual) search for this indexer.
+	// enableInteractiveSearch enables interactive (manual) search for this
+	// indexer. A new indexer allows it unless this or enable is false.
 	// +optional
-	// +kubebuilder:default=true
 	EnableInteractiveSearch *bool `json:"enableInteractiveSearch,omitempty"`
 
 	// tags is the list of tag IDs to associate with this indexer.
@@ -723,9 +723,9 @@ type ImportList struct {
 	// +required
 	Name string `json:"name"`
 
-	// enable controls whether this import list is active.
+	// enable controls whether this import list is active. A new import list is
+	// enabled unless this is false.
 	// +optional
-	// +kubebuilder:default=true
 	Enable *bool `json:"enable,omitempty"`
 
 	// enableAutomaticAdd automatically adds items from this list.

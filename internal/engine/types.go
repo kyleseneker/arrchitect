@@ -59,6 +59,12 @@ type ResourceEndpoint struct {
 	// Prunable indicates this resource type supports deletion of unmanaged items.
 	// Root folders and tags should not be prunable.
 	Prunable bool
+	// CreateDefaults lie beneath the declared values of a new item. An existing
+	// item never receives them, so what the resource leaves out stays as it is.
+	CreateDefaults map[string]any
+	// ExactLists name arrays of named objects the resource declares in full:
+	// entries of an existing item that the resource leaves out are removed.
+	ExactLists []string
 }
 
 // AppDefinition describes how to reconcile an app's configuration.

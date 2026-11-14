@@ -15,7 +15,9 @@
 
 The operator reads each app's configuration through its API, compares it with
 the resource, and writes what differs. Fields left out of the resource are not
-managed. It reconciles every 5 minutes, when the resource changes, and when a
+managed: an item that already exists in the app keeps them, and a new item gets
+the app's defaults. An empty list, such as `tagLabels: []`, is declared and
+clears the item's tags. It reconciles every 5 minutes, when the resource changes, and when a
 Secret the resource refers to changes. `spec.reconcile.interval` changes the
 period.
 
