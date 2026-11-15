@@ -9,13 +9,10 @@ media, watch history, requests, download queues or other application databases.
 Use [portable-references.yaml](../examples/portable-references.yaml) as a starting
 point; replace its endpoints, paths and Secret references before applying it.
 
-- Sonarr, Radarr, Lidarr and Readarr download clients, indexers, notifications and
-  import lists accept `tagLabels`. Nonempty labels take precedence over legacy
-  numeric `tags`. Declare tags in `spec.tags` or reference labels already present
-  in the app. Tags declared in the same CR are created before reference lookup.
-- Prowlarr's existing string `tags` fields remain labels. Notifications use the
-  shared `tagLabels` field. Unresolved labels now fail reconciliation instead of
-  silently disappearing from the API payload.
+- Tags are referenced by label with `tagLabels`. Declare them in `spec.tags` or
+  reference labels already present in the app. Tags declared in the same
+  resource are created before references are looked up, and a label that
+  matches no tag blocks writes.
 - Prowlarr `appProfiles` creates/updates sync profiles before indexers.
   `indexers[].appProfileName` resolves the current profile ID and takes precedence
   over `appProfileId`. Existing ID-only manifests still work. Profiles are retained

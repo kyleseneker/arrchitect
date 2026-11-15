@@ -159,8 +159,9 @@ The apps link resources by ID, and IDs change when an app is rebuilt. These
 references can use names instead:
 
 - `tagLabels` on Sonarr, Radarr, Lidarr and Readarr download clients, indexers,
-  notifications, import lists and delay profiles. Tags in `spec.tags` are
-  created first.
+  notifications, import lists and delay profiles, and on Prowlarr applications,
+  indexers, proxies, download clients and notifications. Tags in `spec.tags`
+  are created first.
 - Custom formats in quality profiles, and quality profiles in import lists.
 - `appProfileName` on Prowlarr indexers.
 - `activeProfileName` on Seerr's Sonarr and Radarr connections, looked up from

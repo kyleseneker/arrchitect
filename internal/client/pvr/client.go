@@ -272,14 +272,13 @@ func downloadClientResources(
 	schema := opts.schema(ctx, client, apiVersion, "downloadclient")
 	dcs := make([]map[string]any, 0, len(opts.DownloadClients))
 	for _, dc := range opts.DownloadClients {
-		resolvedTags, err := tagIDs.ResolveTags(dc.TagLabels, dc.Tags)
+		tags, err := tagIDs.ResolveTags(dc.TagLabels)
 		if err != nil {
 			return nil, fmt.Errorf("downloadClients(%s): %w", dc.Name, err)
 		}
-		dc.Tags = resolvedTags
 		dc.ConfigContract = SchemaConfigContract(schema, dc.Implementation, dc.ConfigContract)
 		dc.Protocol = SchemaProtocol(schema, dc.Implementation, dc.Protocol)
-		dcs = append(dcs, BuildDownloadClientPayload(dc, opts.DCSecrets[dc.Name], opts.CategoryField))
+		dcs = append(dcs, BuildDownloadClientPayload(dc, opts.DCSecrets[dc.Name], opts.CategoryField, tags))
 	}
 	return dcs, nil
 }
@@ -290,14 +289,13 @@ func indexerResources(
 	schema := opts.schema(ctx, client, apiVersion, "indexer")
 	idxs := make([]map[string]any, 0, len(opts.Indexers))
 	for _, idx := range opts.Indexers {
-		resolvedTags, err := tagIDs.ResolveTags(idx.TagLabels, idx.Tags)
+		tags, err := tagIDs.ResolveTags(idx.TagLabels)
 		if err != nil {
 			return nil, fmt.Errorf("indexers(%s): %w", idx.Name, err)
 		}
-		idx.Tags = resolvedTags
 		idx.ConfigContract = SchemaConfigContract(schema, idx.Implementation, idx.ConfigContract)
 		idx.Protocol = SchemaProtocol(schema, idx.Implementation, idx.Protocol)
-		idxs = append(idxs, BuildIndexerPayload(idx))
+		idxs = append(idxs, BuildIndexerPayload(idx, tags))
 	}
 	return idxs, nil
 }
@@ -308,13 +306,12 @@ func notificationResources(
 	schema := opts.schema(ctx, client, apiVersion, "notification")
 	notifs := make([]map[string]any, 0, len(opts.Notifications))
 	for _, n := range opts.Notifications {
-		resolvedTags, err := tagIDs.ResolveTags(n.TagLabels, n.Tags)
+		tags, err := tagIDs.ResolveTags(n.TagLabels)
 		if err != nil {
 			return nil, fmt.Errorf("notifications(%s): %w", n.Name, err)
 		}
-		n.Tags = resolvedTags
 		n.ConfigContract = SchemaConfigContract(schema, n.Implementation, n.ConfigContract)
-		payload := BuildNotificationPayload(n)
+		payload := BuildNotificationPayload(n, tags)
 		// Validation reports these; sending them would rewrite the notification forever.
 		for _, event := range UnsupportedEvents(schema, n.Implementation, payload) {
 			delete(payload, event)
@@ -341,11 +338,10 @@ func importListResources(
 	schema := opts.schema(ctx, client, apiVersion, "importlist")
 	ils := make([]map[string]any, 0, len(opts.ImportLists))
 	for _, il := range opts.ImportLists {
-		resolvedTags, err := tagIDs.ResolveTags(il.TagLabels, il.Tags)
+		tags, err := tagIDs.ResolveTags(il.TagLabels)
 		if err != nil {
 			return nil, fmt.Errorf("importLists(%s): %w", il.Name, err)
 		}
-		il.Tags = resolvedTags
 		il.ConfigContract = SchemaConfigContract(schema, il.Implementation, il.ConfigContract)
 		qpIDs := map[string]int{}
 		if il.QualityProfileName != "" {
@@ -355,7 +351,7 @@ func importListResources(
 			}
 			qpIDs[il.QualityProfileName] = id
 		}
-		payload := BuildImportListPayload(il, qpIDs, opts.ImportListFields)
+		payload := BuildImportListPayload(il, qpIDs, opts.ImportListFields, tags)
 		if opts.MetadataProfiles && il.MetadataProfileName != "" {
 			id, err := metadataProfiles.Resolve(il.MetadataProfileName)
 			if err != nil {
@@ -369,7 +365,9 @@ func importListResources(
 }
 
 // BuildDownloadClientPayload builds the API payload for a download client.
-func BuildDownloadClientPayload(dc commonv1alpha1.DownloadClient, secrets DownloadClientResolvedSecrets, categoryField string) map[string]any {
+func BuildDownloadClientPayload(
+	dc commonv1alpha1.DownloadClient, secrets DownloadClientResolvedSecrets, categoryField string, tags []int,
+) map[string]any {
 	configContract := dc.Implementation + "Settings"
 	if dc.ConfigContract != "" {
 		configContract = dc.ConfigContract
@@ -427,14 +425,14 @@ func BuildDownloadClientPayload(dc commonv1alpha1.DownloadClient, secrets Downlo
 	if dc.Priority != nil {
 		payload["priority"] = *dc.Priority
 	}
-	if dc.Tags != nil {
-		payload["tags"] = BuildTagsPayload(dc.Tags)
+	if tags != nil {
+		payload["tags"] = BuildTagsPayload(tags)
 	}
 	return payload
 }
 
 // BuildIndexerPayload builds the API payload for an indexer.
-func BuildIndexerPayload(idx commonv1alpha1.Indexer) map[string]any {
+func BuildIndexerPayload(idx commonv1alpha1.Indexer, tags []int) map[string]any {
 	configContract := idx.Implementation + "Settings"
 	if idx.ConfigContract != "" {
 		configContract = idx.ConfigContract
@@ -468,8 +466,8 @@ func BuildIndexerPayload(idx commonv1alpha1.Indexer) map[string]any {
 	if idx.Fields != nil {
 		payload["fields"] = BuildFieldsPayload(idx.Fields)
 	}
-	if idx.Tags != nil {
-		payload["tags"] = BuildTagsPayload(idx.Tags)
+	if tags != nil {
+		payload["tags"] = BuildTagsPayload(tags)
 	}
 	if idx.Priority != nil {
 		payload["priority"] = *idx.Priority
@@ -479,7 +477,7 @@ func BuildIndexerPayload(idx commonv1alpha1.Indexer) map[string]any {
 }
 
 // BuildNotificationPayload builds the API payload for a notification.
-func BuildNotificationPayload(n commonv1alpha1.Notification) map[string]any {
+func BuildNotificationPayload(n commonv1alpha1.Notification, tags []int) map[string]any {
 	configContract := n.Implementation + "Settings"
 	if n.ConfigContract != "" {
 		configContract = n.ConfigContract
@@ -493,8 +491,8 @@ func BuildNotificationPayload(n commonv1alpha1.Notification) map[string]any {
 	if n.Fields != nil {
 		payload["fields"] = BuildFieldsPayload(n.Fields)
 	}
-	if n.Tags != nil {
-		payload["tags"] = BuildTagsPayload(n.Tags)
+	if tags != nil {
+		payload["tags"] = BuildTagsPayload(tags)
 	}
 
 	// Add trigger booleans — only set non-nil values so the merge preserves API defaults.
@@ -554,7 +552,7 @@ type ImportListFields struct {
 
 // BuildImportListPayload builds the API payload for an import list.
 // qpIDs maps quality profile names to their IDs.
-func BuildImportListPayload(il commonv1alpha1.ImportList, qpIDs map[string]int, names ImportListFields) map[string]any {
+func BuildImportListPayload(il commonv1alpha1.ImportList, qpIDs map[string]int, names ImportListFields, tags []int) map[string]any {
 	configContract := il.Implementation + "Settings"
 	if il.ConfigContract != "" {
 		configContract = il.ConfigContract
@@ -568,8 +566,8 @@ func BuildImportListPayload(il commonv1alpha1.ImportList, qpIDs map[string]int, 
 	if il.Fields != nil {
 		payload["fields"] = BuildFieldsPayload(il.Fields)
 	}
-	if il.Tags != nil {
-		payload["tags"] = BuildTagsPayload(il.Tags)
+	if tags != nil {
+		payload["tags"] = BuildTagsPayload(tags)
 	}
 
 	if names.Enable != "" {
@@ -1398,7 +1396,7 @@ func planDelayProfiles(declared []commonv1alpha1.DelayProfile, tags engine.Named
 		fail := func(format string, args ...any) error {
 			return fmt.Errorf("%s(%s): %s", delayProfilesKind, p.name, fmt.Sprintf(format, args...))
 		}
-		ids, err := tags.ResolveTags(d.TagLabels, nil)
+		ids, err := tags.ResolveTags(d.TagLabels)
 		if err != nil {
 			return nil, fail("%v", err)
 		}

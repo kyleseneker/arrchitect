@@ -153,7 +153,8 @@ func TestDuplicateNamesAreRejected(t *testing.T) {
 	for name, spec := range map[string]string{
 		"download clients": `downloadClients: [{name: qBit, protocol: torrent, implementation: QBittorrent, host: a, port: 1},
     {name: qBit, protocol: torrent, implementation: QBittorrent, host: b, port: 2}]`,
-		"fields":     `indexers: [{name: x, protocol: torrent, implementation: Torznab, fields: [{name: baseUrl, value: a}, {name: baseUrl, value: b}]}]`,
+		"fields": `indexers: [{name: x, protocol: torrent, implementation: Torznab,
+    fields: [{name: baseUrl, value: a}, {name: baseUrl, value: b}]}]`,
 		"tag labels": `indexers: [{name: x, protocol: torrent, implementation: Torznab, tagLabels: [anime, anime]}]`,
 	} {
 		t.Run(name, func(t *testing.T) {

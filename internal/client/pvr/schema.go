@@ -175,7 +175,7 @@ func ValidateOptionFields(ctx context.Context, client *engine.HTTPClient, apiVer
 		schema := opts.schema(ctx, client, apiVersion, "notification")
 		for _, n := range opts.Notifications {
 			check("notification", n.Name, n.Implementation, n.Fields, schema)
-			if events := UnsupportedEvents(schema, n.Implementation, BuildNotificationPayload(n)); len(events) > 0 {
+			if events := UnsupportedEvents(schema, n.Implementation, BuildNotificationPayload(n, nil)); len(events) > 0 {
 				problems = append(problems, fmt.Sprintf("notification(%s): %s has no %s event; it was not sent",
 					n.Name, n.Implementation, strings.Join(events, ", ")))
 			}

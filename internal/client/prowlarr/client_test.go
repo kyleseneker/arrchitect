@@ -78,7 +78,7 @@ func TestBuildProwlarrApplicationPayload(t *testing.T) {
 		ProwlarrUrl:    "http://prowlarr:9696",
 		BaseUrl:        "http://sonarr:8989",
 		SyncCategories: []int{5030, 5040},
-		Tags:           []string{"tag1", "tag2"},
+		TagLabels:      []string{"tag1", "tag2"},
 	}
 
 	p := BuildProwlarrApplicationPayload(app, "sonarr-api-key", map[string]int{"tag1": 1, "tag2": 2})
@@ -143,7 +143,7 @@ func TestBuildProwlarrIndexerPayload(t *testing.T) {
 					{Name: "baseUrl", Value: new("http://nzbgeek.info")},
 					{Name: "apiKey", Value: nil},
 				},
-				Tags: []string{"tag1"},
+				TagLabels: []string{"tag1"},
 			},
 			check: func(t *testing.T, p map[string]any) {
 				assert.Equal(t, false, p["enable"])

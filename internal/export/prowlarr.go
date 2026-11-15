@@ -58,7 +58,7 @@ func (e *prowlarrExport) application(item map[string]any, defaults map[string]ma
 			}
 		}
 	}
-	a["tags"] = e.tagLabels(item)
+	a["tagLabels"] = e.tagLabels(item)
 	return a
 }
 
@@ -68,7 +68,7 @@ func (e *prowlarrExport) indexer(item map[string]any, _ map[string]map[string]an
 		idx["appProfileName"] = e.appProfiles[id]
 	}
 	idx["fields"] = e.textFields(item, nil, "indexer")
-	idx["tags"] = e.tagLabels(item)
+	idx["tagLabels"] = e.tagLabels(item)
 	return idx
 }
 
@@ -85,7 +85,7 @@ func (e *prowlarrExport) proxy(item map[string]any, _ map[string]map[string]any)
 			}
 		}
 	}
-	p["tags"] = e.tagLabels(item)
+	p["tagLabels"] = e.tagLabels(item)
 	return p
 }
 
@@ -93,7 +93,7 @@ func (e *prowlarrExport) downloadClient(item map[string]any, defaults map[string
 	dc := pick(item, "name", "enable", "protocol", "implementation", "configContract", "priority", "categories")
 	protocol(dc)
 	dc["fields"] = e.textFields(item, defaults, "download-client")
-	dc["tags"] = e.tagLabels(item)
+	dc["tagLabels"] = e.tagLabels(item)
 	return dc
 }
 

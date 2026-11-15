@@ -33,7 +33,7 @@ spec:
       enable: true
       appProfileName: Compat Profile
       priority: 20
-      tags: [tv]
+      tagLabels: [tv]
       fields:
         - name: baseUrl
           value: ${FAKES}/torznab

@@ -58,7 +58,7 @@ func TestProwlarrIndexerFieldsBecomeText(t *testing.T) {
 	require.Len(t, cfg.Spec.Indexers, 1)
 	idx := cfg.Spec.Indexers[0]
 	assert.Equal(t, "Standard", idx.AppProfileName)
-	assert.Equal(t, []string{"private"}, idx.Tags)
+	assert.Equal(t, []string{"private"}, idx.TagLabels)
 	values := map[string]string{}
 	for _, f := range idx.Fields {
 		if f.Value != nil {

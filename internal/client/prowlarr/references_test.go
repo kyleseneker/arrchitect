@@ -75,7 +75,7 @@ func TestResolveReferencesRejectsMissingTag(t *testing.T) {
 		"/api/v1/tag": {{"id": 1, "label": "known"}},
 	})
 	spec := indexersv1alpha1.ProwlarrConfigSpec{
-		Indexers: []indexersv1alpha1.ProwlarrIndexer{{Name: "idx", Tags: []string{"known", "unknown"}}},
+		Indexers: []indexersv1alpha1.ProwlarrIndexer{{Name: "idx", TagLabels: []string{"known", "unknown"}}},
 	}
 
 	_, _, err := ResolveReferences(context.Background(), hc, spec, false)
@@ -87,7 +87,7 @@ func TestResolveReferencesInObserveModePlansWhatTheSpecDeclares(t *testing.T) {
 	hc := referenceServer(t, map[string][]map[string]any{})
 	spec := indexersv1alpha1.ProwlarrConfigSpec{
 		AppProfiles: []indexersv1alpha1.ProwlarrAppProfile{{Name: "Standard"}},
-		Indexers:    []indexersv1alpha1.ProwlarrIndexer{{Name: "x", Tags: []string{"tv"}, AppProfileName: "Standard"}},
+		Indexers:    []indexersv1alpha1.ProwlarrIndexer{{Name: "x", TagLabels: []string{"tv"}, AppProfileName: "Standard"}},
 	}
 	spec.Tags = []commonv1alpha1.Tag{{Label: "TV"}}
 
@@ -96,11 +96,11 @@ func TestResolveReferencesInObserveModePlansWhatTheSpecDeclares(t *testing.T) {
 	assert.Equal(t, engine.PlannedID, *resolved.Indexers[0].AppProfileId)
 	assert.Equal(t, engine.PlannedID, tagIDs["tv"])
 
-	spec.Indexers[0].Tags = []string{"typo"}
+	spec.Indexers[0].TagLabels = []string{"typo"}
 	_, _, err = ResolveReferences(context.Background(), hc, spec, true)
 	assert.ErrorContains(t, err, `reference "typo" does not exist`, "a name the spec doesn't declare still fails")
 
-	spec.Indexers[0].Tags = []string{"tv"}
+	spec.Indexers[0].TagLabels = []string{"tv"}
 	_, _, err = ResolveReferences(context.Background(), hc, spec, false)
 	assert.ErrorContains(t, err, `reference "tv" does not exist`, "enforcing creates tags before resolving them")
 }

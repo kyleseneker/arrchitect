@@ -37,30 +37,28 @@ func ResolveReferences(
 		return nil
 	}
 	for _, app := range resolved.Applications {
-		if err := check("applications", app.Name, app.Tags); err != nil {
+		if err := check("applications", app.Name, app.TagLabels); err != nil {
 			return *resolved, nil, err
 		}
 	}
 	for _, idx := range resolved.Indexers {
-		if err := check("indexers", idx.Name, idx.Tags); err != nil {
+		if err := check("indexers", idx.Name, idx.TagLabels); err != nil {
 			return *resolved, nil, err
 		}
 	}
 	for _, proxy := range resolved.Proxies {
-		if err := check("proxies", proxy.Name, proxy.Tags); err != nil {
+		if err := check("proxies", proxy.Name, proxy.TagLabels); err != nil {
 			return *resolved, nil, err
 		}
 	}
 	for _, dc := range resolved.DownloadClients {
-		if err := check("downloadClients", dc.Name, dc.Tags); err != nil {
+		if err := check("downloadClients", dc.Name, dc.TagLabels); err != nil {
 			return *resolved, nil, err
 		}
 	}
-	for i := range resolved.Notifications {
-		n := &resolved.Notifications[i]
-		n.Tags, err = tags.ResolveTags(n.TagLabels, n.Tags)
-		if err != nil {
-			return *resolved, nil, fmt.Errorf("notifications(%s): %w", n.Name, err)
+	for _, n := range resolved.Notifications {
+		if err := check("notifications", n.Name, n.TagLabels); err != nil {
+			return *resolved, nil, err
 		}
 	}
 	var profiles engine.NamedIDs

@@ -171,7 +171,7 @@ func TestProwlarrResolvesTagLabelsToIDs(t *testing.T) {
 	cfg.Spec.Tags = []commonv1alpha1.Tag{{Label: "flare"}}
 	cfg.Spec.Indexers = []indexersv1alpha1.ProwlarrIndexer{{
 		Name: "nzbgeek", Implementation: "Newznab", ConfigContract: "NewznabSettings",
-		Tags: []string{"flare"},
+		TagLabels: []string{"flare"},
 	}}
 	runProwlarr(t, cfg, prowlarrSecret())
 
@@ -311,7 +311,7 @@ func TestProwlarrRestoredProfileIDAndLegacyFallback(t *testing.T) {
 func TestProwlarrMissingTagNeverBecomesEmptyAssociation(t *testing.T) {
 	app := &fakeProwlarr{}
 	cfg := prowlarrConfig(app.serve(t))
-	cfg.Spec.Indexers = []indexersv1alpha1.ProwlarrIndexer{{Name: "indexer", Tags: []string{"missing"}}}
+	cfg.Spec.Indexers = []indexersv1alpha1.ProwlarrIndexer{{Name: "indexer", TagLabels: []string{"missing"}}}
 	runProwlarr(t, cfg, prowlarrSecret())
 	require.Empty(t, app.postsTo("/api/v1/indexer"))
 }
