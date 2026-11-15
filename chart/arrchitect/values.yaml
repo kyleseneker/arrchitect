@@ -31,6 +31,11 @@ serviceAccount:
   create: true
   name: arrchitect
 
+rbac:
+  # Grants read access to the enabled apps' resources through the built-in
+  # view, edit and admin roles, and write access through edit and admin.
+  aggregateClusterRoles: true
+
 resources:
   requests:
     cpu: 50m

@@ -17,7 +17,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	appsv1 "k8s.io/api/apps/v1"
+	authorizationv1 "k8s.io/api/authorization/v1"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -56,6 +58,7 @@ func TestChart(t *testing.T) {
 		Assess("the previous release reconciles", installPreviousRelease).
 		Assess("the local chart installs or upgrades and reconciles", installLocalChart(apiKey)).
 		Assess("the cluster serves the chart's CRDs", servesChartCRDs).
+		Assess("the built-in roles grant access to the resources", builtInRolesGrantAccess).
 		Assess("uninstalling keeps the CRDs and resources", uninstallKeepsCRDs).
 		Feature()
 	testenv.Test(t, f)
@@ -107,6 +110,45 @@ func servesChartCRDs(ctx context.Context, t *testing.T, cfg *envconf.Config) con
 		var live apiextensionsv1.CustomResourceDefinition
 		require.NoError(t, cfg.Client().Resources().Get(ctx, want.Name, "", &live), want.Name)
 		assert.Equal(t, schemas(want), schemas(live), "%s differs from the chart", want.Name)
+	}
+	return ctx
+}
+
+// builtInRolesGrantAccess binds a user to each built-in role in the apps'
+// namespace and asks the API server what the user may do with SonarrConfigs.
+func builtInRolesGrantAccess(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
+	r := cfg.Client().Resources()
+	for _, role := range []string{"view", "edit"} {
+		require.NoError(t, r.Create(ctx, &rbacv1.RoleBinding{
+			Name: role + "-user", Namespace: appNS,
+			RoleRef:  rbacv1.RoleRef{APIGroup: rbacv1.GroupName, Kind: "ClusterRole", Name: role},
+			Subjects: []rbacv1.Subject{{APIGroup: rbacv1.GroupName, Kind: "User", Name: role + "-user"}},
+		}))
+	}
+	for _, check := range []struct {
+		user, verb string
+		allowed    bool
+	}{
+		{"view-user", "list", true},
+		{"view-user", "create", false},
+		{"edit-user", "create", true},
+		{"edit-user", "delete", true},
+	} {
+		var allowed bool
+		err := wait.For(func(ctx context.Context) (bool, error) {
+			review := &authorizationv1.SubjectAccessReview{Spec: authorizationv1.SubjectAccessReviewSpec{
+				User: check.user,
+				ResourceAttributes: &authorizationv1.ResourceAttributes{
+					Namespace: appNS, Verb: check.verb, Group: "arrchitect.dev", Resource: "sonarrconfigs",
+				},
+			}}
+			if err := r.Create(ctx, review); err != nil {
+				return false, err
+			}
+			allowed = review.Status.Allowed
+			return allowed == check.allowed, nil
+		}, wait.WithTimeout(time.Minute), wait.WithInterval(2*time.Second))
+		assert.NoError(t, err, "%s %s sonarrconfigs: allowed=%t, want %t", check.user, check.verb, allowed, check.allowed)
 	}
 	return ctx
 }
