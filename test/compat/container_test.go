@@ -57,6 +57,7 @@ func runTool(args ...string) (string, error) {
 // it for inspection; logs are printed whenever the test failed.
 func startContainer(t *testing.T, spec containerSpec) *container {
 	t.Helper()
+	spec.image = pinnedImage(t, spec.image)
 	var id string
 	var err error
 	// The runtime picks a free host port when it creates the container, and with
