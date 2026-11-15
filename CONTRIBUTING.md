@@ -8,13 +8,13 @@
 4. `make test lint verify-crds`
 5. Push and open a PR
 
-You'll need the Go version in `go.mod`, kubebuilder, a cluster (kind is fine),
-and access to whichever app you're working on. Most of the interesting behavior
+You'll need the Go version in `go.mod`, kubebuilder, a cluster to point
+`KUBECONFIG` at, and access to whichever app you're working on. Most of the interesting behavior
 only shows up against a real Sonarr or Jellyfin, so it helps to have one
 running.
 
 ```bash
-make run                      # run the operator against your current kube context
+make run                      # run the operator against the cluster in KUBECONFIG, which must be set
 make build                    # the operator and the CLI
 make docker-build             # the operator's image for this machine; IMG= to tag, ARCH= to cross-build
 make test
