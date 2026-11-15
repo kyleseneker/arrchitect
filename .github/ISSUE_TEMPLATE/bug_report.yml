@@ -75,7 +75,7 @@ body:
     attributes:
       label: Operator logs
       description: >
-        `kubectl logs -n media deployment/media-operator-<domain>`. The reconcile
+        `kubectl logs -n media deployment/media-operator`. The reconcile
         error is usually enough; no need for the whole stream.
       render: shell
 

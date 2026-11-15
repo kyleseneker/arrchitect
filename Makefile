@@ -45,23 +45,21 @@ help: ## Display this help.
 manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
 	"$(CONTROLLER_GEN)" rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 
+CHART_CRDS = chart/media-operator/files/crds
+
 .PHONY: sync-crds
-sync-crds: manifests ## Copy generated CRDs into the matching Helm chart.
+sync-crds: manifests ## Copy generated CRDs into the Helm chart, kept on uninstall.
+	@mkdir -p $(CHART_CRDS)
 	@for f in config/crd/bases/*.yaml; do \
-		kind=$$(grep -m1 '    kind:' $$f | awk '{print $$2}'); \
-		grp=$$(grep -rl "type $$kind struct" api/*/v1alpha1/*_types.go | head -1 | cut -d/ -f2); \
-		if [ -n "$$grp" ]; then \
-			mkdir -p chart/media-operator-$$grp/crds; \
-			cp $$f chart/media-operator-$$grp/crds/; \
-		fi; \
+		awk '/^    controller-gen.kubebuilder.io\/version:/ {print "    helm.sh/resource-policy: keep"} {print}' $$f > $(CHART_CRDS)/$$(basename $$f); \
 	done
-	@echo "CRDs synced into chart/*/crds/"
+	@echo "CRDs synced into $(CHART_CRDS)"
 
 .PHONY: verify-crds
 verify-crds: sync-crds ## Fail if chart CRDs drift from generated CRDs.
-	@if [ -n "$$(git status --porcelain chart/*/crds/)" ]; then \
+	@if [ -n "$$(git status --porcelain $(CHART_CRDS))" ]; then \
 		echo "chart CRDs are out of date; run 'make sync-crds' and commit"; \
-		git --no-pager diff --stat chart/*/crds/; \
+		git --no-pager diff --stat $(CHART_CRDS); \
 		exit 1; \
 	fi
 	@echo "chart CRDs are up to date"
@@ -135,21 +133,21 @@ lint-config: golangci-lint ## Verify golangci-lint linter configuration
 
 ##@ Build
 
-BINARIES = pvr indexers subtitles curation downloads mediaservers requests transcode automation cli
-BINARY ?= pvr
+BINARIES = operator cli
+BINARY ?= operator
 
 .PHONY: build
 build: manifests generate fmt vet ## Build every binary.
 	$(foreach bin,$(BINARIES),go build -o bin/media-operator-$(bin) ./cmd/$(bin)/;)
 
 .PHONY: run
-run: manifests generate fmt vet ## Run a controller from your host.
-	go run ./cmd/$(BINARY)/
+run: manifests generate fmt vet ## Run the operator from your host.
+	go run ./cmd/operator/
 
 ARCH ?= $(shell go env GOARCH)
 
 .PHONY: docker-build
-docker-build: ## Build one operator's image, BINARY=pvr by default, for ARCH.
+docker-build: ## Build the operator's image, or the CLI's with BINARY=cli, for ARCH.
 	mkdir -p bin/image/linux/$(ARCH)
 	CGO_ENABLED=0 GOOS=linux GOARCH=$(ARCH) go build -ldflags "-s -w" -o bin/image/linux/$(ARCH)/media-operator-$(BINARY) ./cmd/$(BINARY)/
 	$(CONTAINER_TOOL) build --platform linux/$(ARCH) --build-arg BINARY=media-operator-$(BINARY) -f Dockerfile -t ${IMG} bin/image

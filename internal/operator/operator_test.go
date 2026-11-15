@@ -27,7 +27,7 @@ func TestResolveEnabledControllers(t *testing.T) {
 	}
 
 	_, err := resolveEnabledControllers(controllers, "sonar", "")
-	assert.ErrorContains(t, err, `unknown controller "sonar"; this binary runs sonarr, radarr, lidarr`)
+	assert.ErrorContains(t, err, `unknown controller "sonar"; the controllers are sonarr, radarr, lidarr`)
 	_, err = resolveEnabledControllers(controllers, "*", "prowlarr")
 	assert.ErrorContains(t, err, `unknown controller "prowlarr"`)
 }
