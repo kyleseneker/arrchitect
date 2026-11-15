@@ -19,10 +19,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	automationv1alpha1 "github.com/kyleseneker/media-operator/api/automation/v1alpha1"
-	"github.com/kyleseneker/media-operator/internal/controller/automation"
-	ctrlcommon "github.com/kyleseneker/media-operator/internal/controller/common"
-	"github.com/kyleseneker/media-operator/internal/engine"
+	automationv1alpha1 "github.com/kyleseneker/arrchitect/api/automation/v1alpha1"
+	"github.com/kyleseneker/arrchitect/internal/controller/automation"
+	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
+	"github.com/kyleseneker/arrchitect/internal/engine"
 )
 
 func TestAutobrr(t *testing.T) {

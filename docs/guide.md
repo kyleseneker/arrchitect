@@ -53,7 +53,7 @@ get` shows both. The `Synced` reason is one of:
 `spec.reconcile.driftPolicy: observe` compares without writing to the app.
 Differences set `Synced` to `False` with reason `DriftDetected`, are listed in
 the condition's message (the first ten), and increment
-`media_operator_drift_observed_total`.
+`arrchitect_drift_observed_total`.
 
 Some things can't be compared by reading:
 
@@ -177,15 +177,15 @@ ServiceMonitor.
 
 | Metric | Description |
 | --- | --- |
-| `media_operator_config_synced` | 1 if the resource last reconciled successfully, otherwise 0 |
-| `media_operator_drift_corrected_total` | Items rewritten because the app differed |
-| `media_operator_drift_observed_total` | Differences found in observe mode |
-| `media_operator_resources_pruned_total` | Items deleted by prune |
-| `media_operator_managed_resources` | Items declared per resource type |
-| `media_operator_app_api_request_duration_seconds` | Request latency to each app |
-| `media_operator_app_api_errors_total` | Failed requests to each app |
+| `arrchitect_config_synced` | 1 if the resource last reconciled successfully, otherwise 0 |
+| `arrchitect_drift_corrected_total` | Items rewritten because the app differed |
+| `arrchitect_drift_observed_total` | Differences found in observe mode |
+| `arrchitect_resources_pruned_total` | Items deleted by prune |
+| `arrchitect_managed_resources` | Items declared per resource type |
+| `arrchitect_app_api_request_duration_seconds` | Request latency to each app |
+| `arrchitect_app_api_errors_total` | Failed requests to each app |
 
-`media_operator_config_synced == 0` is the condition to alert on.
+`arrchitect_config_synced == 0` is the condition to alert on.
 
 ## Upgrading
 
@@ -205,25 +205,25 @@ with [cosign](https://docs.sigstore.dev/) by the release workflow. With
 `VERSION` set to the release, without the `v`:
 
 ```bash
-cosign verify ghcr.io/kyleseneker/media-operator:$VERSION \
-  --certificate-identity https://github.com/kyleseneker/media-operator/.github/workflows/release.yml@refs/tags/v$VERSION \
+cosign verify ghcr.io/kyleseneker/arrchitect:$VERSION \
+  --certificate-identity https://github.com/kyleseneker/arrchitect/.github/workflows/release.yml@refs/tags/v$VERSION \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com
 ```
 
-The chart verifies the same way, as `ghcr.io/kyleseneker/charts/media-operator:$VERSION`.
+The chart verifies the same way, as `ghcr.io/kyleseneker/charts/arrchitect:$VERSION`.
 The image includes an SBOM:
 
 ```bash
-docker buildx imagetools inspect ghcr.io/kyleseneker/media-operator:$VERSION --format '{{ json .SBOM }}'
+docker buildx imagetools inspect ghcr.io/kyleseneker/arrchitect:$VERSION --format '{{ json .SBOM }}'
 ```
 
 Download the checksums file with its `.sigstore.json` bundle, verify it, then
 check the archive:
 
 ```bash
-cosign verify-blob media-operator_${VERSION}_checksums.txt \
-  --bundle media-operator_${VERSION}_checksums.txt.sigstore.json \
-  --certificate-identity https://github.com/kyleseneker/media-operator/.github/workflows/release.yml@refs/tags/v$VERSION \
+cosign verify-blob arrchitect_${VERSION}_checksums.txt \
+  --bundle arrchitect_${VERSION}_checksums.txt.sigstore.json \
+  --certificate-identity https://github.com/kyleseneker/arrchitect/.github/workflows/release.yml@refs/tags/v$VERSION \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com
-sha256sum --ignore-missing -c media-operator_${VERSION}_checksums.txt
+sha256sum --ignore-missing -c arrchitect_${VERSION}_checksums.txt
 ```

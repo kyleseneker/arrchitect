@@ -7,8 +7,8 @@ import (
 	"slices"
 	"strings"
 
-	transcodev1alpha1 "github.com/kyleseneker/media-operator/api/transcode/v1alpha1"
-	tdarrclient "github.com/kyleseneker/media-operator/internal/client/tdarr"
+	transcodev1alpha1 "github.com/kyleseneker/arrchitect/api/transcode/v1alpha1"
+	tdarrclient "github.com/kyleseneker/arrchitect/internal/client/tdarr"
 )
 
 var tdarrWorkerTypes = map[string]string{

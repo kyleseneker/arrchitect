@@ -18,11 +18,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	transcodev1alpha1 "github.com/kyleseneker/media-operator/api/transcode/v1alpha1"
-	tdarrclient "github.com/kyleseneker/media-operator/internal/client/tdarr"
-	ctrlcommon "github.com/kyleseneker/media-operator/internal/controller/common"
-	"github.com/kyleseneker/media-operator/internal/engine"
-	"github.com/kyleseneker/media-operator/internal/reconciler"
+	transcodev1alpha1 "github.com/kyleseneker/arrchitect/api/transcode/v1alpha1"
+	tdarrclient "github.com/kyleseneker/arrchitect/internal/client/tdarr"
+	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
+	"github.com/kyleseneker/arrchitect/internal/engine"
+	"github.com/kyleseneker/arrchitect/internal/reconciler"
 )
 
 // TdarrConfigReconciler reconciles a TdarrConfig object.
@@ -32,9 +32,9 @@ type TdarrConfigReconciler struct {
 	Recorder events.EventRecorder
 }
 
-// +kubebuilder:rbac:groups=media-operator.dev,resources=tdarrconfigs,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=media-operator.dev,resources=tdarrconfigs/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=media-operator.dev,resources=tdarrconfigs/finalizers,verbs=update
+// +kubebuilder:rbac:groups=arrchitect.dev,resources=tdarrconfigs,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=arrchitect.dev,resources=tdarrconfigs/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=arrchitect.dev,resources=tdarrconfigs/finalizers,verbs=update
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
 
 func (r *TdarrConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {

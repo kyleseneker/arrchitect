@@ -13,15 +13,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	commonv1alpha1 "github.com/kyleseneker/media-operator/api/common/v1alpha1"
-	"github.com/kyleseneker/media-operator/internal/engine"
-	"github.com/kyleseneker/media-operator/internal/reconciler"
+	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
+	"github.com/kyleseneker/arrchitect/internal/engine"
+	"github.com/kyleseneker/arrchitect/internal/reconciler"
 )
 
 // Finalizer holds a resource with deletionPolicy delete until the operator has
 // removed what it created. Other resources don't carry it, so they never wait
 // on the operator to be deleted.
-const Finalizer = "media-operator.dev/finalizer"
+const Finalizer = "arrchitect.dev/finalizer"
 
 // DeletionGiveUpAfter bounds how long deletion will retry against an
 // unreachable app before releasing the finalizer, so a dead app can never

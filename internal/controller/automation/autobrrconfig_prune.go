@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"slices"
 
-	automationv1alpha1 "github.com/kyleseneker/media-operator/api/automation/v1alpha1"
+	automationv1alpha1 "github.com/kyleseneker/arrchitect/api/automation/v1alpha1"
 )
 
 const actionsKind = "actions"

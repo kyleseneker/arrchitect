@@ -16,11 +16,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	transcodev1alpha1 "github.com/kyleseneker/media-operator/api/transcode/v1alpha1"
-	tdarrclient "github.com/kyleseneker/media-operator/internal/client/tdarr"
-	ctrlcommon "github.com/kyleseneker/media-operator/internal/controller/common"
-	"github.com/kyleseneker/media-operator/internal/controller/transcode"
-	"github.com/kyleseneker/media-operator/internal/engine"
+	transcodev1alpha1 "github.com/kyleseneker/arrchitect/api/transcode/v1alpha1"
+	tdarrclient "github.com/kyleseneker/arrchitect/internal/client/tdarr"
+	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
+	"github.com/kyleseneker/arrchitect/internal/controller/transcode"
+	"github.com/kyleseneker/arrchitect/internal/engine"
 )
 
 func TestTdarr(t *testing.T) {

@@ -17,7 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
-	commonv1alpha1 "github.com/kyleseneker/media-operator/api/common/v1alpha1"
+	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )

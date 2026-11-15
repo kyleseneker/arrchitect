@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
-	curationv1alpha1 "github.com/kyleseneker/media-operator/api/curation/v1alpha1"
+	curationv1alpha1 "github.com/kyleseneker/arrchitect/api/curation/v1alpha1"
 )
 
 var fakeMaintainerrAPI = map[string]string{

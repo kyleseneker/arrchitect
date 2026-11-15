@@ -40,18 +40,18 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/yaml"
 
-	automationv1alpha1 "github.com/kyleseneker/media-operator/api/automation/v1alpha1"
-	curationv1alpha1 "github.com/kyleseneker/media-operator/api/curation/v1alpha1"
-	downloadsv1alpha1 "github.com/kyleseneker/media-operator/api/downloads/v1alpha1"
-	indexersv1alpha1 "github.com/kyleseneker/media-operator/api/indexers/v1alpha1"
-	mediaserversv1alpha1 "github.com/kyleseneker/media-operator/api/mediaservers/v1alpha1"
-	pvrv1alpha1 "github.com/kyleseneker/media-operator/api/pvr/v1alpha1"
-	requestsv1alpha1 "github.com/kyleseneker/media-operator/api/requests/v1alpha1"
-	subtitlesv1alpha1 "github.com/kyleseneker/media-operator/api/subtitles/v1alpha1"
-	transcodev1alpha1 "github.com/kyleseneker/media-operator/api/transcode/v1alpha1"
-	ctrlcommon "github.com/kyleseneker/media-operator/internal/controller/common"
-	"github.com/kyleseneker/media-operator/internal/engine"
-	"github.com/kyleseneker/media-operator/internal/export"
+	automationv1alpha1 "github.com/kyleseneker/arrchitect/api/automation/v1alpha1"
+	curationv1alpha1 "github.com/kyleseneker/arrchitect/api/curation/v1alpha1"
+	downloadsv1alpha1 "github.com/kyleseneker/arrchitect/api/downloads/v1alpha1"
+	indexersv1alpha1 "github.com/kyleseneker/arrchitect/api/indexers/v1alpha1"
+	mediaserversv1alpha1 "github.com/kyleseneker/arrchitect/api/mediaservers/v1alpha1"
+	pvrv1alpha1 "github.com/kyleseneker/arrchitect/api/pvr/v1alpha1"
+	requestsv1alpha1 "github.com/kyleseneker/arrchitect/api/requests/v1alpha1"
+	subtitlesv1alpha1 "github.com/kyleseneker/arrchitect/api/subtitles/v1alpha1"
+	transcodev1alpha1 "github.com/kyleseneker/arrchitect/api/transcode/v1alpha1"
+	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
+	"github.com/kyleseneker/arrchitect/internal/engine"
+	"github.com/kyleseneker/arrchitect/internal/export"
 )
 
 var (
@@ -106,10 +106,10 @@ func run(m *testing.M) int {
 	return m.Run()
 }
 
-// outboundIP is the source address of the default route. MEDIA_OPERATOR_COMPAT_HOST
+// outboundIP is the source address of the default route. ARRCHITECT_COMPAT_HOST
 // overrides it when that address is not reachable from containers.
 func outboundIP() (string, error) {
-	if ip := os.Getenv("MEDIA_OPERATOR_COMPAT_HOST"); ip != "" {
+	if ip := os.Getenv("ARRCHITECT_COMPAT_HOST"); ip != "" {
 		return ip, nil
 	}
 	conn, err := net.Dial("udp", "192.0.2.1:9")
@@ -136,7 +136,7 @@ type compatCase struct {
 	observe bool
 	// verify reads the application directly after the first reconcile.
 	verify func(t *testing.T)
-	// export names the app for media-operator export, whose output must then
+	// export names the app for arrchitect export, whose output must then
 	// describe the application exactly: observe mode finds nothing different.
 	export string
 	// exportAPIKey supplies the API key export reads with, where the fixture
@@ -374,7 +374,7 @@ func observedDrift(t *testing.T, app string) []string {
 	require.NoError(t, err)
 	var drift []string
 	for _, family := range families {
-		if family.GetName() != "media_operator_drift_observed_total" {
+		if family.GetName() != "arrchitect_drift_observed_total" {
 			continue
 		}
 		for _, m := range family.GetMetric() {

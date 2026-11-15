@@ -21,7 +21,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/kyleseneker/media-operator/internal/engine"
+	"github.com/kyleseneker/arrchitect/internal/engine"
 )
 
 func randomKey() string {

@@ -16,8 +16,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kyleseneker/media-operator/internal/metrics"
-	"github.com/kyleseneker/media-operator/internal/reconciler"
+	"github.com/kyleseneker/arrchitect/internal/metrics"
+	"github.com/kyleseneker/arrchitect/internal/reconciler"
 )
 
 const outcomeError = "error"
@@ -407,12 +407,12 @@ func (c *HTTPClient) applyAuth(req *http.Request) {
 		if c.plexToken != "" {
 			req.Header.Set("X-Plex-Token", c.plexToken)
 			req.Header.Set("Accept", "application/json")
-			req.Header.Set("X-Plex-Client-Identifier", "media-operator")
-			req.Header.Set("X-Plex-Product", "media-operator")
+			req.Header.Set("X-Plex-Client-Identifier", "arrchitect")
+			req.Header.Set("X-Plex-Product", "arrchitect")
 			req.Header.Set("X-Plex-Version", "1.0.0")
 		}
 	case AuthMediaBrowser:
-		auth := `MediaBrowser Client="media-operator", Device="operator", DeviceId="media-operator-operator", Version="1.0.0"`
+		auth := `MediaBrowser Client="arrchitect", Device="operator", DeviceId="arrchitect-operator", Version="1.0.0"`
 		if c.mediaToken != "" {
 			auth += fmt.Sprintf(`, Token="%s"`, c.mediaToken)
 		}

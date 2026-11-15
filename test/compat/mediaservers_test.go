@@ -16,12 +16,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	mediaserversv1alpha1 "github.com/kyleseneker/media-operator/api/mediaservers/v1alpha1"
-	jellyfinclient "github.com/kyleseneker/media-operator/internal/client/jellyfin"
-	plexclient "github.com/kyleseneker/media-operator/internal/client/plex"
-	ctrlcommon "github.com/kyleseneker/media-operator/internal/controller/common"
-	"github.com/kyleseneker/media-operator/internal/controller/mediaservers"
-	"github.com/kyleseneker/media-operator/internal/engine"
+	mediaserversv1alpha1 "github.com/kyleseneker/arrchitect/api/mediaservers/v1alpha1"
+	jellyfinclient "github.com/kyleseneker/arrchitect/internal/client/jellyfin"
+	plexclient "github.com/kyleseneker/arrchitect/internal/client/plex"
+	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
+	"github.com/kyleseneker/arrchitect/internal/controller/mediaservers"
+	"github.com/kyleseneker/arrchitect/internal/engine"
 )
 
 const jellyfinAdmin = "compat-admin"

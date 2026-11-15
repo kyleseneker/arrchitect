@@ -20,13 +20,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	commonv1alpha1 "github.com/kyleseneker/media-operator/api/common/v1alpha1"
-	subtitlesv1alpha1 "github.com/kyleseneker/media-operator/api/subtitles/v1alpha1"
-	bazarrclient "github.com/kyleseneker/media-operator/internal/client/bazarr"
-	ctrlcommon "github.com/kyleseneker/media-operator/internal/controller/common"
-	"github.com/kyleseneker/media-operator/internal/engine"
-	"github.com/kyleseneker/media-operator/internal/metrics"
-	"github.com/kyleseneker/media-operator/internal/reconciler"
+	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
+	subtitlesv1alpha1 "github.com/kyleseneker/arrchitect/api/subtitles/v1alpha1"
+	bazarrclient "github.com/kyleseneker/arrchitect/internal/client/bazarr"
+	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
+	"github.com/kyleseneker/arrchitect/internal/engine"
+	"github.com/kyleseneker/arrchitect/internal/metrics"
+	"github.com/kyleseneker/arrchitect/internal/reconciler"
 )
 
 // BazarrConfigReconciler reconciles a BazarrConfig object.
@@ -36,9 +36,9 @@ type BazarrConfigReconciler struct {
 	Recorder events.EventRecorder
 }
 
-// +kubebuilder:rbac:groups=media-operator.dev,resources=bazarrconfigs,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=media-operator.dev,resources=bazarrconfigs/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=media-operator.dev,resources=bazarrconfigs/finalizers,verbs=update
+// +kubebuilder:rbac:groups=arrchitect.dev,resources=bazarrconfigs,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=arrchitect.dev,resources=bazarrconfigs/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=arrchitect.dev,resources=bazarrconfigs/finalizers,verbs=update
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
 
 func (r *BazarrConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {

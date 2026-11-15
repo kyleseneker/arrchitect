@@ -21,20 +21,20 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 
-	automationv1alpha1 "github.com/kyleseneker/media-operator/api/automation/v1alpha1"
-	commonv1alpha1 "github.com/kyleseneker/media-operator/api/common/v1alpha1"
-	curationv1alpha1 "github.com/kyleseneker/media-operator/api/curation/v1alpha1"
-	downloadsv1alpha1 "github.com/kyleseneker/media-operator/api/downloads/v1alpha1"
-	indexersv1alpha1 "github.com/kyleseneker/media-operator/api/indexers/v1alpha1"
-	mediaserversv1alpha1 "github.com/kyleseneker/media-operator/api/mediaservers/v1alpha1"
-	pvrv1alpha1 "github.com/kyleseneker/media-operator/api/pvr/v1alpha1"
-	requestsv1alpha1 "github.com/kyleseneker/media-operator/api/requests/v1alpha1"
-	subtitlesv1alpha1 "github.com/kyleseneker/media-operator/api/subtitles/v1alpha1"
-	transcodev1alpha1 "github.com/kyleseneker/media-operator/api/transcode/v1alpha1"
-	pvrclient "github.com/kyleseneker/media-operator/internal/client/pvr"
-	ctrlcommon "github.com/kyleseneker/media-operator/internal/controller/common"
-	"github.com/kyleseneker/media-operator/internal/engine"
-	"github.com/kyleseneker/media-operator/internal/reconciler"
+	automationv1alpha1 "github.com/kyleseneker/arrchitect/api/automation/v1alpha1"
+	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
+	curationv1alpha1 "github.com/kyleseneker/arrchitect/api/curation/v1alpha1"
+	downloadsv1alpha1 "github.com/kyleseneker/arrchitect/api/downloads/v1alpha1"
+	indexersv1alpha1 "github.com/kyleseneker/arrchitect/api/indexers/v1alpha1"
+	mediaserversv1alpha1 "github.com/kyleseneker/arrchitect/api/mediaservers/v1alpha1"
+	pvrv1alpha1 "github.com/kyleseneker/arrchitect/api/pvr/v1alpha1"
+	requestsv1alpha1 "github.com/kyleseneker/arrchitect/api/requests/v1alpha1"
+	subtitlesv1alpha1 "github.com/kyleseneker/arrchitect/api/subtitles/v1alpha1"
+	transcodev1alpha1 "github.com/kyleseneker/arrchitect/api/transcode/v1alpha1"
+	pvrclient "github.com/kyleseneker/arrchitect/internal/client/pvr"
+	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
+	"github.com/kyleseneker/arrchitect/internal/engine"
+	"github.com/kyleseneker/arrchitect/internal/reconciler"
 )
 
 const apiKeyKey = "api-key"
@@ -227,7 +227,7 @@ func Run(ctx context.Context, o Options) (Result, error) {
 			o.ConnectionURL)
 	}
 	raw, err := json.Marshal(map[string]any{
-		"apiVersion": "media-operator.dev/v1alpha1",
+		"apiVersion": "arrchitect.dev/v1alpha1",
 		"kind":       reflect.TypeOf(obj).Elem().Name(),
 		"metadata":   map[string]any{"name": o.Name, "namespace": o.Namespace},
 		"spec":       spec,

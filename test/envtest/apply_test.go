@@ -30,7 +30,7 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-const group = "media-operator.dev/v1alpha1"
+const group = "arrchitect.dev/v1alpha1"
 
 func TestSamplesApply(t *testing.T) {
 	if os.Getenv("KUBEBUILDER_ASSETS") == "" {
@@ -128,7 +128,7 @@ func TestDelayProfilesAllowOneWithoutTags(t *testing.T) {
 	sonarr := func(name, profiles string) *unstructured.Unstructured {
 		obj := &unstructured.Unstructured{}
 		require.NoError(t, yaml.Unmarshal([]byte(`
-apiVersion: media-operator.dev/v1alpha1
+apiVersion: arrchitect.dev/v1alpha1
 kind: SonarrConfig
 metadata:
   name: `+name+`

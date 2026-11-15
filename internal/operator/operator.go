@@ -1,4 +1,4 @@
-// Package operator runs the media-operator manager: its flags, manager and
+// Package operator runs the arrchitect manager: its flags, manager and
 // controllers.
 package operator
 
@@ -168,7 +168,7 @@ func Run(addToSchemes []func(*runtime.Scheme) error, controllers ...Controller) 
 		WebhookServer:          webhookServer,
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
-		LeaderElectionID:       "media-operator.media-operator.dev",
+		LeaderElectionID:       "arrchitect.arrchitect.dev",
 		Cache:                  cacheOptions,
 		Client:                 ClientOptions(),
 		Controller:             config.Controller{MaxConcurrentReconciles: maxConcurrentReconciles},

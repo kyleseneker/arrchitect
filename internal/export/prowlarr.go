@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"strconv"
 
-	"github.com/kyleseneker/media-operator/internal/reconciler"
+	"github.com/kyleseneker/arrchitect/internal/reconciler"
 )
 
 type prowlarrExport struct {

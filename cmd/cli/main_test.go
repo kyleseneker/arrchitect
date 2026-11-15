@@ -37,7 +37,7 @@ func TestVersionPrintsTheBuild(t *testing.T) {
 }
 
 func TestExportRequiresAnAppURLAndKey(t *testing.T) {
-	t.Setenv("MEDIA_OPERATOR_API_KEY", "")
+	t.Setenv("ARRCHITECT_API_KEY", "")
 	_, _, err := runCLI(t, "export")
 	require.EqualError(t, err, "export needs an app")
 	_, _, err = runCLI(t, "export", "--url", "http://sonarr")
@@ -45,23 +45,23 @@ func TestExportRequiresAnAppURLAndKey(t *testing.T) {
 	_, _, err = runCLI(t, "export", "sonarr")
 	require.EqualError(t, err, "--url is required")
 	_, _, err = runCLI(t, "export", "sonarr", "--url", "http://sonarr")
-	require.EqualError(t, err, "--api-key or $MEDIA_OPERATOR_API_KEY is required")
+	require.EqualError(t, err, "--api-key or $ARRCHITECT_API_KEY is required")
 	_, _, err = runCLI(t, "export", "sonarr", "--url", "http://sonarr", "--api-key", "k", "extra")
 	require.EqualError(t, err, "unexpected arguments: extra")
 }
 
 func TestExportRequiresALoginForApps(t *testing.T) {
-	t.Setenv("MEDIA_OPERATOR_USERNAME", "")
-	t.Setenv("MEDIA_OPERATOR_PASSWORD", "")
+	t.Setenv("ARRCHITECT_USERNAME", "")
+	t.Setenv("ARRCHITECT_PASSWORD", "")
 	_, _, err := runCLI(t, "export", "qbittorrent", "--url", "http://qbittorrent", "--username", "admin")
 	require.EqualError(t, err,
-		"qbittorrent needs --username and --password, or $MEDIA_OPERATOR_USERNAME and $MEDIA_OPERATOR_PASSWORD")
+		"qbittorrent needs --username and --password, or $ARRCHITECT_USERNAME and $ARRCHITECT_PASSWORD")
 }
 
 func TestExportRequiresATokenForPlex(t *testing.T) {
-	t.Setenv("MEDIA_OPERATOR_TOKEN", "")
+	t.Setenv("ARRCHITECT_TOKEN", "")
 	_, _, err := runCLI(t, "export", "plex", "--url", "http://plex")
-	require.EqualError(t, err, "plex needs --token or $MEDIA_OPERATOR_TOKEN")
+	require.EqualError(t, err, "plex needs --token or $ARRCHITECT_TOKEN")
 }
 
 func TestExportPrintsTheSecretAndConfig(t *testing.T) {
@@ -73,7 +73,7 @@ func TestExportPrintsTheSecretAndConfig(t *testing.T) {
 		_, _ = w.Write([]byte(`[]`))
 	}))
 	t.Cleanup(srv.Close)
-	t.Setenv("MEDIA_OPERATOR_API_KEY", "from-env")
+	t.Setenv("ARRCHITECT_API_KEY", "from-env")
 
 	stdout, stderr, err := runCLI(t, "export", "sonarr", "--url", srv.URL, "--connection-url", "http://sonarr:8989",
 		"--namespace", "media")

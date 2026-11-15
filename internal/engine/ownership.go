@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/kyleseneker/media-operator/internal/metrics"
+	"github.com/kyleseneker/arrchitect/internal/metrics"
 )
 
 // Ownership is what an integration created, by resource type, as recorded in

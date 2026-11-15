@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strconv"
 
-	sabnzbdclient "github.com/kyleseneker/media-operator/internal/client/sabnzbd"
-	"github.com/kyleseneker/media-operator/internal/reconciler"
+	sabnzbdclient "github.com/kyleseneker/arrchitect/internal/client/sabnzbd"
+	"github.com/kyleseneker/arrchitect/internal/reconciler"
 )
 
 func exportSabnzbd(r *reader) (map[string]any, error) {

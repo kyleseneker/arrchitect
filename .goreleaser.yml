@@ -1,32 +1,32 @@
 version: 2
 
 builds:
-  - id: media-operator
+  - id: arrchitect
     main: ./cmd/operator
-    binary: media-operator-operator
+    binary: arrchitect-operator
     env: [CGO_ENABLED=0]
     goos: [linux]
     goarch: [amd64, arm64]
     ldflags: ["-s -w -X main.version={{.Version}} -X main.commit={{.Commit}}"]
-  - id: media-operator-cli
+  - id: arrchitect-cli
     main: ./cmd/cli
-    binary: media-operator
+    binary: arrchitect
     env: [CGO_ENABLED=0]
     goos: [linux, darwin, windows]
     goarch: [amd64, arm64]
     ldflags: ["-s -w -X main.version={{.Version}} -X main.commit={{.Commit}}"]
 
 dockers_v2:
-  - id: media-operator
-    ids: [media-operator]
-    images: [ghcr.io/kyleseneker/media-operator]
+  - id: arrchitect
+    ids: [arrchitect]
+    images: [ghcr.io/kyleseneker/arrchitect]
     tags: ["{{ .Version }}", latest]
     platforms: [linux/amd64, linux/arm64]
     sbom: "{{ not .IsSnapshot }}"
     build_args:
-      BINARY: media-operator-operator
+      BINARY: arrchitect-operator
     annotations: &image-annotations
-      "org.opencontainers.image.source": https://github.com/kyleseneker/media-operator
+      "org.opencontainers.image.source": https://github.com/kyleseneker/arrchitect
       "org.opencontainers.image.revision": "{{ .FullCommit }}"
       "org.opencontainers.image.version": "{{ .Version }}"
       "org.opencontainers.image.created": "{{ .Date }}"
@@ -34,17 +34,17 @@ dockers_v2:
       "org.opencontainers.image.base.name": "{{ .BaseImage }}"
       "org.opencontainers.image.base.digest": "{{ .BaseImageDigest }}"
       "org.opencontainers.image.description": Configures Sonarr, Radarr, Prowlarr, Jellyfin, Plex and other media apps from Kubernetes resources
-  - id: media-operator-cli
-    ids: [media-operator-cli]
-    images: [ghcr.io/kyleseneker/media-operator-cli]
+  - id: arrchitect-cli
+    ids: [arrchitect-cli]
+    images: [ghcr.io/kyleseneker/arrchitect-cli]
     tags: ["{{ .Version }}", latest]
     platforms: [linux/amd64, linux/arm64]
     sbom: "{{ not .IsSnapshot }}"
     build_args:
-      BINARY: media-operator
+      BINARY: arrchitect
     annotations:
       <<: *image-annotations
-      "org.opencontainers.image.description": media-operator's command line tool, which exports an app's configuration as a config resource
+      "org.opencontainers.image.description": arrchitect's command line tool, which exports an app's configuration as a config resource
 
 docker_signs:
   - cmd: cosign
@@ -58,11 +58,11 @@ signs:
 
 archives:
   - id: operator
-    ids: [media-operator]
+    ids: [arrchitect]
     formats: ['tar.gz']
   - id: cli
-    ids: [media-operator-cli]
-    name_template: "media-operator-cli_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    ids: [arrchitect-cli]
+    name_template: "arrchitect-cli_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     formats: ['tar.gz']
     format_overrides:
       - goos: windows
@@ -105,15 +105,15 @@ release:
 
     ```bash
     for crd in {{ .Env.CHANGED_CRDS }}; do
-      kubectl apply --server-side --force-conflicts -f https://github.com/kyleseneker/media-operator/releases/download/{{ .Tag }}/media-operator.dev_${crd}.yaml
+      kubectl apply --server-side --force-conflicts -f https://github.com/kyleseneker/arrchitect/releases/download/{{ .Tag }}/arrchitect.dev_${crd}.yaml
     done
     ```
     {{ end }}
     ## Install
 
-    - Chart: `oci://ghcr.io/kyleseneker/charts/media-operator`, version `{{ .Version }}`
-    - Image: `ghcr.io/kyleseneker/media-operator:{{ .Version }}`
-    - CLI: the `media-operator-cli` archives below, or `ghcr.io/kyleseneker/media-operator-cli:{{ .Version }}`
-    - Tested app versions: [supported apps](https://github.com/kyleseneker/media-operator/blob/{{ .Tag }}/README.md#supported-apps)
+    - Chart: `oci://ghcr.io/kyleseneker/charts/arrchitect`, version `{{ .Version }}`
+    - Image: `ghcr.io/kyleseneker/arrchitect:{{ .Version }}`
+    - CLI: the `arrchitect-cli` archives below, or `ghcr.io/kyleseneker/arrchitect-cli:{{ .Version }}`
+    - Tested app versions: [supported apps](https://github.com/kyleseneker/arrchitect/blob/{{ .Tag }}/README.md#supported-apps)
   extra_files:
     - glob: config/crd/bases/*.yaml

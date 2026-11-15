@@ -1,6 +1,6 @@
 # Supply the referenced Secrets and deploy the apps separately.
 # The hostname and local directories below must exist in your installation.
-apiVersion: media-operator.dev/v1alpha1
+apiVersion: arrchitect.dev/v1alpha1
 kind: SonarrConfig
 metadata:
   name: portable-sonarr
@@ -32,7 +32,7 @@ spec:
       remotePath: /downloads/tv
       localPath: /data/seedbox/tv
 ---
-apiVersion: media-operator.dev/v1alpha1
+apiVersion: arrchitect.dev/v1alpha1
 kind: ProwlarrConfig
 metadata:
   name: portable-prowlarr

@@ -53,7 +53,7 @@ func runTool(args ...string) (string, error) {
 }
 
 // startContainer publishes the application port on a random host port and
-// removes the container when the test ends. MEDIA_OPERATOR_COMPAT_KEEP=1 keeps
+// removes the container when the test ends. ARRCHITECT_COMPAT_KEEP=1 keeps
 // it for inspection; logs are printed whenever the test failed.
 func startContainer(t *testing.T, spec containerSpec) *container {
 	t.Helper()
@@ -96,8 +96,8 @@ func (c *container) url() string {
 // container is removed when the test ends whether or not it started.
 func createAndStart(t *testing.T, spec containerSpec) (string, error) {
 	t.Helper()
-	args := []string{"create", "--name", fmt.Sprintf("media-operator-compat-%s-%d", spec.name, time.Now().UnixNano()),
-		"--label", "media-operator-compat=true", "-p", strconv.Itoa(spec.port)}
+	args := []string{"create", "--name", fmt.Sprintf("arrchitect-compat-%s-%d", spec.name, time.Now().UnixNano()),
+		"--label", "arrchitect-compat=true", "-p", strconv.Itoa(spec.port)}
 	for k, v := range spec.env {
 		args = append(args, "-e", k+"="+v)
 	}
@@ -110,7 +110,7 @@ func createAndStart(t *testing.T, spec containerSpec) (string, error) {
 				t.Logf("%s logs:\n%s", spec.name, logs)
 			}
 		}
-		if os.Getenv("MEDIA_OPERATOR_COMPAT_KEEP") == "1" {
+		if os.Getenv("ARRCHITECT_COMPAT_KEEP") == "1" {
 			t.Logf("keeping %s container %s", spec.name, id)
 			return
 		}

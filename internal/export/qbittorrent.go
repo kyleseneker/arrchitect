@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	qbclient "github.com/kyleseneker/media-operator/internal/client/qbittorrent"
+	qbclient "github.com/kyleseneker/arrchitect/internal/client/qbittorrent"
 )
 
 func exportQBittorrent(r *reader) (map[string]any, error) {

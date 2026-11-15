@@ -45,7 +45,7 @@ help: ## Display this help.
 manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
 	"$(CONTROLLER_GEN)" rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 
-CHART_CRDS = chart/media-operator/files/crds
+CHART_CRDS = chart/arrchitect/files/crds
 
 .PHONY: sync-crds
 sync-crds: manifests ## Copy generated CRDs into the Helm chart, kept on uninstall.
@@ -94,7 +94,7 @@ test-compat: manifests generate setup-envtest ## Reconcile every integration aga
 # The default setup assumes Kind is pre-installed and builds/loads the Manager Docker image locally.
 # CertManager is installed by default; skip with:
 # - CERT_MANAGER_INSTALL_SKIP=true
-KIND_CLUSTER ?= media-operator-test-e2e
+KIND_CLUSTER ?= arrchitect-test-e2e
 
 .PHONY: setup-test-e2e
 setup-test-e2e: ## Set up a Kind cluster for e2e tests if it does not exist
@@ -138,7 +138,7 @@ BINARY ?= operator
 
 .PHONY: build
 build: manifests generate fmt vet ## Build every binary.
-	$(foreach bin,$(BINARIES),go build -o bin/media-operator-$(bin) ./cmd/$(bin)/;)
+	$(foreach bin,$(BINARIES),go build -o bin/arrchitect-$(bin) ./cmd/$(bin)/;)
 
 .PHONY: run
 run: manifests generate fmt vet ## Run the operator from your host.
@@ -149,8 +149,8 @@ ARCH ?= $(shell go env GOARCH)
 .PHONY: docker-build
 docker-build: ## Build the operator's image, or the CLI's with BINARY=cli, for ARCH.
 	mkdir -p bin/image/linux/$(ARCH)
-	CGO_ENABLED=0 GOOS=linux GOARCH=$(ARCH) go build -ldflags "-s -w" -o bin/image/linux/$(ARCH)/media-operator-$(BINARY) ./cmd/$(BINARY)/
-	$(CONTAINER_TOOL) build --platform linux/$(ARCH) --build-arg BINARY=media-operator-$(BINARY) -f Dockerfile -t ${IMG} bin/image
+	CGO_ENABLED=0 GOOS=linux GOARCH=$(ARCH) go build -ldflags "-s -w" -o bin/image/linux/$(ARCH)/arrchitect-$(BINARY) ./cmd/$(BINARY)/
+	$(CONTAINER_TOOL) build --platform linux/$(ARCH) --build-arg BINARY=arrchitect-$(BINARY) -f Dockerfile -t ${IMG} bin/image
 
 .PHONY: docker-push
 docker-push: ## Push docker image with the manager.

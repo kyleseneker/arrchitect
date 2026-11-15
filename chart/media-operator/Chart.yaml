@@ -1,6 +1,0 @@
-apiVersion: v2
-name: media-operator
-description: Kubernetes operator that configures Sonarr, Radarr, Prowlarr, Jellyfin, Plex and other media apps from custom resources
-type: application
-version: 0.1.0
-appVersion: "0.1.0"

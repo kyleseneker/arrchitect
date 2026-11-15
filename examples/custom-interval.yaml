@@ -8,7 +8,7 @@
 # omitting a section entirely means "don't manage this." Operators that cannot prune
 # reject prune: true with InvalidConfig; see docs/guide.md for which ones can.
 ---
-apiVersion: media-operator.dev/v1alpha1
+apiVersion: arrchitect.dev/v1alpha1
 kind: SonarrConfig
 metadata:
   name: sonarr
@@ -26,7 +26,7 @@ spec:
   rootFolders:
     - path: /media/tv
 ---
-apiVersion: media-operator.dev/v1alpha1
+apiVersion: arrchitect.dev/v1alpha1
 kind: JellyfinConfig
 metadata:
   name: jellyfin

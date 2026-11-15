@@ -7,7 +7,7 @@ import (
 	"net/url"
 	"strconv"
 
-	"github.com/kyleseneker/media-operator/internal/engine"
+	"github.com/kyleseneker/arrchitect/internal/engine"
 )
 
 type Client struct {

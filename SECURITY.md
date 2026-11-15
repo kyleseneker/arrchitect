@@ -2,7 +2,7 @@
 
 ## Reporting a vulnerability
 
-Use [private vulnerability reporting](https://github.com/kyleseneker/media-operator/security/advisories/new)
+Use [private vulnerability reporting](https://github.com/kyleseneker/arrchitect/security/advisories/new)
 rather than opening a public issue.
 
 This is a side project with one maintainer, so I'm not going to pretend to a
@@ -30,7 +30,7 @@ Worth understanding before you deploy it:
   anything you don't. Prefer `caSecretRef` with your own CA.
 - **Metrics are authenticated.** The `:8443/metrics` endpoint requires a
   TokenReview-validated bearer token, served over HTTPS with a self-signed cert.
-  Resource names appear in `media_operator_config_synced` labels; no credentials
+  Resource names appear in `arrchitect_config_synced` labels; no credentials
   do.
 
 Credentials are never written to CR specs or status. A status message carries

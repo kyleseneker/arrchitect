@@ -8,8 +8,8 @@ import (
 	"strconv"
 	"strings"
 
-	requestsv1alpha1 "github.com/kyleseneker/media-operator/api/requests/v1alpha1"
-	"github.com/kyleseneker/media-operator/internal/engine"
+	requestsv1alpha1 "github.com/kyleseneker/arrchitect/api/requests/v1alpha1"
+	"github.com/kyleseneker/arrchitect/internal/engine"
 )
 
 // Names survive a database rebuild; numeric profile IDs do not. Resolve before

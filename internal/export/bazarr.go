@@ -9,9 +9,9 @@ import (
 	"strconv"
 	"strings"
 
-	subtitlesv1alpha1 "github.com/kyleseneker/media-operator/api/subtitles/v1alpha1"
-	bazarrclient "github.com/kyleseneker/media-operator/internal/client/bazarr"
-	"github.com/kyleseneker/media-operator/internal/reconciler"
+	subtitlesv1alpha1 "github.com/kyleseneker/arrchitect/api/subtitles/v1alpha1"
+	bazarrclient "github.com/kyleseneker/arrchitect/internal/client/bazarr"
+	"github.com/kyleseneker/arrchitect/internal/reconciler"
 )
 
 var bazarrSecretSettings = []string{"password", "apikey", "api_key", "token", "secret", "passkey", "cookie"}

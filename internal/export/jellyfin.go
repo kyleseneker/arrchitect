@@ -4,8 +4,8 @@ import (
 	"reflect"
 	"strings"
 
-	mediaserversv1alpha1 "github.com/kyleseneker/media-operator/api/mediaservers/v1alpha1"
-	jellyfinclient "github.com/kyleseneker/media-operator/internal/client/jellyfin"
+	mediaserversv1alpha1 "github.com/kyleseneker/arrchitect/api/mediaservers/v1alpha1"
+	jellyfinclient "github.com/kyleseneker/arrchitect/internal/client/jellyfin"
 )
 
 func exportJellyfin(r *reader) (map[string]any, error) {

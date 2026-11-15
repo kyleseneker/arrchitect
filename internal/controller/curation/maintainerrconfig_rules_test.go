@@ -7,10 +7,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
-	curationv1alpha1 "github.com/kyleseneker/media-operator/api/curation/v1alpha1"
-	maintainerrclient "github.com/kyleseneker/media-operator/internal/client/maintainerr"
-	"github.com/kyleseneker/media-operator/internal/engine"
-	"github.com/kyleseneker/media-operator/internal/reconciler"
+	curationv1alpha1 "github.com/kyleseneker/arrchitect/api/curation/v1alpha1"
+	maintainerrclient "github.com/kyleseneker/arrchitect/internal/client/maintainerr"
+	"github.com/kyleseneker/arrchitect/internal/engine"
+	"github.com/kyleseneker/arrchitect/internal/reconciler"
 )
 
 func testRuleEnv(mediaServer string) ruleEnv {

@@ -1,26 +1,26 @@
 # Exporting an existing app
 
-`media-operator export` reads a running app and prints a config resource that
+`arrchitect export` reads a running app and prints a config resource that
 matches it, plus a Secret for its credentials.
 
 ## Install
 
-Download the `media-operator-cli` archive for your platform from the
-[releases page](https://github.com/kyleseneker/media-operator/releases), or run
-the `ghcr.io/kyleseneker/media-operator-cli` image. Both are signed; see
+Download the `arrchitect-cli` archive for your platform from the
+[releases page](https://github.com/kyleseneker/arrchitect/releases), or run
+the `ghcr.io/kyleseneker/arrchitect-cli` image. Both are signed; see
 [Verifying a release](guide.md#verifying-a-release).
 
 ## Usage
 
 ```bash
-media-operator export <app> --url <url> [flags] > config.yaml
+arrchitect export <app> --url <url> [flags] > config.yaml
 ```
 
 From a workstation, through a port-forward:
 
 ```bash
 kubectl -n media port-forward svc/sonarr 8989 &
-media-operator export sonarr \
+arrchitect export sonarr \
   --url http://localhost:8989 --connection-url http://sonarr.media:8989 \
   --api-key "$SONARR_API_KEY" --namespace media > sonarr.yaml
 ```
@@ -29,7 +29,7 @@ From inside the cluster:
 
 ```bash
 kubectl -n media run export --rm -i --quiet --restart=Never \
-  --image ghcr.io/kyleseneker/media-operator-cli:<version> \
+  --image ghcr.io/kyleseneker/arrchitect-cli:<version> \
   -- export sonarr --url http://sonarr:8989 --api-key "$SONARR_API_KEY" --namespace media > sonarr.yaml
 ```
 
@@ -37,9 +37,9 @@ kubectl -n media run export --rm -i --quiet --restart=Never \
 | --- | --- |
 | `--url` | URL to read the app from |
 | `--connection-url` | URL the operator should use, if different from `--url` |
-| `--api-key` | API key, or `$MEDIA_OPERATOR_API_KEY` |
-| `--username`, `--password` | Login for qBittorrent and Jellyfin, or `$MEDIA_OPERATOR_USERNAME` and `$MEDIA_OPERATOR_PASSWORD` |
-| `--token` | Plex token, or `$MEDIA_OPERATOR_TOKEN` |
+| `--api-key` | API key, or `$ARRCHITECT_API_KEY` |
+| `--username`, `--password` | Login for qBittorrent and Jellyfin, or `$ARRCHITECT_USERNAME` and `$ARRCHITECT_PASSWORD` |
+| `--token` | Plex token, or `$ARRCHITECT_TOKEN` |
 | `--name` | Name of the resource; defaults to the app |
 | `--namespace` | Namespace of the resource and Secret |
 | `--secret` | Name of the Secret; defaults to `<name>-credentials` |

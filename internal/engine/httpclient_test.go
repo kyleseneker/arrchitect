@@ -15,8 +15,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kyleseneker/media-operator/internal/metrics"
-	"github.com/kyleseneker/media-operator/internal/reconciler"
+	"github.com/kyleseneker/arrchitect/internal/metrics"
+	"github.com/kyleseneker/arrchitect/internal/reconciler"
 )
 
 func TestValidateBaseURL(t *testing.T) {
@@ -198,14 +198,14 @@ func TestApplyAuth(t *testing.T) {
 			authType:   AuthMediaBrowser,
 			setup:      func(c *HTTPClient) {},
 			wantHeader: "Authorization",
-			wantValue:  `MediaBrowser Client="media-operator", Device="operator", DeviceId="media-operator-operator", Version="1.0.0"`,
+			wantValue:  `MediaBrowser Client="arrchitect", Device="operator", DeviceId="arrchitect-operator", Version="1.0.0"`,
 		},
 		{
 			name:       "MediaBrowser with token",
 			authType:   AuthMediaBrowser,
 			setup:      func(c *HTTPClient) { c.mediaToken = "jf-tok" },
 			wantHeader: "Authorization",
-			wantValue:  `MediaBrowser Client="media-operator", Device="operator", DeviceId="media-operator-operator", Version="1.0.0", Token="jf-tok"`,
+			wantValue:  `MediaBrowser Client="arrchitect", Device="operator", DeviceId="arrchitect-operator", Version="1.0.0", Token="jf-tok"`,
 		},
 		{
 			name:       "FormEncoded",
