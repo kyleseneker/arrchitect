@@ -190,6 +190,15 @@ references can use names instead:
 A name that matches nothing, or more than one item, fails the reconcile. See
 [Rebuilding apps](rebuilding.md) for more.
 
+## Access
+
+The chart adds two ClusterRoles for people who manage these resources.
+`<release>-view` grants read access and is part of Kubernetes' built-in `view`,
+`edit` and `admin` roles; `<release>-edit` grants write access and is part of
+`edit` and `admin`. A namespace's existing role bindings therefore cover the
+resources of the apps the chart runs. Set `rbac.aggregateClusterRoles: false`
+to leave them out.
+
 ## Metrics
 
 Metrics are served on `:8443/metrics` over HTTPS and require a token with access

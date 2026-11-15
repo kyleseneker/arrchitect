@@ -1,0 +1,45 @@
+{{- if .Values.rbac.aggregateClusterRoles }}
+{{- $apps := splitList "," (include "arrchitect.enabledApps" .) }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "arrchitect.fullname" . }}-view
+  labels:
+    {{- include "arrchitect.labels" . | nindent 4 }}
+    rbac.authorization.k8s.io/aggregate-to-view: "true"
+    rbac.authorization.k8s.io/aggregate-to-edit: "true"
+    rbac.authorization.k8s.io/aggregate-to-admin: "true"
+rules:
+  - apiGroups:
+      - arrchitect.dev
+    resources:
+      {{- range $apps }}
+      - {{ . }}configs
+      {{- end }}
+    verbs:
+      - get
+      - list
+      - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "arrchitect.fullname" . }}-edit
+  labels:
+    {{- include "arrchitect.labels" . | nindent 4 }}
+    rbac.authorization.k8s.io/aggregate-to-edit: "true"
+    rbac.authorization.k8s.io/aggregate-to-admin: "true"
+rules:
+  - apiGroups:
+      - arrchitect.dev
+    resources:
+      {{- range $apps }}
+      - {{ . }}configs
+      {{- end }}
+    verbs:
+      - create
+      - update
+      - patch
+      - delete
+      - deletecollection
+{{- end }}
