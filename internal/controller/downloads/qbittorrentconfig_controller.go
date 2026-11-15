@@ -145,6 +145,13 @@ func qbPreferencePayload(prefs *downloadsv1alpha1.QBittorrentPreferences) (map[s
 		}
 		out["max_ratio"] = ratio
 	}
+	if prefs.Encryption != nil {
+		mode, ok := qbclient.Encryptions[*prefs.Encryption]
+		if !ok {
+			return nil, fmt.Errorf("unknown encryption %q", *prefs.Encryption)
+		}
+		out["encryption"] = mode
+	}
 	if prefs.MaxRatioAction != nil {
 		act, ok := qbclient.MaxRatioActions[*prefs.MaxRatioAction]
 		if !ok {

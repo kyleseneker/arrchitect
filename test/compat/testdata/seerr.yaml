@@ -72,7 +72,18 @@ spec:
   notifications:
     - agent: discord
       enabled: true
-      types: 4094
+      types:
+        - mediaPending
+        - mediaApproved
+        - mediaAutoApproved
+        - mediaAutoRequested
+        - mediaAvailable
+        - mediaFailed
+        - mediaDeclined
+        - issueCreated
+        - issueComment
+        - issueResolved
+        - issueReopened
       options:
         botUsername: Compat
         enableMentions: false

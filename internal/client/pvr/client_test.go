@@ -106,7 +106,7 @@ func TestSections(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			sections, err := Sections(tt.spec)
+			sections, err := Sections(tt.spec, nil)
 			require.NoError(t, err)
 			assert.Len(t, sections, len(tt.wantKeys))
 			for _, k := range tt.wantKeys {
@@ -119,9 +119,19 @@ func TestSections(t *testing.T) {
 func TestSectionsSendAnEmptyRecycleBin(t *testing.T) {
 	sections, err := Sections(pvrv1alpha1.SonarrConfigSpec{
 		MediaManagement: &pvrv1alpha1.SonarrMediaManagement{RecycleBin: new("")},
-	})
+	}, nil)
 	require.NoError(t, err)
 	assert.Equal(t, map[string]any{"recycleBin": ""}, sections["mediaManagement"], "an empty recycleBin turns it off")
+}
+
+func TestSectionsNumberSonarrNamingChoices(t *testing.T) {
+	spec := pvrv1alpha1.SonarrConfigSpec{Naming: &pvrv1alpha1.SonarrNaming{ColonReplacementFormat: "smart", MultiEpisodeStyle: "prefixedRange"}}
+	sections, err := Sections(spec, Sonarr.Choices)
+	require.NoError(t, err)
+	assert.Equal(t, map[string]any{"colonReplacementFormat": 4, "multiEpisodeStyle": 5}, sections["naming"])
+
+	_, err = Sections(pvrv1alpha1.SonarrConfigSpec{Naming: &pvrv1alpha1.SonarrNaming{ColonReplacementFormat: "custom"}}, Sonarr.Choices)
+	assert.ErrorContains(t, err, `naming.colonReplacementFormat: unknown value "custom"`)
 }
 
 func TestBuildDownloadClientPayload(t *testing.T) {

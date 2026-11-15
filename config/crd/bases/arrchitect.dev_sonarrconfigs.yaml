@@ -799,15 +799,30 @@ spec:
                   colonReplacementFormat:
                     description: colonReplacementFormat defines how colons are replaced
                       in filenames.
-                    type: integer
+                    enum:
+                    - delete
+                    - dash
+                    - spaceDash
+                    - spaceDashSpace
+                    - smart
+                    type: string
                   dailyEpisodeFormat:
                     description: dailyEpisodeFormat is the naming format for daily
                       episodes.
                     type: string
                   multiEpisodeStyle:
-                    description: multiEpisodeStyle defines how multi-episode files
-                      are named.
-                    type: integer
+                    description: |-
+                      multiEpisodeStyle defines how multi-episode files are named: extend
+                      (S01E01-02-03), duplicate (S01E01.S01E02), repeat (S01E01E02E03), scene
+                      (S01E01-E02-E03), range (S01E01-03) or prefixedRange (S01E01-E03).
+                    enum:
+                    - extend
+                    - duplicate
+                    - repeat
+                    - scene
+                    - range
+                    - prefixedRange
+                    type: string
                   renameEpisodes:
                     description: renameEpisodes enables automatic episode file renaming.
                     type: boolean

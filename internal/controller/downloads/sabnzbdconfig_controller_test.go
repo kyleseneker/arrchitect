@@ -141,7 +141,7 @@ func sabnzbdSpec() downloadsv1alpha1.SabnzbdConfigSpec {
 	return downloadsv1alpha1.SabnzbdConfigSpec{
 		Folders:    &downloadsv1alpha1.SabnzbdFolders{CompleteDir: "/done"},
 		Servers:    []downloadsv1alpha1.SabnzbdServer{{Name: "Primary", Host: "news.example.com", Port: 563, SSL: new(true)}},
-		Categories: []downloadsv1alpha1.SabnzbdCategory{{Name: "tv", Dir: "tv", Priority: new(0)}},
+		Categories: []downloadsv1alpha1.SabnzbdCategory{{Name: "tv", Dir: "tv", Priority: "normal"}},
 	}
 }
 

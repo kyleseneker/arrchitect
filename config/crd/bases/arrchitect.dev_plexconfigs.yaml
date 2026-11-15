@@ -188,13 +188,14 @@ spec:
                       go through Plex's relay.
                     type: boolean
                   secureConnections:
-                    description: secureConnections controls when secure connections
-                      are required.
+                    description: |-
+                      secureConnections controls whether clients must, should or can't use
+                      secure connections.
                     enum:
-                    - 0
-                    - 1
-                    - 2
-                    type: integer
+                    - required
+                    - preferred
+                    - disabled
+                    type: string
                   webhooksEnabled:
                     description: webhooksEnabled sends events to the webhooks set
                       up in the Plex account.
@@ -428,11 +429,14 @@ spec:
                     type: boolean
                   transcoderQuality:
                     description: |-
-                      transcoderQuality trades speed for quality: 0 automatic, 1 prefer speed,
-                      2 prefer quality, 3 as slow and good as possible.
-                    maximum: 3
-                    minimum: 0
-                    type: integer
+                      transcoderQuality trades encoding speed for quality. maximumQuality is
+                      what Plex calls "make my CPU hurt".
+                    enum:
+                    - automatic
+                    - preferSpeed
+                    - preferQuality
+                    - maximumQuality
+                    type: string
                   transcoderTempDirectory:
                     description: transcoderTempDirectory sets the transcoder temporary
                       directory.

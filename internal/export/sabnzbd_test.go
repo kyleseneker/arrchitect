@@ -68,7 +68,7 @@ func TestSabnzbdExportsMiscServersAndCategories(t *testing.T) {
 	assert.Equal(t, []string{"server-primary-password"}, res.Unfilled)
 
 	assert.Equal(t, []downloadsv1alpha1.SabnzbdCategory{
-		{Name: "*", Script: "None", Priority: new(0), PostProcessing: "delete"},
-		{Name: "tv", Dir: "tv", Priority: new(-100)},
+		{Name: "*", Script: "None", Priority: "normal", PostProcessing: "delete"},
+		{Name: "tv", Dir: "tv", Priority: "default"},
 	}, cfg.Spec.Categories)
 }

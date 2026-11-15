@@ -63,7 +63,11 @@ func TestSeerrExportsSettingsServicesAndNotifications(t *testing.T) {
 	require.Len(t, cfg.Spec.Notifications, 1)
 	discord := cfg.Spec.Notifications[0]
 	assert.Equal(t, "discord", discord.Agent)
-	assert.Equal(t, 4094, *discord.Types)
+	assert.Equal(t, []string{
+		"issueComment", "issueCreated", "issueReopened", "issueResolved", "mediaApproved", "mediaAutoApproved",
+		"mediaAvailable", "mediaDeclined", "mediaFailed", "mediaPending",
+	}, discord.Types)
+	assert.Contains(t, res.Warnings, `notification "discord": SeerrConfig can't express type bits 32, and applying the config would clear them`)
 	require.Len(t, discord.Options, 1)
 	assert.Equal(t, true, discord.Options["enableMentions"].ToInterface(), "a boolean option stays a boolean")
 	require.Contains(t, discord.SecretOptions, "webhookUrl")

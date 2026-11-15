@@ -90,8 +90,11 @@ func exportSeerr(r *reader) (map[string]any, error) {
 		if settings["enabled"] != true {
 			continue
 		}
-		notification := pick(settings, "enabled", "types")
+		notification := pick(settings, "enabled")
 		notification["agent"] = agent
+		if bits, ok := settings["types"].(float64); ok {
+			notification["types"] = r.seerrNotificationTypes(agent, int(bits))
+		}
 		options, secrets := r.seerrOptions(agent, settings["options"])
 		if len(options) > 0 {
 			notification["options"] = options
@@ -155,4 +158,18 @@ func seerrFields(values map[string]any, t reflect.Type) map[string]any {
 		}
 	}
 	return out
+}
+
+func (r *reader) seerrNotificationTypes(agent string, bits int) []any {
+	types := []any{}
+	for _, name := range slices.Sorted(maps.Keys(seerrclient.NotificationTypes)) {
+		if bit := seerrclient.NotificationTypes[name]; bits&bit != 0 {
+			types = append(types, name)
+			bits &^= bit
+		}
+	}
+	if bits != 0 {
+		r.warn("notification %q: SeerrConfig can't express type bits %d, and applying the config would clear them", agent, bits)
+	}
+	return types
 }

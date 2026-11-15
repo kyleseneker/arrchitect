@@ -463,8 +463,8 @@ func sabnzbdCategoryValues(cat downloadsv1alpha1.SabnzbdCategory) map[string]str
 	if cat.Script != "" {
 		vals["script"] = cat.Script
 	}
-	if cat.Priority != nil {
-		vals["priority"] = strconv.Itoa(*cat.Priority)
+	if cat.Priority != "" {
+		vals["priority"] = sabnzbdclient.Priorities[cat.Priority]
 	}
 	if cat.PostProcessing != "" {
 		vals["pp"] = sabnzbdclient.PostProcessing[cat.PostProcessing]

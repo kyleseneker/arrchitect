@@ -75,9 +75,17 @@ spec:
                       - delete
                       type: string
                     priority:
-                      description: priority is the download priority. -100=default,
-                        -2=paused, -1=low, 0=normal, 1=high, 2=force.
-                      type: integer
+                      description: |-
+                        priority is the download priority. default uses SABnzbd's default
+                        category's priority.
+                      enum:
+                      - default
+                      - paused
+                      - low
+                      - normal
+                      - high
+                      - force
+                      type: string
                     script:
                       description: script is the post-processing script for this category.
                       type: string

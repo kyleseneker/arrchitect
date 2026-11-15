@@ -291,8 +291,8 @@ func (in *SeerrNotificationAgent) DeepCopyInto(out *SeerrNotificationAgent) {
 	}
 	if in.Types != nil {
 		in, out := &in.Types, &out.Types
-		*out = new(int)
-		**out = **in
+		*out = make([]string, len(*in))
+		copy(*out, *in)
 	}
 	if in.Options != nil {
 		in, out := &in.Options, &out.Options

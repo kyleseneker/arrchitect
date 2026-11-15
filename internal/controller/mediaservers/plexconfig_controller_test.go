@@ -238,7 +238,7 @@ func TestPlexObserveReportsAMissingLibraryWithoutCreatingIt(t *testing.T) {
 func TestPlexObserveDoesNotCountPreferencesPlexDoesNotList(t *testing.T) {
 	app := &fakePlex{existingLibs: []any{plexMovies()}}
 	cfg := plexConfig(app.serve(t), mediaserversv1alpha1.PlexLibrary{Name: "Movies", Type: "movie"})
-	cfg.Spec.Network = &mediaserversv1alpha1.PlexNetwork{SecureConnections: new(1)}
+	cfg.Spec.Network = &mediaserversv1alpha1.PlexNetwork{SecureConnections: "preferred"}
 	synced := observePlex(t, cfg)
 	assert.Empty(t, app.writes())
 	assert.Equal(t, metav1.ConditionTrue, synced.Status, synced.Message)

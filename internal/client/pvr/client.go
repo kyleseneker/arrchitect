@@ -27,12 +27,19 @@ type App struct {
 	CategoryField    string
 	ImportListFields ImportListFields
 	MetadataProfiles bool
+	// Choices are settings, by section and field, that the resource names and
+	// the app stores as numbers.
+	Choices map[string]map[string]map[string]int
 }
 
 var (
 	Sonarr = App{
 		Name: "sonarr", Kind: "SonarrConfig", APIVersion: "v3", CategoryField: "tvCategory",
 		ImportListFields: ImportListFields{AutomaticAdd: "enableAutomaticAdd", Monitor: "shouldMonitor"},
+		Choices: map[string]map[string]map[string]int{"naming": {
+			"colonReplacementFormat": {"delete": 0, "dash": 1, "spaceDash": 2, "spaceDashSpace": 3, "smart": 4},
+			"multiEpisodeStyle":      {"extend": 0, "duplicate": 1, "repeat": 2, "scene": 3, "range": 4, "prefixedRange": 5},
+		}},
 	}
 	Radarr = App{
 		Name: "radarr", Kind: "RadarrConfig", APIVersion: "v3", CategoryField: "movieCategory",
@@ -102,9 +109,10 @@ func Definition(apiVersion string) engine.AppDefinition {
 	}
 }
 
-// Sections builds the sections map from a Sonarr, Radarr, Lidarr or Readarr spec.
+// Sections builds the sections map from a Sonarr, Radarr, Lidarr or Readarr spec,
+// turning the names in choices into the numbers the app stores.
 // The spec must have the fields: MediaManagement, Naming, IndexerConfig, DownloadClientConfig, UI.
-func Sections(spec any) (map[string]any, error) {
+func Sections(spec any, choices map[string]map[string]map[string]int) (map[string]any, error) {
 	data, err := json.Marshal(spec)
 	if err != nil {
 		return nil, fmt.Errorf("marshaling spec to JSON: %w", err)
@@ -127,6 +135,20 @@ func Sections(spec any) (map[string]any, error) {
 			sections[sectionName] = v
 		}
 	}
+	for section, fields := range choices {
+		values, _ := sections[section].(map[string]any)
+		for field, numbers := range fields {
+			name, ok := values[field].(string)
+			if !ok {
+				continue
+			}
+			number, ok := numbers[name]
+			if !ok {
+				return nil, fmt.Errorf("%s.%s: unknown value %q", section, field, name)
+			}
+			values[field] = number
+		}
+	}
 	return sections, nil
 }
 
@@ -145,6 +167,7 @@ type Options struct {
 	DCSecrets          map[string]DownloadClientResolvedSecrets
 	CategoryField      string
 	ImportListFields   ImportListFields
+	Choices            map[string]map[string]map[string]int
 	// MetadataProfiles marks apps with metadata profiles (Lidarr, Readarr): their
 	// root folders need a name and default profiles, and import lists a metadata profile.
 	MetadataProfiles bool
@@ -789,7 +812,7 @@ func Reconcile(ctx context.Context, client *engine.HTTPClient, apiVersion string
 			}
 		}
 	}
-	sections, err := Sections(spec)
+	sections, err := Sections(spec, opts.Choices)
 	if err != nil {
 		return engine.ReconcileResult{}, fmt.Errorf("building sections: %w", err)
 	}

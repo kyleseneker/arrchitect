@@ -205,12 +205,11 @@ type PlexTranscoder struct {
 	// +optional
 	TranscoderTempDirectory string `json:"transcoderTempDirectory,omitempty"`
 
-	// transcoderQuality trades speed for quality: 0 automatic, 1 prefer speed,
-	// 2 prefer quality, 3 as slow and good as possible.
+	// transcoderQuality trades encoding speed for quality. maximumQuality is
+	// what Plex calls "make my CPU hurt".
 	// +optional
-	// +kubebuilder:validation:Minimum=0
-	// +kubebuilder:validation:Maximum=3
-	TranscoderQuality *int `json:"transcoderQuality,omitempty"`
+	// +kubebuilder:validation:Enum=automatic;preferSpeed;preferQuality;maximumQuality
+	TranscoderQuality string `json:"transcoderQuality,omitempty"`
 
 	// transcoderThrottleBuffer is how many seconds ahead of playback the
 	// transcoder works before slowing down.
@@ -264,10 +263,11 @@ type PlexLibrary struct {
 
 // PlexNetwork configures Plex network settings.
 type PlexNetwork struct {
-	// secureConnections controls when secure connections are required.
+	// secureConnections controls whether clients must, should or can't use
+	// secure connections.
 	// +optional
-	// +kubebuilder:validation:Enum=0;1;2
-	SecureConnections *int `json:"secureConnections,omitempty"`
+	// +kubebuilder:validation:Enum=required;preferred;disabled
+	SecureConnections string `json:"secureConnections,omitempty"`
 
 	// customServerAccessUrls is a comma-separated list of custom access URLs.
 	// +optional
