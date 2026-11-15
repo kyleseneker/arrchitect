@@ -139,10 +139,11 @@ spec:
                       - addOnly
                       - fullSync
                       type: string
-                    tags:
+                    tagLabels:
                       description: |-
-                        tags is the list of tag labels to associate with this application.
-                        Labels are resolved to Prowlarr tag IDs at apply time.
+                        tagLabels references tags by label, resolved against Prowlarr on each
+                        reconciliation. A missing or ambiguous label blocks writes, and an empty
+                        list clears the tags.
                       items:
                         type: string
                       type: array
@@ -304,10 +305,11 @@ spec:
                       - torrent
                       - usenet
                       type: string
-                    tags:
+                    tagLabels:
                       description: |-
-                        tags is the list of tag labels to associate with this download client.
-                        Labels are resolved to Prowlarr tag IDs at apply time.
+                        tagLabels references tags by label, resolved against Prowlarr on each
+                        reconciliation. A missing or ambiguous label blocks writes, and an empty
+                        list clears the tags.
                       items:
                         type: string
                       type: array
@@ -389,10 +391,11 @@ spec:
                       description: priority is the indexer priority. Lower values
                         are higher priority.
                       type: integer
-                    tags:
+                    tagLabels:
                       description: |-
-                        tags is the list of tag labels to associate with this indexer.
-                        Labels are resolved to Prowlarr tag IDs at apply time.
+                        tagLabels references tags by label, resolved against Prowlarr on each
+                        reconciliation. A missing or ambiguous label blocks writes, and an empty
+                        list clears the tags.
                       items:
                         type: string
                       type: array
@@ -573,18 +576,13 @@ spec:
                       type: boolean
                     tagLabels:
                       description: |-
-                        tagLabels references tags by label, resolved against the app on each reconciliation.
-                        When nonempty, takes precedence over tags. Missing or ambiguous labels block writes.
+                        tagLabels references tags by label, resolved against the app on each
+                        reconciliation. A missing or ambiguous label blocks writes, and an empty
+                        list clears the tags.
                       items:
                         type: string
                       type: array
                       x-kubernetes-list-type: set
-                    tags:
-                      description: tags is the list of tag IDs to associate with this
-                        notification.
-                      items:
-                        type: integer
-                      type: array
                   required:
                   - implementation
                   - name
@@ -615,10 +613,11 @@ spec:
                     requestTimeout:
                       description: requestTimeout is the request timeout in seconds.
                       type: integer
-                    tags:
+                    tagLabels:
                       description: |-
-                        tags is the list of tag labels to associate with this proxy.
-                        Labels are resolved to Prowlarr tag IDs at apply time.
+                        tagLabels references tags by label, resolved against Prowlarr on each
+                        reconciliation. A missing or ambiguous label blocks writes, and an empty
+                        list clears the tags.
                       items:
                         type: string
                       type: array

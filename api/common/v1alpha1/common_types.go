@@ -236,12 +236,9 @@ type DownloadClient struct {
 	// +optional
 	APIKeySecretRef *SecretKeyRef `json:"apiKeySecretRef,omitempty"`
 
-	// tags is the list of tag IDs to associate with this download client.
-	// +optional
-	Tags []int `json:"tags,omitempty"`
-
-	// tagLabels references tags by label, resolved against the app on each reconciliation.
-	// When nonempty, takes precedence over tags. Missing or ambiguous labels block writes.
+	// tagLabels references tags by label, resolved against the app on each
+	// reconciliation. A missing or ambiguous label blocks writes, and an empty
+	// list clears the tags.
 	// +optional
 	// +listType=set
 	TagLabels []string `json:"tagLabels,omitempty"`
@@ -554,12 +551,9 @@ type Indexer struct {
 	// +optional
 	EnableInteractiveSearch *bool `json:"enableInteractiveSearch,omitempty"`
 
-	// tags is the list of tag IDs to associate with this indexer.
-	// +optional
-	Tags []int `json:"tags,omitempty"`
-
-	// tagLabels references tags by label, resolved against the app on each reconciliation.
-	// When nonempty, takes precedence over tags. Missing or ambiguous labels block writes.
+	// tagLabels references tags by label, resolved against the app on each
+	// reconciliation. A missing or ambiguous label blocks writes, and an empty
+	// list clears the tags.
 	// +optional
 	// +listType=set
 	TagLabels []string `json:"tagLabels,omitempty"`
@@ -586,12 +580,9 @@ type Notification struct {
 	// +optional
 	ConfigContract string `json:"configContract,omitempty"`
 
-	// tags is the list of tag IDs to associate with this notification.
-	// +optional
-	Tags []int `json:"tags,omitempty"`
-
-	// tagLabels references tags by label, resolved against the app on each reconciliation.
-	// When nonempty, takes precedence over tags. Missing or ambiguous labels block writes.
+	// tagLabels references tags by label, resolved against the app on each
+	// reconciliation. A missing or ambiguous label blocks writes, and an empty
+	// list clears the tags.
 	// +optional
 	// +listType=set
 	TagLabels []string `json:"tagLabels,omitempty"`
@@ -806,12 +797,9 @@ type ImportList struct {
 	// +optional
 	ListOrder *int `json:"listOrder,omitempty"`
 
-	// tags is the list of tag IDs to associate with this import list.
-	// +optional
-	Tags []int `json:"tags,omitempty"`
-
-	// tagLabels references tags by label, resolved against the app on each reconciliation.
-	// When nonempty, takes precedence over tags. Missing or ambiguous labels block writes.
+	// tagLabels references tags by label, resolved against the app on each
+	// reconciliation. A missing or ambiguous label blocks writes, and an empty
+	// list clears the tags.
 	// +optional
 	// +listType=set
 	TagLabels []string `json:"tagLabels,omitempty"`

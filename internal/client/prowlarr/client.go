@@ -114,7 +114,9 @@ func ProwlarrResources(opts ProwlarrOptions, tagIDs map[string]int) map[string][
 	if len(opts.Notifications) > 0 {
 		notifs := make([]map[string]any, 0, len(opts.Notifications))
 		for _, n := range opts.Notifications {
-			notifs = append(notifs, pvrclient.BuildNotificationPayload(n))
+			payload := pvrclient.BuildNotificationPayload(n, nil)
+			setTags(payload, n.TagLabels, tagIDs)
+			notifs = append(notifs, payload)
 		}
 		resources["notifications"] = notifs
 	}
@@ -147,7 +149,7 @@ func BuildProwlarrApplicationPayload(app indexersv1alpha1.ProwlarrApplication, a
 	if app.SyncLevel != "" {
 		payload["syncLevel"] = app.SyncLevel
 	}
-	setTags(payload, app.Tags, tagIDs)
+	setTags(payload, app.TagLabels, tagIDs)
 	return payload
 }
 
@@ -166,7 +168,7 @@ func BuildProwlarrIndexerPayload(idx indexersv1alpha1.ProwlarrIndexer, tagIDs ma
 	if idx.Fields != nil {
 		desired["fields"] = fieldsPayload(idx.Fields)
 	}
-	setTags(desired, idx.Tags, tagIDs)
+	setTags(desired, idx.TagLabels, tagIDs)
 	if idx.AppProfileId != nil {
 		desired["appProfileId"] = *idx.AppProfileId
 	}
@@ -186,7 +188,7 @@ func BuildProwlarrProxyPayload(proxy indexersv1alpha1.ProwlarrProxy, tagIDs map[
 		"name": proxy.Name, "implementation": proxy.Implementation,
 		"configContract": proxy.ConfigContract, "fields": fields,
 	}
-	setTags(payload, proxy.Tags, tagIDs)
+	setTags(payload, proxy.TagLabels, tagIDs)
 	return payload
 }
 
@@ -217,7 +219,7 @@ func BuildProwlarrDownloadClientPayload(dc indexersv1alpha1.ProwlarrDownloadClie
 		}
 		desired["categories"] = categories
 	}
-	setTags(desired, dc.Tags, tagIDs)
+	setTags(desired, dc.TagLabels, tagIDs)
 
 	if dc.Priority != nil {
 		desired["priority"] = *dc.Priority

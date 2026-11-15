@@ -12,24 +12,21 @@ func TestResolveTags(t *testing.T) {
 	tests := []struct {
 		name   string
 		labels []string
-		legacy []int
 		want   []int
 	}{
-		{name: "neither declared", want: nil},
-		{name: "legacy IDs", legacy: []int{9}, want: []int{9}},
-		{name: "an empty label list is no tags", labels: []string{}, want: []int{}},
-		{name: "legacy IDs win over an empty label list", labels: []string{}, legacy: []int{9}, want: []int{9}},
-		{name: "labels win over legacy IDs", labels: []string{"anime", "4k", "anime"}, legacy: []int{9}, want: []int{5, 3}},
+		{name: "none declared", want: nil},
+		{name: "an empty list is no tags", labels: []string{}, want: []int{}},
+		{name: "labels resolve once each", labels: []string{"anime", "4k", "anime"}, want: []int{5, 3}},
 		{name: "labels match as the apps store them, in lowercase", labels: []string{"4K", "Anime"}, want: []int{3, 5}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := ids.ResolveTags(tt.labels, tt.legacy)
+			got, err := ids.ResolveTags(tt.labels)
 			require.NoError(t, err)
 			assert.Equal(t, tt.want, got)
 		})
 	}
 
-	_, err := ids.ResolveTags([]string{"missing"}, nil)
+	_, err := ids.ResolveTags([]string{"missing"})
 	assert.ErrorContains(t, err, "missing")
 }

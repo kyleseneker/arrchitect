@@ -404,18 +404,13 @@ spec:
                       type: boolean
                     tagLabels:
                       description: |-
-                        tagLabels references tags by label, resolved against the app on each reconciliation.
-                        When nonempty, takes precedence over tags. Missing or ambiguous labels block writes.
+                        tagLabels references tags by label, resolved against the app on each
+                        reconciliation. A missing or ambiguous label blocks writes, and an empty
+                        list clears the tags.
                       items:
                         type: string
                       type: array
                       x-kubernetes-list-type: set
-                    tags:
-                      description: tags is the list of tag IDs to associate with this
-                        download client.
-                      items:
-                        type: integer
-                      type: array
                     urlBase:
                       description: urlBase is the base URL path for the download client
                         (e.g., "/qbittorrent").
@@ -560,18 +555,13 @@ spec:
                       type: boolean
                     tagLabels:
                       description: |-
-                        tagLabels references tags by label, resolved against the app on each reconciliation.
-                        When nonempty, takes precedence over tags. Missing or ambiguous labels block writes.
+                        tagLabels references tags by label, resolved against the app on each
+                        reconciliation. A missing or ambiguous label blocks writes, and an empty
+                        list clears the tags.
                       items:
                         type: string
                       type: array
                       x-kubernetes-list-type: set
-                    tags:
-                      description: tags is the list of tag IDs to associate with this
-                        import list.
-                      items:
-                        type: integer
-                      type: array
                   required:
                   - implementation
                   - name
@@ -685,18 +675,13 @@ spec:
                       type: string
                     tagLabels:
                       description: |-
-                        tagLabels references tags by label, resolved against the app on each reconciliation.
-                        When nonempty, takes precedence over tags. Missing or ambiguous labels block writes.
+                        tagLabels references tags by label, resolved against the app on each
+                        reconciliation. A missing or ambiguous label blocks writes, and an empty
+                        list clears the tags.
                       items:
                         type: string
                       type: array
                       x-kubernetes-list-type: set
-                    tags:
-                      description: tags is the list of tag IDs to associate with this
-                        indexer.
-                      items:
-                        type: integer
-                      type: array
                   required:
                   - implementation
                   - name
@@ -987,18 +972,13 @@ spec:
                       type: boolean
                     tagLabels:
                       description: |-
-                        tagLabels references tags by label, resolved against the app on each reconciliation.
-                        When nonempty, takes precedence over tags. Missing or ambiguous labels block writes.
+                        tagLabels references tags by label, resolved against the app on each
+                        reconciliation. A missing or ambiguous label blocks writes, and an empty
+                        list clears the tags.
                       items:
                         type: string
                       type: array
                       x-kubernetes-list-type: set
-                    tags:
-                      description: tags is the list of tag IDs to associate with this
-                        notification.
-                      items:
-                        type: integer
-                      type: array
                   required:
                   - implementation
                   - name

@@ -119,6 +119,7 @@ func TestBuildDownloadClientPayload(t *testing.T) {
 	tests := []struct {
 		name          string
 		dc            commonv1alpha1.DownloadClient
+		tags          []int
 		secrets       DownloadClientResolvedSecrets
 		categoryField string
 		check         func(t *testing.T, p map[string]any)
@@ -145,8 +146,9 @@ func TestBuildDownloadClientPayload(t *testing.T) {
 		{
 			name: "an empty tag list clears the tags",
 			dc: commonv1alpha1.DownloadClient{
-				Name: "qBit", Protocol: "torrent", Implementation: "QBittorrent", Host: "qbit", Port: 8080, Tags: []int{},
+				Name: "qBit", Protocol: "torrent", Implementation: "QBittorrent", Host: "qbit", Port: 8080,
 			},
+			tags:          []int{},
 			categoryField: "tvCategory",
 			check: func(t *testing.T, p map[string]any) {
 				assert.Equal(t, []any{}, p["tags"])
@@ -163,8 +165,8 @@ func TestBuildDownloadClientPayload(t *testing.T) {
 				UseSsl:                   new(true),
 				UrlBase:                  "/qbt",
 				ConfigContract:           "CustomContract",
-				Tags:                     []int{1, 2},
 			},
+			tags:          []int{1, 2},
 			categoryField: "movieCategory",
 			check: func(t *testing.T, p map[string]any) {
 				assert.Equal(t, false, p["enable"])
@@ -239,7 +241,7 @@ func TestBuildDownloadClientPayload(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			p := BuildDownloadClientPayload(tt.dc, tt.secrets, tt.categoryField)
+			p := BuildDownloadClientPayload(tt.dc, tt.secrets, tt.categoryField, tt.tags)
 			tt.check(t, p)
 		})
 	}
@@ -249,6 +251,7 @@ func TestBuildIndexerPayload(t *testing.T) {
 	tests := []struct {
 		name  string
 		idx   commonv1alpha1.Indexer
+		tags  []int
 		check func(t *testing.T, p map[string]any)
 	}{
 		{
@@ -282,10 +285,11 @@ func TestBuildIndexerPayload(t *testing.T) {
 				Enable: new(false), EnableRss: new(false),
 				EnableAutomaticSearch: new(false), EnableInteractiveSearch: new(false),
 				ConfigContract: "CustomContract", Priority: new(10),
-				Tags: []int{1}, Fields: []commonv1alpha1.ConfigField{
+				Fields: []commonv1alpha1.ConfigField{
 					{Name: "baseUrl", Value: fieldValue(`"http://nzbgeek.info"`)},
 				},
 			},
+			tags: []int{1},
 			check: func(t *testing.T, p map[string]any) {
 				assert.Equal(t, false, p["enableRss"])
 				assert.Equal(t, "CustomContract", p["configContract"])
@@ -309,7 +313,7 @@ func TestBuildIndexerPayload(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			p := BuildIndexerPayload(tt.idx)
+			p := BuildIndexerPayload(tt.idx, tt.tags)
 			tt.check(t, p)
 		})
 	}
@@ -351,7 +355,7 @@ func TestBuildNotificationPayload(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			p := BuildNotificationPayload(tt.n)
+			p := BuildNotificationPayload(tt.n, nil)
 			tt.check(t, p)
 		})
 	}
@@ -475,7 +479,7 @@ func TestBuildImportListPayload(t *testing.T) {
 			if qpIDs == nil {
 				qpIDs = map[string]int{}
 			}
-			p := BuildImportListPayload(tt.il, qpIDs, tt.monitor)
+			p := BuildImportListPayload(tt.il, qpIDs, tt.monitor, nil)
 			tt.check(t, p)
 		})
 	}
@@ -820,10 +824,10 @@ func TestBuildQualityItems(t *testing.T) {
 func TestPayloadsAreJSONSerializable(t *testing.T) {
 	dc := BuildDownloadClientPayload(
 		commonv1alpha1.DownloadClient{Name: "test", Protocol: "torrent", Implementation: "QBittorrent", Host: "h", Port: 80},
-		DownloadClientResolvedSecrets{}, "tvCategory",
+		DownloadClientResolvedSecrets{}, "tvCategory", nil,
 	)
-	idx := BuildIndexerPayload(commonv1alpha1.Indexer{Name: "test", Protocol: "usenet", Implementation: "Newznab"})
-	notif := BuildNotificationPayload(commonv1alpha1.Notification{Name: "test", Implementation: "Discord"})
+	idx := BuildIndexerPayload(commonv1alpha1.Indexer{Name: "test", Protocol: "usenet", Implementation: "Newznab"}, nil)
+	notif := BuildNotificationPayload(commonv1alpha1.Notification{Name: "test", Implementation: "Discord"}, nil)
 	cf := BuildCustomFormatPayload(commonv1alpha1.CustomFormat{Name: "test"})
 
 	for name, payload := range map[string]any{
@@ -937,7 +941,7 @@ func TestRebuildResolvesReferencesAndConverges(t *testing.T) {
 			hc := app.client(t)
 			opts := Options{
 				Tags:            []commonv1alpha1.Tag{{Label: "tv"}},
-				DownloadClients: []commonv1alpha1.DownloadClient{{Name: "downloads", TagLabels: []string{"tv"}, Tags: []int{7}}},
+				DownloadClients: []commonv1alpha1.DownloadClient{{Name: "downloads", TagLabels: []string{"tv"}}},
 				Indexers:        []commonv1alpha1.Indexer{{Name: "indexer", TagLabels: []string{"tv"}}},
 				Notifications:   []commonv1alpha1.Notification{{Name: "notify", TagLabels: []string{"tv"}}},
 				CustomFormats:   []commonv1alpha1.CustomFormat{{Name: "preferred"}},
@@ -952,7 +956,7 @@ func TestRebuildResolvesReferencesAndConverges(t *testing.T) {
 				require.Equal(t, []any{tagID}, app.items[kind][0]["tags"], kind)
 			}
 			require.Equal(t, app.items["qualityprofile"][0]["id"], app.items["importlist"][0]["qualityProfileId"])
-			require.Equal(t, []int{7}, opts.DownloadClients[0].Tags, "must not mutate spec")
+			require.Equal(t, []string{"tv"}, opts.DownloadClients[0].TagLabels, "must not mutate spec")
 			writes := len(app.writes)
 			second, err := Reconcile(context.Background(), hc, "v3", struct{}{}, opts, engine.SyncPolicy{}, result.Managed)
 			require.NoError(t, err)

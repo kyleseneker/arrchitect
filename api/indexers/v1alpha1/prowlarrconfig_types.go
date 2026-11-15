@@ -136,11 +136,12 @@ type ProwlarrApplication struct {
 	// +listType=set
 	SyncCategories []int `json:"syncCategories,omitempty"`
 
-	// tags is the list of tag labels to associate with this application.
-	// Labels are resolved to Prowlarr tag IDs at apply time.
+	// tagLabels references tags by label, resolved against Prowlarr on each
+	// reconciliation. A missing or ambiguous label blocks writes, and an empty
+	// list clears the tags.
 	// +optional
 	// +listType=set
-	Tags []string `json:"tags,omitempty"`
+	TagLabels []string `json:"tagLabels,omitempty"`
 }
 
 // ProwlarrIndexer defines an indexer configuration in Prowlarr.
@@ -181,11 +182,12 @@ type ProwlarrIndexer struct {
 	// +listMapKey=name
 	Fields []ProwlarrField `json:"fields,omitempty"`
 
-	// tags is the list of tag labels to associate with this indexer.
-	// Labels are resolved to Prowlarr tag IDs at apply time.
+	// tagLabels references tags by label, resolved against Prowlarr on each
+	// reconciliation. A missing or ambiguous label blocks writes, and an empty
+	// list clears the tags.
 	// +optional
 	// +listType=set
-	Tags []string `json:"tags,omitempty"`
+	TagLabels []string `json:"tagLabels,omitempty"`
 }
 
 // ProwlarrField represents a key-value configuration field.
@@ -225,11 +227,12 @@ type ProwlarrProxy struct {
 	// +optional
 	RequestTimeout *int `json:"requestTimeout,omitempty"`
 
-	// tags is the list of tag labels to associate with this proxy.
-	// Labels are resolved to Prowlarr tag IDs at apply time.
+	// tagLabels references tags by label, resolved against Prowlarr on each
+	// reconciliation. A missing or ambiguous label blocks writes, and an empty
+	// list clears the tags.
 	// +optional
 	// +listType=set
-	Tags []string `json:"tags,omitempty"`
+	TagLabels []string `json:"tagLabels,omitempty"`
 }
 
 // ProwlarrDownloadClient defines a download client for Prowlarr manual grabs.
@@ -267,11 +270,12 @@ type ProwlarrDownloadClient struct {
 	// +listMapKey=clientCategory
 	Categories []ProwlarrDownloadClientCategory `json:"categories,omitempty"`
 
-	// tags is the list of tag labels to associate with this download client.
-	// Labels are resolved to Prowlarr tag IDs at apply time.
+	// tagLabels references tags by label, resolved against Prowlarr on each
+	// reconciliation. A missing or ambiguous label blocks writes, and an empty
+	// list clears the tags.
 	// +optional
 	// +listType=set
-	Tags []string `json:"tags,omitempty"`
+	TagLabels []string `json:"tagLabels,omitempty"`
 
 	// fields defines the download client's configuration fields (e.g., host, port, apiKey).
 	// +optional
