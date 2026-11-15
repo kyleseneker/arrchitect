@@ -9,11 +9,11 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	commonv1alpha1 "github.com/kyleseneker/media-operator/api/common/v1alpha1"
-	pvrclient "github.com/kyleseneker/media-operator/internal/client/pvr"
-	ctrlcommon "github.com/kyleseneker/media-operator/internal/controller/common"
-	"github.com/kyleseneker/media-operator/internal/engine"
-	"github.com/kyleseneker/media-operator/internal/reconciler"
+	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
+	pvrclient "github.com/kyleseneker/arrchitect/internal/client/pvr"
+	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
+	"github.com/kyleseneker/arrchitect/internal/engine"
+	"github.com/kyleseneker/arrchitect/internal/reconciler"
 )
 
 type pvrConfig struct {

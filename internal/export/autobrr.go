@@ -5,8 +5,8 @@ import (
 	"slices"
 	"strings"
 
-	autobrrclient "github.com/kyleseneker/media-operator/internal/client/autobrr"
-	"github.com/kyleseneker/media-operator/internal/reconciler"
+	autobrrclient "github.com/kyleseneker/arrchitect/internal/client/autobrr"
+	"github.com/kyleseneker/arrchitect/internal/reconciler"
 )
 
 func exportAutobrr(r *reader) (map[string]any, error) {

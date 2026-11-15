@@ -10,7 +10,7 @@ import (
 	"os/signal"
 	"strings"
 
-	"github.com/kyleseneker/media-operator/internal/export"
+	"github.com/kyleseneker/arrchitect/internal/export"
 )
 
 var (
@@ -22,7 +22,7 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 	if err := run(ctx, os.Args[1:], os.Stdout, os.Stderr); err != nil {
-		fmt.Fprintln(os.Stderr, "media-operator:", err)
+		fmt.Fprintln(os.Stderr, "arrchitect:", err)
 		os.Exit(1)
 	}
 }
@@ -48,11 +48,11 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 
 func usage(w io.Writer) {
 	_, _ = fmt.Fprintf(w, `Usage:
-  media-operator export <app> --url URL [flags]   print a config and Secret describing an app
-  media-operator version
+  arrchitect export <app> --url URL [flags]   print a config and Secret describing an app
+  arrchitect version
 
 Apps: %s
-Run "media-operator export -h" for export's flags.
+Run "arrchitect export -h" for export's flags.
 `, strings.Join(export.Apps(), ", "))
 }
 
@@ -60,20 +60,20 @@ func exportCommand(ctx context.Context, args []string, stdout, stderr io.Writer)
 	fs := flag.NewFlagSet("export", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	fs.Usage = func() {
-		_, _ = fmt.Fprintf(stderr, "Usage: media-operator export <%s> --url URL [flags]\n", strings.Join(export.Apps(), "|"))
+		_, _ = fmt.Fprintf(stderr, "Usage: arrchitect export <%s> --url URL [flags]\n", strings.Join(export.Apps(), "|"))
 		fs.PrintDefaults()
 	}
 	var o export.Options
 	fs.StringVar(&o.URL, "url", "", "URL to read the app from")
 	fs.StringVar(&o.ConnectionURL, "connection-url", "", "URL the operator should reach the app at, if not --url")
-	fs.StringVar(&o.APIKey, "api-key", os.Getenv("MEDIA_OPERATOR_API_KEY"),
-		"the app's API key (default $MEDIA_OPERATOR_API_KEY)")
-	fs.StringVar(&o.Username, "username", os.Getenv("MEDIA_OPERATOR_USERNAME"),
-		"username to sign in with, for apps without an API key (default $MEDIA_OPERATOR_USERNAME)")
-	fs.StringVar(&o.Password, "password", os.Getenv("MEDIA_OPERATOR_PASSWORD"),
-		"password to sign in with (default $MEDIA_OPERATOR_PASSWORD)")
-	fs.StringVar(&o.Token, "token", os.Getenv("MEDIA_OPERATOR_TOKEN"),
-		"the app's token, for Plex (default $MEDIA_OPERATOR_TOKEN)")
+	fs.StringVar(&o.APIKey, "api-key", os.Getenv("ARRCHITECT_API_KEY"),
+		"the app's API key (default $ARRCHITECT_API_KEY)")
+	fs.StringVar(&o.Username, "username", os.Getenv("ARRCHITECT_USERNAME"),
+		"username to sign in with, for apps without an API key (default $ARRCHITECT_USERNAME)")
+	fs.StringVar(&o.Password, "password", os.Getenv("ARRCHITECT_PASSWORD"),
+		"password to sign in with (default $ARRCHITECT_PASSWORD)")
+	fs.StringVar(&o.Token, "token", os.Getenv("ARRCHITECT_TOKEN"),
+		"the app's token, for Plex (default $ARRCHITECT_TOKEN)")
 	fs.StringVar(&o.Name, "name", "", "name of the config (default: the app)")
 	fs.StringVar(&o.Namespace, "namespace", "", "namespace for the config and Secret")
 	fs.StringVar(&o.SecretName, "secret", "", "name of the Secret (default: <name>-credentials)")
@@ -106,13 +106,13 @@ func exportCommand(ctx context.Context, args []string, stdout, stderr io.Writer)
 		return errors.New("--url is required")
 	}
 	if o.APIKey == "" && export.NeedsAPIKey(o.App) {
-		return errors.New("--api-key or $MEDIA_OPERATOR_API_KEY is required")
+		return errors.New("--api-key or $ARRCHITECT_API_KEY is required")
 	}
 	if o.Token == "" && export.NeedsToken(o.App) {
-		return fmt.Errorf("%s needs --token or $MEDIA_OPERATOR_TOKEN", o.App)
+		return fmt.Errorf("%s needs --token or $ARRCHITECT_TOKEN", o.App)
 	}
 	if (o.Username == "" || o.Password == "") && export.NeedsLogin(o.App) {
-		return fmt.Errorf("%s needs --username and --password, or $MEDIA_OPERATOR_USERNAME and $MEDIA_OPERATOR_PASSWORD",
+		return fmt.Errorf("%s needs --username and --password, or $ARRCHITECT_USERNAME and $ARRCHITECT_PASSWORD",
 			o.App)
 	}
 	if *exclude != "" {

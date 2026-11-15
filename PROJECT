@@ -6,142 +6,142 @@ cliVersion: 4.13.1
 domain: dev
 layout:
 - go.kubebuilder.io/v4
-projectName: media-operator
-repo: github.com/kyleseneker/media-operator
+projectName: arrchitect
+repo: github.com/kyleseneker/arrchitect
 resources:
 - api:
     crdVersion: v1
     namespaced: true
   controller: true
   domain: dev
-  group: media-operator
+  group: arrchitect
   kind: SonarrConfig
-  path: github.com/kyleseneker/media-operator/api/pvr/v1alpha1
+  path: github.com/kyleseneker/arrchitect/api/pvr/v1alpha1
   version: v1alpha1
 - api:
     crdVersion: v1
     namespaced: true
   controller: true
   domain: dev
-  group: media-operator
+  group: arrchitect
   kind: RadarrConfig
-  path: github.com/kyleseneker/media-operator/api/pvr/v1alpha1
+  path: github.com/kyleseneker/arrchitect/api/pvr/v1alpha1
   version: v1alpha1
 - api:
     crdVersion: v1
     namespaced: true
   controller: true
   domain: dev
-  group: media-operator
+  group: arrchitect
   kind: ProwlarrConfig
-  path: github.com/kyleseneker/media-operator/api/indexers/v1alpha1
+  path: github.com/kyleseneker/arrchitect/api/indexers/v1alpha1
   version: v1alpha1
 - api:
     crdVersion: v1
     namespaced: true
   controller: true
   domain: dev
-  group: media-operator
+  group: arrchitect
   kind: BazarrConfig
-  path: github.com/kyleseneker/media-operator/api/subtitles/v1alpha1
+  path: github.com/kyleseneker/arrchitect/api/subtitles/v1alpha1
   version: v1alpha1
 - api:
     crdVersion: v1
     namespaced: true
   controller: true
   domain: dev
-  group: media-operator
+  group: arrchitect
   kind: LidarrConfig
-  path: github.com/kyleseneker/media-operator/api/pvr/v1alpha1
+  path: github.com/kyleseneker/arrchitect/api/pvr/v1alpha1
   version: v1alpha1
 - api:
     crdVersion: v1
     namespaced: true
   controller: true
   domain: dev
-  group: media-operator
+  group: arrchitect
   kind: ReadarrConfig
-  path: github.com/kyleseneker/media-operator/api/pvr/v1alpha1
+  path: github.com/kyleseneker/arrchitect/api/pvr/v1alpha1
   version: v1alpha1
 - api:
     crdVersion: v1
     namespaced: true
   controller: true
   domain: dev
-  group: media-operator
+  group: arrchitect
   kind: QBittorrentConfig
-  path: github.com/kyleseneker/media-operator/api/downloads/v1alpha1
+  path: github.com/kyleseneker/arrchitect/api/downloads/v1alpha1
   version: v1alpha1
 - api:
     crdVersion: v1
     namespaced: true
   controller: true
   domain: dev
-  group: media-operator
+  group: arrchitect
   kind: SabnzbdConfig
-  path: github.com/kyleseneker/media-operator/api/downloads/v1alpha1
+  path: github.com/kyleseneker/arrchitect/api/downloads/v1alpha1
   version: v1alpha1
 - api:
     crdVersion: v1
     namespaced: true
   controller: true
   domain: dev
-  group: media-operator
+  group: arrchitect
   kind: JellyfinConfig
-  path: github.com/kyleseneker/media-operator/api/mediaservers/v1alpha1
+  path: github.com/kyleseneker/arrchitect/api/mediaservers/v1alpha1
   version: v1alpha1
 - api:
     crdVersion: v1
     namespaced: true
   controller: true
   domain: dev
-  group: media-operator
+  group: arrchitect
   kind: PlexConfig
-  path: github.com/kyleseneker/media-operator/api/mediaservers/v1alpha1
+  path: github.com/kyleseneker/arrchitect/api/mediaservers/v1alpha1
   version: v1alpha1
 - api:
     crdVersion: v1
     namespaced: true
   controller: true
   domain: dev
-  group: media-operator
+  group: arrchitect
   kind: SeerrConfig
-  path: github.com/kyleseneker/media-operator/api/requests/v1alpha1
+  path: github.com/kyleseneker/arrchitect/api/requests/v1alpha1
   version: v1alpha1
 - api:
     crdVersion: v1
     namespaced: true
   controller: true
   domain: dev
-  group: media-operator
+  group: arrchitect
   kind: TdarrConfig
-  path: github.com/kyleseneker/media-operator/api/transcode/v1alpha1
+  path: github.com/kyleseneker/arrchitect/api/transcode/v1alpha1
   version: v1alpha1
 - api:
     crdVersion: v1
     namespaced: true
   controller: true
   domain: dev
-  group: media-operator
+  group: arrchitect
   kind: FlareSolverrConfig
-  path: github.com/kyleseneker/media-operator/api/indexers/v1alpha1
+  path: github.com/kyleseneker/arrchitect/api/indexers/v1alpha1
   version: v1alpha1
 - api:
     crdVersion: v1
     namespaced: true
   controller: true
   domain: dev
-  group: media-operator
+  group: arrchitect
   kind: AutobrrConfig
-  path: github.com/kyleseneker/media-operator/api/automation/v1alpha1
+  path: github.com/kyleseneker/arrchitect/api/automation/v1alpha1
   version: v1alpha1
 - api:
     crdVersion: v1
     namespaced: true
   controller: true
   domain: dev
-  group: media-operator
+  group: arrchitect
   kind: MaintainerrConfig
-  path: github.com/kyleseneker/media-operator/api/curation/v1alpha1
+  path: github.com/kyleseneker/arrchitect/api/curation/v1alpha1
   version: v1alpha1
 version: "3"

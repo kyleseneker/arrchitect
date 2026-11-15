@@ -1,11 +1,11 @@
 package prowlarr
 
 import (
-	commonv1alpha1 "github.com/kyleseneker/media-operator/api/common/v1alpha1"
-	indexersv1alpha1 "github.com/kyleseneker/media-operator/api/indexers/v1alpha1"
-	pvrclient "github.com/kyleseneker/media-operator/internal/client/pvr"
-	"github.com/kyleseneker/media-operator/internal/engine"
-	"github.com/kyleseneker/media-operator/internal/metrics"
+	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
+	indexersv1alpha1 "github.com/kyleseneker/arrchitect/api/indexers/v1alpha1"
+	pvrclient "github.com/kyleseneker/arrchitect/internal/client/pvr"
+	"github.com/kyleseneker/arrchitect/internal/engine"
+	"github.com/kyleseneker/arrchitect/internal/metrics"
 )
 
 // appLabel is the constant metrics label used for Prowlarr.

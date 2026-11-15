@@ -16,7 +16,7 @@ limitations under the License.
 
 // Package v1alpha1 contains API Schema definitions for the requests v1alpha1 API group.
 // +kubebuilder:object:generate=true
-// +groupName=media-operator.dev
+// +groupName=arrchitect.dev
 package v1alpha1
 
 import (
@@ -26,7 +26,7 @@ import (
 )
 
 var (
-	SchemeGroupVersion = schema.GroupVersion{Group: "media-operator.dev", Version: "v1alpha1"}
+	SchemeGroupVersion = schema.GroupVersion{Group: "arrchitect.dev", Version: "v1alpha1"}
 	GroupVersion       = SchemeGroupVersion
 	SchemeBuilder      = runtime.NewSchemeBuilder(addKnownTypes)
 	AddToScheme        = SchemeBuilder.AddToScheme

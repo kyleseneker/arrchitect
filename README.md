@@ -1,10 +1,12 @@
-# media-operator
+# Arrchitect
 
-[![CI](https://github.com/kyleseneker/media-operator/actions/workflows/ci.yml/badge.svg)](https://github.com/kyleseneker/media-operator/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/kyleseneker/media-operator)](https://github.com/kyleseneker/media-operator/releases)
+[![CI](https://github.com/kyleseneker/arrchitect/actions/workflows/ci.yml/badge.svg)](https://github.com/kyleseneker/arrchitect/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/kyleseneker/arrchitect)](https://github.com/kyleseneker/arrchitect/releases)
 
-Kubernetes operators that configure Sonarr, Radarr, Prowlarr, Jellyfin, Plex
-and other self-hosted media apps from custom resources.
+Configure and wire Sonarr, Radarr, Prowlarr, Jellyfin, Plex and other
+self-hosted media apps as Kubernetes resources. Arrchitect configures the apps
+you already deploy, with app-template or any other chart, and connects them to
+each other; it doesn't deploy them.
 
 ## Features
 
@@ -12,7 +14,7 @@ and other self-hosted media apps from custom resources.
 - Drift correction on every reconcile, or an observe mode that only reports differences
 - Credentials read from Kubernetes Secrets
 - Optional pruning, limited to what the operator created
-- `media-operator export` to generate config from an app you already run
+- `arrchitect export` to generate config from an app you already run
 - Tested in CI against each app running in a container
 
 ## Supported apps
@@ -41,7 +43,7 @@ Install the chart. It runs every app's controller unless you turn some off in
 `apps`:
 
 ```bash
-helm install media-operator oci://ghcr.io/kyleseneker/charts/media-operator \
+helm install arrchitect oci://ghcr.io/kyleseneker/charts/arrchitect \
   --namespace media --set apps.plex=false --set apps.autobrr=false
 ```
 

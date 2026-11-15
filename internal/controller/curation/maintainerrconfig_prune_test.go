@@ -9,9 +9,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	commonv1alpha1 "github.com/kyleseneker/media-operator/api/common/v1alpha1"
-	ctrlcommon "github.com/kyleseneker/media-operator/internal/controller/common"
-	"github.com/kyleseneker/media-operator/internal/metrics"
+	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
+	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
+	"github.com/kyleseneker/arrchitect/internal/metrics"
 )
 
 func groupNames(groups []map[string]any) []any {

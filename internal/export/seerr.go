@@ -8,9 +8,9 @@ import (
 	"slices"
 	"strings"
 
-	requestsv1alpha1 "github.com/kyleseneker/media-operator/api/requests/v1alpha1"
-	seerrclient "github.com/kyleseneker/media-operator/internal/client/seerr"
-	"github.com/kyleseneker/media-operator/internal/engine"
+	requestsv1alpha1 "github.com/kyleseneker/arrchitect/api/requests/v1alpha1"
+	seerrclient "github.com/kyleseneker/arrchitect/internal/client/seerr"
+	"github.com/kyleseneker/arrchitect/internal/engine"
 )
 
 var seerrNotificationAgents = []string{

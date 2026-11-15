@@ -12,8 +12,8 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	"github.com/kyleseneker/media-operator/internal/metrics"
-	"github.com/kyleseneker/media-operator/internal/reconciler"
+	"github.com/kyleseneker/arrchitect/internal/metrics"
+	"github.com/kyleseneker/arrchitect/internal/reconciler"
 )
 
 // logAPIErrorDetail logs the full API response body at debug level if the error is an APIError.

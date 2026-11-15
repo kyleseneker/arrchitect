@@ -13,10 +13,10 @@ import (
 	"strconv"
 	"strings"
 
-	commonv1alpha1 "github.com/kyleseneker/media-operator/api/common/v1alpha1"
-	"github.com/kyleseneker/media-operator/internal/engine"
-	"github.com/kyleseneker/media-operator/internal/metrics"
-	"github.com/kyleseneker/media-operator/internal/reconciler"
+	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
+	"github.com/kyleseneker/arrchitect/internal/engine"
+	"github.com/kyleseneker/arrchitect/internal/metrics"
+	"github.com/kyleseneker/arrchitect/internal/reconciler"
 )
 
 // App holds what differs between Sonarr, Radarr, Lidarr and Readarr.

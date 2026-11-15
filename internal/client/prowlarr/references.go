@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	indexersv1alpha1 "github.com/kyleseneker/media-operator/api/indexers/v1alpha1"
-	"github.com/kyleseneker/media-operator/internal/engine"
+	indexersv1alpha1 "github.com/kyleseneker/arrchitect/api/indexers/v1alpha1"
+	"github.com/kyleseneker/arrchitect/internal/engine"
 )
 
 // ResolveReferences operates on a copy: IDs belong to the current application,

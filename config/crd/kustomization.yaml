@@ -2,21 +2,21 @@
 # since it depends on service name and namespace that are out of this kustomize package.
 # It should be run by config/default
 resources:
-- bases/media-operator.dev_sonarrconfigs.yaml
-- bases/media-operator.dev_radarrconfigs.yaml
-- bases/media-operator.dev_prowlarrconfigs.yaml
-- bases/media-operator.dev_bazarrconfigs.yaml
-- bases/media-operator.dev_qbittorrentconfigs.yaml
-- bases/media-operator.dev_jellyfinconfigs.yaml
-- bases/media-operator.dev_tdarrconfigs.yaml
-- bases/media-operator.dev_seerrconfigs.yaml
-- bases/media-operator.dev_lidarrconfigs.yaml
-- bases/media-operator.dev_readarrconfigs.yaml
-- bases/media-operator.dev_plexconfigs.yaml
-- bases/media-operator.dev_sabnzbdconfigs.yaml
-- bases/media-operator.dev_flaresolverrconfigs.yaml
-- bases/media-operator.dev_autobrrconfigs.yaml
-- bases/media-operator.dev_maintainerrconfigs.yaml
+- bases/arrchitect.dev_sonarrconfigs.yaml
+- bases/arrchitect.dev_radarrconfigs.yaml
+- bases/arrchitect.dev_prowlarrconfigs.yaml
+- bases/arrchitect.dev_bazarrconfigs.yaml
+- bases/arrchitect.dev_qbittorrentconfigs.yaml
+- bases/arrchitect.dev_jellyfinconfigs.yaml
+- bases/arrchitect.dev_tdarrconfigs.yaml
+- bases/arrchitect.dev_seerrconfigs.yaml
+- bases/arrchitect.dev_lidarrconfigs.yaml
+- bases/arrchitect.dev_readarrconfigs.yaml
+- bases/arrchitect.dev_plexconfigs.yaml
+- bases/arrchitect.dev_sabnzbdconfigs.yaml
+- bases/arrchitect.dev_flaresolverrconfigs.yaml
+- bases/arrchitect.dev_autobrrconfigs.yaml
+- bases/arrchitect.dev_maintainerrconfigs.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 patches:

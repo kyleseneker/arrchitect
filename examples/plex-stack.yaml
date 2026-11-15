@@ -4,10 +4,10 @@
 # Prerequisites:
 #   - Apps deployed and accessible at the URLs below
 #   - Secrets created (see secrets.yaml)
-#   - media-operator operator installed:
-#     helm install media-operator oci://ghcr.io/kyleseneker/charts/media-operator
+#   - Arrchitect installed:
+#     helm install arrchitect oci://ghcr.io/kyleseneker/charts/arrchitect
 ---
-apiVersion: media-operator.dev/v1alpha1
+apiVersion: arrchitect.dev/v1alpha1
 kind: SonarrConfig
 metadata:
   name: sonarr
@@ -37,7 +37,7 @@ spec:
       port: 8080
       category: tv-sonarr
 ---
-apiVersion: media-operator.dev/v1alpha1
+apiVersion: arrchitect.dev/v1alpha1
 kind: RadarrConfig
 metadata:
   name: radarr
@@ -66,7 +66,7 @@ spec:
       port: 8080
       category: radarr
 ---
-apiVersion: media-operator.dev/v1alpha1
+apiVersion: arrchitect.dev/v1alpha1
 kind: ProwlarrConfig
 metadata:
   name: prowlarr
@@ -99,7 +99,7 @@ spec:
         key: api-key
       syncCategories: [2000, 2010, 2020, 2030, 2040, 2045, 2050, 2060, 2070, 2080]
 ---
-apiVersion: media-operator.dev/v1alpha1
+apiVersion: arrchitect.dev/v1alpha1
 kind: QBittorrentConfig
 metadata:
   name: qbittorrent
@@ -123,7 +123,7 @@ spec:
     - name: radarr
       savePath: /downloads/movies
 ---
-apiVersion: media-operator.dev/v1alpha1
+apiVersion: arrchitect.dev/v1alpha1
 kind: PlexConfig
 metadata:
   name: plex
@@ -152,7 +152,7 @@ spec:
       paths:
         - /media/tv
 ---
-apiVersion: media-operator.dev/v1alpha1
+apiVersion: arrchitect.dev/v1alpha1
 kind: SeerrConfig
 metadata:
   name: seerr

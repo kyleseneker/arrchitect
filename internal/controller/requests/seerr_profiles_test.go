@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	requestsv1alpha1 "github.com/kyleseneker/media-operator/api/requests/v1alpha1"
+	requestsv1alpha1 "github.com/kyleseneker/arrchitect/api/requests/v1alpha1"
 )
 
 func TestResolveServiceProfileByName(t *testing.T) {

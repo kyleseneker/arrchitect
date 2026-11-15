@@ -26,10 +26,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	commonv1alpha1 "github.com/kyleseneker/media-operator/api/common/v1alpha1"
-	transcodev1alpha1 "github.com/kyleseneker/media-operator/api/transcode/v1alpha1"
-	ctrlcommon "github.com/kyleseneker/media-operator/internal/controller/common"
-	"github.com/kyleseneker/media-operator/internal/metrics"
+	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
+	transcodev1alpha1 "github.com/kyleseneker/arrchitect/api/transcode/v1alpha1"
+	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
+	"github.com/kyleseneker/arrchitect/internal/metrics"
 )
 
 const (

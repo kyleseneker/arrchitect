@@ -18,10 +18,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	indexersv1alpha1 "github.com/kyleseneker/media-operator/api/indexers/v1alpha1"
-	prowlarrclient "github.com/kyleseneker/media-operator/internal/client/prowlarr"
-	ctrlcommon "github.com/kyleseneker/media-operator/internal/controller/common"
-	"github.com/kyleseneker/media-operator/internal/controller/indexers"
+	indexersv1alpha1 "github.com/kyleseneker/arrchitect/api/indexers/v1alpha1"
+	prowlarrclient "github.com/kyleseneker/arrchitect/internal/client/prowlarr"
+	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
+	"github.com/kyleseneker/arrchitect/internal/controller/indexers"
 )
 
 func TestProwlarr(t *testing.T) {

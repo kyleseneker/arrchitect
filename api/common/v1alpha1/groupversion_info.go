@@ -14,6 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package v1alpha1 contains shared types used across all media-operator API groups.
-// +groupName=media-operator.dev
+// Package v1alpha1 contains shared types used across all arrchitect API groups.
+// +groupName=arrchitect.dev
 package v1alpha1

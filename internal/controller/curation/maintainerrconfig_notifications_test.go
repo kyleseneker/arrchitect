@@ -9,8 +9,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/types"
 
-	commonv1alpha1 "github.com/kyleseneker/media-operator/api/common/v1alpha1"
-	curationv1alpha1 "github.com/kyleseneker/media-operator/api/curation/v1alpha1"
+	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
+	curationv1alpha1 "github.com/kyleseneker/arrchitect/api/curation/v1alpha1"
 )
 
 func discordNotification() curationv1alpha1.MaintainerrNotification {

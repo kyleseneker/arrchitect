@@ -1,5 +1,0 @@
-{{- if .Values.crds.enabled }}
-{{- range $app := splitList "," (include "media-operator.enabledApps" .) }}
-{{ $.Files.Get (printf "files/crds/media-operator.dev_%sconfigs.yaml" $app) }}
-{{- end }}
-{{- end }}

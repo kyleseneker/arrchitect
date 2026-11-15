@@ -1,4 +1,4 @@
-// Package metrics defines custom Prometheus metrics for the media-operator.
+// Package metrics defines custom Prometheus metrics for the arrchitect.
 // All metrics are auto-registered with the controller-runtime metrics registry
 // via the init() function, so they are exposed on the same /metrics endpoint
 // that controller-runtime already serves. No separate HTTP server is required.
@@ -9,7 +9,7 @@ import (
 	ctrlmetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
 )
 
-const namespace = "media_operator"
+const namespace = "arrchitect"
 
 var (
 	// AppAPIRequestDuration is a histogram of outbound HTTP call latencies to target apps.
@@ -37,7 +37,7 @@ var (
 
 	// ResourcesPrunedTotal counts resources deleted by the prune logic.
 	// Pruning is destructive, so this is the most critical custom metric —
-	// alert on `rate(media_operator_resources_pruned_total[5m]) > threshold`.
+	// alert on `rate(arrchitect_resources_pruned_total[5m]) > threshold`.
 	// Labels: app, resource_type (downloadClients/indexers/qualityProfiles/etc).
 	ResourcesPrunedTotal = prometheus.NewCounterVec(
 		prometheus.CounterOpts{

@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kyleseneker/media-operator/internal/metrics"
+	"github.com/kyleseneker/arrchitect/internal/metrics"
 )
 
 func TestOwnershipPrunesOnlyOwnedUndeclaredItems(t *testing.T) {

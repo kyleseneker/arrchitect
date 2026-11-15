@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"net/http"
 
-	commonv1alpha1 "github.com/kyleseneker/media-operator/api/common/v1alpha1"
-	"github.com/kyleseneker/media-operator/internal/reconciler"
+	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
+	"github.com/kyleseneker/arrchitect/internal/reconciler"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 

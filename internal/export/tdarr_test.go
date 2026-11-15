@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	transcodev1alpha1 "github.com/kyleseneker/media-operator/api/transcode/v1alpha1"
+	transcodev1alpha1 "github.com/kyleseneker/arrchitect/api/transcode/v1alpha1"
 )
 
 var fakeTdarrCollections = map[string]string{

@@ -3,7 +3,7 @@ package export
 import (
 	"slices"
 
-	flaresolverrclient "github.com/kyleseneker/media-operator/internal/client/flaresolverr"
+	flaresolverrclient "github.com/kyleseneker/arrchitect/internal/client/flaresolverr"
 )
 
 func exportFlareSolverr(r *reader) (map[string]any, error) {

@@ -1,10 +1,10 @@
-apiVersion: media-operator.dev/v1alpha1
+apiVersion: arrchitect.dev/v1alpha1
 kind: MaintainerrConfig
 metadata:
   name: maintainerr
   namespace: media
   labels:
-    app.kubernetes.io/name: media-operator
+    app.kubernetes.io/name: arrchitect
     app.kubernetes.io/managed-by: kustomize
 spec:
   # Maintainerr has no API authentication; keep it off untrusted networks.

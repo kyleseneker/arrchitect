@@ -27,10 +27,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	commonv1alpha1 "github.com/kyleseneker/media-operator/api/common/v1alpha1"
-	curationv1alpha1 "github.com/kyleseneker/media-operator/api/curation/v1alpha1"
-	"github.com/kyleseneker/media-operator/internal/controller/internal/contract"
-	"github.com/kyleseneker/media-operator/internal/engine"
+	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
+	curationv1alpha1 "github.com/kyleseneker/arrchitect/api/curation/v1alpha1"
+	"github.com/kyleseneker/arrchitect/internal/controller/internal/contract"
+	"github.com/kyleseneker/arrchitect/internal/engine"
 )
 
 const conditionTrue = "True"

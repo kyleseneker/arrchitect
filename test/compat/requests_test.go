@@ -15,12 +15,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	requestsv1alpha1 "github.com/kyleseneker/media-operator/api/requests/v1alpha1"
-	jellyfinclient "github.com/kyleseneker/media-operator/internal/client/jellyfin"
-	seerrclient "github.com/kyleseneker/media-operator/internal/client/seerr"
-	ctrlcommon "github.com/kyleseneker/media-operator/internal/controller/common"
-	"github.com/kyleseneker/media-operator/internal/controller/requests"
-	"github.com/kyleseneker/media-operator/internal/engine"
+	requestsv1alpha1 "github.com/kyleseneker/arrchitect/api/requests/v1alpha1"
+	jellyfinclient "github.com/kyleseneker/arrchitect/internal/client/jellyfin"
+	seerrclient "github.com/kyleseneker/arrchitect/internal/client/seerr"
+	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
+	"github.com/kyleseneker/arrchitect/internal/controller/requests"
+	"github.com/kyleseneker/arrchitect/internal/engine"
 )
 
 // TestSeerr runs Seerr's first-time setup through Jellyfin, as a rebuild does:

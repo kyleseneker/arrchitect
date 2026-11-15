@@ -1,4 +1,4 @@
-module github.com/kyleseneker/media-operator
+module github.com/kyleseneker/arrchitect
 
 go 1.27.3
 

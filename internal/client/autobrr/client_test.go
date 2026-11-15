@@ -13,8 +13,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	automationv1alpha1 "github.com/kyleseneker/media-operator/api/automation/v1alpha1"
-	"github.com/kyleseneker/media-operator/internal/engine"
+	automationv1alpha1 "github.com/kyleseneker/arrchitect/api/automation/v1alpha1"
+	"github.com/kyleseneker/arrchitect/internal/engine"
 )
 
 func newTestClient(t *testing.T, handler http.HandlerFunc) *Client {

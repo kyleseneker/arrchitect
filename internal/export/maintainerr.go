@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"strings"
 
-	maintainerrclient "github.com/kyleseneker/media-operator/internal/client/maintainerr"
+	maintainerrclient "github.com/kyleseneker/arrchitect/internal/client/maintainerr"
 )
 
 var maintainerrDayComparisons = []string{"BEFORE", "AFTER", "IN_LAST", "IN_NEXT"}

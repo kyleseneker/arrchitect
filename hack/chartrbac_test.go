@@ -15,7 +15,7 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-const chartDir = "../chart/media-operator"
+const chartDir = "../chart/arrchitect"
 
 type manifest struct {
 	Kind     string `json:"kind"`
@@ -113,7 +113,7 @@ func TestChartAppsMatchTheControllersAndCRDs(t *testing.T) {
 	apps := make([]string, 0, len(values.Apps))
 	for app := range values.Apps {
 		apps = append(apps, app)
-		assert.FileExists(t, filepath.Join(chartDir, "files/crds/media-operator.dev_"+app+"configs.yaml"))
+		assert.FileExists(t, filepath.Join(chartDir, "files/crds/arrchitect.dev_"+app+"configs.yaml"))
 	}
 	assert.ElementsMatch(t, controllerNames(t), apps, "values.yaml apps and cmd/operator controllers differ")
 }
@@ -133,8 +133,8 @@ func TestChartLeavesOutWhatAnAppTurnedOffNeeds(t *testing.T) {
 		}
 	}
 	assert.Len(t, crds, len(controllerNames(t))-1)
-	assert.NotContains(t, crds, "tdarrconfigs.media-operator.dev")
-	assert.NotContains(t, grantsOf(manifests, "ClusterRole"), "media-operator.dev tdarrconfigs get")
+	assert.NotContains(t, crds, "tdarrconfigs.arrchitect.dev")
+	assert.NotContains(t, grantsOf(manifests, "ClusterRole"), "arrchitect.dev tdarrconfigs get")
 	enabled := slices.IndexFunc(args, func(a string) bool { return strings.HasPrefix(a, "--enable-controllers=") })
 	require.GreaterOrEqual(t, enabled, 0)
 	assert.NotContains(t, strings.Split(strings.TrimPrefix(args[enabled], "--enable-controllers="), ","), "tdarr")

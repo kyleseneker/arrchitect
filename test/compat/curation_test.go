@@ -17,11 +17,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	curationv1alpha1 "github.com/kyleseneker/media-operator/api/curation/v1alpha1"
-	jellyfinclient "github.com/kyleseneker/media-operator/internal/client/jellyfin"
-	ctrlcommon "github.com/kyleseneker/media-operator/internal/controller/common"
-	"github.com/kyleseneker/media-operator/internal/controller/curation"
-	"github.com/kyleseneker/media-operator/internal/engine"
+	curationv1alpha1 "github.com/kyleseneker/arrchitect/api/curation/v1alpha1"
+	jellyfinclient "github.com/kyleseneker/arrchitect/internal/client/jellyfin"
+	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
+	"github.com/kyleseneker/arrchitect/internal/controller/curation"
+	"github.com/kyleseneker/arrchitect/internal/engine"
 )
 
 // TestMaintainerr sets up a fresh Maintainerr against Jellyfin and a Radarr, and

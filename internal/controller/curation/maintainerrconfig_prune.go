@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 
-	curationv1alpha1 "github.com/kyleseneker/media-operator/api/curation/v1alpha1"
-	maintainerrclient "github.com/kyleseneker/media-operator/internal/client/maintainerr"
+	curationv1alpha1 "github.com/kyleseneker/arrchitect/api/curation/v1alpha1"
+	maintainerrclient "github.com/kyleseneker/arrchitect/internal/client/maintainerr"
 )
 
 const ruleGroupsKind = "ruleGroups"

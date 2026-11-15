@@ -11,9 +11,9 @@ import (
 	"sync"
 	"testing"
 
-	commonv1alpha1 "github.com/kyleseneker/media-operator/api/common/v1alpha1"
-	pvrv1alpha1 "github.com/kyleseneker/media-operator/api/pvr/v1alpha1"
-	ctrlcommon "github.com/kyleseneker/media-operator/internal/controller/common"
+	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
+	pvrv1alpha1 "github.com/kyleseneker/arrchitect/api/pvr/v1alpha1"
+	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"

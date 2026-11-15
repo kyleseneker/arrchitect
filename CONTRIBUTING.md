@@ -1,8 +1,8 @@
-# Contributing to media-operator
+# Contributing to Arrchitect
 
 ## Getting started
 
-1. Fork and clone: `git clone https://github.com/<your-username>/media-operator`
+1. Fork and clone: `git clone https://github.com/<your-username>/arrchitect`
 2. Branch: `git checkout -b my-feature`
 3. Make your changes
 4. `make test lint verify-crds`
@@ -26,7 +26,7 @@ make lint
 ## Layout
 
 One binary, `cmd/operator`, runs a controller per app, and one chart,
-`chart/media-operator`, installs it with the CRDs of the apps it runs. The apps
+`chart/arrchitect`, installs it with the CRDs of the apps it runs. The apps
 are grouped by what they do, each group with an API package and a controller
 package named the same way.
 
@@ -43,7 +43,7 @@ package named the same way.
 | `automation` | Autobrr | `api/automation/v1alpha1/` |
 
 A new app also needs its controller in `cmd/operator/main.go` and its name in
-the chart's `apps` and `media-operator.enabledApps`.
+the chart's `apps` and `arrchitect.enabledApps`.
 
 ## Dependency updates
 

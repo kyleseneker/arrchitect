@@ -25,8 +25,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	automationv1alpha1 "github.com/kyleseneker/media-operator/api/automation/v1alpha1"
-	commonv1alpha1 "github.com/kyleseneker/media-operator/api/common/v1alpha1"
+	automationv1alpha1 "github.com/kyleseneker/arrchitect/api/automation/v1alpha1"
+	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
 )
 
 const conditionTrue = "True"

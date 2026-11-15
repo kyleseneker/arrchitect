@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/kyleseneker/media-operator/internal/engine"
+	"github.com/kyleseneker/arrchitect/internal/engine"
 )
 
 // Client is an HTTP client for the Jellyfin API.

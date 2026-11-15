@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kyleseneker/media-operator/internal/metrics"
+	"github.com/kyleseneker/arrchitect/internal/metrics"
 )
 
 func TestReconcileResult_Success(t *testing.T) {
@@ -853,9 +853,9 @@ func desiredWithPassword(name, pw string) map[string]any {
 	}
 }
 
-// The regression behind MediaOperatorDriftNeverSettles: the app masks the
-// password on read, so the operator rewrote it on every pass and the write
-// never settled. It must seed the secret once and then go quiet.
+// The app masks the password on read, so the operator once rewrote it on every
+// pass and the write never settled. It must seed the secret once and then go
+// quiet.
 func TestMaskedSecretSettlesAfterOneWrite(t *testing.T) {
 	metrics.DriftCorrectedTotal.Reset()
 	var writes []string

@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"strings"
 
-	mediaserversv1alpha1 "github.com/kyleseneker/media-operator/api/mediaservers/v1alpha1"
-	plexclient "github.com/kyleseneker/media-operator/internal/client/plex"
+	mediaserversv1alpha1 "github.com/kyleseneker/arrchitect/api/mediaservers/v1alpha1"
+	plexclient "github.com/kyleseneker/arrchitect/internal/client/plex"
 )
 
 var plexSections = map[string]reflect.Type{

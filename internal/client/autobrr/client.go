@@ -7,7 +7,7 @@ import (
 	"maps"
 	"net/http"
 
-	"github.com/kyleseneker/media-operator/internal/engine"
+	"github.com/kyleseneker/arrchitect/internal/engine"
 )
 
 // Client wraps engine.HTTPClient with Autobrr-specific API methods.

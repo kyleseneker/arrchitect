@@ -20,7 +20,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
-	commonv1alpha1 "github.com/kyleseneker/media-operator/api/common/v1alpha1"
+	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
 )
 
 // MaintainerrConfigSpec defines the desired state of MaintainerrConfig.

@@ -1,6 +1,6 @@
 package engine
 
-import "github.com/kyleseneker/media-operator/internal/metrics"
+import "github.com/kyleseneker/arrchitect/internal/metrics"
 
 // Writes gates the writes an integration sends through its own client on the
 // drift policy. Enforce mode sends each write and counts it in

@@ -21,7 +21,7 @@ rules:
   - create
   - patch
 - apiGroups:
-  - media-operator.dev
+  - arrchitect.dev
   resources:
   - autobrrconfigs
   - bazarrconfigs
@@ -47,7 +47,7 @@ rules:
   - update
   - watch
 - apiGroups:
-  - media-operator.dev
+  - arrchitect.dev
   resources:
   - autobrrconfigs/finalizers
   - bazarrconfigs/finalizers
@@ -67,7 +67,7 @@ rules:
   verbs:
   - update
 - apiGroups:
-  - media-operator.dev
+  - arrchitect.dev
   resources:
   - autobrrconfigs/status
   - bazarrconfigs/status

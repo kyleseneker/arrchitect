@@ -24,10 +24,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	commonv1alpha1 "github.com/kyleseneker/media-operator/api/common/v1alpha1"
-	subtitlesv1alpha1 "github.com/kyleseneker/media-operator/api/subtitles/v1alpha1"
-	bazarrclient "github.com/kyleseneker/media-operator/internal/client/bazarr"
-	"github.com/kyleseneker/media-operator/internal/engine"
+	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
+	subtitlesv1alpha1 "github.com/kyleseneker/arrchitect/api/subtitles/v1alpha1"
+	bazarrclient "github.com/kyleseneker/arrchitect/internal/client/bazarr"
+	"github.com/kyleseneker/arrchitect/internal/engine"
 )
 
 const conditionTrue = "True"

@@ -19,11 +19,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	pvrv1alpha1 "github.com/kyleseneker/media-operator/api/pvr/v1alpha1"
-	pvrclient "github.com/kyleseneker/media-operator/internal/client/pvr"
-	ctrlcommon "github.com/kyleseneker/media-operator/internal/controller/common"
-	"github.com/kyleseneker/media-operator/internal/controller/pvr"
-	"github.com/kyleseneker/media-operator/internal/engine"
+	pvrv1alpha1 "github.com/kyleseneker/arrchitect/api/pvr/v1alpha1"
+	pvrclient "github.com/kyleseneker/arrchitect/internal/client/pvr"
+	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
+	"github.com/kyleseneker/arrchitect/internal/controller/pvr"
+	"github.com/kyleseneker/arrchitect/internal/engine"
 )
 
 func TestSonarr(t *testing.T) {

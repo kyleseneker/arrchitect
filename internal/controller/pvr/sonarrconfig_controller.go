@@ -10,9 +10,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	pvrv1alpha1 "github.com/kyleseneker/media-operator/api/pvr/v1alpha1"
-	pvrclient "github.com/kyleseneker/media-operator/internal/client/pvr"
-	ctrlcommon "github.com/kyleseneker/media-operator/internal/controller/common"
+	pvrv1alpha1 "github.com/kyleseneker/arrchitect/api/pvr/v1alpha1"
+	pvrclient "github.com/kyleseneker/arrchitect/internal/client/pvr"
+	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
 )
 
 type SonarrConfigReconciler struct {
@@ -21,9 +21,9 @@ type SonarrConfigReconciler struct {
 	Recorder events.EventRecorder
 }
 
-// +kubebuilder:rbac:groups=media-operator.dev,resources=sonarrconfigs,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=media-operator.dev,resources=sonarrconfigs/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=media-operator.dev,resources=sonarrconfigs/finalizers,verbs=update
+// +kubebuilder:rbac:groups=arrchitect.dev,resources=sonarrconfigs,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=arrchitect.dev,resources=sonarrconfigs/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=arrchitect.dev,resources=sonarrconfigs/finalizers,verbs=update
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
 
 func (r *SonarrConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {

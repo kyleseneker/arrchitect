@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	automationv1alpha1 "github.com/kyleseneker/media-operator/api/automation/v1alpha1"
+	automationv1alpha1 "github.com/kyleseneker/arrchitect/api/automation/v1alpha1"
 )
 
 var fakeAutobrrAPI = map[string]string{

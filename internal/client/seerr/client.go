@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/kyleseneker/media-operator/internal/engine"
+	"github.com/kyleseneker/arrchitect/internal/engine"
 )
 
 // mediaServerTypeJellyfin is Seerr's MediaServerType.JELLYFIN.

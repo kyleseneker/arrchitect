@@ -23,12 +23,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	commonv1alpha1 "github.com/kyleseneker/media-operator/api/common/v1alpha1"
-	indexersv1alpha1 "github.com/kyleseneker/media-operator/api/indexers/v1alpha1"
-	pvrclient "github.com/kyleseneker/media-operator/internal/client/pvr"
-	"github.com/kyleseneker/media-operator/internal/engine"
-	"github.com/kyleseneker/media-operator/internal/metrics"
-	"github.com/kyleseneker/media-operator/internal/reconciler"
+	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
+	indexersv1alpha1 "github.com/kyleseneker/arrchitect/api/indexers/v1alpha1"
+	pvrclient "github.com/kyleseneker/arrchitect/internal/client/pvr"
+	"github.com/kyleseneker/arrchitect/internal/engine"
+	"github.com/kyleseneker/arrchitect/internal/metrics"
+	"github.com/kyleseneker/arrchitect/internal/reconciler"
 )
 
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;patch

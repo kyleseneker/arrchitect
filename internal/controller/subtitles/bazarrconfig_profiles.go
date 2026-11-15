@@ -9,8 +9,8 @@ import (
 	"slices"
 	"strconv"
 
-	subtitlesv1alpha1 "github.com/kyleseneker/media-operator/api/subtitles/v1alpha1"
-	"github.com/kyleseneker/media-operator/internal/engine"
+	subtitlesv1alpha1 "github.com/kyleseneker/arrchitect/api/subtitles/v1alpha1"
+	"github.com/kyleseneker/arrchitect/internal/engine"
 )
 
 const (

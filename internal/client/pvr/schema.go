@@ -6,8 +6,8 @@ import (
 	"sort"
 	"strings"
 
-	commonv1alpha1 "github.com/kyleseneker/media-operator/api/common/v1alpha1"
-	"github.com/kyleseneker/media-operator/internal/engine"
+	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
+	"github.com/kyleseneker/arrchitect/internal/engine"
 )
 
 // SchemaFieldNames returns the field names an implementation accepts, taken from
