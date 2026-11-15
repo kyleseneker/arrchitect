@@ -44,9 +44,11 @@ type TdarrConfigSpec struct {
 	// +listMapKey=id
 	Flows []TdarrFlow `json:"flows,omitempty"`
 
-	// workers configures the number of worker threads by type.
+	// workers configures the number of worker threads on each Tdarr node.
 	// +optional
-	Workers *TdarrWorkers `json:"workers,omitempty"`
+	// +listType=map
+	// +listMapKey=nodeName
+	Workers []TdarrWorkers `json:"workers,omitempty"`
 
 	// settings configures Tdarr's server-wide options. Pausing nodes is left to
 	// whoever runs Tdarr.
@@ -340,10 +342,10 @@ type TdarrFlow struct {
 
 // TdarrWorkers configures the number of worker threads on one Tdarr node.
 type TdarrWorkers struct {
-	// nodeName is the name of the Tdarr node these limits are for. It may be
-	// left out while Tdarr has a single node, and is required once it has more.
-	// +optional
-	NodeName string `json:"nodeName,omitempty"`
+	// nodeName is the name of the Tdarr node these limits are for.
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	NodeName string `json:"nodeName"`
 
 	// transcodeGPU is the number of GPU transcode workers.
 	// +optional

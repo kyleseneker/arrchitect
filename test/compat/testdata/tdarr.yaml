@@ -9,11 +9,11 @@ spec:
       name: compat-credentials
       key: api-key
   workers:
-    nodeName: InternalNode
-    transcodeCPU: 1
-    transcodeGPU: 0
-    healthcheckCPU: 2
-    healthcheckGPU: 0
+    - nodeName: InternalNode
+      transcodeCPU: 1
+      transcodeGPU: 0
+      healthcheckCPU: 2
+      healthcheckGPU: 0
   settings:
     autoAcceptTranscodes: true
     stagedFileLimit: 50
