@@ -39,6 +39,7 @@ type LidarrConfigSpec struct {
 	// +optional
 	// +listType=map
 	// +listMapKey=path
+	// +kubebuilder:validation:XValidation:rule="self.all(f, has(f.defaultQualityProfileName) && has(f.defaultMetadataProfileName))",message="Lidarr root folders need defaultQualityProfileName and defaultMetadataProfileName"
 	RootFolders []commonv1alpha1.RootFolder `json:"rootFolders,omitempty"`
 
 	// downloadClients defines download client connections.
@@ -258,6 +259,7 @@ type LidarrConfigStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:resource:categories=arrchitect
 // +kubebuilder:printcolumn:name="Synced",type="string",JSONPath=`.status.conditions[?(@.type=="Synced")].status`
 // +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=`.status.conditions[?(@.type=="Ready")].status`
 // +kubebuilder:printcolumn:name="Last Sync",type="date",JSONPath=`.status.lastSyncTime`

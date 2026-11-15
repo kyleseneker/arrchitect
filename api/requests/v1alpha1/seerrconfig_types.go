@@ -22,7 +22,7 @@ import (
 )
 
 // SeerrConfigSpec defines the desired state of SeerrConfig.
-// Exactly one of jellyfinAuth or plexAuth must be set.
+// +kubebuilder:validation:XValidation:rule="!(has(self.jellyfinAuth) && has(self.plexAuth))",message="jellyfinAuth and plexAuth are mutually exclusive"
 type SeerrConfigSpec struct {
 	// connection defines how to connect to the Seerr instance.
 	// +required
@@ -103,6 +103,7 @@ type SeerrNotificationAgent struct {
 type SeerrConnection struct {
 	// url is the base URL of the Seerr instance (e.g., http://jellyseerr.media.svc.cluster.local:5055).
 	// +required
+	// +kubebuilder:validation:Pattern=`^https?://`
 	URL string `json:"url"`
 
 	// apiKeySecretRef references a Secret containing Seerr's API key. When set,
@@ -329,6 +330,7 @@ type SeerrConfigStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:resource:categories=arrchitect
 // +kubebuilder:printcolumn:name="Synced",type="string",JSONPath=`.status.conditions[?(@.type=="Synced")].status`
 // +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=`.status.conditions[?(@.type=="Ready")].status`
 // +kubebuilder:printcolumn:name="Last Sync",type="date",JSONPath=`.status.lastSyncTime`

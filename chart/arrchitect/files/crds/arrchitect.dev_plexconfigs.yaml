@@ -9,6 +9,8 @@ metadata:
 spec:
   group: arrchitect.dev
   names:
+    categories:
+    - arrchitect
     kind: PlexConfig
     listKind: PlexConfigList
     plural: plexconfigs
@@ -101,6 +103,7 @@ spec:
                     type: object
                   url:
                     description: url is the base URL of the Plex server (e.g., http://plex:32400).
+                    pattern: ^https?://
                     type: string
                 required:
                 - tokenSecretRef
@@ -230,8 +233,12 @@ spec:
                   interval:
                     description: |-
                       interval overrides the default reconciliation interval (default: 5m).
-                      Uses standard Kubernetes duration format (e.g., "30s", "5m", "1h").
+                      Uses standard Kubernetes duration format (e.g., "30s", "5m", "1h"), and
+                      is at least 30s.
                     type: string
+                    x-kubernetes-validations:
+                    - message: interval must be at least 30s
+                      rule: duration(self) >= duration('30s')
                   prune:
                     description: |-
                       prune deletes resources the operator created, tracked in
@@ -243,6 +250,10 @@ spec:
                       Default: false (only create/update, never delete).
                     type: boolean
                 type: object
+                x-kubernetes-validations:
+                - message: deletionPolicy delete conflicts with driftPolicy observe
+                  rule: '!has(self.deletionPolicy) || self.deletionPolicy != ''delete''
+                    || !has(self.driftPolicy) || self.driftPolicy != ''observe'''
               server:
                 description: server configures Plex server settings.
                 properties:
@@ -452,6 +463,12 @@ spec:
             required:
             - connection
             type: object
+            x-kubernetes-validations:
+            - message: PlexConfig doesn't support prune
+              rule: '!has(self.reconcile) || !has(self.reconcile.prune) || !self.reconcile.prune'
+            - message: PlexConfig doesn't support deletionPolicy delete
+              rule: '!has(self.reconcile) || !has(self.reconcile.deletionPolicy) ||
+                self.reconcile.deletionPolicy != ''delete'''
           status:
             description: PlexConfigStatus defines the observed state of PlexConfig.
             properties:

@@ -8,6 +8,8 @@ metadata:
 spec:
   group: arrchitect.dev
   names:
+    categories:
+    - arrchitect
     kind: MaintainerrConfig
     listKind: MaintainerrConfigList
     plural: maintainerrconfigs
@@ -89,6 +91,7 @@ spec:
                     description: |-
                       url is the base URL of Maintainerr, including any BASE_PATH
                       (e.g., http://maintainerr:6246).
+                    pattern: ^https?://
                     type: string
                 required:
                 - url
@@ -362,8 +365,12 @@ spec:
                   interval:
                     description: |-
                       interval overrides the default reconciliation interval (default: 5m).
-                      Uses standard Kubernetes duration format (e.g., "30s", "5m", "1h").
+                      Uses standard Kubernetes duration format (e.g., "30s", "5m", "1h"), and
+                      is at least 30s.
                     type: string
+                    x-kubernetes-validations:
+                    - message: interval must be at least 30s
+                      rule: duration(self) >= duration('30s')
                   prune:
                     description: |-
                       prune deletes resources the operator created, tracked in
@@ -375,6 +382,10 @@ spec:
                       Default: false (only create/update, never delete).
                     type: boolean
                 type: object
+                x-kubernetes-validations:
+                - message: deletionPolicy delete conflicts with driftPolicy observe
+                  rule: '!has(self.deletionPolicy) || self.deletionPolicy != ''delete''
+                    || !has(self.driftPolicy) || self.driftPolicy != ''observe'''
               ruleGroups:
                 description: |-
                   ruleGroups are the rules that put media into a collection and the action

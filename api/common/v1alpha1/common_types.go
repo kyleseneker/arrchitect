@@ -8,10 +8,13 @@ import (
 )
 
 // ReconcileConfig holds common reconciliation settings shared across all config CRDs.
+// +kubebuilder:validation:XValidation:rule="!has(self.deletionPolicy) || self.deletionPolicy != 'delete' || !has(self.driftPolicy) || self.driftPolicy != 'observe'",message="deletionPolicy delete conflicts with driftPolicy observe"
 type ReconcileConfig struct {
 	// interval overrides the default reconciliation interval (default: 5m).
-	// Uses standard Kubernetes duration format (e.g., "30s", "5m", "1h").
+	// Uses standard Kubernetes duration format (e.g., "30s", "5m", "1h"), and
+	// is at least 30s.
 	// +optional
+	// +kubebuilder:validation:XValidation:rule="duration(self) >= duration('30s')",message="interval must be at least 30s"
 	Interval *metav1.Duration `json:"interval,omitempty"`
 
 	// prune deletes resources the operator created, tracked in
@@ -74,6 +77,7 @@ type TLSConfig struct {
 type AppConnection struct {
 	// url is the base URL of the app (e.g., http://arr-sonarr.arr.svc.cluster.local:8989).
 	// +required
+	// +kubebuilder:validation:Pattern=`^https?://`
 	URL string `json:"url"`
 
 	// apiKeySecretRef references a Secret containing the API key.

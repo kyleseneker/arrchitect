@@ -6,6 +6,8 @@ import (
 )
 
 // PlexConfigSpec defines the desired state of PlexConfig.
+// +kubebuilder:validation:XValidation:rule="!has(self.reconcile) || !has(self.reconcile.prune) || !self.reconcile.prune",message="PlexConfig doesn't support prune"
+// +kubebuilder:validation:XValidation:rule="!has(self.reconcile) || !has(self.reconcile.deletionPolicy) || self.reconcile.deletionPolicy != 'delete'",message="PlexConfig doesn't support deletionPolicy delete"
 type PlexConfigSpec struct {
 	// connection defines how to connect to the Plex instance.
 	// +required
@@ -41,6 +43,7 @@ type PlexConfigSpec struct {
 type PlexConnection struct {
 	// url is the base URL of the Plex server (e.g., http://plex:32400).
 	// +required
+	// +kubebuilder:validation:Pattern=`^https?://`
 	URL string `json:"url"`
 
 	// tokenSecretRef references a Secret containing the X-Plex-Token.
@@ -328,6 +331,7 @@ type PlexConfigStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:resource:categories=arrchitect
 // +kubebuilder:printcolumn:name="Synced",type="string",JSONPath=`.status.conditions[?(@.type=="Synced")].status`
 // +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=`.status.conditions[?(@.type=="Ready")].status`
 // +kubebuilder:printcolumn:name="Last Sync",type="date",JSONPath=`.status.lastSyncTime`

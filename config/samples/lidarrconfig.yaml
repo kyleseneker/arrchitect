@@ -20,6 +20,8 @@ spec:
     artistFolderFormat: "{Artist Name}"
   rootFolders:
     - path: /music
+      defaultQualityProfileName: Any
+      defaultMetadataProfileName: Standard
   downloadClients:
     - name: SABnzbd
       protocol: usenet

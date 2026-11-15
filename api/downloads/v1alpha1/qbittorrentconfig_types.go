@@ -47,6 +47,7 @@ type QBittorrentConfigSpec struct {
 type QBittorrentConnection struct {
 	// url is the base URL of the qBittorrent Web UI (e.g., http://qbittorrent.media.svc.cluster.local:8080).
 	// +required
+	// +kubebuilder:validation:Pattern=`^https?://`
 	URL string `json:"url"`
 
 	// usernameSecretRef references a Secret containing the username.
@@ -386,6 +387,7 @@ type QBittorrentConfigStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:resource:categories=arrchitect
 // +kubebuilder:printcolumn:name="Synced",type="string",JSONPath=`.status.conditions[?(@.type=="Synced")].status`
 // +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=`.status.conditions[?(@.type=="Ready")].status`
 // +kubebuilder:printcolumn:name="Last Sync",type="date",JSONPath=`.status.lastSyncTime`

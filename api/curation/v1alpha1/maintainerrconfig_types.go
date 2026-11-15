@@ -126,6 +126,7 @@ type MaintainerrConnection struct {
 	// url is the base URL of Maintainerr, including any BASE_PATH
 	// (e.g., http://maintainerr:6246).
 	// +required
+	// +kubebuilder:validation:Pattern=`^https?://`
 	URL string `json:"url"`
 
 	// tls configures TLS settings for the connection.
@@ -460,6 +461,7 @@ type MaintainerrConfigStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:resource:categories=arrchitect
 // +kubebuilder:printcolumn:name="Synced",type="string",JSONPath=`.status.conditions[?(@.type=="Synced")].status`
 // +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=`.status.conditions[?(@.type=="Ready")].status`
 // +kubebuilder:printcolumn:name="Last Sync",type="date",JSONPath=`.status.lastSyncTime`

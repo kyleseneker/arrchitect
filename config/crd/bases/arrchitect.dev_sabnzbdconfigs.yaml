@@ -8,6 +8,8 @@ metadata:
 spec:
   group: arrchitect.dev
   names:
+    categories:
+    - arrchitect
     kind: SabnzbdConfig
     listKind: SabnzbdConfigList
     plural: sabnzbdconfigs
@@ -144,6 +146,7 @@ spec:
                     type: object
                   url:
                     description: url is the base URL of the app (e.g., http://arr-sonarr.arr.svc.cluster.local:8989).
+                    pattern: ^https?://
                     type: string
                 required:
                 - apiKeySecretRef
@@ -346,8 +349,12 @@ spec:
                   interval:
                     description: |-
                       interval overrides the default reconciliation interval (default: 5m).
-                      Uses standard Kubernetes duration format (e.g., "30s", "5m", "1h").
+                      Uses standard Kubernetes duration format (e.g., "30s", "5m", "1h"), and
+                      is at least 30s.
                     type: string
+                    x-kubernetes-validations:
+                    - message: interval must be at least 30s
+                      rule: duration(self) >= duration('30s')
                   prune:
                     description: |-
                       prune deletes resources the operator created, tracked in
@@ -359,6 +366,10 @@ spec:
                       Default: false (only create/update, never delete).
                     type: boolean
                 type: object
+                x-kubernetes-validations:
+                - message: deletionPolicy delete conflicts with driftPolicy observe
+                  rule: '!has(self.deletionPolicy) || self.deletionPolicy != ''delete''
+                    || !has(self.driftPolicy) || self.driftPolicy != ''observe'''
               servers:
                 description: servers defines Usenet server connections.
                 items:

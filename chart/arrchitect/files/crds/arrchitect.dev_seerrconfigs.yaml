@@ -9,6 +9,8 @@ metadata:
 spec:
   group: arrchitect.dev
   names:
+    categories:
+    - arrchitect
     kind: SeerrConfig
     listKind: SeerrConfigList
     plural: seerrconfigs
@@ -51,9 +53,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: |-
-              SeerrConfigSpec defines the desired state of SeerrConfig.
-              Exactly one of jellyfinAuth or plexAuth must be set.
+            description: SeerrConfigSpec defines the desired state of SeerrConfig.
             properties:
               connection:
                 description: connection defines how to connect to the Seerr instance.
@@ -105,6 +105,7 @@ spec:
                   url:
                     description: url is the base URL of the Seerr instance (e.g.,
                       http://jellyseerr.media.svc.cluster.local:5055).
+                    pattern: ^https?://
                     type: string
                 required:
                 - url
@@ -454,8 +455,12 @@ spec:
                   interval:
                     description: |-
                       interval overrides the default reconciliation interval (default: 5m).
-                      Uses standard Kubernetes duration format (e.g., "30s", "5m", "1h").
+                      Uses standard Kubernetes duration format (e.g., "30s", "5m", "1h"), and
+                      is at least 30s.
                     type: string
+                    x-kubernetes-validations:
+                    - message: interval must be at least 30s
+                      rule: duration(self) >= duration('30s')
                   prune:
                     description: |-
                       prune deletes resources the operator created, tracked in
@@ -467,6 +472,10 @@ spec:
                       Default: false (only create/update, never delete).
                     type: boolean
                 type: object
+                x-kubernetes-validations:
+                - message: deletionPolicy delete conflicts with driftPolicy observe
+                  rule: '!has(self.deletionPolicy) || self.deletionPolicy != ''delete''
+                    || !has(self.driftPolicy) || self.driftPolicy != ''observe'''
               sonarr:
                 description: |-
                   sonarr lists the Sonarr servers Seerr sends TV requests to, matched by
@@ -599,6 +608,9 @@ spec:
             required:
             - connection
             type: object
+            x-kubernetes-validations:
+            - message: jellyfinAuth and plexAuth are mutually exclusive
+              rule: '!(has(self.jellyfinAuth) && has(self.plexAuth))'
           status:
             description: SeerrConfigStatus defines the observed state of SeerrConfig.
             properties:
