@@ -1,0 +1,5 @@
+chart-dirs:
+  - chart
+target-branch: main
+validate-maintainers: false
+check-version-increment: false
