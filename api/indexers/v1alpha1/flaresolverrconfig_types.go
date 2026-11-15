@@ -36,6 +36,8 @@ type FlareSolverrConfigSpec struct {
 	// Named sessions are reused across requests and survive between solves,
 	// improving performance for repeated requests to the same site.
 	// +optional
+	// +listType=map
+	// +listMapKey=name
 	Sessions []FlareSolverrSession `json:"sessions,omitempty"`
 }
 

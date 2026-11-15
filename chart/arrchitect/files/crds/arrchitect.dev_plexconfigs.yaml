@@ -129,6 +129,7 @@ spec:
                       items:
                         type: string
                       type: array
+                      x-kubernetes-list-type: set
                     scanner:
                       description: scanner is the scanner type.
                       type: string
@@ -146,6 +147,9 @@ spec:
                   - type
                   type: object
                 type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
               network:
                 description: network configures network settings.
                 properties:

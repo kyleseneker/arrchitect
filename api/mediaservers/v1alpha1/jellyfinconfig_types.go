@@ -53,6 +53,8 @@ type JellyfinConfigSpec struct {
 	// removed. Libraries are never deleted, and a library's type can't change
 	// in place.
 	// +optional
+	// +listType=map
+	// +listMapKey=name
 	Libraries []JellyfinLibrary `json:"libraries,omitempty"`
 }
 
@@ -241,6 +243,7 @@ type JellyfinTrickplay struct {
 
 	// widthResolutions are the thumbnail widths to make, in pixels.
 	// +optional
+	// +listType=set
 	WidthResolutions []int `json:"widthResolutions,omitempty"`
 
 	// tileWidth is how many thumbnails go across each tile image.
@@ -283,11 +286,13 @@ type JellyfinNetwork struct {
 	// localNetworkSubnets are the networks, in CIDR form, whose clients count as
 	// local. Empty means the private address ranges.
 	// +optional
+	// +listType=set
 	LocalNetworkSubnets []string `json:"localNetworkSubnets,omitempty"`
 
 	// knownProxies are the reverse proxies, by address or host name, whose
 	// forwarded headers Jellyfin trusts for the client's address.
 	// +optional
+	// +listType=set
 	KnownProxies []string `json:"knownProxies,omitempty"`
 
 	// autoDiscovery answers clients looking for servers on the local network.
@@ -306,6 +311,7 @@ type JellyfinNetwork struct {
 	// virtualInterfaceNames are interface name prefixes, such as veth, that
 	// ignoreVirtualInterfaces skips.
 	// +optional
+	// +listType=set
 	VirtualInterfaceNames []string `json:"virtualInterfaceNames,omitempty"`
 
 	// enablePublishedServerUriByRequest tells clients the address they reached
@@ -316,11 +322,13 @@ type JellyfinNetwork struct {
 	// publishedServerUriBySubnet overrides the address Jellyfin gives clients,
 	// as subnet=URL entries, such as all=https://jellyfin.example.com.
 	// +optional
+	// +listType=set
 	PublishedServerUriBySubnet []string `json:"publishedServerUriBySubnet,omitempty"`
 
 	// remoteIPFilter lists remote addresses or subnets to allow, or to block when
 	// isRemoteIPFilterBlacklist is on.
 	// +optional
+	// +listType=set
 	RemoteIPFilter []string `json:"remoteIPFilter,omitempty"`
 
 	// isRemoteIPFilterBlacklist blocks the addresses in remoteIPFilter instead
@@ -370,6 +378,7 @@ type JellyfinEncoding struct {
 
 	// hardwareDecodingCodecs is the list of codecs to decode in hardware.
 	// +optional
+	// +listType=set
 	HardwareDecodingCodecs []string `json:"hardwareDecodingCodecs,omitempty"`
 
 	// enableIntelLowPowerH264HwEncoder enables the Intel low-power H.264 hardware encoder.
@@ -510,6 +519,7 @@ type JellyfinEncoding struct {
 	// extensions, such as mkv, whose key frames Jellyfin reads from metadata
 	// when it needs them.
 	// +optional
+	// +listType=set
 	AllowOnDemandMetadataBasedKeyframeExtractionForExtensions []string `json:"allowOnDemandMetadataBasedKeyframeExtractionForExtensions,omitempty"`
 }
 
@@ -526,6 +536,7 @@ type JellyfinLibrary struct {
 
 	// paths is the list of filesystem paths containing media for this library.
 	// +required
+	// +listType=set
 	Paths []string `json:"paths"`
 
 	// enableRealtimeMonitor enables real-time monitoring of library paths for changes.

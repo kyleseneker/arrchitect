@@ -69,6 +69,9 @@ spec:
                   - name
                   type: object
                 type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
               connection:
                 description: connection defines how to connect to the qBittorrent
                   instance.
@@ -206,6 +209,7 @@ spec:
                     items:
                       type: string
                     type: array
+                    x-kubernetes-list-type: set
                   excludedFileNamesEnabled:
                     description: excludedFileNamesEnabled skips files whose names
                       match excludedFileNames.

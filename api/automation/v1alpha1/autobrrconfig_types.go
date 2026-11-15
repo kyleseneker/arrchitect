@@ -33,22 +33,32 @@ type AutobrrConfigSpec struct {
 
 	// downloadClients defines download client connections in Autobrr.
 	// +optional
+	// +listType=map
+	// +listMapKey=name
 	DownloadClients []AutobrrDownloadClient `json:"downloadClients,omitempty"`
 
 	// indexers defines indexer/tracker connections.
 	// +optional
+	// +listType=map
+	// +listMapKey=name
 	Indexers []AutobrrIndexer `json:"indexers,omitempty"`
 
 	// ircNetworks defines IRC network connections for announce channel monitoring.
 	// +optional
+	// +listType=map
+	// +listMapKey=name
 	IRCNetworks []AutobrrIRCNetwork `json:"ircNetworks,omitempty"`
 
 	// feeds defines RSS/Torznab feed sources.
 	// +optional
+	// +listType=map
+	// +listMapKey=name
 	Feeds []AutobrrFeed `json:"feeds,omitempty"`
 
 	// filters defines release filters with match criteria and actions.
 	// +optional
+	// +listType=map
+	// +listMapKey=name
 	Filters []AutobrrFilter `json:"filters,omitempty"`
 }
 
@@ -140,6 +150,8 @@ type AutobrrIndexer struct {
 
 	// settings are the definition's settings, such as passkey or rsskey.
 	// +optional
+	// +listType=map
+	// +listMapKey=name
 	Settings []commonv1alpha1.ConfigField `json:"settings,omitempty"`
 }
 
@@ -190,6 +202,8 @@ type AutobrrIRCNetwork struct {
 
 	// channels defines the IRC channels to join.
 	// +optional
+	// +listType=map
+	// +listMapKey=name
 	Channels []AutobrrIRCChannel `json:"channels,omitempty"`
 }
 
@@ -268,14 +282,17 @@ type AutobrrFilter struct {
 
 	// resolutions is a list of acceptable resolutions.
 	// +optional
+	// +listType=set
 	Resolutions []string `json:"resolutions,omitempty"`
 
 	// sources is a list of acceptable sources (e.g., "BluRay", "WEB-DL").
 	// +optional
+	// +listType=set
 	Sources []string `json:"sources,omitempty"`
 
 	// codecs is a list of acceptable codecs (e.g., "x264", "x265", "HEVC").
 	// +optional
+	// +listType=set
 	Codecs []string `json:"codecs,omitempty"`
 
 	// minSize is the minimum release size (e.g., "100MB", "1GB").
@@ -296,11 +313,13 @@ type AutobrrFilter struct {
 
 	// tags is a list of tags for organizational purposes.
 	// +optional
+	// +listType=set
 	Tags []string `json:"tags,omitempty"`
 
 	// indexers lists the indexers, by name, whose releases this filter checks.
 	// Autobrr checks a filter only against the indexers it lists.
 	// +optional
+	// +listType=set
 	Indexers []string `json:"indexers,omitempty"`
 
 	// matchReleaseGroups is a comma-separated list of release groups to match.
@@ -349,42 +368,52 @@ type AutobrrFilter struct {
 
 	// containers is a list of acceptable containers, such as mkv.
 	// +optional
+	// +listType=set
 	Containers []string `json:"containers,omitempty"`
 
 	// matchHdr is a list of HDR formats to match, such as DV or HDR10+.
 	// +optional
+	// +listType=set
 	MatchHdr []string `json:"matchHdr,omitempty"`
 
 	// exceptHdr is a list of HDR formats to skip.
 	// +optional
+	// +listType=set
 	ExceptHdr []string `json:"exceptHdr,omitempty"`
 
 	// matchOther is a list of other release attributes to match, such as REMUX.
 	// +optional
+	// +listType=set
 	MatchOther []string `json:"matchOther,omitempty"`
 
 	// exceptOther is a list of other release attributes to skip.
 	// +optional
+	// +listType=set
 	ExceptOther []string `json:"exceptOther,omitempty"`
 
 	// origins is a list of origins to match, such as P2P, INTERNAL or SCENE.
 	// +optional
+	// +listType=set
 	Origins []string `json:"origins,omitempty"`
 
 	// exceptOrigins is a list of origins to skip.
 	// +optional
+	// +listType=set
 	ExceptOrigins []string `json:"exceptOrigins,omitempty"`
 
 	// announceTypes is a list of announce types to match, such as NEW or PROMO.
 	// +optional
+	// +listType=set
 	AnnounceTypes []string `json:"announceTypes,omitempty"`
 
 	// matchLanguage is a list of languages to match.
 	// +optional
+	// +listType=set
 	MatchLanguage []string `json:"matchLanguage,omitempty"`
 
 	// exceptLanguage is a list of languages to skip.
 	// +optional
+	// +listType=set
 	ExceptLanguage []string `json:"exceptLanguage,omitempty"`
 
 	// shows is a comma-separated list of shows to match.
@@ -455,6 +484,7 @@ type AutobrrFilter struct {
 
 	// exceptTags is a list of tags to skip.
 	// +optional
+	// +listType=set
 	ExceptTags []string `json:"exceptTags,omitempty"`
 
 	// tagsMatchLogic decides whether a release needs any or all of tags.
@@ -477,6 +507,7 @@ type AutobrrFilter struct {
 
 	// matchReleaseTypes is a list of music release types to match, such as Album or EP.
 	// +optional
+	// +listType=set
 	MatchReleaseTypes []string `json:"matchReleaseTypes,omitempty"`
 
 	// exceptReleaseTypes is a comma-separated list of music release types to skip.
@@ -485,14 +516,17 @@ type AutobrrFilter struct {
 
 	// formats is a list of audio formats to match, such as FLAC or MP3.
 	// +optional
+	// +listType=set
 	Formats []string `json:"formats,omitempty"`
 
 	// quality is a list of audio qualities to match, such as Lossless or 320.
 	// +optional
+	// +listType=set
 	Quality []string `json:"quality,omitempty"`
 
 	// media is a list of music media to match, such as CD or WEB.
 	// +optional
+	// +listType=set
 	Media []string `json:"media,omitempty"`
 
 	// perfectFlac matches only lossless rips with a log of 100 and a cue.
@@ -515,6 +549,8 @@ type AutobrrFilter struct {
 
 	// actions defines what to do when a release matches this filter.
 	// +optional
+	// +listType=map
+	// +listMapKey=name
 	Actions []AutobrrFilterAction `json:"actions,omitempty"`
 }
 
@@ -652,6 +688,7 @@ type AutobrrFilterAction struct {
 
 	// webhookHeaders are headers the webhook sends, as Name=Value.
 	// +optional
+	// +listType=set
 	WebhookHeaders []string `json:"webhookHeaders,omitempty"`
 
 	// externalDownloadClient is the download client, by name in Sonarr, Radarr, Lidarr or Readarr,

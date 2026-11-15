@@ -100,6 +100,7 @@ type MaintainerrNotification struct {
 	// types are the events that send a notification.
 	// +optional
 	// +kubebuilder:validation:items:Enum=mediaAddedToCollection;mediaRemovedFromCollection;mediaAboutToBeHandled;mediaHandled;ruleHandlingFailed;collectionHandlingFailed;overlayApplied;overlayReverted;updateAvailable
+	// +listType=set
 	Types []string `json:"types,omitempty"`
 
 	// aboutScale is how many days before media is handled mediaAboutToBeHandled
@@ -350,6 +351,7 @@ type MaintainerrRuleGroup struct {
 	// Maintainerr, that report on this group. Unset, the group keeps the ones
 	// it has.
 	// +optional
+	// +listType=set
 	Notifications []string `json:"notifications,omitempty"`
 
 	// sections are evaluated in order. Rules within a section combine with each
@@ -357,6 +359,7 @@ type MaintainerrRuleGroup struct {
 	// it.
 	// +required
 	// +kubebuilder:validation:MinItems=1
+	// +listType=atomic
 	Sections []MaintainerrRuleSection `json:"sections"`
 }
 
@@ -371,6 +374,7 @@ type MaintainerrRuleSection struct {
 	// rules are combined in order, each with the result of the ones before it.
 	// +required
 	// +kubebuilder:validation:MinItems=1
+	// +listType=atomic
 	Rules []MaintainerrRule `json:"rules"`
 }
 

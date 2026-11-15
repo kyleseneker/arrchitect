@@ -34,10 +34,14 @@ type TdarrConfigSpec struct {
 
 	// libraries defines media libraries to manage in Tdarr.
 	// +optional
+	// +listType=map
+	// +listMapKey=id
 	Libraries []TdarrLibrary `json:"libraries,omitempty"`
 
 	// flows defines transcoding flows (plugins and edges).
 	// +optional
+	// +listType=map
+	// +listMapKey=id
 	Flows []TdarrFlow `json:"flows,omitempty"`
 
 	// workers configures the number of worker threads by type.
@@ -293,6 +297,7 @@ type TdarrLibrary struct {
 	// pluginStack lists the community plugin IDs to run, in order, for libraries
 	// not using a flow.
 	// +optional
+	// +listType=atomic
 	PluginStack []string `json:"pluginStack,omitempty"`
 
 	// variables are user-defined library variables. Flows read them as
@@ -323,11 +328,13 @@ type TdarrFlow struct {
 	// parsers, kubectl's included, read a bare y as the boolean true.
 	// +required
 	// +kubebuilder:pruning:PreserveUnknownFields
+	// +listType=atomic
 	FlowPlugins []runtime.RawExtension `json:"flowPlugins"`
 
 	// flowEdges is the raw JSON definition of flow edge connections.
 	// +required
 	// +kubebuilder:pruning:PreserveUnknownFields
+	// +listType=atomic
 	FlowEdges []runtime.RawExtension `json:"flowEdges"`
 }
 

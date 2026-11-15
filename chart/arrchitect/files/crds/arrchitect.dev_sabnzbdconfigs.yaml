@@ -86,6 +86,9 @@ spec:
                   - name
                   type: object
                 type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
               connection:
                 description: connection defines how to connect to the SABnzbd instance.
                 properties:
@@ -175,6 +178,7 @@ spec:
                     items:
                       type: string
                     type: array
+                    x-kubernetes-list-type: set
                   completeFree:
                     description: |-
                       completeFree is the free space the complete folder needs to keep
@@ -245,6 +249,7 @@ spec:
                     items:
                       type: string
                     type: array
+                    x-kubernetes-list-type: set
                   ignoreSamples:
                     description: ignoreSamples skips sample files.
                     type: boolean
@@ -292,6 +297,7 @@ spec:
                     items:
                       type: string
                     type: array
+                    x-kubernetes-list-type: set
                   unwantedExtensionsAction:
                     description: |-
                       unwantedExtensionsAction is what SABnzbd does with a job containing an
@@ -440,6 +446,9 @@ spec:
                   - port
                   type: object
                 type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
             required:
             - connection
             type: object

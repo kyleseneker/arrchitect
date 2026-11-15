@@ -146,6 +146,7 @@ spec:
                     items:
                       type: string
                     type: array
+                    x-kubernetes-list-type: set
                   deinterlaceDoubleRate:
                     description: deinterlaceDoubleRate doubles the frame rate when
                       deinterlacing.
@@ -258,6 +259,7 @@ spec:
                     items:
                       type: string
                     type: array
+                    x-kubernetes-list-type: set
                   maxMuxingQueueSize:
                     description: maxMuxingQueueSize is the most packets ffmpeg buffers
                       while muxing.
@@ -391,6 +393,7 @@ spec:
                       items:
                         type: string
                       type: array
+                      x-kubernetes-list-type: set
                     preferredMetadataLanguage:
                       description: preferredMetadataLanguage overrides the server-level
                         preferred metadata language for this library.
@@ -401,6 +404,9 @@ spec:
                   - paths
                   type: object
                 type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
               network:
                 description: |-
                   network configures how Jellyfin tells local clients from remote ones and
@@ -441,6 +447,7 @@ spec:
                     items:
                       type: string
                     type: array
+                    x-kubernetes-list-type: set
                   localNetworkSubnets:
                     description: |-
                       localNetworkSubnets are the networks, in CIDR form, whose clients count as
@@ -448,6 +455,7 @@ spec:
                     items:
                       type: string
                     type: array
+                    x-kubernetes-list-type: set
                   publishedServerUriBySubnet:
                     description: |-
                       publishedServerUriBySubnet overrides the address Jellyfin gives clients,
@@ -455,6 +463,7 @@ spec:
                     items:
                       type: string
                     type: array
+                    x-kubernetes-list-type: set
                   remoteIPFilter:
                     description: |-
                       remoteIPFilter lists remote addresses or subnets to allow, or to block when
@@ -462,6 +471,7 @@ spec:
                     items:
                       type: string
                     type: array
+                    x-kubernetes-list-type: set
                   virtualInterfaceNames:
                     description: |-
                       virtualInterfaceNames are interface name prefixes, such as veth, that
@@ -469,6 +479,7 @@ spec:
                     items:
                       type: string
                     type: array
+                    x-kubernetes-list-type: set
                 type: object
               reconcile:
                 description: reconcile configures reconciliation behavior (e.g., sync
@@ -705,6 +716,7 @@ spec:
                         items:
                           type: integer
                         type: array
+                        x-kubernetes-list-type: set
                     type: object
                 type: object
             required:

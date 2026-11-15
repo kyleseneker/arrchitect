@@ -146,3 +146,32 @@ spec:
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "only one delay profile can be without tags")
 }
+
+func TestDuplicateNamesAreRejected(t *testing.T) {
+	c := startAPIServerWith(t)
+	ctx := context.Background()
+	for name, spec := range map[string]string{
+		"download clients": `downloadClients: [{name: qBit, protocol: torrent, implementation: QBittorrent, host: a, port: 1},
+    {name: qBit, protocol: torrent, implementation: QBittorrent, host: b, port: 2}]`,
+		"fields":     `indexers: [{name: x, protocol: torrent, implementation: Torznab, fields: [{name: baseUrl, value: a}, {name: baseUrl, value: b}]}]`,
+		"tag labels": `indexers: [{name: x, protocol: torrent, implementation: Torznab, tagLabels: [anime, anime]}]`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			obj := &unstructured.Unstructured{}
+			require.NoError(t, yaml.Unmarshal([]byte(`
+apiVersion: arrchitect.dev/v1alpha1
+kind: SonarrConfig
+metadata:
+  name: duplicates
+  namespace: default
+spec:
+  connection:
+    url: http://sonarr:8989
+    apiKeySecretRef: {name: sonarr, key: api-key}
+  `+spec), &obj.Object))
+			err := c.Create(ctx, obj)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "Duplicate value")
+		})
+	}
+}

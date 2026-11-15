@@ -83,6 +83,9 @@ spec:
                   - name
                   type: object
                 type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
               applications:
                 description: applications defines application connections managed
                   by Prowlarr.
@@ -128,6 +131,7 @@ spec:
                       items:
                         type: integer
                       type: array
+                      x-kubernetes-list-type: set
                     syncLevel:
                       description: syncLevel controls how indexers are synced to this
                         application.
@@ -143,6 +147,7 @@ spec:
                       items:
                         type: string
                       type: array
+                      x-kubernetes-list-type: set
                   required:
                   - apiKeySecretRef
                   - baseUrl
@@ -151,6 +156,9 @@ spec:
                   - name
                   type: object
                 type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
               connection:
                 description: connection defines how to connect to the Prowlarr instance.
                 properties:
@@ -224,6 +232,7 @@ spec:
                             items:
                               type: integer
                             type: array
+                            x-kubernetes-list-type: set
                           clientCategory:
                             description: clientCategory is the category name in the
                               download client.
@@ -232,6 +241,9 @@ spec:
                         - clientCategory
                         type: object
                       type: array
+                      x-kubernetes-list-map-keys:
+                      - clientCategory
+                      x-kubernetes-list-type: map
                     configContract:
                       description: |-
                         configContract is the configuration contract name.
@@ -273,6 +285,9 @@ spec:
                         - name
                         type: object
                       type: array
+                      x-kubernetes-list-map-keys:
+                      - name
+                      x-kubernetes-list-type: map
                     implementation:
                       description: implementation is the download client type (e.g.,
                         QBittorrent, Sabnzbd).
@@ -297,12 +312,16 @@ spec:
                       items:
                         type: string
                       type: array
+                      x-kubernetes-list-type: set
                   required:
                   - implementation
                   - name
                   - protocol
                   type: object
                 type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
               indexers:
                 description: indexers defines indexer configurations managed by Prowlarr.
                 items:
@@ -357,6 +376,9 @@ spec:
                         - name
                         type: object
                       type: array
+                      x-kubernetes-list-map-keys:
+                      - name
+                      x-kubernetes-list-type: map
                     implementation:
                       description: implementation is the indexer type (e.g., Newznab,
                         Torznab).
@@ -375,12 +397,16 @@ spec:
                       items:
                         type: string
                       type: array
+                      x-kubernetes-list-type: set
                   required:
                   - configContract
                   - implementation
                   - name
                   type: object
                 type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
               notifications:
                 description: notifications defines notification/connection configurations.
                 items:
@@ -424,6 +450,9 @@ spec:
                         - name
                         type: object
                       type: array
+                      x-kubernetes-list-map-keys:
+                      - name
+                      x-kubernetes-list-type: map
                     implementation:
                       description: implementation is the notification type (e.g.,
                         Discord, Slack, Webhook, Email).
@@ -550,6 +579,7 @@ spec:
                       items:
                         type: string
                       type: array
+                      x-kubernetes-list-type: set
                     tags:
                       description: tags is the list of tag IDs to associate with this
                         notification.
@@ -561,6 +591,9 @@ spec:
                   - name
                   type: object
                 type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
               proxies:
                 description: proxies defines proxy configurations for Prowlarr.
                 items:
@@ -590,6 +623,7 @@ spec:
                       items:
                         type: string
                       type: array
+                      x-kubernetes-list-type: set
                   required:
                   - configContract
                   - host
@@ -597,6 +631,9 @@ spec:
                   - name
                   type: object
                 type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
               reconcile:
                 description: reconcile configures reconciliation behavior (e.g., sync
                   interval).
@@ -652,6 +689,9 @@ spec:
                   - label
                   type: object
                 type: array
+                x-kubernetes-list-map-keys:
+                - label
+                x-kubernetes-list-type: map
             required:
             - connection
             type: object

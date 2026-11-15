@@ -33,31 +33,45 @@ type ProwlarrConfigSpec struct {
 
 	// applications defines application connections managed by Prowlarr.
 	// +optional
+	// +listType=map
+	// +listMapKey=name
 	Applications []ProwlarrApplication `json:"applications,omitempty"`
 
 	// appProfiles defines indexer sync profiles, applied before indexers.
 	// Profiles are not pruned because indexers outside this CR may reference them.
 	// +optional
+	// +listType=map
+	// +listMapKey=name
 	AppProfiles []ProwlarrAppProfile `json:"appProfiles,omitempty"`
 
 	// indexers defines indexer configurations managed by Prowlarr.
 	// +optional
+	// +listType=map
+	// +listMapKey=name
 	Indexers []ProwlarrIndexer `json:"indexers,omitempty"`
 
 	// proxies defines proxy configurations for Prowlarr.
 	// +optional
+	// +listType=map
+	// +listMapKey=name
 	Proxies []ProwlarrProxy `json:"proxies,omitempty"`
 
 	// tags defines tags for linking resources together.
 	// +optional
+	// +listType=map
+	// +listMapKey=label
 	Tags []commonv1alpha1.Tag `json:"tags,omitempty"`
 
 	// downloadClients defines download client connections for manual grabs.
 	// +optional
+	// +listType=map
+	// +listMapKey=name
 	DownloadClients []ProwlarrDownloadClient `json:"downloadClients,omitempty"`
 
 	// notifications defines notification/connection configurations.
 	// +optional
+	// +listType=map
+	// +listMapKey=name
 	Notifications []commonv1alpha1.Notification `json:"notifications,omitempty"`
 }
 
@@ -65,6 +79,7 @@ type ProwlarrConfigSpec struct {
 type ProwlarrAppProfile struct {
 	// name uniquely identifies the sync profile.
 	// +kubebuilder:validation:MinLength=1
+	// +required
 	Name string `json:"name"`
 
 	// enableRss enables RSS sync.
@@ -118,11 +133,13 @@ type ProwlarrApplication struct {
 
 	// syncCategories is the list of category IDs to sync to this application.
 	// +optional
+	// +listType=set
 	SyncCategories []int `json:"syncCategories,omitempty"`
 
 	// tags is the list of tag labels to associate with this application.
 	// Labels are resolved to Prowlarr tag IDs at apply time.
 	// +optional
+	// +listType=set
 	Tags []string `json:"tags,omitempty"`
 }
 
@@ -160,11 +177,14 @@ type ProwlarrIndexer struct {
 
 	// fields defines configuration fields for the indexer.
 	// +optional
+	// +listType=map
+	// +listMapKey=name
 	Fields []ProwlarrField `json:"fields,omitempty"`
 
 	// tags is the list of tag labels to associate with this indexer.
 	// Labels are resolved to Prowlarr tag IDs at apply time.
 	// +optional
+	// +listType=set
 	Tags []string `json:"tags,omitempty"`
 }
 
@@ -208,6 +228,7 @@ type ProwlarrProxy struct {
 	// tags is the list of tag labels to associate with this proxy.
 	// Labels are resolved to Prowlarr tag IDs at apply time.
 	// +optional
+	// +listType=set
 	Tags []string `json:"tags,omitempty"`
 }
 
@@ -242,15 +263,20 @@ type ProwlarrDownloadClient struct {
 
 	// categories defines the category mappings for this download client.
 	// +optional
+	// +listType=map
+	// +listMapKey=clientCategory
 	Categories []ProwlarrDownloadClientCategory `json:"categories,omitempty"`
 
 	// tags is the list of tag labels to associate with this download client.
 	// Labels are resolved to Prowlarr tag IDs at apply time.
 	// +optional
+	// +listType=set
 	Tags []string `json:"tags,omitempty"`
 
 	// fields defines the download client's configuration fields (e.g., host, port, apiKey).
 	// +optional
+	// +listType=map
+	// +listMapKey=name
 	Fields []ProwlarrField `json:"fields,omitempty"`
 }
 
@@ -262,6 +288,7 @@ type ProwlarrDownloadClientCategory struct {
 
 	// categories is the list of Prowlarr category IDs to map.
 	// +optional
+	// +listType=set
 	Categories []int `json:"categories,omitempty"`
 }
 

@@ -37,10 +37,14 @@ type ReadarrConfigSpec struct {
 
 	// rootFolders defines book library root folder paths.
 	// +optional
+	// +listType=map
+	// +listMapKey=path
 	RootFolders []commonv1alpha1.RootFolder `json:"rootFolders,omitempty"`
 
 	// downloadClients defines download client connections.
 	// +optional
+	// +listType=map
+	// +listMapKey=name
 	DownloadClients []commonv1alpha1.DownloadClient `json:"downloadClients,omitempty"`
 
 	// remotePathMappings translates paths reported by remote download clients.
@@ -53,10 +57,14 @@ type ReadarrConfigSpec struct {
 
 	// qualityProfiles defines quality profiles for controlling download quality preferences.
 	// +optional
+	// +listType=map
+	// +listMapKey=name
 	QualityProfiles []commonv1alpha1.QualityProfile `json:"qualityProfiles,omitempty"`
 
 	// customFormats defines custom format scoring rules for release selection.
 	// +optional
+	// +listType=map
+	// +listMapKey=name
 	CustomFormats []commonv1alpha1.CustomFormat `json:"customFormats,omitempty"`
 
 	// qualityDefinitions sets the size limits of the app's qualities. The app
@@ -73,22 +81,31 @@ type ReadarrConfigSpec struct {
 	// +optional
 	// +kubebuilder:validation:MaxItems=50
 	// +kubebuilder:validation:XValidation:rule="self.filter(p, !has(p.tagLabels) || size(p.tagLabels) == 0).size() <= 1",message="only one delay profile can be without tags"
+	// +listType=atomic
 	DelayProfiles []commonv1alpha1.DelayProfile `json:"delayProfiles,omitempty"`
 
 	// tags defines tags for linking resources together.
 	// +optional
+	// +listType=map
+	// +listMapKey=label
 	Tags []commonv1alpha1.Tag `json:"tags,omitempty"`
 
 	// indexers defines indexer connections.
 	// +optional
+	// +listType=map
+	// +listMapKey=name
 	Indexers []commonv1alpha1.Indexer `json:"indexers,omitempty"`
 
 	// notifications defines notification/connection configurations.
 	// +optional
+	// +listType=map
+	// +listMapKey=name
 	Notifications []commonv1alpha1.Notification `json:"notifications,omitempty"`
 
 	// importLists defines import list configurations for automatic content addition.
 	// +optional
+	// +listType=map
+	// +listMapKey=name
 	ImportLists []commonv1alpha1.ImportList `json:"importLists,omitempty"`
 }
 
