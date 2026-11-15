@@ -4,3 +4,13 @@ description: Kubernetes operator that configures Sonarr, Radarr, Prowlarr, Jelly
 type: application
 version: 0.1.0
 appVersion: "0.1.0"
+home: https://github.com/kyleseneker/arrchitect
+sources:
+  - https://github.com/kyleseneker/arrchitect
+keywords:
+  - sonarr
+  - radarr
+  - prowlarr
+  - jellyfin
+  - plex
+  - operator
