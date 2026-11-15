@@ -184,11 +184,15 @@ type SonarrNaming struct {
 
 	// colonReplacementFormat defines how colons are replaced in filenames.
 	// +optional
-	ColonReplacementFormat *int `json:"colonReplacementFormat,omitempty"`
+	// +kubebuilder:validation:Enum=delete;dash;spaceDash;spaceDashSpace;smart
+	ColonReplacementFormat string `json:"colonReplacementFormat,omitempty"`
 
-	// multiEpisodeStyle defines how multi-episode files are named.
+	// multiEpisodeStyle defines how multi-episode files are named: extend
+	// (S01E01-02-03), duplicate (S01E01.S01E02), repeat (S01E01E02E03), scene
+	// (S01E01-E02-E03), range (S01E01-03) or prefixedRange (S01E01-E03).
 	// +optional
-	MultiEpisodeStyle *int `json:"multiEpisodeStyle,omitempty"`
+	// +kubebuilder:validation:Enum=extend;duplicate;repeat;scene;range;prefixedRange
+	MultiEpisodeStyle string `json:"multiEpisodeStyle,omitempty"`
 
 	// standardEpisodeFormat is the naming format for standard episodes.
 	// +optional

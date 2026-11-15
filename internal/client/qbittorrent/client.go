@@ -27,6 +27,9 @@ var MaxRatioActions = map[string]int{
 	"removeWithContent":  3,
 }
 
+// Encryptions maps the spec's encryption names to qBittorrent's encryption values.
+var Encryptions = map[string]int{"allow": 0, "require": 1, "disable": 2}
+
 // SchedulerDays maps the spec's schedulerDays names to qBittorrent's scheduler_days values.
 var SchedulerDays = map[string]int{
 	"everyDay": 0, "weekdays": 1, "weekends": 2, "monday": 3, "tuesday": 4,
@@ -42,7 +45,6 @@ var Preferences = map[string]string{
 	"dht":                              "dht",
 	"pex":                              "pex",
 	"lsd":                              "lsd",
-	"encryption":                       "encryption",
 	"maxConnec":                        "max_connec",
 	"maxConnecPerTorrent":              "max_connec_per_torrent",
 	"maxUploads":                       "max_uploads",

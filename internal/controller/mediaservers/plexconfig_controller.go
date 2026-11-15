@@ -206,6 +206,8 @@ func buildPlexPreferences(spec mediaserversv1alpha1.PlexConfigSpec) map[string]s
 			id := plexclient.Preferences[section][name]
 			fv := v.FieldByIndex(field.Index)
 			switch {
+			case fv.Kind() == reflect.String && plexclient.Choices[name] != nil && fv.String() != "":
+				prefs[id] = plexclient.Choices[name][fv.String()]
 			case fv.Kind() == reflect.String && fv.String() != "":
 				prefs[id] = fv.String()
 			case fv.Kind() == reflect.Pointer && !fv.IsNil() && fv.Elem().Kind() == reflect.String:

@@ -48,6 +48,7 @@ func reconcilePVR(ctx context.Context, c client.Client, recorder events.EventRec
 	opts.CategoryField = cfg.app.CategoryField
 	opts.ImportListFields = cfg.app.ImportListFields
 	opts.MetadataProfiles = cfg.app.MetadataProfiles
+	opts.Choices = cfg.app.Choices
 	// A kind whose items name a Secret that can't be read is left out of the
 	// pass, neither written nor pruned, and reported; the rest still syncs.
 	var unresolved []string

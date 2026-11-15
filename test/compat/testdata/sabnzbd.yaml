@@ -68,8 +68,8 @@ spec:
   categories:
     - name: tv
       dir: tv
-      priority: 0
+      priority: normal
       postProcessing: unpack
     - name: movies
       dir: movies
-      priority: 1
+      priority: high

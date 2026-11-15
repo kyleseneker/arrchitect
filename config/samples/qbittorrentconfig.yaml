@@ -17,7 +17,7 @@ spec:
     dht: true
     pex: true
     lsd: true
-    encryption: 0
+    encryption: allow
     maxConnec: -1
     maxConnecPerTorrent: -1
     maxUploads: -1

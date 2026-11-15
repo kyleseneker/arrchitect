@@ -490,7 +490,15 @@ func reconcileSeerrNotificationAgent(
 		payload["enabled"] = *agent.Enabled
 	}
 	if agent.Types != nil {
-		payload["types"] = *agent.Types
+		types := 0
+		for _, name := range agent.Types {
+			bit, ok := seerrclient.NotificationTypes[name]
+			if !ok {
+				return fmt.Errorf("unknown notification type %q", name)
+			}
+			types |= bit
+		}
+		payload["types"] = types
 	}
 	if len(agent.Options)+len(secrets) > 0 {
 		opts := make(map[string]any, len(agent.Options)+len(secrets))

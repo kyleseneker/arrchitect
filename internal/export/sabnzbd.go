@@ -93,9 +93,19 @@ func exportSabnzbd(r *reader) (map[string]any, error) {
 		spec["servers"] = servers
 	}
 
-	var categories []any
-	for _, c := range list(current["categories"]) {
-		category := map[string]any{"name": sabText(c["name"]), "priority": sabNumber(c["priority"])}
+	if categories := sabCategories(list(current["categories"])); len(categories) > 0 {
+		spec["categories"] = categories
+	}
+	return spec, nil
+}
+
+func sabCategories(current []map[string]any) []any {
+	categories := make([]any, 0, len(current))
+	for _, c := range current {
+		category := map[string]any{"name": sabText(c["name"])}
+		if priority, ok := sabChoice(sabnzbdclient.Priorities, c["priority"]); ok {
+			category["priority"] = priority
+		}
 		if dir := sabText(c["dir"]); dir != "" {
 			category["dir"] = dir
 		}
@@ -107,10 +117,7 @@ func exportSabnzbd(r *reader) (map[string]any, error) {
 		}
 		categories = append(categories, category)
 	}
-	if len(categories) > 0 {
-		spec["categories"] = categories
-	}
-	return spec, nil
+	return categories
 }
 
 func sabText(v any) string {

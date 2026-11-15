@@ -41,6 +41,7 @@ func (e *pvrExport) spec() (map[string]any, error) {
 			return nil, err
 		}
 		delete(section, "id")
+		e.nameChoices(s.Name, section)
 		spec[s.Name] = section
 	}
 
@@ -282,4 +283,24 @@ func qualityProfile(item map[string]any, _ map[string]map[string]any) map[string
 		qp["formatItems"] = formats
 	}
 	return qp
+}
+
+// nameChoices turns the numbers the app stores for a setting into the names the
+// resource uses, leaving out a number the resource has no name for.
+func (e *pvrExport) nameChoices(section string, values map[string]any) {
+	for field, numbers := range e.app.Choices[section] {
+		number, ok := values[field].(float64)
+		if !ok {
+			continue
+		}
+		delete(values, field)
+		for name, n := range numbers {
+			if float64(n) == number {
+				values[field] = name
+			}
+		}
+		if _, named := values[field]; !named {
+			e.warn("%s.%s is %v, which %s can't express, so it stays as set in the app", section, field, number, e.app.Kind)
+		}
+	}
 }

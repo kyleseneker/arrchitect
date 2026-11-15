@@ -85,11 +85,10 @@ type QBittorrentPreferences struct {
 	// +optional
 	LSD *bool `json:"lsd,omitempty"`
 
-	// encryption controls the encryption mode. 0=prefer, 1=force on, 2=force off.
+	// encryption controls whether peers may, must or must not encrypt connections.
 	// +optional
-	// +kubebuilder:validation:Minimum=0
-	// +kubebuilder:validation:Maximum=2
-	Encryption *int `json:"encryption,omitempty"`
+	// +kubebuilder:validation:Enum=allow;require;disable
+	Encryption *string `json:"encryption,omitempty"`
 
 	// maxConnec is the global maximum number of connections. -1 means unlimited.
 	// +optional

@@ -37,7 +37,7 @@ func TestQBPreferencePayloadUsesAPIKeyNames(t *testing.T) {
 		DHT:                   new(false),
 		PEX:                   new(false),
 		LSD:                   new(false),
-		Encryption:            new(1),
+		Encryption:            new("require"),
 		MaxConnec:             new(200),
 		MaxConnecPerTorrent:   new(50),
 		MaxUploads:            new(20),
@@ -88,6 +88,7 @@ func TestQBPreferencePayloadCoversEverySpecField(t *testing.T) {
 		func(p *downloadsv1alpha1.QBittorrentPreferences) {
 			p.MaxRatio = new("1.0")
 			p.MaxRatioAction = new("stop")
+			p.Encryption = new("require")
 			p.MaxRatioEnabled = new(true)
 			p.MaxSeedingTimeEnabled = new(true)
 			p.MaxInactiveSeedingTimeEnabled = new(true)

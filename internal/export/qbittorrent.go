@@ -51,6 +51,13 @@ func exportQBittorrent(r *reader) (map[string]any, error) {
 	if ratio, ok := prefs["max_ratio"].(float64); ok {
 		preferences["maxRatio"] = strconv.FormatFloat(ratio, 'f', -1, 64)
 	}
+	if mode, ok := prefs["encryption"].(float64); ok {
+		for name, value := range qbclient.Encryptions {
+			if float64(value) == mode {
+				preferences["encryption"] = name
+			}
+		}
+	}
 	if act, ok := prefs["max_ratio_act"].(float64); ok {
 		for name, value := range qbclient.MaxRatioActions {
 			if float64(value) == act {

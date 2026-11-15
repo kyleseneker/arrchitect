@@ -246,9 +246,11 @@ type SabnzbdCategory struct {
 	// +optional
 	Script string `json:"script,omitempty"`
 
-	// priority is the download priority. -100=default, -2=paused, -1=low, 0=normal, 1=high, 2=force.
+	// priority is the download priority. default uses SABnzbd's default
+	// category's priority.
 	// +optional
-	Priority *int `json:"priority,omitempty"`
+	// +kubebuilder:validation:Enum=default;paused;low;normal;high;force
+	Priority string `json:"priority,omitempty"`
 
 	// postProcessing is how far SABnzbd processes the category's jobs: download
 	// only, repair, unpack, or unpack and delete the archives.

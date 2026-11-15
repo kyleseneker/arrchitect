@@ -48,4 +48,4 @@ spec:
         - /data/music
       language: en
   network:
-    secureConnections: 1
+    secureConnections: preferred

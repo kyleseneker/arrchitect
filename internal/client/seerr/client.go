@@ -14,6 +14,14 @@ const mediaServerTypeJellyfin = 2
 
 // Client is an HTTP client for the Seerr API v1.
 // It delegates all HTTP work to an engine.HTTPClient configured with AuthSession.
+// NotificationTypes maps notification type names to the bits Seerr combines
+// into an agent's types.
+var NotificationTypes = map[string]int{
+	"mediaPending": 2, "mediaApproved": 4, "mediaAvailable": 8, "mediaFailed": 16, "mediaDeclined": 64,
+	"mediaAutoApproved": 128, "issueCreated": 256, "issueComment": 512, "issueResolved": 1024,
+	"issueReopened": 2048, "mediaAutoRequested": 4096,
+}
+
 type Client struct {
 	hc *engine.HTTPClient
 }

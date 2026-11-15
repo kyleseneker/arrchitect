@@ -78,6 +78,9 @@ var SSLVerify = map[string]string{"strict": "3", "medium": "2", "minimal": "1", 
 // PostProcessing maps postProcessing names to a category's pp values.
 var PostProcessing = map[string]string{"download": "0", "repair": "1", "unpack": "2", "delete": "3"}
 
+// Priorities maps priority names to a category's priority values.
+var Priorities = map[string]string{"default": "-100", "paused": "-2", "low": "-1", "normal": "0", "high": "1", "force": "2"}
+
 type Client struct {
 	hc     *engine.HTTPClient
 	apiKey string

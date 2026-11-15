@@ -82,12 +82,11 @@ type SeerrNotificationAgent struct {
 	// +optional
 	Enabled *bool `json:"enabled,omitempty"`
 
-	// types is the notification type bitfield that controls which events trigger notifications.
-	// Common values: 2=media requested, 4=media auto-approved, 8=media approved,
-	// 16=media available, 32=media failed, 64=media declined, 128=test notification.
-	// Combine with bitwise OR (e.g., 4094 for all types).
+	// types are the events that send a notification. An empty list sends none.
 	// +optional
-	Types *int `json:"types,omitempty"`
+	// +kubebuilder:validation:items:Enum=mediaPending;mediaApproved;mediaAutoApproved;mediaAutoRequested;mediaAvailable;mediaFailed;mediaDeclined;issueCreated;issueComment;issueResolved;issueReopened
+	// +listType=set
+	Types []string `json:"types,omitempty"`
 
 	// options sets the agent's settings, such as botUsername, chatId or
 	// enableMentions. Values keep their type, so enableMentions: false is off.

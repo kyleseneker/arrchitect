@@ -238,12 +238,24 @@ spec:
                         webhookUrl, botAPI or accessToken. They take precedence over options.
                       type: object
                     types:
-                      description: |-
-                        types is the notification type bitfield that controls which events trigger notifications.
-                        Common values: 2=media requested, 4=media auto-approved, 8=media approved,
-                        16=media available, 32=media failed, 64=media declined, 128=test notification.
-                        Combine with bitwise OR (e.g., 4094 for all types).
-                      type: integer
+                      description: types are the events that send a notification.
+                        An empty list sends none.
+                      items:
+                        enum:
+                        - mediaPending
+                        - mediaApproved
+                        - mediaAutoApproved
+                        - mediaAutoRequested
+                        - mediaAvailable
+                        - mediaFailed
+                        - mediaDeclined
+                        - issueCreated
+                        - issueComment
+                        - issueResolved
+                        - issueReopened
+                        type: string
+                      type: array
+                      x-kubernetes-list-type: set
                   required:
                   - agent
                   type: object

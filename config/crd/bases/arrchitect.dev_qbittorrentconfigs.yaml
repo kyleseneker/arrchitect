@@ -198,11 +198,13 @@ spec:
                       the active limits.
                     type: boolean
                   encryption:
-                    description: encryption controls the encryption mode. 0=prefer,
-                      1=force on, 2=force off.
-                    maximum: 2
-                    minimum: 0
-                    type: integer
+                    description: encryption controls whether peers may, must or must
+                      not encrypt connections.
+                    enum:
+                    - allow
+                    - require
+                    - disable
+                    type: string
                   excludedFileNames:
                     description: excludedFileNames are file name patterns to skip,
                       such as *.lnk.
