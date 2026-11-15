@@ -1,8 +1,12 @@
 package hack
 
 import (
+	"bytes"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"regexp"
+	"slices"
 	"strings"
 	"testing"
 
@@ -11,34 +15,61 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-type rbacRules struct {
+const chartDir = "../chart/media-operator"
+
+type manifest struct {
+	Kind     string `json:"kind"`
+	Metadata struct {
+		Name        string            `json:"name"`
+		Annotations map[string]string `json:"annotations"`
+	} `json:"metadata"`
 	Rules []struct {
 		APIGroups []string `json:"apiGroups"`
 		Resources []string `json:"resources"`
 		Verbs     []string `json:"verbs"`
 	} `json:"rules"`
+	Spec struct {
+		Template struct {
+			Spec struct {
+				Containers []struct {
+					Args []string `json:"args"`
+				} `json:"containers"`
+			} `json:"spec"`
+		} `json:"template"`
+	} `json:"spec"`
 }
 
-func grants(t *testing.T, path string) map[string]bool {
+func render(t *testing.T, args ...string) []manifest {
 	t.Helper()
-	data, err := os.ReadFile(path)
-	require.NoError(t, err)
-	_, rules, found := strings.Cut(string(data), "\nrules:\n")
-	require.True(t, found, "%s has no rules", path)
-	kept := []string{"rules:"}
-	for line := range strings.SplitSeq(rules, "\n") {
-		if !strings.HasPrefix(strings.TrimSpace(line), "{{") {
-			kept = append(kept, line)
+	helm, err := exec.LookPath("helm")
+	if err != nil {
+		t.Skip("helm is not installed")
+	}
+	out, err := exec.Command(helm, append([]string{"template", "test", chartDir}, args...)...).CombinedOutput()
+	require.NoError(t, err, "%s", out)
+	var manifests []manifest
+	for doc := range bytes.SplitSeq(out, []byte("\n---")) {
+		var m manifest
+		require.NoError(t, yaml.Unmarshal(doc, &m))
+		if m.Kind != "" {
+			manifests = append(manifests, m)
 		}
 	}
-	var role rbacRules
-	require.NoError(t, yaml.Unmarshal([]byte(strings.Join(kept, "\n")), &role), "parsing %s", path)
+	return manifests
+}
+
+func grantsOf(manifests []manifest, kinds ...string) map[string]bool {
 	out := map[string]bool{}
-	for _, r := range role.Rules {
-		for _, g := range r.APIGroups {
-			for _, res := range r.Resources {
-				for _, v := range r.Verbs {
-					out[g+" "+res+" "+v] = true
+	for _, m := range manifests {
+		if !slices.Contains(kinds, m.Kind) {
+			continue
+		}
+		for _, r := range m.Rules {
+			for _, g := range r.APIGroups {
+				for _, res := range r.Resources {
+					for _, v := range r.Verbs {
+						out[g+" "+res+" "+v] = true
+					}
 				}
 			}
 		}
@@ -46,30 +77,65 @@ func grants(t *testing.T, path string) map[string]bool {
 	return out
 }
 
-func TestChartClusterRolesGrantWhatTheControllersNeed(t *testing.T) {
-	generated := grants(t, "../config/rbac/role.yaml")
-	charts, err := filepath.Glob("../chart/*/templates/clusterrole.yaml")
+func controllerNames(t *testing.T) []string {
+	t.Helper()
+	main, err := os.ReadFile("../cmd/operator/main.go")
 	require.NoError(t, err)
-	require.NotEmpty(t, charts)
+	matches := regexp.MustCompile(`operator\.Controller\{Name: "(\w+)"`).FindAllSubmatch(main, -1)
+	names := make([]string, 0, len(matches))
+	for _, m := range matches {
+		names = append(names, string(m[1]))
+	}
+	require.NotEmpty(t, names)
+	return names
+}
 
-	for _, path := range charts {
-		chartDir := filepath.Dir(filepath.Dir(path))
-		crds, err := filepath.Glob(filepath.Join(chartDir, "crds", "media-operator.dev_*.yaml"))
-		require.NoError(t, err)
-		plurals := map[string]bool{}
-		for _, crd := range crds {
-			plurals[strings.TrimSuffix(strings.TrimPrefix(filepath.Base(crd), "media-operator.dev_"), ".yaml")] = true
-		}
+func TestChartGrantsWhatTheControllersNeed(t *testing.T) {
+	data, err := os.ReadFile("../config/rbac/role.yaml")
+	require.NoError(t, err)
+	var generated manifest
+	require.NoError(t, yaml.Unmarshal(data, &generated))
+	rendered := grantsOf(render(t), "ClusterRole")
 
-		chart := grants(t, path)
-		for grant := range generated {
-			group, rest, _ := strings.Cut(grant, " ")
-			resource, _, _ := strings.Cut(rest, " ")
-			base, _, _ := strings.Cut(resource, "/")
-			if group == "media-operator.dev" && !plurals[base] {
-				continue
-			}
-			assert.True(t, chart[grant], "%s is missing %q from config/rbac/role.yaml", filepath.Base(chartDir), grant)
+	for grant := range grantsOf([]manifest{generated}, "ClusterRole") {
+		assert.True(t, rendered[grant], "the chart's ClusterRole is missing %q from config/rbac/role.yaml", grant)
+	}
+	assert.False(t, rendered["coordination.k8s.io leases delete"], "leases belong in a Role in the release namespace")
+}
+
+func TestChartAppsMatchTheControllersAndCRDs(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join(chartDir, "values.yaml"))
+	require.NoError(t, err)
+	var values struct {
+		Apps map[string]bool `json:"apps"`
+	}
+	require.NoError(t, yaml.Unmarshal(data, &values))
+	apps := make([]string, 0, len(values.Apps))
+	for app := range values.Apps {
+		apps = append(apps, app)
+		assert.FileExists(t, filepath.Join(chartDir, "files/crds/media-operator.dev_"+app+"configs.yaml"))
+	}
+	assert.ElementsMatch(t, controllerNames(t), apps, "values.yaml apps and cmd/operator controllers differ")
+}
+
+func TestChartLeavesOutWhatAnAppTurnedOffNeeds(t *testing.T) {
+	manifests := render(t, "--set", "apps.tdarr=false")
+
+	var crds, args []string
+	for _, m := range manifests {
+		switch m.Kind {
+		case "CustomResourceDefinition":
+			crds = append(crds, m.Metadata.Name)
+			assert.Equal(t, "keep", m.Metadata.Annotations["helm.sh/resource-policy"],
+				"uninstalling must not delete %s", m.Metadata.Name)
+		case "Deployment":
+			args = m.Spec.Template.Spec.Containers[0].Args
 		}
 	}
+	assert.Len(t, crds, len(controllerNames(t))-1)
+	assert.NotContains(t, crds, "tdarrconfigs.media-operator.dev")
+	assert.NotContains(t, grantsOf(manifests, "ClusterRole"), "media-operator.dev tdarrconfigs get")
+	enabled := slices.IndexFunc(args, func(a string) bool { return strings.HasPrefix(a, "--enable-controllers=") })
+	require.GreaterOrEqual(t, enabled, 0)
+	assert.NotContains(t, strings.Split(strings.TrimPrefix(args[enabled], "--enable-controllers="), ","), "tdarr")
 }

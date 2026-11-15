@@ -14,35 +14,36 @@ only shows up against a real Sonarr or Jellyfin, so it helps to have one
 running.
 
 ```bash
-BINARY=pvr make run          # run one operator against your current kube context
-make build                   # every operator and the CLI
-BINARY=pvr make docker-build # that operator's image for this machine; IMG= to tag, ARCH= to cross-build
+make run                      # run the operator against your current kube context
+make build                    # the operator and the CLI
+make docker-build             # the operator's image for this machine; IMG= to tag, ARCH= to cross-build
 make test
-make manifests generate      # after editing anything in api/
-make sync-crds               # copy generated CRDs into the charts
+make manifests generate       # after editing anything in api/
+make sync-crds                # copy generated CRDs into the chart
 make lint
 ```
 
-`BINARY` is one of: `pvr`, `indexers`, `subtitles`, `downloads`, `mediaservers`,
-`requests`, `curation`, `transcode`, `automation`.
-
 ## Layout
 
-Nine operators, grouped by what the app does rather than by vendor family. Each
-has a `cmd/` entrypoint, an API package, a controller package, and a Helm chart,
-all named the same way.
+One binary, `cmd/operator`, runs a controller per app, and one chart,
+`chart/media-operator`, installs it with the CRDs of the apps it runs. The apps
+are grouped by what they do, each group with an API package and a controller
+package named the same way.
 
-| Binary | Apps | API package |
-|--------|------|-------------|
-| `media-operator-pvr` | Sonarr, Radarr, Lidarr, Readarr | `api/pvr/v1alpha1/` |
-| `media-operator-indexers` | Prowlarr, FlareSolverr | `api/indexers/v1alpha1/` |
-| `media-operator-subtitles` | Bazarr | `api/subtitles/v1alpha1/` |
-| `media-operator-downloads` | qBittorrent, SABnzbd | `api/downloads/v1alpha1/` |
-| `media-operator-mediaservers` | Jellyfin, Plex | `api/mediaservers/v1alpha1/` |
-| `media-operator-requests` | Seerr/Jellyseerr | `api/requests/v1alpha1/` |
-| `media-operator-curation` | Maintainerr | `api/curation/v1alpha1/` |
-| `media-operator-transcode` | Tdarr | `api/transcode/v1alpha1/` |
-| `media-operator-automation` | Autobrr | `api/automation/v1alpha1/` |
+| Group | Apps | API package |
+|-------|------|-------------|
+| `pvr` | Sonarr, Radarr, Lidarr, Readarr | `api/pvr/v1alpha1/` |
+| `indexers` | Prowlarr, FlareSolverr | `api/indexers/v1alpha1/` |
+| `subtitles` | Bazarr | `api/subtitles/v1alpha1/` |
+| `downloads` | qBittorrent, SABnzbd | `api/downloads/v1alpha1/` |
+| `mediaservers` | Jellyfin, Plex | `api/mediaservers/v1alpha1/` |
+| `requests` | Seerr/Jellyseerr | `api/requests/v1alpha1/` |
+| `curation` | Maintainerr | `api/curation/v1alpha1/` |
+| `transcode` | Tdarr | `api/transcode/v1alpha1/` |
+| `automation` | Autobrr | `api/automation/v1alpha1/` |
+
+A new app also needs its controller in `cmd/operator/main.go` and its name in
+the chart's `apps` and `media-operator.enabledApps`.
 
 ## Dependency updates
 

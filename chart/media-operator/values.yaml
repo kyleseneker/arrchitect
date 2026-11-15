@@ -1,0 +1,80 @@
+replicaCount: 1
+
+image:
+  repository: ghcr.io/kyleseneker/media-operator
+  tag: ""
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+apps:
+  sonarr: true
+  radarr: true
+  lidarr: true
+  readarr: true
+  prowlarr: true
+  flaresolverr: true
+  bazarr: true
+  qbittorrent: true
+  sabnzbd: true
+  jellyfin: true
+  plex: true
+  seerr: true
+  maintainerr: true
+  tdarr: true
+  autobrr: true
+
+crds:
+  enabled: true
+
+serviceAccount:
+  create: true
+  name: media-operator
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 96Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+
+watchNamespace: ""  # Empty watches all namespaces. Set to restrict, comma-separated (e.g., "media,arr")
+
+extraArgs: []
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext:
+  runAsNonRoot: true
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 65532
+  capabilities:
+    drop:
+      - ALL
+
+# Metrics & observability.
+# The operator exposes Prometheus metrics on :8443 over HTTPS with k8s TokenReview auth.
+# Built-in controller-runtime metrics and custom media_operator_* metrics are both served
+# on the same endpoint. media_operator_config_synced goes to 0 when a resource stops
+# reconciling, which is the one worth alerting on.
+metrics:
+  enabled: true
+  serviceMonitor:
+    # Requires the Prometheus Operator CRDs (monitoring.coreos.com/v1) to be installed.
+    # Leave disabled on clusters that don't use prometheus-operator.
+    enabled: false
+    interval: 30s
+    # Additional labels applied to the ServiceMonitor (e.g., for Prometheus selector matching).
+    labels: {}
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

@@ -17,32 +17,32 @@ and other self-hosted media apps from custom resources.
 
 ## Supported apps
 
-| App | Resource | Chart | Tested version |
-| --- | --- | --- | --- |
-| Sonarr | `SonarrConfig` | `media-operator-pvr` | 4.0.20 |
-| Radarr | `RadarrConfig` | `media-operator-pvr` | 6.4.4 |
-| Lidarr | `LidarrConfig` | `media-operator-pvr` | 3.1.6 |
-| Readarr | `ReadarrConfig` | `media-operator-pvr` | 0.4.18 |
-| Prowlarr | `ProwlarrConfig` | `media-operator-indexers` | 2.7.0 |
-| FlareSolverr | `FlareSolverrConfig` | `media-operator-indexers` | 3.5.2 |
-| Bazarr | `BazarrConfig` | `media-operator-subtitles` | 1.6.2 |
-| qBittorrent | `QBittorrentConfig` | `media-operator-downloads` | 5.3.0 |
-| SABnzbd | `SabnzbdConfig` | `media-operator-downloads` | 5.1.3 |
-| Jellyfin | `JellyfinConfig` | `media-operator-mediaservers` | 12.4 |
-| Plex | `PlexConfig` | `media-operator-mediaservers` | 1.43.5 |
-| Seerr | `SeerrConfig` | `media-operator-requests` | 3.5.1 |
-| Maintainerr | `MaintainerrConfig` | `media-operator-curation` | 3.32.0 |
-| Tdarr | `TdarrConfig` | `media-operator-transcode` | 3.06.00 |
-| Autobrr | `AutobrrConfig` | `media-operator-automation` | 1.90.0 |
+| App | Resource | Tested version |
+| --- | --- | --- |
+| Sonarr | `SonarrConfig` | 4.0.20 |
+| Radarr | `RadarrConfig` | 6.4.4 |
+| Lidarr | `LidarrConfig` | 3.1.6 |
+| Readarr | `ReadarrConfig` | 0.4.18 |
+| Prowlarr | `ProwlarrConfig` | 2.7.0 |
+| FlareSolverr | `FlareSolverrConfig` | 3.5.2 |
+| Bazarr | `BazarrConfig` | 1.6.2 |
+| qBittorrent | `QBittorrentConfig` | 5.3.0 |
+| SABnzbd | `SabnzbdConfig` | 5.1.3 |
+| Jellyfin | `JellyfinConfig` | 12.4 |
+| Plex | `PlexConfig` | 1.43.5 |
+| Seerr | `SeerrConfig` | 3.5.1 |
+| Maintainerr | `MaintainerrConfig` | 3.32.0 |
+| Tdarr | `TdarrConfig` | 3.06.00 |
+| Autobrr | `AutobrrConfig` | 1.90.0 |
 
 ## Getting started
 
-Install the chart for the apps you run:
+Install the chart. It runs every app's controller unless you turn some off in
+`apps`:
 
 ```bash
-helm install media-operator-pvr \
-  oci://ghcr.io/kyleseneker/media-operator/media-operator-pvr \
-  --namespace media
+helm install media-operator oci://ghcr.io/kyleseneker/charts/media-operator \
+  --namespace media --set apps.plex=false --set apps.autobrr=false
 ```
 
 Then apply a config. [examples/minimal-sonarr.yaml](examples/minimal-sonarr.yaml)

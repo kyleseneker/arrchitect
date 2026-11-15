@@ -16,4 +16,4 @@ against if you could.
 - [ ] Ran `make manifests generate sync-crds` if I touched `api/`
 - [ ] Added or updated a sample in `config/samples/` for new fields
 - [ ] New CRD fields have comments explaining them to someone unfamiliar with the app's API
-- [ ] If I added a new domain group, it's wired into `.goreleaser.yml`, the release workflow's chart matrix, and `BINARIES`
+- [ ] If I added an app, its controller is in `cmd/operator/main.go` and its name in the chart's `apps`

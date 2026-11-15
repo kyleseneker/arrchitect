@@ -5,8 +5,7 @@
 #   - Apps deployed and accessible at the URLs below
 #   - Secrets created (see secrets.yaml)
 #   - media-operator operator installed:
-#     helm install media-operator oci://ghcr.io/kyleseneker/media-operator/chart \
-#       --set enableControllers=sonarr,radarr,prowlarr,qbittorrent,plex,overseerr
+#     helm install media-operator oci://ghcr.io/kyleseneker/charts/media-operator
 ---
 apiVersion: media-operator.dev/v1alpha1
 kind: SonarrConfig

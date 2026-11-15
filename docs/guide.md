@@ -189,9 +189,10 @@ ServiceMonitor.
 
 ## Upgrading
 
-Helm installs CRDs on first install only. When a release changes CRDs, its
-release notes include the `kubectl apply` commands to update them. Breaking
-changes are listed at the top of the release notes.
+The chart installs and upgrades the CRDs of the apps it runs, and uninstalling
+it leaves them in place along with your resources. With `crds.enabled: false`,
+apply them yourself from the release assets; the release notes list the ones
+that changed. Breaking changes are listed at the top of the release notes.
 
 Versions before 0.34.2 also recorded pre-existing items in
 `status.managedResources`. Review that list before enabling prune on a resource
@@ -199,30 +200,30 @@ created by one of those versions.
 
 ## Verifying a release
 
-From v0.37.0, images and charts are signed with [cosign](https://docs.sigstore.dev/)
-by the release workflow:
+The image, the chart and the checksums file for the release archives are signed
+with [cosign](https://docs.sigstore.dev/) by the release workflow. With
+`VERSION` set to the release, without the `v`:
 
 ```bash
-cosign verify ghcr.io/kyleseneker/media-operator-pvr:0.37.0 \
-  --certificate-identity https://github.com/kyleseneker/media-operator/.github/workflows/release.yml@refs/tags/v0.37.0 \
+cosign verify ghcr.io/kyleseneker/media-operator:$VERSION \
+  --certificate-identity https://github.com/kyleseneker/media-operator/.github/workflows/release.yml@refs/tags/v$VERSION \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com
 ```
 
-Charts verify the same way, as
-`ghcr.io/kyleseneker/media-operator/media-operator-pvr:0.37.0`. Images include an
-SBOM:
+The chart verifies the same way, as `ghcr.io/kyleseneker/charts/media-operator:$VERSION`.
+The image includes an SBOM:
 
 ```bash
-docker buildx imagetools inspect ghcr.io/kyleseneker/media-operator-pvr:0.37.0 --format '{{ json .SBOM }}'
+docker buildx imagetools inspect ghcr.io/kyleseneker/media-operator:$VERSION --format '{{ json .SBOM }}'
 ```
 
-From v0.39.0, the checksums file for the release archives is signed as well.
-Download it with its `.sigstore.json` bundle, verify it, then check the archive:
+Download the checksums file with its `.sigstore.json` bundle, verify it, then
+check the archive:
 
 ```bash
-cosign verify-blob media-operator_0.39.0_checksums.txt \
-  --bundle media-operator_0.39.0_checksums.txt.sigstore.json \
-  --certificate-identity https://github.com/kyleseneker/media-operator/.github/workflows/release.yml@refs/tags/v0.39.0 \
+cosign verify-blob media-operator_${VERSION}_checksums.txt \
+  --bundle media-operator_${VERSION}_checksums.txt.sigstore.json \
+  --certificate-identity https://github.com/kyleseneker/media-operator/.github/workflows/release.yml@refs/tags/v$VERSION \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com
-sha256sum --ignore-missing -c media-operator_0.39.0_checksums.txt
+sha256sum --ignore-missing -c media-operator_${VERSION}_checksums.txt
 ```

@@ -1,0 +1,101 @@
+/*
+Copyright 2026.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package main
+
+import (
+	"k8s.io/apimachinery/pkg/runtime"
+
+	automationv1alpha1 "github.com/kyleseneker/media-operator/api/automation/v1alpha1"
+	curationv1alpha1 "github.com/kyleseneker/media-operator/api/curation/v1alpha1"
+	downloadsv1alpha1 "github.com/kyleseneker/media-operator/api/downloads/v1alpha1"
+	indexersv1alpha1 "github.com/kyleseneker/media-operator/api/indexers/v1alpha1"
+	mediaserversv1alpha1 "github.com/kyleseneker/media-operator/api/mediaservers/v1alpha1"
+	pvrv1alpha1 "github.com/kyleseneker/media-operator/api/pvr/v1alpha1"
+	requestsv1alpha1 "github.com/kyleseneker/media-operator/api/requests/v1alpha1"
+	subtitlesv1alpha1 "github.com/kyleseneker/media-operator/api/subtitles/v1alpha1"
+	transcodev1alpha1 "github.com/kyleseneker/media-operator/api/transcode/v1alpha1"
+	"github.com/kyleseneker/media-operator/internal/controller/automation"
+	"github.com/kyleseneker/media-operator/internal/controller/curation"
+	"github.com/kyleseneker/media-operator/internal/controller/downloads"
+	"github.com/kyleseneker/media-operator/internal/controller/indexers"
+	"github.com/kyleseneker/media-operator/internal/controller/mediaservers"
+	"github.com/kyleseneker/media-operator/internal/controller/pvr"
+	"github.com/kyleseneker/media-operator/internal/controller/requests"
+	"github.com/kyleseneker/media-operator/internal/controller/subtitles"
+	"github.com/kyleseneker/media-operator/internal/controller/transcode"
+	"github.com/kyleseneker/media-operator/internal/operator"
+)
+
+func main() {
+	operator.Run([]func(*runtime.Scheme) error{
+		pvrv1alpha1.AddToScheme,
+		indexersv1alpha1.AddToScheme,
+		subtitlesv1alpha1.AddToScheme,
+		downloadsv1alpha1.AddToScheme,
+		mediaserversv1alpha1.AddToScheme,
+		requestsv1alpha1.AddToScheme,
+		curationv1alpha1.AddToScheme,
+		transcodev1alpha1.AddToScheme,
+		automationv1alpha1.AddToScheme,
+	},
+		operator.Controller{Name: "sonarr", New: func(d operator.Deps) operator.Reconciler {
+			return &pvr.SonarrConfigReconciler{Client: d.Client, Scheme: d.Scheme, Recorder: d.Recorder}
+		}},
+		operator.Controller{Name: "radarr", New: func(d operator.Deps) operator.Reconciler {
+			return &pvr.RadarrConfigReconciler{Client: d.Client, Scheme: d.Scheme, Recorder: d.Recorder}
+		}},
+		operator.Controller{Name: "lidarr", New: func(d operator.Deps) operator.Reconciler {
+			return &pvr.LidarrConfigReconciler{Client: d.Client, Scheme: d.Scheme, Recorder: d.Recorder}
+		}},
+		operator.Controller{Name: "readarr", New: func(d operator.Deps) operator.Reconciler {
+			return &pvr.ReadarrConfigReconciler{Client: d.Client, Scheme: d.Scheme, Recorder: d.Recorder}
+		}},
+		operator.Controller{Name: "prowlarr", New: func(d operator.Deps) operator.Reconciler {
+			return &indexers.ProwlarrConfigReconciler{Client: d.Client, Scheme: d.Scheme, Recorder: d.Recorder}
+		}},
+		operator.Controller{Name: "flaresolverr", New: func(d operator.Deps) operator.Reconciler {
+			return &indexers.FlareSolverrConfigReconciler{Client: d.Client, Scheme: d.Scheme, Recorder: d.Recorder}
+		}},
+		operator.Controller{Name: "bazarr", New: func(d operator.Deps) operator.Reconciler {
+			return &subtitles.BazarrConfigReconciler{Client: d.Client, Scheme: d.Scheme, Recorder: d.Recorder}
+		}},
+		operator.Controller{Name: "qbittorrent", New: func(d operator.Deps) operator.Reconciler {
+			return &downloads.QBittorrentConfigReconciler{Client: d.Client, Scheme: d.Scheme, Recorder: d.Recorder}
+		}},
+		operator.Controller{Name: "sabnzbd", New: func(d operator.Deps) operator.Reconciler {
+			return &downloads.SabnzbdConfigReconciler{Client: d.Client, Scheme: d.Scheme, Recorder: d.Recorder}
+		}},
+		operator.Controller{Name: "jellyfin", New: func(d operator.Deps) operator.Reconciler {
+			return &mediaservers.JellyfinConfigReconciler{Client: d.Client, Scheme: d.Scheme, Recorder: d.Recorder}
+		}},
+		operator.Controller{Name: "plex", New: func(d operator.Deps) operator.Reconciler {
+			return &mediaservers.PlexConfigReconciler{Client: d.Client, Scheme: d.Scheme, Recorder: d.Recorder}
+		}},
+		operator.Controller{Name: "seerr", New: func(d operator.Deps) operator.Reconciler {
+			return &requests.SeerrConfigReconciler{Client: d.Client, Scheme: d.Scheme, Recorder: d.Recorder}
+		}},
+		operator.Controller{Name: "maintainerr", New: func(d operator.Deps) operator.Reconciler {
+			return &curation.MaintainerrConfigReconciler{Client: d.Client, Scheme: d.Scheme, Recorder: d.Recorder}
+		}},
+		operator.Controller{Name: "tdarr", New: func(d operator.Deps) operator.Reconciler {
+			return &transcode.TdarrConfigReconciler{Client: d.Client, Scheme: d.Scheme, Recorder: d.Recorder}
+		}},
+		operator.Controller{Name: "autobrr", New: func(d operator.Deps) operator.Reconciler {
+			return &automation.AutobrrConfigReconciler{Client: d.Client, Scheme: d.Scheme, Recorder: d.Recorder}
+		}},
+	)
+}

@@ -1,4 +1,4 @@
-// Package operator runs one media-operator binary: its flags, manager and
+// Package operator runs the media-operator manager: its flags, manager and
 // controllers.
 package operator
 
@@ -42,7 +42,7 @@ type Deps struct {
 	Recorder events.EventRecorder
 }
 
-// Controller is one integration a binary runs.
+// Controller is one integration the manager runs.
 type Controller struct {
 	Name string
 	New  func(Deps) Reconciler
@@ -50,12 +50,14 @@ type Controller struct {
 
 var setupLog = ctrl.Log.WithName("setup")
 
-// Run parses the flags, starts the manager for the named binary with the
-// given controllers, and blocks until it stops. It exits the process on error.
-func Run(binary string, addToScheme func(*runtime.Scheme) error, controllers ...Controller) {
+// Run parses the flags, starts the manager with the given schemes and
+// controllers, and blocks until it stops. It exits the process on error.
+func Run(addToSchemes []func(*runtime.Scheme) error, controllers ...Controller) {
 	scheme := runtime.NewScheme()
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
-	utilruntime.Must(addToScheme(scheme))
+	for _, add := range addToSchemes {
+		utilruntime.Must(add(scheme))
+	}
 
 	var metricsAddr string
 	var metricsCertPath, metricsCertName, metricsCertKey string
@@ -166,7 +168,7 @@ func Run(binary string, addToScheme func(*runtime.Scheme) error, controllers ...
 		WebhookServer:          webhookServer,
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
-		LeaderElectionID:       "media-operator-" + binary + ".media-operator.dev",
+		LeaderElectionID:       "media-operator.media-operator.dev",
 		Cache:                  cacheOptions,
 		Client:                 ClientOptions(),
 		Controller:             config.Controller{MaxConcurrentReconciles: maxConcurrentReconciles},
@@ -206,7 +208,7 @@ func Run(binary string, addToScheme func(*runtime.Scheme) error, controllers ...
 }
 
 // ClientOptions read Secrets from the API server when they are used. The
-// controllers watch Secrets by metadata only, so no binary keeps a copy of
+// controllers watch Secrets by metadata only, so the manager keeps no copy of
 // every Secret it can see.
 func ClientOptions() client.Options {
 	return client.Options{Cache: &client.CacheOptions{DisableFor: []client.Object{&corev1.Secret{}}}}
@@ -228,7 +230,7 @@ func watchedNamespaces(flagValue string) map[string]cache.Config {
 }
 
 // resolveEnabledControllers computes which controllers are enabled based on the
-// --enable-controllers and --disable-controllers flags. A name the binary
+// --enable-controllers and --disable-controllers flags. A name the manager
 // doesn't run is an error rather than a controller silently left off.
 func resolveEnabledControllers(controllers []Controller, enable, disable string) (map[string]bool, error) {
 	known := make(map[string]bool, len(controllers))
@@ -244,7 +246,7 @@ func resolveEnabledControllers(controllers []Controller, enable, disable string)
 				continue
 			}
 			if _, ok := known[name]; !ok {
-				return fmt.Errorf("unknown controller %q; this binary runs %s", name, strings.Join(names, ", "))
+				return fmt.Errorf("unknown controller %q; the controllers are %s", name, strings.Join(names, ", "))
 			}
 			known[name] = value
 		}

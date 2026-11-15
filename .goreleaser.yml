@@ -1,65 +1,9 @@
 version: 2
 
 builds:
-  - id: media-operator-pvr
-    main: ./cmd/pvr
-    binary: media-operator-pvr
-    env: [CGO_ENABLED=0]
-    goos: [linux]
-    goarch: [amd64, arm64]
-    ldflags: ["-s -w -X main.version={{.Version}} -X main.commit={{.Commit}}"]
-  - id: media-operator-indexers
-    main: ./cmd/indexers
-    binary: media-operator-indexers
-    env: [CGO_ENABLED=0]
-    goos: [linux]
-    goarch: [amd64, arm64]
-    ldflags: ["-s -w -X main.version={{.Version}} -X main.commit={{.Commit}}"]
-  - id: media-operator-subtitles
-    main: ./cmd/subtitles
-    binary: media-operator-subtitles
-    env: [CGO_ENABLED=0]
-    goos: [linux]
-    goarch: [amd64, arm64]
-    ldflags: ["-s -w -X main.version={{.Version}} -X main.commit={{.Commit}}"]
-  - id: media-operator-curation
-    main: ./cmd/curation
-    binary: media-operator-curation
-    env: [CGO_ENABLED=0]
-    goos: [linux]
-    goarch: [amd64, arm64]
-    ldflags: ["-s -w -X main.version={{.Version}} -X main.commit={{.Commit}}"]
-  - id: media-operator-downloads
-    main: ./cmd/downloads
-    binary: media-operator-downloads
-    env: [CGO_ENABLED=0]
-    goos: [linux]
-    goarch: [amd64, arm64]
-    ldflags: ["-s -w -X main.version={{.Version}} -X main.commit={{.Commit}}"]
-  - id: media-operator-mediaservers
-    main: ./cmd/mediaservers
-    binary: media-operator-mediaservers
-    env: [CGO_ENABLED=0]
-    goos: [linux]
-    goarch: [amd64, arm64]
-    ldflags: ["-s -w -X main.version={{.Version}} -X main.commit={{.Commit}}"]
-  - id: media-operator-requests
-    main: ./cmd/requests
-    binary: media-operator-requests
-    env: [CGO_ENABLED=0]
-    goos: [linux]
-    goarch: [amd64, arm64]
-    ldflags: ["-s -w -X main.version={{.Version}} -X main.commit={{.Commit}}"]
-  - id: media-operator-transcode
-    main: ./cmd/transcode
-    binary: media-operator-transcode
-    env: [CGO_ENABLED=0]
-    goos: [linux]
-    goarch: [amd64, arm64]
-    ldflags: ["-s -w -X main.version={{.Version}} -X main.commit={{.Commit}}"]
-  - id: media-operator-automation
-    main: ./cmd/automation
-    binary: media-operator-automation
+  - id: media-operator
+    main: ./cmd/operator
+    binary: media-operator-operator
     env: [CGO_ENABLED=0]
     goos: [linux]
     goarch: [amd64, arm64]
@@ -73,14 +17,14 @@ builds:
     ldflags: ["-s -w -X main.version={{.Version}} -X main.commit={{.Commit}}"]
 
 dockers_v2:
-  - id: media-operator-pvr
-    ids: [media-operator-pvr]
-    images: [ghcr.io/kyleseneker/media-operator-pvr]
+  - id: media-operator
+    ids: [media-operator]
+    images: [ghcr.io/kyleseneker/media-operator]
     tags: ["{{ .Version }}", latest]
     platforms: [linux/amd64, linux/arm64]
     sbom: "{{ not .IsSnapshot }}"
     build_args:
-      BINARY: media-operator-pvr
+      BINARY: media-operator-operator
     annotations: &image-annotations
       "org.opencontainers.image.source": https://github.com/kyleseneker/media-operator
       "org.opencontainers.image.revision": "{{ .FullCommit }}"
@@ -89,95 +33,7 @@ dockers_v2:
       "org.opencontainers.image.licenses": Apache-2.0
       "org.opencontainers.image.base.name": "{{ .BaseImage }}"
       "org.opencontainers.image.base.digest": "{{ .BaseImageDigest }}"
-      "org.opencontainers.image.description": Manages Sonarr, Radarr, Lidarr and Readarr configuration as Kubernetes resources
-  - id: media-operator-indexers
-    ids: [media-operator-indexers]
-    images: [ghcr.io/kyleseneker/media-operator-indexers]
-    tags: ["{{ .Version }}", latest]
-    platforms: [linux/amd64, linux/arm64]
-    sbom: "{{ not .IsSnapshot }}"
-    build_args:
-      BINARY: media-operator-indexers
-    annotations:
-      <<: *image-annotations
-      "org.opencontainers.image.description": Manages Prowlarr and FlareSolverr configuration as Kubernetes resources
-  - id: media-operator-subtitles
-    ids: [media-operator-subtitles]
-    images: [ghcr.io/kyleseneker/media-operator-subtitles]
-    tags: ["{{ .Version }}", latest]
-    platforms: [linux/amd64, linux/arm64]
-    sbom: "{{ not .IsSnapshot }}"
-    build_args:
-      BINARY: media-operator-subtitles
-    annotations:
-      <<: *image-annotations
-      "org.opencontainers.image.description": Manages Bazarr configuration as Kubernetes resources
-  - id: media-operator-curation
-    ids: [media-operator-curation]
-    images: [ghcr.io/kyleseneker/media-operator-curation]
-    tags: ["{{ .Version }}", latest]
-    platforms: [linux/amd64, linux/arm64]
-    sbom: "{{ not .IsSnapshot }}"
-    build_args:
-      BINARY: media-operator-curation
-    annotations:
-      <<: *image-annotations
-      "org.opencontainers.image.description": Manages Maintainerr configuration as Kubernetes resources
-  - id: media-operator-downloads
-    ids: [media-operator-downloads]
-    images: [ghcr.io/kyleseneker/media-operator-downloads]
-    tags: ["{{ .Version }}", latest]
-    platforms: [linux/amd64, linux/arm64]
-    sbom: "{{ not .IsSnapshot }}"
-    build_args:
-      BINARY: media-operator-downloads
-    annotations:
-      <<: *image-annotations
-      "org.opencontainers.image.description": Manages qBittorrent and SABnzbd configuration as Kubernetes resources
-  - id: media-operator-mediaservers
-    ids: [media-operator-mediaservers]
-    images: [ghcr.io/kyleseneker/media-operator-mediaservers]
-    tags: ["{{ .Version }}", latest]
-    platforms: [linux/amd64, linux/arm64]
-    sbom: "{{ not .IsSnapshot }}"
-    build_args:
-      BINARY: media-operator-mediaservers
-    annotations:
-      <<: *image-annotations
-      "org.opencontainers.image.description": Manages Jellyfin and Plex configuration as Kubernetes resources
-  - id: media-operator-requests
-    ids: [media-operator-requests]
-    images: [ghcr.io/kyleseneker/media-operator-requests]
-    tags: ["{{ .Version }}", latest]
-    platforms: [linux/amd64, linux/arm64]
-    sbom: "{{ not .IsSnapshot }}"
-    build_args:
-      BINARY: media-operator-requests
-    annotations:
-      <<: *image-annotations
-      "org.opencontainers.image.description": Manages Seerr configuration as Kubernetes resources
-  - id: media-operator-transcode
-    ids: [media-operator-transcode]
-    images: [ghcr.io/kyleseneker/media-operator-transcode]
-    tags: ["{{ .Version }}", latest]
-    platforms: [linux/amd64, linux/arm64]
-    sbom: "{{ not .IsSnapshot }}"
-    build_args:
-      BINARY: media-operator-transcode
-    annotations:
-      <<: *image-annotations
-      "org.opencontainers.image.description": Manages Tdarr configuration as Kubernetes resources
-  - id: media-operator-automation
-    ids: [media-operator-automation]
-    images: [ghcr.io/kyleseneker/media-operator-automation]
-    tags: ["{{ .Version }}", latest]
-    platforms: [linux/amd64, linux/arm64]
-    sbom: "{{ not .IsSnapshot }}"
-    build_args:
-      BINARY: media-operator-automation
-    annotations:
-      <<: *image-annotations
-      "org.opencontainers.image.description": Manages Autobrr configuration as Kubernetes resources
+      "org.opencontainers.image.description": Configures Sonarr, Radarr, Prowlarr, Jellyfin, Plex and other media apps from Kubernetes resources
   - id: media-operator-cli
     ids: [media-operator-cli]
     images: [ghcr.io/kyleseneker/media-operator-cli]
@@ -201,9 +57,8 @@ signs:
     args: ["sign-blob", "--bundle=${signature}", "--yes", "${artifact}"]
 
 archives:
-  - id: operators
-    ids: [media-operator-pvr, media-operator-indexers, media-operator-subtitles, media-operator-curation, media-operator-downloads,
-          media-operator-mediaservers, media-operator-requests, media-operator-transcode, media-operator-automation]
+  - id: operator
+    ids: [media-operator]
     formats: ['tar.gz']
   - id: cli
     ids: [media-operator-cli]
@@ -246,7 +101,7 @@ release:
   footer: |
     {{ if isEnvSet "CHANGED_CRDS" }}## CRD changes
 
-    Helm installs a chart's CRDs on first install and never upgrades them. Apply the changed ones for the operators you run before upgrading their charts:
+    The chart installs and upgrades the CRDs of the apps it runs. With `crds.enabled: false`, apply the changed ones yourself before upgrading:
 
     ```bash
     for crd in {{ .Env.CHANGED_CRDS }}; do
@@ -256,8 +111,8 @@ release:
     {{ end }}
     ## Install
 
-    - Charts: `oci://ghcr.io/kyleseneker/media-operator/media-operator-<operator>`, version `{{ .Version }}`
-    - Images: `ghcr.io/kyleseneker/media-operator-<operator>:{{ .Version }}`
+    - Chart: `oci://ghcr.io/kyleseneker/charts/media-operator`, version `{{ .Version }}`
+    - Image: `ghcr.io/kyleseneker/media-operator:{{ .Version }}`
     - CLI: the `media-operator-cli` archives below, or `ghcr.io/kyleseneker/media-operator-cli:{{ .Version }}`
     - Tested app versions: [supported apps](https://github.com/kyleseneker/media-operator/blob/{{ .Tag }}/README.md#supported-apps)
   extra_files:
