@@ -181,8 +181,8 @@ spec:
                     type: integer
                   preferredNetworkInterface:
                     description: |-
-                      preferredNetworkInterface is the interface Plex uses, such as eth0. Empty
-                      means any.
+                      preferredNetworkInterface is the interface Plex uses, such as eth0. An
+                      empty string means any.
                     type: string
                   relayEnabled:
                     description: relayEnabled lets clients that can't connect directly
@@ -331,11 +331,6 @@ spec:
                     - scheduled
                     - asap
                     type: string
-                  language:
-                    description: |-
-                      language is not a setting current Plex has; Plex rejects it and reports why.
-                      Set a library's language on the library instead.
-                    type: string
                   libraryScanInterval:
                     description: libraryScanInterval is how often, in seconds, scanMyLibraryPeriodically
                       scans.
@@ -407,11 +402,6 @@ spec:
                     description: maxSimultaneousVideoTranscodes limits concurrent
                       transcodes. 0 = unlimited.
                     type: integer
-                  transcodeHwDecodingEnabled:
-                    description: |-
-                      transcodeHwDecodingEnabled is not a setting current Plex has; Plex rejects it
-                      and reports why. transcodeHwRequested covers hardware decoding.
-                    type: boolean
                   transcodeHwEncodingEnabled:
                     description: transcodeHwEncodingEnabled enables hardware encoding.
                     type: boolean

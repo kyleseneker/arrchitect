@@ -276,11 +276,6 @@ spec:
                     description: scriptCanFail lets a job's post-processing script
                       fail without failing the job.
                     type: boolean
-                  scriptDir:
-                    description: |-
-                      scriptDir is the path to the scripts directory.
-                      Deprecated: use folders.scriptDir, which takes precedence when both are set.
-                    type: string
                   sfvCheck:
                     description: sfvCheck verifies jobs without par2 files against
                       their SFV files.

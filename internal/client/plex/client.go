@@ -18,7 +18,7 @@ type Client struct {
 // preference it sets.
 var Preferences = map[string]map[string]string{
 	"server": {
-		"friendlyName": "FriendlyName", "language": "language", "autoEmptyTrash": "autoEmptyTrash",
+		"friendlyName": "FriendlyName", "autoEmptyTrash": "autoEmptyTrash",
 		"scanMyLibraryAutomatically": "FSEventLibraryUpdatesEnabled", "scanMyLibraryPeriodically": "ScheduledLibraryUpdatesEnabled",
 		"logDebug": "logDebug", "enableRemoteAccess": "PublishServerOnPlexOnlineKey",
 		"scanMyLibraryPartially": "FSEventLibraryPartialScanEnabled", "libraryScanInterval": "ScheduledLibraryUpdateInterval",
@@ -36,8 +36,8 @@ var Preferences = map[string]map[string]string{
 	},
 	"transcoder": {
 		"transcodeHwRequested": "HardwareAcceleratedCodecs", "hardwareAccelerationType": "HardwareAccelerationType",
-		"maxSimultaneousVideoTranscodes": "TranscodeCountLimit", "transcodeHwDecodingEnabled": "TranscodeHwDecodingEnabled",
-		"transcodeHwEncodingEnabled": "HardwareAcceleratedEncoders", "transcoderTempDirectory": "TranscoderTempDirectory",
+		"maxSimultaneousVideoTranscodes": "TranscodeCountLimit",
+		"transcodeHwEncodingEnabled":     "HardwareAcceleratedEncoders", "transcoderTempDirectory": "TranscoderTempDirectory",
 		"transcoderQuality": "TranscoderQuality", "transcoderThrottleBuffer": "TranscoderThrottleBuffer",
 		"transcoderH264BackgroundPreset": "TranscoderH264BackgroundPreset", "transcoderHevcEncoding": "TranscoderHEVCEncoding",
 		"downloadsTempDirectory": "DownloadsTempDirectory",

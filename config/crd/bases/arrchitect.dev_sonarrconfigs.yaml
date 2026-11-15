@@ -571,12 +571,6 @@ spec:
                       description: 'seriesType is the series type for imported items
                         (Sonarr: standard, daily, anime).'
                       type: string
-                    shouldMonitor:
-                      description: |-
-                        shouldMonitor is deprecated; use monitor. It predates the per-app values: true
-                        monitors everything (Sonarr all, Radarr movieOnly, Lidarr entireArtist, Readarr
-                        entireAuthor) and false monitors nothing. Ignored when monitor is set.
-                      type: boolean
                     tagLabels:
                       description: |-
                         tagLabels references tags by label, resolved against the app on each
@@ -770,8 +764,9 @@ spec:
                       space in MB required to import.
                     type: integer
                   recycleBin:
-                    description: recycleBin is the path to the recycling bin folder.
-                      Empty disables.
+                    description: |-
+                      recycleBin is the path to the recycling bin folder. An empty string
+                      turns the recycling bin off.
                     type: string
                   recycleBinCleanupDays:
                     description: recycleBinCleanupDays is how many days files stay

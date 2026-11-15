@@ -266,6 +266,13 @@ func TestPlexPreferencesUseCurrentPlexNames(t *testing.T) {
 	}, prefs)
 }
 
+func TestPlexSendsAnEmptyPreferredNetworkInterface(t *testing.T) {
+	prefs := buildPlexPreferences(mediaserversv1alpha1.PlexConfigSpec{
+		Network: &mediaserversv1alpha1.PlexNetwork{PreferredNetworkInterface: new("")},
+	})
+	assert.Equal(t, map[string]string{"PreferredNetworkInterface": ""}, prefs, "an empty interface means any")
+}
+
 // Plex accepts a preferences PUT for keys it does not recognise and answers 200,
 // so a spec field the builder never maps is silently inert.
 func TestPlexServerFieldsAllMapToPreferences(t *testing.T) {

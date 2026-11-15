@@ -208,6 +208,8 @@ func buildPlexPreferences(spec mediaserversv1alpha1.PlexConfigSpec) map[string]s
 			switch {
 			case fv.Kind() == reflect.String && fv.String() != "":
 				prefs[id] = fv.String()
+			case fv.Kind() == reflect.Pointer && !fv.IsNil() && fv.Elem().Kind() == reflect.String:
+				prefs[id] = fv.Elem().String()
 			case fv.Kind() == reflect.Pointer && !fv.IsNil() && fv.Elem().Kind() == reflect.Bool:
 				prefs[id] = ctrlcommon.BoolTo01(fv.Elem().Bool())
 			case fv.Kind() == reflect.Pointer && !fv.IsNil() && fv.Elem().Kind() == reflect.Int:

@@ -225,13 +225,6 @@ func (s *autobrrSync) downloadClient(ctx context.Context, dc automationv1alpha1.
 		obj["settings"] = map[string]any{"apikey": val}
 	}
 
-	// Category, save path and content layout are set on filter actions in
-	// Autobrr; a download client has no such fields and drops them.
-	if dc.Settings != nil && (dc.Settings.Category != "" || dc.Settings.SavePath != "" ||
-		dc.Settings.ContentLayout != "" || dc.Settings.PrioritizeProperRepacks != nil) {
-		return fmt.Errorf("settings are not download client fields in Autobrr; set category, savePath and contentLayout on filter actions")
-	}
-
 	return s.upsert(ctx, "download client", dc.Name, existing, obj,
 		s.created("downloadClients", dc.Name, func() error {
 			return s.ac.CreateDownloadClient(ctx, createBody(obj, map[string]any{"enabled": true}))
