@@ -165,10 +165,8 @@ func TestLidarr(t *testing.T) {
 	t.Parallel()
 	lidarr, key := startPVR(t, "lidarr", lidarrImage, 8686, "v1")
 	lidarr.exec(t, "mkdir -p /data/media/music && chown -R abc:abc /data")
-	seedDelayProfile(t, directClient(t, lidarr.url(), key), "/api/v1", "live", map[string]any{"items": []any{
-		map[string]any{"name": "Usenet", "protocol": "UsenetDownloadProtocol", "allowed": true, "delay": 0},
-		map[string]any{"name": "Torrent", "protocol": "TorrentDownloadProtocol", "allowed": true, "delay": 0},
-	}})
+	lidarrHC := directClient(t, lidarr.url(), key)
+	seedDelayProfile(t, lidarrHC, "/api/v1", "live", lidarrDelayProfile(t, lidarrHC))
 	qbit, qbitPassword := startQBittorrent(t)
 	fakes := startFakes(t)
 	proxy := newRecordingProxy(t, lidarr.url())
@@ -207,6 +205,14 @@ func TestLidarr(t *testing.T) {
 
 			profiles, order := delayProfiles(t, hc, "/api/v1")
 			assert.Equal(t, []string{"favorites", "live"}, order, "the adopted live profile should have moved after favorites")
+			if _, protocolItems := profiles["favorites"]["items"]; !protocolItems {
+				assert.Equal(t, "torrent", profiles["favorites"]["preferredProtocol"])
+				assert.Equal(t, false, profiles["favorites"]["enableUsenet"])
+				assert.InDelta(t, 15, profiles["favorites"]["torrentDelay"], 0)
+				assert.InDelta(t, 5, profiles["live"]["usenetDelay"], 0)
+				assert.InDelta(t, 30, profiles["default"]["usenetDelay"], 0)
+				return
+			}
 			items := list(profiles["favorites"]["items"])
 			require.Len(t, items, 2)
 			assert.Equal(t, "TorrentDownloadProtocol", items[0]["protocol"], "the preferred protocol goes first")
@@ -289,6 +295,25 @@ func seedDelayProfile(t *testing.T, hc *engine.HTTPClient, prefix, tag string, p
 	profile["tags"] = []any{created["id"]}
 	_, err = hc.Do(ctx, http.MethodPost, prefix+"/delayprofile", profile)
 	require.NoError(t, err)
+}
+
+// lidarrDelayProfile returns a delay profile in the shape the running Lidarr
+// takes: Lidarr 3.1 lists protocols as items, earlier versions have flags.
+func lidarrDelayProfile(t *testing.T, hc *engine.HTTPClient) map[string]any {
+	t.Helper()
+	profiles, err := hc.GetJSONList(context.Background(), "/api/v1/delayprofile")
+	require.NoError(t, err)
+	if len(profiles) > 0 {
+		if _, ok := profiles[0]["items"]; ok {
+			return map[string]any{"items": []any{
+				map[string]any{"name": "Usenet", "protocol": "UsenetDownloadProtocol", "allowed": true, "delay": 0},
+				map[string]any{"name": "Torrent", "protocol": "TorrentDownloadProtocol", "allowed": true, "delay": 0},
+			}}
+		}
+	}
+	return map[string]any{
+		"enableUsenet": true, "enableTorrent": true, "preferredProtocol": "usenet", "usenetDelay": 0, "torrentDelay": 0,
+	}
 }
 
 func qualityDefinition(t *testing.T, hc *engine.HTTPClient, prefix, quality string) map[string]any {
