@@ -330,7 +330,7 @@ func TestAutobrrIndexerUsesItsDefinition(t *testing.T) {
 	cfg.Spec.Indexers = []automationv1alpha1.AutobrrIndexer{{
 		Name: "IPT", Identifier: "ipt",
 		Settings: []commonv1alpha1.ConfigField{{
-			Name: "passkey", ValueFrom: &commonv1alpha1.SecretKeyRef{Name: "autobrr-credentials", Key: "api-key"},
+			Name: "passkey", ValueFrom: &commonv1alpha1.ValueSource{SecretKeyRef: commonv1alpha1.SecretKeyRef{Name: "autobrr-credentials", Key: "api-key"}},
 		}},
 	}}
 

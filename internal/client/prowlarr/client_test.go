@@ -139,8 +139,8 @@ func TestBuildProwlarrIndexerPayload(t *testing.T) {
 			idx: indexersv1alpha1.ProwlarrIndexer{
 				Name: "NZBgeek", Implementation: "Newznab", ConfigContract: "NewznabSettings",
 				Enable: new(false), AppProfileId: new(1), Priority: new(25),
-				Fields: []indexersv1alpha1.ProwlarrField{
-					{Name: "baseUrl", Value: new("http://nzbgeek.info")},
+				Fields: []commonv1alpha1.ConfigField{
+					{Name: "baseUrl", Value: &commonv1alpha1.FieldValue{Raw: []byte(`"http://nzbgeek.info"`)}},
 					{Name: "apiKey", Value: nil},
 				},
 				TagLabels: []string{"tag1"},
@@ -153,7 +153,7 @@ func TestBuildProwlarrIndexerPayload(t *testing.T) {
 				fields := p["fields"].([]map[string]any)
 				require.Len(t, fields, 2)
 				assert.Equal(t, "http://nzbgeek.info", fields[0]["value"])
-				assert.Equal(t, "", fields[1]["value"]) // nil Value becomes ""
+				assert.Nil(t, fields[1]["value"])
 			},
 		},
 	}
@@ -229,8 +229,8 @@ func TestBuildProwlarrDownloadClientPayload(t *testing.T) {
 				Categories: []indexersv1alpha1.ProwlarrDownloadClientCategory{
 					{ClientCategory: "tv", Categories: []int{5030, 5040}},
 				},
-				Fields: []indexersv1alpha1.ProwlarrField{
-					{Name: "host", Value: new("qbit.local")},
+				Fields: []commonv1alpha1.ConfigField{
+					{Name: "host", Value: &commonv1alpha1.FieldValue{Raw: []byte(`"qbit.local"`)}},
 				},
 			},
 			check: func(t *testing.T, p map[string]any) {

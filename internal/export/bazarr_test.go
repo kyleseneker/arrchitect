@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
 	subtitlesv1alpha1 "github.com/kyleseneker/arrchitect/api/subtitles/v1alpha1"
 )
 
@@ -85,10 +86,10 @@ func TestBazarrProviderSecretsMoveToTheSecret(t *testing.T) {
 	require.Len(t, cfg.Spec.Providers, 2)
 	os := cfg.Spec.Providers[0]
 	assert.Equal(t, "opensubtitlescom", os.Name)
-	assert.Equal(t, map[string]string{
-		"username": "me", "password": "ENV:bazarr-credentials:provider-opensubtitlescom-password",
-		"use_hash": "true", "vip": "false",
-	}, os.Settings)
+	assert.Equal(t, map[string]string{"username": "me", "use_hash": "true", "vip": "false"}, os.Settings)
+	assert.Equal(t, map[string]commonv1alpha1.SecretKeyRef{
+		"password": {Name: "bazarr-credentials", Key: "provider-opensubtitlescom-password"},
+	}, os.SecretSettings)
 	assert.Equal(t, "hunter2", res.Secret.StringData["provider-opensubtitlescom-password"])
 	assert.Contains(t, res.Warnings, `provider "opensubtitlescom": BazarrConfig provider settings hold text, so extra stays as set in Bazarr`)
 	assert.Empty(t, cfg.Spec.Providers[1].Settings)

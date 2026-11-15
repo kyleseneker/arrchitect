@@ -2,7 +2,6 @@ package export
 
 import (
 	"reflect"
-	"strconv"
 
 	"github.com/kyleseneker/arrchitect/internal/reconciler"
 )
@@ -67,7 +66,7 @@ func (e *prowlarrExport) indexer(item map[string]any, _ map[string]map[string]an
 	if id, ok := item["appProfileId"].(float64); ok {
 		idx["appProfileName"] = e.appProfiles[id]
 	}
-	idx["fields"] = e.textFields(item, nil, "indexer")
+	idx["fields"] = e.providerFields(item, nil, "indexer")
 	idx["tagLabels"] = e.tagLabels(item)
 	return idx
 }
@@ -92,45 +91,29 @@ func (e *prowlarrExport) proxy(item map[string]any, _ map[string]map[string]any)
 func (e *prowlarrExport) downloadClient(item map[string]any, defaults map[string]map[string]any) map[string]any {
 	dc := pick(item, "name", "enable", "protocol", "implementation", "configContract", "priority", "categories")
 	protocol(dc)
-	dc["fields"] = e.textFields(item, defaults, "download-client")
+	dc["fields"] = e.providerFields(item, defaults, "download-client")
 	dc["tagLabels"] = e.tagLabels(item)
 	return dc
 }
 
-// textFields renders provider fields as the strings ProwlarrField holds;
-// Prowlarr reads them back typed, and the operator compares them as text.
-// Indexers pass no defaults: Prowlarr's indexer schema lists every tracker.
-func (e *prowlarrExport) textFields(item map[string]any, defaults map[string]map[string]any, kind string) []any {
-	impl, _ := item["implementation"].(string)
-	name, _ := item["name"].(string)
-	var out []any
-	for _, f := range fieldList(item) {
-		key, _ := f["name"].(string)
-		if def, ok := defaults[impl][key]; ok && reflect.DeepEqual(f["value"], def) {
-			continue
-		}
-		var text string
-		switch v := f["value"].(type) {
-		case nil:
-			continue
+// providerFields keeps fields that differ from the implementation's defaults.
+// Indexers pass no defaults, since Prowlarr's indexer schema lists every
+// tracker, so empty values are left out too.
+func (e *prowlarrExport) providerFields(item map[string]any, defaults map[string]map[string]any, kind string) []any {
+	fields := e.fields(item, defaults, nil, kind, true)
+	out := make([]any, 0, len(fields))
+	for _, f := range fields {
+		switch v := f.(map[string]any)["value"].(type) {
 		case string:
-			if reconciler.IsMasked(v) {
-				out = append(out, map[string]any{"name": key, "valueFrom": e.creds.ref("", kind, name, key)})
-				continue
-			}
 			if v == "" {
 				continue
 			}
-			text = v
-		case float64:
-			text = strconv.FormatFloat(v, 'f', -1, 64)
-		case bool:
-			text = strconv.FormatBool(v)
-		default:
-			e.warn("%s %q: ProwlarrConfig fields hold text, so %s stays as set in Prowlarr", kind, name, key)
-			continue
+		case []any:
+			if len(v) == 0 {
+				continue
+			}
 		}
-		out = append(out, map[string]any{"name": key, "value": text})
+		out = append(out, f)
 	}
 	return out
 }

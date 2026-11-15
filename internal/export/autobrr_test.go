@@ -86,7 +86,7 @@ func TestAutobrrExportsEachResourceWithSecretsInTheSecret(t *testing.T) {
 	assert.Equal(t, `"true"`, string(tracker.Settings[0].Value.Raw))
 	assert.Equal(t, "passkey", tracker.Settings[1].Name)
 	require.NotNil(t, tracker.Settings[1].ValueFrom)
-	assert.Contains(t, res.Unfilled, tracker.Settings[1].ValueFrom.Key)
+	assert.Contains(t, res.Unfilled, tracker.Settings[1].ValueFrom.SecretKeyRef.Key)
 	assert.Equal(t, "torznab", cfg.Spec.Indexers[1].Identifier, "a feed indexer exports its definition, not the name Autobrr gave it")
 
 	require.Len(t, cfg.Spec.Filters, 1)

@@ -356,13 +356,30 @@ spec:
                       description: name is the provider key (e.g., opensubtitlescom,
                         addic7ed).
                       type: string
+                    secretSettings:
+                      additionalProperties:
+                        description: SecretKeyRef references a key within a Kubernetes
+                          Secret.
+                        properties:
+                          key:
+                            description: key is the key within the Secret.
+                            type: string
+                          name:
+                            description: name is the name of the Secret.
+                            type: string
+                        required:
+                        - key
+                        - name
+                        type: object
+                      description: |-
+                        secretSettings is a map of provider-specific settings read from Secrets
+                        in the resource's namespace, such as passwords and API keys. A setting
+                        can't be in both settings and secretSettings.
+                      type: object
                     settings:
                       additionalProperties:
                         type: string
-                      description: |-
-                        settings is a map of provider-specific settings. A value written
-                        ENV:<secret>:<key> is read from that key of a Secret in the resource's
-                        namespace.
+                      description: settings is a map of provider-specific settings.
                       type: object
                   required:
                   - name

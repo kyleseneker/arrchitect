@@ -55,9 +55,14 @@ spec:
     - name: opensubtitlescom
       enabled: true
       settings:
-        username: "ENV:arr-config-secrets:OPENSUBTITLES_USERNAME"
-        password: "ENV:arr-config-secrets:OPENSUBTITLES_PASSWORD"
         use_hash: "true"
+      secretSettings:
+        username:
+          name: arr-config-secrets
+          key: OPENSUBTITLES_USERNAME
+        password:
+          name: arr-config-secrets
+          key: OPENSUBTITLES_PASSWORD
     - name: podnapisi
       enabled: true
     - name: yifysubtitles

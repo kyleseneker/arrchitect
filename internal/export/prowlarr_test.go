@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
 	indexersv1alpha1 "github.com/kyleseneker/arrchitect/api/indexers/v1alpha1"
 )
 
@@ -53,21 +54,27 @@ func exportProwlarrFrom(t *testing.T) (*indexersv1alpha1.ProwlarrConfig, Result)
 	return cfg, res
 }
 
-func TestProwlarrIndexerFieldsBecomeText(t *testing.T) {
-	cfg, res := exportProwlarrFrom(t)
+func TestProwlarrIndexerFieldsKeepTheirTypes(t *testing.T) {
+	cfg, _ := exportProwlarrFrom(t)
 	require.Len(t, cfg.Spec.Indexers, 1)
 	idx := cfg.Spec.Indexers[0]
 	assert.Equal(t, "Standard", idx.AppProfileName)
 	assert.Equal(t, []string{"private"}, idx.TagLabels)
-	values := map[string]string{}
+	values := map[string]any{}
+	var apiKey *commonv1alpha1.ValueSource
 	for _, f := range idx.Fields {
 		if f.Value != nil {
-			values[f.Name] = *f.Value
+			values[f.Name] = f.Value.ToInterface()
+		}
+		if f.Name == "apiKey" {
+			apiKey = f.ValueFrom
 		}
 	}
-	assert.Equal(t, map[string]string{"definitionFile": "tracker", "torrentBaseSettings.seedRatio": "1.5", "freeleech": "true"}, values)
-	assert.Equal(t, "indexer-tracker-apikey", idx.Fields[len(idx.Fields)-1].ValueFrom.Key)
-	assert.Contains(t, res.Warnings, `indexer "Tracker": ProwlarrConfig fields hold text, so sort stays as set in Prowlarr`)
+	assert.Equal(t, map[string]any{
+		"definitionFile": "tracker", "torrentBaseSettings.seedRatio": 1.5, "freeleech": true, "sort": []any{float64(1), float64(2)},
+	}, values)
+	require.NotNil(t, apiKey)
+	assert.Equal(t, "indexer-tracker-apikey", apiKey.SecretKeyRef.Key)
 }
 
 func TestProwlarrApplicationReferencesItsKeyAndWarnsAboutUnmodelledFields(t *testing.T) {

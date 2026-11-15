@@ -70,7 +70,7 @@ spec:
         - name: host
           value: "arr-vpn-downloads.arr.svc.cluster.local"
         - name: port
-          value: "8080"
+          value: 8080
       categories:
         - clientCategory: tv-sonarr
           categories: [5000, 5010, 5020, 5030, 5040, 5045, 5050]

@@ -176,3 +176,27 @@ spec:
 		})
 	}
 }
+
+func TestFieldValueAndValueFromAreMutuallyExclusive(t *testing.T) {
+	c := startAPIServerWith(t)
+	obj := &unstructured.Unstructured{}
+	require.NoError(t, yaml.Unmarshal([]byte(`
+apiVersion: arrchitect.dev/v1alpha1
+kind: SonarrConfig
+metadata:
+  name: exclusive
+  namespace: default
+spec:
+  connection:
+    url: http://sonarr:8989
+    apiKeySecretRef: {name: sonarr, key: api-key}
+  indexers:
+    - name: x
+      protocol: torrent
+      implementation: Torznab
+      fields: [{name: apiKey, value: a, valueFrom: {secretKeyRef: {name: s, key: k}}}]
+`), &obj.Object))
+	err := c.Create(context.Background(), obj)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "must have at most 2 items")
+}

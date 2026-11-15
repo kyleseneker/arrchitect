@@ -324,14 +324,14 @@ func TestReferencesSecretFindsEveryReference(t *testing.T) {
 			DownloadClients: []commonv1alpha1.DownloadClient{{Name: "q", PasswordSecretRef: &ref}},
 		},
 		"a field read from a Secret": indexersv1alpha1.ProwlarrConfigSpec{
-			Indexers: []indexersv1alpha1.ProwlarrIndexer{{Name: "x", Fields: []indexersv1alpha1.ProwlarrField{{Name: "apiKey", ValueFrom: &ref}}}},
+			Indexers: []indexersv1alpha1.ProwlarrIndexer{{Name: "x", Fields: []commonv1alpha1.ConfigField{{Name: "apiKey", ValueFrom: &commonv1alpha1.ValueSource{SecretKeyRef: ref}}}}},
 		},
 		"a Usenet server password": downloadsv1alpha1.SabnzbdConfigSpec{
 			Servers: []downloadsv1alpha1.SabnzbdServer{{Name: "s", PasswordSecretRef: &ref}},
 		},
 		"a map value": map[string]commonv1alpha1.SecretKeyRef{"x": ref},
 		"a Bazarr provider setting": subtitlesv1alpha1.BazarrConfigSpec{
-			Providers: []subtitlesv1alpha1.BazarrProvider{{Name: "opensubtitlescom", Settings: map[string]string{"password": "ENV:target:k"}}},
+			Providers: []subtitlesv1alpha1.BazarrProvider{{Name: "opensubtitlescom", SecretSettings: map[string]commonv1alpha1.SecretKeyRef{"password": ref}}},
 		},
 	} {
 		assert.True(t, ReferencesSecret(config, "target"), name)
@@ -368,7 +368,7 @@ func newSecretClient() *fake.ClientBuilder {
 func TestResolveConfigFieldsFromSecret(t *testing.T) {
 	c := newSecretClient().Build()
 	fields := []commonv1alpha1.ConfigField{
-		{Name: "apiKey", ValueFrom: &commonv1alpha1.SecretKeyRef{Name: "tracker", Key: "passkey"}},
+		{Name: "apiKey", ValueFrom: &commonv1alpha1.ValueSource{SecretKeyRef: commonv1alpha1.SecretKeyRef{Name: "tracker", Key: "passkey"}}},
 	}
 	out, err := ResolveConfigFields(context.Background(), c, "arr", "indexer x", fields)
 	require.NoError(t, err)
@@ -384,7 +384,7 @@ func TestResolveConfigFieldsRejectsBothValueAndValueFrom(t *testing.T) {
 	fields := []commonv1alpha1.ConfigField{{
 		Name:      "apiKey",
 		Value:     &commonv1alpha1.FieldValue{Raw: raw},
-		ValueFrom: &commonv1alpha1.SecretKeyRef{Name: "tracker", Key: "passkey"},
+		ValueFrom: &commonv1alpha1.ValueSource{SecretKeyRef: commonv1alpha1.SecretKeyRef{Name: "tracker", Key: "passkey"}},
 	}}
 	_, err := ResolveConfigFields(context.Background(), c, "arr", "indexer x", fields)
 	require.Error(t, err, "expected an error when both value and valueFrom are set")
@@ -393,7 +393,7 @@ func TestResolveConfigFieldsRejectsBothValueAndValueFrom(t *testing.T) {
 func TestResolveConfigFieldsMissingSecret(t *testing.T) {
 	c := newSecretClient().Build()
 	fields := []commonv1alpha1.ConfigField{
-		{Name: "apiKey", ValueFrom: &commonv1alpha1.SecretKeyRef{Name: "nope", Key: "passkey"}},
+		{Name: "apiKey", ValueFrom: &commonv1alpha1.ValueSource{SecretKeyRef: commonv1alpha1.SecretKeyRef{Name: "nope", Key: "passkey"}}},
 	}
 	_, err := ResolveConfigFields(context.Background(), c, "arr", "indexer x", fields)
 	require.Error(t, err, "expected an error for a missing secret")

@@ -51,8 +51,12 @@ func exportBazarr(r *reader) (map[string]any, error) {
 	var providers []any
 	for _, name := range texts(general["enabled_providers"]) {
 		provider := map[string]any{"name": name}
-		if values := r.bazarrProviderSettings(name, section(name)); len(values) > 0 {
-			provider["settings"] = values
+		settings, secrets := r.bazarrProviderSettings(name, section(name))
+		if len(settings) > 0 {
+			provider["settings"] = settings
+		}
+		if len(secrets) > 0 {
+			provider["secretSettings"] = secrets
 		}
 		providers = append(providers, provider)
 	}
@@ -131,8 +135,8 @@ func bazarrDefaultProfileNames(general map[string]any, profiles []map[string]any
 	}
 }
 
-func (r *reader) bazarrProviderSettings(provider string, values map[string]any) map[string]any {
-	out := map[string]any{}
+func (r *reader) bazarrProviderSettings(provider string, values map[string]any) (settings, secrets map[string]any) {
+	settings, secrets = map[string]any{}, map[string]any{}
 	for _, key := range slices.Sorted(maps.Keys(values)) {
 		var text string
 		switch v := values[key].(type) {
@@ -158,12 +162,12 @@ func (r *reader) bazarrProviderSettings(provider string, values map[string]any) 
 			if reconciler.IsMasked(text) {
 				text = ""
 			}
-			ref := r.creds.ref(text, "provider", provider, key)
-			text = fmt.Sprintf("ENV:%s:%s", ref["name"], ref["key"])
+			secrets[key] = r.creds.ref(text, "provider", provider, key)
+			continue
 		}
-		out[key] = text
+		settings[key] = text
 	}
-	return out
+	return settings, secrets
 }
 
 func (r *reader) bazarrProfiles(profiles []map[string]any) []any {

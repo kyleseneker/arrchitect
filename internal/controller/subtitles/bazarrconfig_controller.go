@@ -20,7 +20,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
 	subtitlesv1alpha1 "github.com/kyleseneker/arrchitect/api/subtitles/v1alpha1"
 	bazarrclient "github.com/kyleseneker/arrchitect/internal/client/bazarr"
 	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
@@ -290,20 +289,17 @@ func (r *BazarrConfigReconciler) bazarrProviderForm(ctx context.Context, namespa
 			form.Add("settings-general-enabled_providers", p.Name)
 		}
 		for k, v := range p.Settings {
-			// "ENV:secretName:secretKey" reads the value from a Secret.
-			resolvedVal := v
-			if strings.HasPrefix(v, "ENV:") {
-				name, key, ok := strings.Cut(v[4:], ":")
-				if !ok || name == "" || key == "" {
-					return nil, fmt.Errorf("provider %s field %s: ENV: takes <secret>:<key>, got %q", p.Name, k, v)
-				}
-				secret, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, namespace, commonv1alpha1.SecretKeyRef{Name: name, Key: key})
-				if err != nil {
-					return nil, fmt.Errorf("resolving secret for provider %s field %s: %w", p.Name, k, err)
-				}
-				resolvedVal = secret
+			form.Set(fmt.Sprintf("settings-%s-%s", p.Name, k), v)
+		}
+		for k, ref := range p.SecretSettings {
+			if _, ok := p.Settings[k]; ok {
+				return nil, fmt.Errorf("provider %s: %s is in both settings and secretSettings", p.Name, k)
 			}
-			form.Set(fmt.Sprintf("settings-%s-%s", p.Name, k), resolvedVal)
+			secret, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, namespace, ref)
+			if err != nil {
+				return nil, fmt.Errorf("resolving secret for provider %s setting %s: %w", p.Name, k, err)
+			}
+			form.Set(fmt.Sprintf("settings-%s-%s", p.Name, k), secret)
 		}
 	}
 	return form, nil
