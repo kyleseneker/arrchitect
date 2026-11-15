@@ -22,6 +22,8 @@ import (
 )
 
 // JellyfinConfigSpec defines the desired state of JellyfinConfig.
+// +kubebuilder:validation:XValidation:rule="!has(self.reconcile) || !has(self.reconcile.prune) || !self.reconcile.prune",message="JellyfinConfig doesn't support prune"
+// +kubebuilder:validation:XValidation:rule="!has(self.reconcile) || !has(self.reconcile.deletionPolicy) || self.reconcile.deletionPolicy != 'delete'",message="JellyfinConfig doesn't support deletionPolicy delete"
 type JellyfinConfigSpec struct {
 	// connection defines how to connect to the Jellyfin instance.
 	// +required
@@ -63,6 +65,7 @@ type JellyfinConfigSpec struct {
 type JellyfinConnection struct {
 	// url is the base URL of the Jellyfin instance (e.g., http://jellyfin.media.svc.cluster.local:8096).
 	// +required
+	// +kubebuilder:validation:Pattern=`^https?://`
 	URL string `json:"url"`
 
 	// tls configures TLS settings for the connection.
@@ -589,6 +592,7 @@ type JellyfinConfigStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:resource:categories=arrchitect
 // +kubebuilder:printcolumn:name="Synced",type="string",JSONPath=`.status.conditions[?(@.type=="Synced")].status`
 // +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=`.status.conditions[?(@.type=="Ready")].status`
 // +kubebuilder:printcolumn:name="Last Sync",type="date",JSONPath=`.status.lastSyncTime`

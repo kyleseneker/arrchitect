@@ -46,6 +46,7 @@ type FlareSolverrConfigSpec struct {
 type FlareSolverrConnection struct {
 	// url is the base URL of the FlareSolverr instance (e.g., http://flaresolverr:8191).
 	// +required
+	// +kubebuilder:validation:Pattern=`^https?://`
 	URL string `json:"url"`
 
 	// tls configures TLS settings for the connection.
@@ -92,6 +93,7 @@ type FlareSolverrConfigStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:resource:categories=arrchitect
 // +kubebuilder:printcolumn:name="Synced",type="string",JSONPath=`.status.conditions[?(@.type=="Synced")].status`
 // +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=`.status.conditions[?(@.type=="Ready")].status`
 // +kubebuilder:printcolumn:name="Sessions",type="integer",JSONPath=`.status.activeSessions`

@@ -200,3 +200,61 @@ spec:
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "must have at most 2 items")
 }
+
+func TestAdmissionRules(t *testing.T) {
+	c := startAPIServerWith(t)
+	const conn = `
+  connection:
+    url: http://app:8080
+    apiKeySecretRef: {name: app, key: api-key}`
+	for name, tt := range map[string]struct{ kind, spec, message string }{
+		"an interval under 30s": {"SonarrConfig", conn + `
+  reconcile: {interval: 10s}`, "interval must be at least 30s"},
+		"delete in observe mode": {"SonarrConfig", conn + `
+  reconcile: {deletionPolicy: delete, driftPolicy: observe}`,
+			"deletionPolicy delete conflicts with driftPolicy observe"},
+		"a URL without a scheme": {"SonarrConfig", `
+  connection:
+    url: sonarr:8989
+    apiKeySecretRef: {name: app, key: api-key}`, "should match '^https?://'"},
+		"Lidarr root folder without profiles": {"LidarrConfig", conn + `
+  rootFolders: [{path: /music}]`, "Lidarr root folders need defaultQualityProfileName and defaultMetadataProfileName"},
+		"Jellyfin prune": {"JellyfinConfig", `
+  connection: {url: http://jellyfin:8096}
+  adminUser:
+    usernameSecretRef: {name: app, key: username}
+    passwordSecretRef: {name: app, key: password}
+  reconcile: {prune: true}`, "JellyfinConfig doesn't support prune"},
+		"Plex deletionPolicy delete": {"PlexConfig", `
+  connection:
+    url: http://plex:32400
+    tokenSecretRef: {name: app, key: token}
+  reconcile: {deletionPolicy: delete}`, "PlexConfig doesn't support deletionPolicy delete"},
+		"Seerr with both auths": {"SeerrConfig", `
+  connection:
+    url: http://seerr:5055
+    apiKeySecretRef: {name: app, key: api-key}
+  jellyfinAuth:
+    hostname: jellyfin
+    port: 8096
+    usernameSecretRef: {name: app, key: username}
+    passwordSecretRef: {name: app, key: password}
+  plexAuth:
+    hostname: plex
+    tokenSecretRef: {name: app, key: token}`, "jellyfinAuth and plexAuth are mutually exclusive"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			obj := &unstructured.Unstructured{}
+			require.NoError(t, yaml.Unmarshal([]byte(`
+apiVersion: arrchitect.dev/v1alpha1
+kind: `+tt.kind+`
+metadata:
+  name: rule
+  namespace: default
+spec:`+tt.spec), &obj.Object))
+			err := c.Create(context.Background(), obj)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tt.message)
+		})
+	}
+}

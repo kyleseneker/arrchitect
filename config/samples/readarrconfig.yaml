@@ -20,6 +20,8 @@ spec:
     authorFolderFormat: "{Author Name}"
   rootFolders:
     - path: /books
+      defaultQualityProfileName: eBook
+      defaultMetadataProfileName: Standard
   downloadClients:
     - name: SABnzbd
       protocol: usenet

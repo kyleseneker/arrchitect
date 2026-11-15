@@ -8,6 +8,8 @@ metadata:
 spec:
   group: arrchitect.dev
   names:
+    categories:
+    - arrchitect
     kind: JellyfinConfig
     listKind: JellyfinConfigList
     plural: jellyfinconfigs
@@ -123,6 +125,7 @@ spec:
                   url:
                     description: url is the base URL of the Jellyfin instance (e.g.,
                       http://jellyfin.media.svc.cluster.local:8096).
+                    pattern: ^https?://
                     type: string
                 required:
                 - url
@@ -508,8 +511,12 @@ spec:
                   interval:
                     description: |-
                       interval overrides the default reconciliation interval (default: 5m).
-                      Uses standard Kubernetes duration format (e.g., "30s", "5m", "1h").
+                      Uses standard Kubernetes duration format (e.g., "30s", "5m", "1h"), and
+                      is at least 30s.
                     type: string
+                    x-kubernetes-validations:
+                    - message: interval must be at least 30s
+                      rule: duration(self) >= duration('30s')
                   prune:
                     description: |-
                       prune deletes resources the operator created, tracked in
@@ -521,6 +528,10 @@ spec:
                       Default: false (only create/update, never delete).
                     type: boolean
                 type: object
+                x-kubernetes-validations:
+                - message: deletionPolicy delete conflicts with driftPolicy observe
+                  rule: '!has(self.deletionPolicy) || self.deletionPolicy != ''delete''
+                    || !has(self.driftPolicy) || self.driftPolicy != ''observe'''
               server:
                 description: server configures Jellyfin server settings.
                 properties:
@@ -722,6 +733,12 @@ spec:
             - adminUser
             - connection
             type: object
+            x-kubernetes-validations:
+            - message: JellyfinConfig doesn't support prune
+              rule: '!has(self.reconcile) || !has(self.reconcile.prune) || !self.reconcile.prune'
+            - message: JellyfinConfig doesn't support deletionPolicy delete
+              rule: '!has(self.reconcile) || !has(self.reconcile.deletionPolicy) ||
+                self.reconcile.deletionPolicy != ''delete'''
           status:
             description: JellyfinConfigStatus defines the observed state of JellyfinConfig.
             properties:

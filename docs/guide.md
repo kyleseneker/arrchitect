@@ -19,7 +19,7 @@ managed: an item that already exists in the app keeps them, and a new item gets
 the app's defaults. An empty list, such as `tagLabels: []`, is declared and
 clears the item's tags. It reconciles every 5 minutes, when the resource changes, and when a
 Secret the resource refers to changes. `spec.reconcile.interval` changes the
-period.
+period, down to a minimum of 30s.
 
 Download clients, indexers, notifications and other lists are matched by name.
 Root folders are created if missing and otherwise left alone. Jellyfin and
@@ -36,7 +36,8 @@ until Jellyfin has a library.
 
 Each resource has a `Ready` condition, for whether the app and its credentials
 are reachable, and a `Synced` condition, for whether the app matches. `kubectl
-get` shows both. The `Synced` reason is one of:
+get` shows both, and `kubectl get arrchitect` lists every resource across
+apps. The `Synced` reason is one of:
 
 | Reason | Meaning |
 | --- | --- |
@@ -107,7 +108,7 @@ prune, removing an item from the resource only stops managing it.
 | Bazarr | language profiles, matched by `profileId` |
 | Maintainerr | rule groups, Sonarr and Radarr servers |
 
-Jellyfin and Plex reject `prune: true` with `InvalidConfig`.
+The API server rejects `prune: true` on Jellyfin and Plex.
 
 - A list with no declared items is not pruned.
 - Settings, root folders, tags, quality definitions, libraries and Prowlarr
@@ -130,7 +131,7 @@ with `delete` carry the operator's finalizer, so removing the operator never
 leaves the others stuck deleting.
 
 `delete` is supported for the apps in the prune table, and not in observe mode;
-Jellyfin and Plex reject it with `InvalidConfig`. An item the app won't delete
+the API server rejects it on Jellyfin and Plex and alongside `driftPolicy: observe`. An item the app won't delete
 because something still uses it, such as a Lidarr or Readarr quality profile a
 root folder defaults to, is kept and named in a `ResourceKept` warning event. If
 cleanup keeps failing for another reason, the operator gives up after 10
