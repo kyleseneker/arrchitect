@@ -1,9 +1,10 @@
 version: "2"
 run:
   allow-parallel-runners: true
-  # Lint the opt-in compat suite too.
+  # Lint the opt-in compat and e2e suites too.
   build-tags:
     - compat
+    - e2e
 linters:
   default: none
   enable:
