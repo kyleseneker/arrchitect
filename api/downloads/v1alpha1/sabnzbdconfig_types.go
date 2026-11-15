@@ -21,10 +21,14 @@ type SabnzbdConfigSpec struct {
 
 	// servers defines Usenet server connections.
 	// +optional
+	// +listType=map
+	// +listMapKey=name
 	Servers []SabnzbdServer `json:"servers,omitempty"`
 
 	// categories defines download categories.
 	// +optional
+	// +listType=map
+	// +listMapKey=name
 	Categories []SabnzbdCategory `json:"categories,omitempty"`
 
 	// folders configures download and temp folder paths.
@@ -71,6 +75,7 @@ type SabnzbdGeneral struct {
 	// unwantedExtensions lists file extensions, without the dot, that
 	// unwantedExtensionsAction applies to.
 	// +optional
+	// +listType=set
 	UnwantedExtensions []string `json:"unwantedExtensions,omitempty"`
 
 	// unwantedExtensionsMode decides whether unwantedExtensions lists the
@@ -123,6 +128,7 @@ type SabnzbdGeneral struct {
 
 	// cleanupList lists file extensions, without the dot, to delete after a job.
 	// +optional
+	// +listType=set
 	CleanupList []string `json:"cleanupList,omitempty"`
 
 	// historyRetention decides how long jobs stay in the history.
@@ -164,6 +170,7 @@ type SabnzbdGeneral struct {
 	// *.svc.cluster.local. It replaces SABnzbd's list, so it must include the
 	// host in connection.url unless that is one of those.
 	// +optional
+	// +listType=set
 	HostWhitelist []string `json:"hostWhitelist,omitempty"`
 }
 

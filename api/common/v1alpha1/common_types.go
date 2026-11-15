@@ -243,11 +243,14 @@ type DownloadClient struct {
 	// tagLabels references tags by label, resolved against the app on each reconciliation.
 	// When nonempty, takes precedence over tags. Missing or ambiguous labels block writes.
 	// +optional
+	// +listType=set
 	TagLabels []string `json:"tagLabels,omitempty"`
 
 	// fields defines additional implementation-specific configuration fields.
 	// Use these for settings not covered by first-class fields (e.g., initialState, sequentialOrder).
 	// +optional
+	// +listType=map
+	// +listMapKey=name
 	Fields []ConfigField `json:"fields,omitempty"`
 }
 
@@ -283,11 +286,14 @@ type QualityProfile struct {
 	// Items at the end of the list are higher priority. Each item is either
 	// an individual quality (with quality set) or a quality group (with name and items set).
 	// +optional
+	// +listType=atomic
 	Items []QualityProfileItem `json:"items,omitempty"`
 
 	// formatItems assigns custom format scores within this profile.
 	// Reference custom formats by name; IDs are resolved automatically.
 	// +optional
+	// +listType=map
+	// +listMapKey=name
 	FormatItems []QualityProfileFormatItem `json:"formatItems,omitempty"`
 }
 
@@ -310,6 +316,7 @@ type QualityProfileItem struct {
 	// items contains the child qualities when this is a group.
 	// Only set for quality groups.
 	// +optional
+	// +listType=atomic
 	Items []QualityProfileGroupItem `json:"items,omitempty"`
 }
 
@@ -400,6 +407,7 @@ type DelayProfile struct {
 	// tagLabels limits the profile to items with one of these tags. The profile
 	// without tags is the app's default, which covers everything the others don't.
 	// +optional
+	// +listType=set
 	TagLabels []string `json:"tagLabels,omitempty"`
 
 	// enableUsenet allows Usenet releases.
@@ -456,6 +464,8 @@ type CustomFormat struct {
 	// specifications defines the matching conditions for this custom format.
 	// A release matches if all required specs match and at least one non-required spec matches.
 	// +optional
+	// +listType=map
+	// +listMapKey=name
 	Specifications []CustomFormatSpecification `json:"specifications,omitempty"`
 }
 
@@ -486,6 +496,8 @@ type CustomFormatSpecification struct {
 	// Most specs have a single field named "value" (e.g., a regex pattern or enum int).
 	// SizeSpecification has "min" and "max" fields (floats in GB).
 	// +optional
+	// +listType=map
+	// +listMapKey=name
 	Fields []ConfigField `json:"fields,omitempty"`
 }
 
@@ -549,10 +561,13 @@ type Indexer struct {
 	// tagLabels references tags by label, resolved against the app on each reconciliation.
 	// When nonempty, takes precedence over tags. Missing or ambiguous labels block writes.
 	// +optional
+	// +listType=set
 	TagLabels []string `json:"tagLabels,omitempty"`
 
 	// fields defines the indexer's configuration fields (e.g., baseUrl, apiKey, categories).
 	// +optional
+	// +listType=map
+	// +listMapKey=name
 	Fields []ConfigField `json:"fields,omitempty"`
 }
 
@@ -578,10 +593,13 @@ type Notification struct {
 	// tagLabels references tags by label, resolved against the app on each reconciliation.
 	// When nonempty, takes precedence over tags. Missing or ambiguous labels block writes.
 	// +optional
+	// +listType=set
 	TagLabels []string `json:"tagLabels,omitempty"`
 
 	// fields defines the notification's configuration fields (e.g., webhook URL, API token).
 	// +optional
+	// +listType=map
+	// +listMapKey=name
 	Fields []ConfigField `json:"fields,omitempty"`
 
 	// Trigger conditions — set to true to fire on these events.
@@ -795,10 +813,13 @@ type ImportList struct {
 	// tagLabels references tags by label, resolved against the app on each reconciliation.
 	// When nonempty, takes precedence over tags. Missing or ambiguous labels block writes.
 	// +optional
+	// +listType=set
 	TagLabels []string `json:"tagLabels,omitempty"`
 
 	// fields defines the import list's configuration fields (e.g., API URL, access token, list ID).
 	// +optional
+	// +listType=map
+	// +listMapKey=name
 	Fields []ConfigField `json:"fields,omitempty"`
 }
 

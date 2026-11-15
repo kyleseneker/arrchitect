@@ -37,6 +37,8 @@ type QBittorrentConfigSpec struct {
 
 	// categories defines download categories and their save paths.
 	// +optional
+	// +listType=map
+	// +listMapKey=name
 	Categories []QBittorrentCategory `json:"categories,omitempty"`
 }
 
@@ -201,6 +203,7 @@ type QBittorrentPreferences struct {
 
 	// excludedFileNames are file name patterns to skip, such as *.lnk.
 	// +optional
+	// +listType=set
 	ExcludedFileNames []string `json:"excludedFileNames,omitempty"`
 
 	// dlLimit is the global download speed limit in KiB/s. 0 means unlimited.

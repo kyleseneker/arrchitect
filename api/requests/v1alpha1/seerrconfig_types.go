@@ -65,6 +65,8 @@ type SeerrConfigSpec struct {
 	// notifications configures notification agents (Discord, Slack, Telegram, etc.).
 	// Each agent is a singleton — only one configuration per agent type.
 	// +optional
+	// +listType=map
+	// +listMapKey=agent
 	Notifications []SeerrNotificationAgent `json:"notifications,omitempty"`
 }
 

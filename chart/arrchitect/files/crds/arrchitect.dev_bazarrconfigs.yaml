@@ -178,6 +178,9 @@ spec:
                       - remotePath
                       type: object
                     type: array
+                    x-kubernetes-list-map-keys:
+                    - remotePath
+                    x-kubernetes-list-type: map
                   pathMappingsMovie:
                     description: |-
                       pathMappingsMovie translate Radarr's paths into the paths Bazarr sees the
@@ -201,6 +204,9 @@ spec:
                       - remotePath
                       type: object
                     type: array
+                    x-kubernetes-list-map-keys:
+                    - remotePath
+                    x-kubernetes-list-type: map
                   postprocessingCmd:
                     description: |-
                       postprocessingCmd is the command usePostprocessing runs after a subtitle
@@ -290,6 +296,7 @@ spec:
                     items:
                       type: string
                     type: array
+                    x-kubernetes-list-type: set
                   profiles:
                     description: profiles defines language profiles for subtitle selection.
                     items:
@@ -321,6 +328,7 @@ spec:
                             - language
                             type: object
                           type: array
+                          x-kubernetes-list-type: atomic
                         name:
                           description: name is the display name of the language profile.
                           type: string
@@ -333,6 +341,9 @@ spec:
                       - profileId
                       type: object
                     type: array
+                    x-kubernetes-list-map-keys:
+                    - name
+                    x-kubernetes-list-type: map
                 type: object
               providers:
                 description: providers defines subtitle provider configurations.
@@ -358,6 +369,9 @@ spec:
                   - name
                   type: object
                 type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
               radarrConnection:
                 description: radarrConnection configures the connection to a Radarr
                   instance.
@@ -394,11 +408,13 @@ spec:
                       - daily
                       type: string
                     type: array
+                    x-kubernetes-list-type: set
                   excludedTags:
                     description: excludedTags leaves out items with any of these tags.
                     items:
                       type: string
                     type: array
+                    x-kubernetes-list-type: set
                   fullUpdate:
                     description: fullUpdate controls how often a full library sync
                       is performed.
@@ -517,11 +533,13 @@ spec:
                       - daily
                       type: string
                     type: array
+                    x-kubernetes-list-type: set
                   excludedTags:
                     description: excludedTags leaves out items with any of these tags.
                     items:
                       type: string
                     type: array
+                    x-kubernetes-list-type: set
                   fullUpdate:
                     description: fullUpdate controls how often a full library sync
                       is performed.

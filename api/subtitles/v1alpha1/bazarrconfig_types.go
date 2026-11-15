@@ -49,6 +49,8 @@ type BazarrConfigSpec struct {
 
 	// providers defines subtitle provider configurations.
 	// +optional
+	// +listType=map
+	// +listMapKey=name
 	Providers []BazarrProvider `json:"providers,omitempty"`
 
 	// languages configures language settings and profiles.
@@ -133,11 +135,15 @@ type BazarrGeneral struct {
 	// pathMappings translate Sonarr's paths into the paths Bazarr sees the same
 	// files at. Bazarr separates the two with a comma, so neither may have one.
 	// +optional
+	// +listType=map
+	// +listMapKey=remotePath
 	PathMappings []BazarrPathMapping `json:"pathMappings,omitempty"`
 
 	// pathMappingsMovie translate Radarr's paths into the paths Bazarr sees the
 	// same files at.
 	// +optional
+	// +listType=map
+	// +listMapKey=remotePath
 	PathMappingsMovie []BazarrPathMapping `json:"pathMappingsMovie,omitempty"`
 
 	// seriesDefaultProfile is the language profile, by name, that new series
@@ -255,12 +261,14 @@ type BazarrAppConnection struct {
 
 	// excludedTags leaves out items with any of these tags.
 	// +optional
+	// +listType=set
 	ExcludedTags []string `json:"excludedTags,omitempty"`
 
 	// excludedSeriesTypes leaves out series of these types. Only applicable
 	// when used with Sonarr.
 	// +optional
 	// +kubebuilder:validation:items:Enum=standard;anime;daily
+	// +listType=set
 	ExcludedSeriesTypes []string `json:"excludedSeriesTypes,omitempty"`
 
 	// excludeSeasonZero leaves out specials. Only applicable when used with Sonarr.
@@ -312,10 +320,13 @@ type BazarrProvider struct {
 type BazarrLanguages struct {
 	// enabled is the list of enabled subtitle languages as ISO 639-1 codes.
 	// +optional
+	// +listType=set
 	Enabled []string `json:"enabled,omitempty"`
 
 	// profiles defines language profiles for subtitle selection.
 	// +optional
+	// +listType=map
+	// +listMapKey=name
 	Profiles []BazarrLanguageProfile `json:"profiles,omitempty"`
 }
 
@@ -331,6 +342,7 @@ type BazarrLanguageProfile struct {
 
 	// items defines the language items in this profile.
 	// +optional
+	// +listType=atomic
 	Items []BazarrLanguageItem `json:"items,omitempty"`
 }
 

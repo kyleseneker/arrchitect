@@ -248,6 +248,9 @@ spec:
                   - agent
                   type: object
                 type: array
+                x-kubernetes-list-map-keys:
+                - agent
+                x-kubernetes-list-type: map
               plexAuth:
                 description: |-
                   plexAuth defines Plex authentication settings.

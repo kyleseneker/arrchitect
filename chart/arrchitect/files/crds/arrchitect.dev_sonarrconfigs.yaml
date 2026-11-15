@@ -165,6 +165,9 @@ spec:
                               - name
                               type: object
                             type: array
+                            x-kubernetes-list-map-keys:
+                            - name
+                            x-kubernetes-list-type: map
                           implementation:
                             description: |-
                               implementation is the specification type.
@@ -190,10 +193,16 @@ spec:
                         - name
                         type: object
                       type: array
+                      x-kubernetes-list-map-keys:
+                      - name
+                      x-kubernetes-list-type: map
                   required:
                   - name
                   type: object
                 type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
               delayProfiles:
                 description: |-
                   delayProfiles defines delay profiles. The app checks tagged profiles in
@@ -239,6 +248,7 @@ spec:
                       items:
                         type: string
                       type: array
+                      x-kubernetes-list-type: set
                     torrentDelay:
                       description: torrentDelay is how many minutes the app waits
                         before grabbing a torrent release.
@@ -252,6 +262,7 @@ spec:
                   type: object
                 maxItems: 50
                 type: array
+                x-kubernetes-list-type: atomic
                 x-kubernetes-validations:
                 - message: only one delay profile can be without tags
                   rule: self.filter(p, !has(p.tagLabels) || size(p.tagLabels) == 0).size()
@@ -338,6 +349,9 @@ spec:
                         - name
                         type: object
                       type: array
+                      x-kubernetes-list-map-keys:
+                      - name
+                      x-kubernetes-list-type: map
                     host:
                       description: host is the hostname or IP of the download client.
                       type: string
@@ -395,6 +409,7 @@ spec:
                       items:
                         type: string
                       type: array
+                      x-kubernetes-list-type: set
                     tags:
                       description: tags is the list of tag IDs to associate with this
                         download client.
@@ -431,6 +446,9 @@ spec:
                   - protocol
                   type: object
                 type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
               importLists:
                 description: importLists defines import list configurations for automatic
                   content addition.
@@ -484,6 +502,9 @@ spec:
                         - name
                         type: object
                       type: array
+                      x-kubernetes-list-map-keys:
+                      - name
+                      x-kubernetes-list-type: map
                     implementation:
                       description: implementation is the import list type (e.g., TraktListImport,
                         IMDbListImport, SonarrImport).
@@ -544,6 +565,7 @@ spec:
                       items:
                         type: string
                       type: array
+                      x-kubernetes-list-type: set
                     tags:
                       description: tags is the list of tag IDs to associate with this
                         import list.
@@ -555,6 +577,9 @@ spec:
                   - name
                   type: object
                 type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
               indexerConfig:
                 description: indexerConfig configures global indexer settings.
                 properties:
@@ -637,6 +662,9 @@ spec:
                         - name
                         type: object
                       type: array
+                      x-kubernetes-list-map-keys:
+                      - name
+                      x-kubernetes-list-type: map
                     implementation:
                       description: implementation is the indexer type (e.g., Newznab,
                         Torznab).
@@ -662,6 +690,7 @@ spec:
                       items:
                         type: string
                       type: array
+                      x-kubernetes-list-type: set
                     tags:
                       description: tags is the list of tag IDs to associate with this
                         indexer.
@@ -674,6 +703,9 @@ spec:
                   - protocol
                   type: object
                 type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
               mediaManagement:
                 description: mediaManagement configures media management settings.
                 properties:
@@ -831,6 +863,9 @@ spec:
                         - name
                         type: object
                       type: array
+                      x-kubernetes-list-map-keys:
+                      - name
+                      x-kubernetes-list-type: map
                     implementation:
                       description: implementation is the notification type (e.g.,
                         Discord, Slack, Webhook, Email).
@@ -957,6 +992,7 @@ spec:
                       items:
                         type: string
                       type: array
+                      x-kubernetes-list-type: set
                     tags:
                       description: tags is the list of tag IDs to associate with this
                         notification.
@@ -968,6 +1004,9 @@ spec:
                   - name
                   type: object
                 type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
               qualityDefinitions:
                 description: |-
                   qualityDefinitions sets the size limits of the app's qualities. The app
@@ -1048,6 +1087,9 @@ spec:
                         - score
                         type: object
                       type: array
+                      x-kubernetes-list-map-keys:
+                      - name
+                      x-kubernetes-list-type: map
                     items:
                       description: |-
                         items defines the quality ordering and allowed states.
@@ -1092,6 +1134,7 @@ spec:
                               - quality
                               type: object
                             type: array
+                            x-kubernetes-list-type: atomic
                           name:
                             description: name is the group name. Set only for quality
                               groups, not individual qualities.
@@ -1114,6 +1157,7 @@ spec:
                             type: object
                         type: object
                       type: array
+                      x-kubernetes-list-type: atomic
                     minFormatScore:
                       description: minFormatScore is the minimum custom format score
                         required to grab a release.
@@ -1133,6 +1177,9 @@ spec:
                   - name
                   type: object
                 type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
               reconcile:
                 description: reconcile configures reconciliation behavior (e.g., sync
                   interval).
@@ -1238,6 +1285,9 @@ spec:
                   - path
                   type: object
                 type: array
+                x-kubernetes-list-map-keys:
+                - path
+                x-kubernetes-list-type: map
               tags:
                 description: tags defines tags for linking resources together.
                 items:
@@ -1252,6 +1302,9 @@ spec:
                   - label
                   type: object
                 type: array
+                x-kubernetes-list-map-keys:
+                - label
+                x-kubernetes-list-type: map
               ui:
                 description: ui configures UI display settings.
                 properties:

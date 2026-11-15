@@ -269,6 +269,7 @@ spec:
                         - updateAvailable
                         type: string
                       type: array
+                      x-kubernetes-list-type: set
                   required:
                   - agent
                   - name
@@ -465,6 +466,7 @@ spec:
                       items:
                         type: string
                       type: array
+                      x-kubernetes-list-type: set
                     qualityProfile:
                       description: |-
                         qualityProfile is the name of the Sonarr or Radarr quality profile that
@@ -595,11 +597,13 @@ spec:
                               type: object
                             minItems: 1
                             type: array
+                            x-kubernetes-list-type: atomic
                         required:
                         - rules
                         type: object
                       minItems: 1
                       type: array
+                      x-kubernetes-list-type: atomic
                     sonarrServer:
                       description: |-
                         sonarrServer names the spec.sonarr server to act through. Required when a

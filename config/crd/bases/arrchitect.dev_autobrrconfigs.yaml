@@ -213,6 +213,9 @@ spec:
                   - type
                   type: object
                 type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
               feeds:
                 description: feeds defines RSS/Torznab feed sources.
                 items:
@@ -267,6 +270,9 @@ spec:
                   - url
                   type: object
                 type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
               filters:
                 description: filters defines release filters with match criteria and
                   actions.
@@ -428,6 +434,7 @@ spec:
                             items:
                               type: string
                             type: array
+                            x-kubernetes-list-type: set
                           webhookMethod:
                             description: webhookMethod is the HTTP method the webhook
                               uses.
@@ -451,6 +458,9 @@ spec:
                         - type
                         type: object
                       type: array
+                      x-kubernetes-list-map-keys:
+                      - name
+                      x-kubernetes-list-type: map
                     albums:
                       description: albums is a comma-separated list of albums to match.
                       type: string
@@ -460,6 +470,7 @@ spec:
                       items:
                         type: string
                       type: array
+                      x-kubernetes-list-type: set
                     artists:
                       description: artists is a comma-separated list of artists to
                         match.
@@ -470,12 +481,14 @@ spec:
                       items:
                         type: string
                       type: array
+                      x-kubernetes-list-type: set
                     containers:
                       description: containers is a list of acceptable containers,
                         such as mkv.
                       items:
                         type: string
                       type: array
+                      x-kubernetes-list-type: set
                     cue:
                       description: cue matches only releases with a cue file.
                       type: boolean
@@ -508,22 +521,26 @@ spec:
                       items:
                         type: string
                       type: array
+                      x-kubernetes-list-type: set
                     exceptLanguage:
                       description: exceptLanguage is a list of languages to skip.
                       items:
                         type: string
                       type: array
+                      x-kubernetes-list-type: set
                     exceptOrigins:
                       description: exceptOrigins is a list of origins to skip.
                       items:
                         type: string
                       type: array
+                      x-kubernetes-list-type: set
                     exceptOther:
                       description: exceptOther is a list of other release attributes
                         to skip.
                       items:
                         type: string
                       type: array
+                      x-kubernetes-list-type: set
                     exceptReleaseGroups:
                       description: exceptReleaseGroups is a comma-separated list of
                         release groups to skip.
@@ -545,6 +562,7 @@ spec:
                       items:
                         type: string
                       type: array
+                      x-kubernetes-list-type: set
                     exceptTagsMatchLogic:
                       description: exceptTagsMatchLogic decides whether any or all
                         of exceptTags skip a release.
@@ -562,6 +580,7 @@ spec:
                       items:
                         type: string
                       type: array
+                      x-kubernetes-list-type: set
                     freeleech:
                       description: freeleech matches only freeleech releases.
                       type: boolean
@@ -576,6 +595,7 @@ spec:
                       items:
                         type: string
                       type: array
+                      x-kubernetes-list-type: set
                     log:
                       description: log matches only releases with a rip log.
                       type: boolean
@@ -598,17 +618,20 @@ spec:
                       items:
                         type: string
                       type: array
+                      x-kubernetes-list-type: set
                     matchLanguage:
                       description: matchLanguage is a list of languages to match.
                       items:
                         type: string
                       type: array
+                      x-kubernetes-list-type: set
                     matchOther:
                       description: matchOther is a list of other release attributes
                         to match, such as REMUX.
                       items:
                         type: string
                       type: array
+                      x-kubernetes-list-type: set
                     matchReleaseGroups:
                       description: matchReleaseGroups is a comma-separated list of
                         release groups to match.
@@ -623,6 +646,7 @@ spec:
                       items:
                         type: string
                       type: array
+                      x-kubernetes-list-type: set
                     matchReleases:
                       description: matchReleases is a comma-separated list of release
                         name patterns to match (supports wildcards).
@@ -665,6 +689,7 @@ spec:
                       items:
                         type: string
                       type: array
+                      x-kubernetes-list-type: set
                     minLeechers:
                       description: minLeechers is the fewest leechers a release may
                         have.
@@ -691,6 +716,7 @@ spec:
                       items:
                         type: string
                       type: array
+                      x-kubernetes-list-type: set
                     perfectFlac:
                       description: perfectFlac matches only lossless rips with a log
                         of 100 and a cue.
@@ -705,11 +731,13 @@ spec:
                       items:
                         type: string
                       type: array
+                      x-kubernetes-list-type: set
                     resolutions:
                       description: resolutions is a list of acceptable resolutions.
                       items:
                         type: string
                       type: array
+                      x-kubernetes-list-type: set
                     seasons:
                       description: seasons is a comma-separated list of seasons or
                         ranges to match, such as 1,3-5.
@@ -727,11 +755,13 @@ spec:
                       items:
                         type: string
                       type: array
+                      x-kubernetes-list-type: set
                     tags:
                       description: tags is a list of tags for organizational purposes.
                       items:
                         type: string
                       type: array
+                      x-kubernetes-list-type: set
                     tagsMatchLogic:
                       description: tagsMatchLogic decides whether a release needs
                         any or all of tags.
@@ -758,6 +788,9 @@ spec:
                   - name
                   type: object
                 type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
               indexers:
                 description: indexers defines indexer/tracker connections.
                 items:
@@ -813,11 +846,17 @@ spec:
                         - name
                         type: object
                       type: array
+                      x-kubernetes-list-map-keys:
+                      - name
+                      x-kubernetes-list-type: map
                   required:
                   - identifier
                   - name
                   type: object
                 type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
               ircNetworks:
                 description: ircNetworks defines IRC network connections for announce
                   channel monitoring.
@@ -888,6 +927,9 @@ spec:
                         - name
                         type: object
                       type: array
+                      x-kubernetes-list-map-keys:
+                      - name
+                      x-kubernetes-list-type: map
                     enable:
                       description: |-
                         enable controls whether this IRC network connection is active. A new
@@ -919,6 +961,9 @@ spec:
                   - server
                   type: object
                 type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
               reconcile:
                 description: reconcile configures reconciliation behavior (e.g., sync
                   interval).

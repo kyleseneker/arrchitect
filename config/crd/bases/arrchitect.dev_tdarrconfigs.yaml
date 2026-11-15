@@ -123,6 +123,7 @@ spec:
                         type: object
                         x-kubernetes-preserve-unknown-fields: true
                       type: array
+                      x-kubernetes-list-type: atomic
                       x-kubernetes-preserve-unknown-fields: true
                     flowPlugins:
                       description: |-
@@ -133,6 +134,7 @@ spec:
                         type: object
                         x-kubernetes-preserve-unknown-fields: true
                       type: array
+                      x-kubernetes-list-type: atomic
                       x-kubernetes-preserve-unknown-fields: true
                     id:
                       description: id is the Tdarr document ID for this flow.
@@ -147,6 +149,9 @@ spec:
                   - name
                   type: object
                 type: array
+                x-kubernetes-list-map-keys:
+                - id
+                x-kubernetes-list-type: map
               libraries:
                 description: libraries defines media libraries to manage in Tdarr.
                 items:
@@ -240,6 +245,7 @@ spec:
                       items:
                         type: string
                       type: array
+                      x-kubernetes-list-type: atomic
                     priority:
                       description: priority is the processing priority for this library.
                         Lower values are higher priority.
@@ -288,6 +294,9 @@ spec:
                   - name
                   type: object
                 type: array
+                x-kubernetes-list-map-keys:
+                - id
+                x-kubernetes-list-type: map
               reconcile:
                 description: reconcile configures reconciliation behavior (e.g., sync
                   interval).

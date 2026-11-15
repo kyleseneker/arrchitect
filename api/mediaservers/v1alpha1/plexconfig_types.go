@@ -28,6 +28,8 @@ type PlexConfigSpec struct {
 	// doesn't list are removed. Libraries are never deleted, and a library's
 	// type can't change in place.
 	// +optional
+	// +listType=map
+	// +listMapKey=name
 	Libraries []PlexLibrary `json:"libraries,omitempty"`
 
 	// network configures network settings.
@@ -254,6 +256,7 @@ type PlexLibrary struct {
 
 	// paths is the list of media folder paths.
 	// +required
+	// +listType=set
 	Paths []string `json:"paths"`
 
 	// language is the library language (ISO 639-1).
