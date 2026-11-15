@@ -85,6 +85,22 @@ test-envtest: manifests generate setup-envtest ## Apply every sample to a real k
 	KUBEBUILDER_ASSETS="$$('$(ENVTEST)' use $(ENVTEST_K8S_VERSION) --bin-dir '$(LOCALBIN)' -p path)" \
 		go test ./test/envtest/... -count=1
 
+.PHONY: test-upgrade
+test-upgrade: manifests setup-envtest ## Upgrade the last release's CRDs, with its samples stored, to the current CRDs. PREVIOUS_REF= picks another release.
+	@prev="$${PREVIOUS_REF:-$$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null)}"; \
+	if [ -z "$$prev" ]; then echo "No earlier release to upgrade from; skipping."; exit 0; fi; \
+	dir="$$(mktemp -d)"; trap 'rm -rf "$$dir"' EXIT; \
+	git archive "$$prev" config/crd/bases config/samples | tar -x -C "$$dir"; \
+	echo "Upgrading from $$prev"; \
+	KUBEBUILDER_ASSETS="$$('$(ENVTEST)' use $(ENVTEST_K8S_VERSION) --bin-dir '$(LOCALBIN)' -p path)" \
+		PREVIOUS_RELEASE="$$dir" go test ./test/envtest/ -run TestUpgradeFromPreviousRelease -count=1 -v
+
+.PHONY: test-e2e
+test-e2e: kind ## Install the chart into a throwaway kind cluster, with its own kubeconfig, and reconcile a real Sonarr (needs docker).
+	$(MAKE) docker-build IMG=arrchitect:e2e
+	KIND="$(KIND)" PREVIOUS_RELEASE="$$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null)" \
+		go test -tags=e2e ./test/e2e/ -count=1 -v -timeout 30m
+
 .PHONY: test-compat
 test-compat: manifests generate setup-envtest ## Reconcile every integration against pinned application containers (needs docker, or CONTAINER_TOOL=podman). Narrow with COMPAT_RUN=TestSonarr.
 	KUBEBUILDER_ASSETS="$$('$(ENVTEST)' use $(ENVTEST_K8S_VERSION) --bin-dir '$(LOCALBIN)' -p path)" \
@@ -136,11 +152,14 @@ $(LOCALBIN):
 	mkdir -p "$(LOCALBIN)"
 
 ## Tool Binaries
+KIND ?= $(LOCALBIN)/kind
 CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen
 ENVTEST ?= $(LOCALBIN)/setup-envtest
 GOLANGCI_LINT = $(LOCALBIN)/golangci-lint
 
 ## Tool Versions
+# renovate: datasource=go depName=sigs.k8s.io/kind
+KIND_VERSION ?= v0.33.0
 # renovate: datasource=go depName=sigs.k8s.io/controller-tools
 CONTROLLER_TOOLS_VERSION ?= v0.23.0
 
@@ -156,6 +175,11 @@ ENVTEST_K8S_VERSION ?= $(shell v='$(call gomodver,k8s.io/api)'; \
 
 # renovate: datasource=github-releases depName=golangci/golangci-lint
 GOLANGCI_LINT_VERSION ?= v2.15.0
+.PHONY: kind
+kind: $(KIND) ## Download kind locally if necessary.
+$(KIND): $(LOCALBIN)
+	$(call go-install-tool,$(KIND),sigs.k8s.io/kind,$(KIND_VERSION))
+
 .PHONY: controller-gen
 controller-gen: $(CONTROLLER_GEN) ## Download controller-gen locally if necessary.
 $(CONTROLLER_GEN): $(LOCALBIN)

@@ -23,6 +23,24 @@ make sync-crds                # copy generated CRDs into the chart
 make lint
 ```
 
+## Tests
+
+| Command | What it runs |
+| --- | --- |
+| `make test` | Unit tests |
+| `make test-envtest` | Every sample and admission rule against a real kube-apiserver, and the controllers' Kubernetes side |
+| `make test-upgrade` | The last release's samples stored under its CRDs, then the CRDs upgraded and the current samples applied over them |
+| `make test-compat` | Each app in a container, reconciled from its fixture. `COMPAT_VERSIONS=previous` runs the previous versions; `CONTAINER_TOOL=podman` uses podman |
+| `make test-e2e` | The chart installed into a throwaway kind cluster, upgraded from the last release, against a real Sonarr. Needs docker |
+
+The envtest, upgrade and compat suites start their own API server, and the e2e
+suite writes its cluster to a kubeconfig in a temporary directory: none of them
+reads or changes your default kubeconfig.
+
+`test/compat/images_test.go` pins each app's current version, which Renovate
+bumps, and the newest release of the line before it. When a current pin moves
+to a new line, move its previous pin too.
+
 ## Layout
 
 One binary, `cmd/operator`, runs a controller per app, and one chart,
