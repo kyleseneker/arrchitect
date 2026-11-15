@@ -62,18 +62,14 @@ user would notice. `chore(deps)` commits are listed as dependencies. `test`,
 anything that needs action on upgrade with `!` (`feat(maintainerr)!: ...`) and
 it is listed under Breaking changes.
 
-A release is an annotated tag on `main`:
+A release is a tag on `main`:
 
 ```bash
-git tag -a v0.37.0 -F- <<'EOF'
-v0.37.0: one-line summary, used as the release title
-
-Optional upgrade notes: what a user has to do or check before upgrading.
-EOF
-git push origin v0.37.0
+git tag v0.2.0
+git push origin v0.2.0
 ```
 
-Anything after the subject's blank line goes under Upgrade notes. Git strips
-lines starting with `#` from tag messages, so use plain paragraphs or `-`
-bullets, not headings. The notes also list `kubectl apply` commands for any CRD
-that changed since the previous tag, because Helm never upgrades CRDs.
+The release workflow publishes the image, CLI and chart, and drafts the notes
+from the commits, which are then edited by hand. The draft lists `kubectl
+apply` commands for any CRD that changed since the previous tag, for installs
+that set `crds.enabled: false`.

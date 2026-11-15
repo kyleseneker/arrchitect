@@ -92,12 +92,7 @@ changelog:
       order: 3
 
 release:
-  name_template: "{{ .TagSubject }}"
-  header: |
-    {{ with .TagBody }}## Upgrade notes
-
-    {{ . }}
-    {{ end }}
+  name_template: "{{ .Tag }}"
   footer: |
     {{ if isEnvSet "CHANGED_CRDS" }}## CRD changes
 
