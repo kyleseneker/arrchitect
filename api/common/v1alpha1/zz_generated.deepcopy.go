@@ -284,11 +284,6 @@ func (in *ImportList) DeepCopyInto(out *ImportList) {
 		*out = new(bool)
 		**out = **in
 	}
-	if in.ShouldMonitor != nil {
-		in, out := &in.ShouldMonitor, &out.ShouldMonitor
-		*out = new(bool)
-		**out = **in
-	}
 	if in.SeasonFolder != nil {
 		in, out := &in.SeasonFolder, &out.SeasonFolder
 		*out = new(bool)

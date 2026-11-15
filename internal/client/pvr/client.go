@@ -32,19 +32,19 @@ type App struct {
 var (
 	Sonarr = App{
 		Name: "sonarr", Kind: "SonarrConfig", APIVersion: "v3", CategoryField: "tvCategory",
-		ImportListFields: ImportListFields{AutomaticAdd: "enableAutomaticAdd", Monitor: "shouldMonitor", MonitorAll: "all"},
+		ImportListFields: ImportListFields{AutomaticAdd: "enableAutomaticAdd", Monitor: "shouldMonitor"},
 	}
 	Radarr = App{
 		Name: "radarr", Kind: "RadarrConfig", APIVersion: "v3", CategoryField: "movieCategory",
-		ImportListFields: ImportListFields{Enable: "enabled", AutomaticAdd: "enableAuto", Monitor: "monitor", MonitorAll: "movieOnly"},
+		ImportListFields: ImportListFields{Enable: "enabled", AutomaticAdd: "enableAuto", Monitor: "monitor"},
 	}
 	Lidarr = App{
 		Name: "lidarr", Kind: "LidarrConfig", APIVersion: "v1", CategoryField: "musicCategory", MetadataProfiles: true,
-		ImportListFields: ImportListFields{AutomaticAdd: "enableAutomaticAdd", Monitor: "shouldMonitor", MonitorAll: "entireArtist"},
+		ImportListFields: ImportListFields{AutomaticAdd: "enableAutomaticAdd", Monitor: "shouldMonitor"},
 	}
 	Readarr = App{
 		Name: "readarr", Kind: "ReadarrConfig", APIVersion: "v1", CategoryField: "bookCategory", MetadataProfiles: true,
-		ImportListFields: ImportListFields{AutomaticAdd: "enableAutomaticAdd", Monitor: "shouldMonitor", MonitorAll: "entireAuthor"},
+		ImportListFields: ImportListFields{AutomaticAdd: "enableAutomaticAdd", Monitor: "shouldMonitor"},
 	}
 )
 
@@ -546,8 +546,6 @@ type ImportListFields struct {
 	AutomaticAdd string
 	// Monitor takes the app's monitor enum (Radarr: monitor; others: shouldMonitor).
 	Monitor string
-	// MonitorAll is the value the legacy shouldMonitor: true stands for.
-	MonitorAll string
 }
 
 // BuildImportListPayload builds the API payload for an import list.
@@ -579,7 +577,7 @@ func BuildImportListPayload(il commonv1alpha1.ImportList, qpIDs map[string]int, 
 	SetOptionalBool(payload, "seasonFolder", il.SeasonFolder)
 	SetOptionalBool(payload, "searchOnAdd", il.SearchOnAdd)
 
-	if value := importListMonitorValue(il, names); value != "" && names.Monitor != "" {
+	if value := il.Monitor; value != "" && names.Monitor != "" {
 		payload[names.Monitor] = value
 	}
 	if il.RootFolderPath != "" {
@@ -603,21 +601,6 @@ func BuildImportListPayload(il commonv1alpha1.ImportList, qpIDs map[string]int, 
 	}
 
 	return payload
-}
-
-// importListMonitorValue prefers monitor; the deprecated shouldMonitor bool
-// predates the enum and translates to monitoring everything or nothing.
-func importListMonitorValue(il commonv1alpha1.ImportList, names ImportListFields) string {
-	switch {
-	case il.Monitor != "":
-		return il.Monitor
-	case il.ShouldMonitor == nil:
-		return ""
-	case *il.ShouldMonitor:
-		return names.MonitorAll
-	default:
-		return "none"
-	}
 }
 
 // BuildFieldsPayload converts ConfigField slice to API fields format.

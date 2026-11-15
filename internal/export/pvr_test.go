@@ -101,7 +101,7 @@ func exportSonarr(t *testing.T, o Options, overrides ...map[string]string) (*pvr
 func TestPVRSettingsKeepOnlyFieldsTheCRDHas(t *testing.T) {
 	cfg, _ := exportSonarr(t, Options{})
 	require.NotNil(t, cfg.Spec.MediaManagement)
-	assert.Equal(t, "/trash", cfg.Spec.MediaManagement.RecycleBin)
+	assert.Equal(t, new("/trash"), cfg.Spec.MediaManagement.RecycleBin)
 	assert.True(t, *cfg.Spec.MediaManagement.DeleteEmptyFolders)
 	assert.Equal(t, []commonv1alpha1.Tag{{Label: "anime"}}, cfg.Spec.Tags)
 	assert.Equal(t, []commonv1alpha1.RootFolder{{Path: "/tv"}}, cfg.Spec.RootFolders)

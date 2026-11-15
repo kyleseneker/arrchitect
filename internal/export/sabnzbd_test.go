@@ -41,7 +41,6 @@ func TestSabnzbdExportsMiscServersAndCategories(t *testing.T) {
 	assert.True(t, *cfg.Spec.General.PreCheck)
 	assert.False(t, *cfg.Spec.General.PauseOnPostProcessing)
 	assert.True(t, *cfg.Spec.General.AutoSort)
-	assert.Empty(t, cfg.Spec.General.ScriptDir, "script_dir is exported once, as a folder")
 	general := cfg.Spec.General
 	assert.True(t, *general.FailHopelessJobs)
 	assert.Equal(t, "fail", general.EncryptedRarAction)

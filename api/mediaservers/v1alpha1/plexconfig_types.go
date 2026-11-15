@@ -59,11 +59,6 @@ type PlexServer struct {
 	// +optional
 	FriendlyName string `json:"friendlyName,omitempty"`
 
-	// language is not a setting current Plex has; Plex rejects it and reports why.
-	// Set a library's language on the library instead.
-	// +optional
-	Language string `json:"language,omitempty"`
-
 	// enableRemoteAccess allows access from outside the local network.
 	// +optional
 	EnableRemoteAccess *bool `json:"enableRemoteAccess,omitempty"`
@@ -202,11 +197,6 @@ type PlexTranscoder struct {
 	// +optional
 	MaxSimultaneousVideoTranscodes *int `json:"maxSimultaneousVideoTranscodes,omitempty"`
 
-	// transcodeHwDecodingEnabled is not a setting current Plex has; Plex rejects it
-	// and reports why. transcodeHwRequested covers hardware decoding.
-	// +optional
-	TranscodeHwDecodingEnabled *bool `json:"transcodeHwDecodingEnabled,omitempty"`
-
 	// transcodeHwEncodingEnabled enables hardware encoding.
 	// +optional
 	TranscodeHwEncodingEnabled *bool `json:"transcodeHwEncodingEnabled,omitempty"`
@@ -314,10 +304,10 @@ type PlexNetwork struct {
 	// +optional
 	WebhooksEnabled *bool `json:"webhooksEnabled,omitempty"`
 
-	// preferredNetworkInterface is the interface Plex uses, such as eth0. Empty
-	// means any.
+	// preferredNetworkInterface is the interface Plex uses, such as eth0. An
+	// empty string means any.
 	// +optional
-	PreferredNetworkInterface string `json:"preferredNetworkInterface,omitempty"`
+	PreferredNetworkInterface *string `json:"preferredNetworkInterface,omitempty"`
 }
 
 // PlexConfigStatus defines the observed state of PlexConfig.

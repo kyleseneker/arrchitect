@@ -322,6 +322,11 @@ func (in *LidarrMediaManagement) DeepCopyInto(out *LidarrMediaManagement) {
 		*out = new(bool)
 		**out = **in
 	}
+	if in.RecycleBin != nil {
+		in, out := &in.RecycleBin, &out.RecycleBin
+		*out = new(string)
+		**out = **in
+	}
 	if in.RecycleBinCleanupDays != nil {
 		in, out := &in.RecycleBinCleanupDays, &out.RecycleBinCleanupDays
 		*out = new(int)
@@ -745,6 +750,11 @@ func (in *RadarrMediaManagement) DeepCopyInto(out *RadarrMediaManagement) {
 		*out = new(bool)
 		**out = **in
 	}
+	if in.RecycleBin != nil {
+		in, out := &in.RecycleBin, &out.RecycleBin
+		*out = new(string)
+		**out = **in
+	}
 	if in.RecycleBinCleanupDays != nil {
 		in, out := &in.RecycleBinCleanupDays, &out.RecycleBinCleanupDays
 		*out = new(int)
@@ -1143,6 +1153,11 @@ func (in *ReadarrMediaManagement) DeepCopyInto(out *ReadarrMediaManagement) {
 		*out = new(bool)
 		**out = **in
 	}
+	if in.RecycleBin != nil {
+		in, out := &in.RecycleBin, &out.RecycleBin
+		*out = new(string)
+		**out = **in
+	}
 	if in.RecycleBinCleanupDays != nil {
 		in, out := &in.RecycleBinCleanupDays, &out.RecycleBinCleanupDays
 		*out = new(int)
@@ -1524,6 +1539,11 @@ func (in *SonarrMediaManagement) DeepCopyInto(out *SonarrMediaManagement) {
 	if in.ImportExtraFiles != nil {
 		in, out := &in.ImportExtraFiles, &out.ImportExtraFiles
 		*out = new(bool)
+		**out = **in
+	}
+	if in.RecycleBin != nil {
+		in, out := &in.RecycleBin, &out.RecycleBin
+		*out = new(string)
 		**out = **in
 	}
 	if in.RecycleBinCleanupDays != nil {

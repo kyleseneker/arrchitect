@@ -18,6 +18,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
+	pvrv1alpha1 "github.com/kyleseneker/arrchitect/api/pvr/v1alpha1"
 	"github.com/kyleseneker/arrchitect/internal/engine"
 )
 
@@ -113,6 +114,14 @@ func TestSections(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestSectionsSendAnEmptyRecycleBin(t *testing.T) {
+	sections, err := Sections(pvrv1alpha1.SonarrConfigSpec{
+		MediaManagement: &pvrv1alpha1.SonarrMediaManagement{RecycleBin: new("")},
+	})
+	require.NoError(t, err)
+	assert.Equal(t, map[string]any{"recycleBin": ""}, sections["mediaManagement"], "an empty recycleBin turns it off")
 }
 
 func TestBuildDownloadClientPayload(t *testing.T) {
@@ -362,8 +371,8 @@ func TestBuildNotificationPayload(t *testing.T) {
 }
 
 func TestBuildImportListPayload(t *testing.T) {
-	sonarr := ImportListFields{AutomaticAdd: "enableAutomaticAdd", Monitor: "shouldMonitor", MonitorAll: "all"}
-	radarr := ImportListFields{Enable: "enabled", AutomaticAdd: "enableAuto", Monitor: "monitor", MonitorAll: "movieOnly"}
+	sonarr := ImportListFields{AutomaticAdd: "enableAutomaticAdd", Monitor: "shouldMonitor"}
+	radarr := ImportListFields{Enable: "enabled", AutomaticAdd: "enableAuto", Monitor: "monitor"}
 	tests := []struct {
 		name    string
 		il      commonv1alpha1.ImportList
@@ -432,32 +441,6 @@ func TestBuildImportListPayload(t *testing.T) {
 			check: func(t *testing.T, p map[string]any) {
 				assert.Equal(t, "movieAndCollection", p["monitor"])
 				assert.NotContains(t, p, "shouldMonitor")
-			},
-		},
-		{
-			name:    "legacy shouldMonitor true monitors everything",
-			il:      commonv1alpha1.ImportList{Name: "List", Implementation: "CustomImport", ShouldMonitor: new(true)},
-			monitor: sonarr,
-			check: func(t *testing.T, p map[string]any) {
-				assert.Equal(t, "all", p["shouldMonitor"], "a bool is rejected by Sonarr 4")
-			},
-		},
-		{
-			name:    "legacy shouldMonitor false monitors nothing",
-			il:      commonv1alpha1.ImportList{Name: "List", Implementation: "RadarrListImport", ShouldMonitor: new(false)},
-			monitor: radarr,
-			check: func(t *testing.T, p map[string]any) {
-				assert.Equal(t, "none", p["monitor"])
-			},
-		},
-		{
-			name: "monitor wins over legacy shouldMonitor",
-			il: commonv1alpha1.ImportList{
-				Name: "List", Implementation: "CustomImport", Monitor: "future", ShouldMonitor: new(true),
-			},
-			monitor: sonarr,
-			check: func(t *testing.T, p map[string]any) {
-				assert.Equal(t, "future", p["shouldMonitor"])
 			},
 		},
 		{
@@ -1189,7 +1172,7 @@ func TestNewItemsGetTheAppsDefaults(t *testing.T) {
 		Indexers:        []commonv1alpha1.Indexer{{Name: "Geek", Protocol: "usenet", Implementation: "Newznab"}},
 		ImportLists:     []commonv1alpha1.ImportList{{Name: "Trakt", Implementation: "TraktListImport"}},
 		ImportListFields: ImportListFields{
-			Enable: "enabled", AutomaticAdd: "enableAuto", Monitor: "monitor", MonitorAll: "movieOnly",
+			Enable: "enabled", AutomaticAdd: "enableAuto", Monitor: "monitor",
 		},
 	}
 

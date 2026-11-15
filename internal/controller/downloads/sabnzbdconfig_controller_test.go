@@ -442,13 +442,3 @@ func TestSabnzbdAutoSortWritesASortOrder(t *testing.T) {
 	assert.Len(t, planSabnzbd(map[string]any{"misc": map[string]any{"auto_sort": "1"}}, spec, nil, "sort"), 1,
 		"the value earlier versions wrote must be corrected")
 }
-
-func TestSabnzbdFolderScriptDirWinsOverTheDeprecatedGeneralOne(t *testing.T) {
-	spec := downloadsv1alpha1.SabnzbdConfigSpec{
-		General: &downloadsv1alpha1.SabnzbdGeneral{ScriptDir: "/general"},
-		Folders: &downloadsv1alpha1.SabnzbdFolders{ScriptDir: "/folders"},
-	}
-	writes := planSabnzbd(map[string]any{"misc": map[string]any{}}, spec, nil, "dirs")
-	require.Len(t, writes, 1)
-	assert.Equal(t, "/folders", writes[0].values["value"])
-}

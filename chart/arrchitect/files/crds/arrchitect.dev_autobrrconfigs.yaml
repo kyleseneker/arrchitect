@@ -156,26 +156,6 @@ spec:
                     port:
                       description: port is the port of the download client.
                       type: integer
-                    settings:
-                      description: |-
-                        settings is deprecated and rejected: Autobrr has no client-level category,
-                        save path or content layout. Set category and savePath on filter actions.
-                      properties:
-                        category:
-                          description: category is the default download category/label.
-                          type: string
-                        contentLayout:
-                          description: contentLayout controls the content layout (Original,
-                            Subfolder, NoSubfolder).
-                          type: string
-                        prioritizeProperRepacks:
-                          description: prioritizeProperRepacks prioritizes proper/repack
-                            releases.
-                          type: boolean
-                        savePath:
-                          description: savePath overrides the default save path.
-                          type: string
-                      type: object
                     tls:
                       description: tls enables TLS for the connection.
                       type: boolean

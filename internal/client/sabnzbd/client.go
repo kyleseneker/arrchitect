@@ -10,8 +10,7 @@ import (
 	"github.com/kyleseneker/arrchitect/internal/reconciler"
 )
 
-// Folders maps SabnzbdFolders fields, and the deprecated general.scriptDir, to
-// their misc keys.
+// Folders maps SabnzbdFolders fields to their misc keys.
 var Folders = map[string]string{
 	"completeDir": "complete_dir", "incompleteDir": "download_dir", "tempDownloadDir": "tmp_dir",
 	"nzbBackupDir": "nzb_backup_dir", "scriptDir": "script_dir",

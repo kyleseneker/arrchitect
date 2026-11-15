@@ -50,6 +50,10 @@ func exportPlex(r *reader) (map[string]any, error) {
 					if n, err := strconv.Atoi(value); err == nil {
 						out[name] = n
 					}
+				case reflect.String:
+					if value != "" {
+						out[name] = value
+					}
 				default:
 					return nil, fmt.Errorf("plex %s.%s: unsupported type %s", section, name, field.Type)
 				}

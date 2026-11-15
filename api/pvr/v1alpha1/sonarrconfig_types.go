@@ -132,9 +132,10 @@ type SonarrMediaManagement struct {
 	// +kubebuilder:validation:Enum=preferAndUpgrade;doNotPrefer;doNotUpgrade
 	DownloadPropersAndRepacks string `json:"downloadPropersAndRepacks,omitempty"`
 
-	// recycleBin is the path to the recycling bin folder. Empty disables.
+	// recycleBin is the path to the recycling bin folder. An empty string
+	// turns the recycling bin off.
 	// +optional
-	RecycleBin string `json:"recycleBin,omitempty"`
+	RecycleBin *string `json:"recycleBin,omitempty"`
 
 	// recycleBinCleanupDays is how many days files stay in the recycling bin.
 	// +optional

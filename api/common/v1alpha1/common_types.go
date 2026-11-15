@@ -780,12 +780,6 @@ type ImportList struct {
 	// +optional
 	RootFolderPath string `json:"rootFolderPath,omitempty"`
 
-	// shouldMonitor is deprecated; use monitor. It predates the per-app values: true
-	// monitors everything (Sonarr all, Radarr movieOnly, Lidarr entireArtist, Readarr
-	// entireAuthor) and false monitors nothing. Ignored when monitor is set.
-	// +optional
-	ShouldMonitor *bool `json:"shouldMonitor,omitempty"`
-
 	// seriesType is the series type for imported items (Sonarr: standard, daily, anime).
 	// +optional
 	SeriesType string `json:"seriesType,omitempty"`

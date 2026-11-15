@@ -102,30 +102,6 @@ type AutobrrDownloadClient struct {
 	// Readarr and SABnzbd clients.
 	// +optional
 	APIKeySecretRef *commonv1alpha1.SecretKeyRef `json:"apiKeySecretRef,omitempty"`
-
-	// settings is deprecated and rejected: Autobrr has no client-level category,
-	// save path or content layout. Set category and savePath on filter actions.
-	// +optional
-	Settings *AutobrrDownloadClientSettings `json:"settings,omitempty"`
-}
-
-// AutobrrDownloadClientSettings holds additional download client settings.
-type AutobrrDownloadClientSettings struct {
-	// category is the default download category/label.
-	// +optional
-	Category string `json:"category,omitempty"`
-
-	// savePath overrides the default save path.
-	// +optional
-	SavePath string `json:"savePath,omitempty"`
-
-	// contentLayout controls the content layout (Original, Subfolder, NoSubfolder).
-	// +optional
-	ContentLayout string `json:"contentLayout,omitempty"`
-
-	// prioritizeProperRepacks prioritizes proper/repack releases.
-	// +optional
-	PrioritizeProperRepacks *bool `json:"prioritizeProperRepacks,omitempty"`
 }
 
 // AutobrrIndexer defines an indexer/tracker connection in Autobrr.
