@@ -163,8 +163,9 @@ spec:
           value: /api
         - name: apiKey
           valueFrom:
-            name: compat-credentials
-            key: api-key
+            secretKeyRef:
+              name: compat-credentials
+              key: api-key
         - name: categories
           value: [5000, 5040]
         - name: minimumSeeders

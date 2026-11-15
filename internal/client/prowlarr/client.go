@@ -166,7 +166,7 @@ func BuildProwlarrIndexerPayload(idx indexersv1alpha1.ProwlarrIndexer, tagIDs ma
 	}
 	pvrclient.SetOptionalBool(desired, "enable", idx.Enable)
 	if idx.Fields != nil {
-		desired["fields"] = fieldsPayload(idx.Fields)
+		desired["fields"] = pvrclient.BuildFieldsPayload(idx.Fields)
 	}
 	setTags(desired, idx.TagLabels, tagIDs)
 	if idx.AppProfileId != nil {
@@ -207,7 +207,7 @@ func BuildProwlarrDownloadClientPayload(dc indexersv1alpha1.ProwlarrDownloadClie
 	}
 	pvrclient.SetOptionalBool(desired, "enable", dc.Enable)
 	if dc.Fields != nil {
-		desired["fields"] = fieldsPayload(dc.Fields)
+		desired["fields"] = pvrclient.BuildFieldsPayload(dc.Fields)
 	}
 	if dc.Categories != nil {
 		categories := make([]map[string]any, 0, len(dc.Categories))
@@ -235,18 +235,6 @@ func intSliceToInterface(s []int) []any {
 		r[i] = v
 	}
 	return r
-}
-
-func fieldsPayload(declared []indexersv1alpha1.ProwlarrField) []map[string]any {
-	fields := make([]map[string]any, 0, len(declared))
-	for _, f := range declared {
-		val := ""
-		if f.Value != nil {
-			val = *f.Value
-		}
-		fields = append(fields, map[string]any{"name": f.Name, "value": val})
-	}
-	return fields
 }
 
 // setTags maps declared tag labels to the IDs Prowlarr assigned them.

@@ -345,19 +345,23 @@ func newTestBazarrClient(t *testing.T, addr string) *bazarrclient.Client {
 	return bazarrclient.NewClient(hc)
 }
 
-func TestBazarrProviderSettingsReadENVFromASecret(t *testing.T) {
+func TestBazarrProviderSecretSettingsReadFromASecret(t *testing.T) {
 	scheme := runtime.NewScheme()
 	require.NoError(t, clientgoscheme.AddToScheme(scheme))
 	r := &BazarrConfigReconciler{Client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(bazarrSecrets()).Build()}
+	ref := commonv1alpha1.SecretKeyRef{Name: "bazarr-secrets", Key: "sonarr-api-key"}
 
 	form, err := r.bazarrProviderForm(context.Background(), "media", []subtitlesv1alpha1.BazarrProvider{{
-		Name: "opensubtitlescom", Settings: map[string]string{"password": "ENV:bazarr-secrets:sonarr-api-key"},
+		Name: "opensubtitlescom", Settings: map[string]string{"username": "me"},
+		SecretSettings: map[string]commonv1alpha1.SecretKeyRef{"password": ref},
 	}})
 	require.NoError(t, err)
+	assert.Equal(t, "me", form.Get("settings-opensubtitlescom-username"))
 	assert.Equal(t, "sonarr-key", form.Get("settings-opensubtitlescom-password"))
 
 	_, err = r.bazarrProviderForm(context.Background(), "media", []subtitlesv1alpha1.BazarrProvider{{
-		Name: "opensubtitlescom", Settings: map[string]string{"password": "ENV:OPENSUBTITLES_PASSWORD"},
+		Name: "opensubtitlescom", Settings: map[string]string{"password": "plain"},
+		SecretSettings: map[string]commonv1alpha1.SecretKeyRef{"password": ref},
 	}})
-	assert.ErrorContains(t, err, "ENV: takes <secret>:<key>", "a malformed reference must not be sent to Bazarr as the password")
+	assert.ErrorContains(t, err, "password is in both settings and secretSettings")
 }

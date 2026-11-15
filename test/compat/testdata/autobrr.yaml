@@ -34,8 +34,9 @@ spec:
       settings:
         - name: passkey
           valueFrom:
-            name: compat-credentials
-            key: ipt-passkey
+            secretKeyRef:
+              name: compat-credentials
+              key: ipt-passkey
     - name: Compat Torznab
       identifier: torznab
       enable: false

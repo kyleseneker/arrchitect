@@ -144,7 +144,7 @@ func TestPVRIndexerNormalizesProtocolAndReferencesMaskedFields(t *testing.T) {
 	assert.Equal(t, 25, *idx.Priority)
 	require.Len(t, idx.Fields, 2)
 	assert.Equal(t, `"http://jackett"`, string(idx.Fields[0].Value.Raw))
-	assert.Equal(t, "indexer-torznab-apikey", idx.Fields[1].ValueFrom.Key)
+	assert.Equal(t, "indexer-torznab-apikey", idx.Fields[1].ValueFrom.SecretKeyRef.Key)
 }
 
 func TestPVRNotificationSkipsEventsTheImplementationLacks(t *testing.T) {
@@ -164,7 +164,7 @@ func TestPVRImportListUsesTheAppsPropertyNames(t *testing.T) {
 	assert.True(t, *il.EnableAutomaticAdd)
 	assert.Equal(t, "HD", il.QualityProfileName)
 	assert.Equal(t, []string{"anime"}, il.TagLabels)
-	assert.Equal(t, "import-list-trakt-accesstoken", il.Fields[0].ValueFrom.Key)
+	assert.Equal(t, "import-list-trakt-accesstoken", il.Fields[0].ValueFrom.SecretKeyRef.Key)
 }
 
 func TestPVRQualityProfileNamesItsCutoffAndScoredFormats(t *testing.T) {

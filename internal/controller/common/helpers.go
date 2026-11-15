@@ -24,7 +24,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
-	indexersv1alpha1 "github.com/kyleseneker/arrchitect/api/indexers/v1alpha1"
 	pvrclient "github.com/kyleseneker/arrchitect/internal/client/pvr"
 	"github.com/kyleseneker/arrchitect/internal/engine"
 	"github.com/kyleseneker/arrchitect/internal/metrics"
@@ -298,7 +297,7 @@ func ResolveConfigFields(ctx context.Context, c client.Reader, namespace, owner 
 		if out[i].Value != nil {
 			return nil, fmt.Errorf("%s field %q: value and valueFrom are mutually exclusive", owner, out[i].Name)
 		}
-		val, err := reconciler.ResolveSecretKeyRef(ctx, c, namespace, *out[i].ValueFrom)
+		val, err := reconciler.ResolveSecretKeyRef(ctx, c, namespace, out[i].ValueFrom.SecretKeyRef)
 		if err != nil {
 			return nil, fmt.Errorf("%s field %q: %w", owner, out[i].Name, err)
 		}
@@ -354,36 +353,12 @@ func ResolveImportListSecrets(ctx context.Context, c client.Reader, namespace st
 	return out, nil
 }
 
-// ResolveProwlarrFields returns a copy of fields with any valueFrom reference resolved.
-func ResolveProwlarrFields(ctx context.Context, c client.Reader, namespace, owner string, fields []indexersv1alpha1.ProwlarrField) ([]indexersv1alpha1.ProwlarrField, error) {
-	if len(fields) == 0 {
-		return fields, nil
-	}
-	out := make([]indexersv1alpha1.ProwlarrField, len(fields))
-	copy(out, fields)
-	for i := range out {
-		if out[i].ValueFrom == nil {
-			continue
-		}
-		if out[i].Value != nil {
-			return nil, fmt.Errorf("%s field %q: value and valueFrom are mutually exclusive", owner, out[i].Name)
-		}
-		val, err := reconciler.ResolveSecretKeyRef(ctx, c, namespace, *out[i].ValueFrom)
-		if err != nil {
-			return nil, fmt.Errorf("%s field %q: %w", owner, out[i].Name, err)
-		}
-		out[i].Value = &val
-		out[i].ValueFrom = nil
-	}
-	return out, nil
-}
-
 var secretKeyRefType = reflect.TypeFor[commonv1alpha1.SecretKeyRef]()
 
 // ReferencesSecret reports whether a config refers to the named Secret
-// anywhere. Every Secret reference in the API is a SecretKeyRef or a Bazarr
-// provider setting written ENV:<secret>:<key>, so walking the config finds new
-// ones as fields are added rather than relying on a list kept by hand.
+// anywhere. Every Secret reference in the API is a SecretKeyRef, so walking
+// the config finds new ones as fields are added rather than relying on a list
+// kept by hand.
 func ReferencesSecret(config any, name string) bool {
 	return slices.ContainsFunc(SecretKeyRefs(config), func(ref commonv1alpha1.SecretKeyRef) bool { return ref.Name == name })
 }
@@ -419,14 +394,10 @@ func collectSecretKeyRefs(v reflect.Value, refs *[]commonv1alpha1.SecretKeyRef) 
 			collectSecretKeyRefs(v.Index(i), refs)
 		}
 	case reflect.Map:
-		for it := v.MapRange(); it.Next(); {
-			collectSecretKeyRefs(it.Value(), refs)
-		}
-	case reflect.String:
-		if rest, ok := strings.CutPrefix(v.String(), "ENV:"); ok {
-			if name, key, ok := strings.Cut(rest, ":"); ok && name != "" && key != "" {
-				*refs = append(*refs, commonv1alpha1.SecretKeyRef{Name: name, Key: key})
-			}
+		keys := v.MapKeys()
+		slices.SortFunc(keys, func(a, b reflect.Value) int { return strings.Compare(a.String(), b.String()) })
+		for _, k := range keys {
+			collectSecretKeyRefs(v.MapIndex(k), refs)
 		}
 	}
 }

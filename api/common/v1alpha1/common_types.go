@@ -86,19 +86,28 @@ type AppConnection struct {
 	TLS *TLSConfig `json:"tls,omitempty"`
 }
 
-// ConfigField represents a key-value field in a download client configuration.
+// ConfigField is a named field of a provider's configuration. It sets value
+// or valueFrom, not both.
+// +kubebuilder:validation:MaxProperties=2
 type ConfigField struct {
 	// name is the field name.
 	// +required
 	Name string `json:"name"`
 
-	// value is the field value. Can be a string, number, or boolean.
+	// value is the field value: a string, number, boolean or list.
 	// +optional
 	Value *FieldValue `json:"value,omitempty"`
 
-	// valueFrom sources the field value from a Secret. Mutually exclusive with value.
+	// valueFrom reads the field value from a source.
 	// +optional
-	ValueFrom *SecretKeyRef `json:"valueFrom,omitempty"`
+	ValueFrom *ValueSource `json:"valueFrom,omitempty"`
+}
+
+// ValueSource names where a value is read from.
+type ValueSource struct {
+	// secretKeyRef reads the value from a key of a Secret in the resource's namespace.
+	// +required
+	SecretKeyRef SecretKeyRef `json:"secretKeyRef"`
 }
 
 // FieldValue wraps a value that can be a string, int, or bool.

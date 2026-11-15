@@ -60,5 +60,6 @@ spec:
           value: https://indexer.example.net
         - name: apiKey
           valueFrom:
-            name: indexer-credentials
-            key: api-key
+            secretKeyRef:
+              name: indexer-credentials
+              key: api-key

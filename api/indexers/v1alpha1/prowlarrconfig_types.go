@@ -180,7 +180,7 @@ type ProwlarrIndexer struct {
 	// +optional
 	// +listType=map
 	// +listMapKey=name
-	Fields []ProwlarrField `json:"fields,omitempty"`
+	Fields []commonv1alpha1.ConfigField `json:"fields,omitempty"`
 
 	// tagLabels references tags by label, resolved against Prowlarr on each
 	// reconciliation. A missing or ambiguous label blocks writes, and an empty
@@ -188,21 +188,6 @@ type ProwlarrIndexer struct {
 	// +optional
 	// +listType=set
 	TagLabels []string `json:"tagLabels,omitempty"`
-}
-
-// ProwlarrField represents a key-value configuration field.
-type ProwlarrField struct {
-	// name is the field name.
-	// +required
-	Name string `json:"name"`
-
-	// value is the field value.
-	// +optional
-	Value *string `json:"value,omitempty"`
-
-	// valueFrom sources the field value from a Secret. Mutually exclusive with value.
-	// +optional
-	ValueFrom *commonv1alpha1.SecretKeyRef `json:"valueFrom,omitempty"`
 }
 
 // ProwlarrProxy defines a proxy configuration for Prowlarr.
@@ -281,7 +266,7 @@ type ProwlarrDownloadClient struct {
 	// +optional
 	// +listType=map
 	// +listMapKey=name
-	Fields []ProwlarrField `json:"fields,omitempty"`
+	Fields []commonv1alpha1.ConfigField `json:"fields,omitempty"`
 }
 
 // ProwlarrDownloadClientCategory maps Prowlarr categories to download client categories.

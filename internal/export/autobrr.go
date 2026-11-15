@@ -202,7 +202,7 @@ func (r *reader) autobrrIndexer(i map[string]any) map[string]any {
 		switch {
 		case value == "":
 		case reconciler.IsMasked(value):
-			out = append(out, map[string]any{"name": key, "valueFrom": r.creds.ref("", "indexer", name, key)})
+			out = append(out, map[string]any{"name": key, "valueFrom": map[string]any{"secretKeyRef": r.creds.ref("", "indexer", name, key)}})
 		default:
 			out = append(out, map[string]any{"name": key, "value": value})
 		}

@@ -136,29 +136,38 @@ spec:
                               Most specs have a single field named "value" (e.g., a regex pattern or enum int).
                               SizeSpecification has "min" and "max" fields (floats in GB).
                             items:
-                              description: ConfigField represents a key-value field
-                                in a download client configuration.
+                              description: |-
+                                ConfigField is a named field of a provider's configuration. It sets value
+                                or valueFrom, not both.
+                              maxProperties: 2
                               properties:
                                 name:
                                   description: name is the field name.
                                   type: string
                                 value:
-                                  description: value is the field value. Can be a
-                                    string, number, or boolean.
+                                  description: 'value is the field value: a string,
+                                    number, boolean or list.'
                                   x-kubernetes-preserve-unknown-fields: true
                                 valueFrom:
-                                  description: valueFrom sources the field value from
-                                    a Secret. Mutually exclusive with value.
+                                  description: valueFrom reads the field value from
+                                    a source.
                                   properties:
-                                    key:
-                                      description: key is the key within the Secret.
-                                      type: string
-                                    name:
-                                      description: name is the name of the Secret.
-                                      type: string
+                                    secretKeyRef:
+                                      description: secretKeyRef reads the value from
+                                        a key of a Secret in the resource's namespace.
+                                      properties:
+                                        key:
+                                          description: key is the key within the Secret.
+                                          type: string
+                                        name:
+                                          description: name is the name of the Secret.
+                                          type: string
+                                      required:
+                                      - key
+                                      - name
+                                      type: object
                                   required:
-                                  - key
-                                  - name
+                                  - secretKeyRef
                                   type: object
                               required:
                               - name
@@ -324,29 +333,37 @@ spec:
                         fields defines additional implementation-specific configuration fields.
                         Use these for settings not covered by first-class fields (e.g., initialState, sequentialOrder).
                       items:
-                        description: ConfigField represents a key-value field in a
-                          download client configuration.
+                        description: |-
+                          ConfigField is a named field of a provider's configuration. It sets value
+                          or valueFrom, not both.
+                        maxProperties: 2
                         properties:
                           name:
                             description: name is the field name.
                             type: string
                           value:
-                            description: value is the field value. Can be a string,
-                              number, or boolean.
+                            description: 'value is the field value: a string, number,
+                              boolean or list.'
                             x-kubernetes-preserve-unknown-fields: true
                           valueFrom:
-                            description: valueFrom sources the field value from a
-                              Secret. Mutually exclusive with value.
+                            description: valueFrom reads the field value from a source.
                             properties:
-                              key:
-                                description: key is the key within the Secret.
-                                type: string
-                              name:
-                                description: name is the name of the Secret.
-                                type: string
+                              secretKeyRef:
+                                description: secretKeyRef reads the value from a key
+                                  of a Secret in the resource's namespace.
+                                properties:
+                                  key:
+                                    description: key is the key within the Secret.
+                                    type: string
+                                  name:
+                                    description: name is the name of the Secret.
+                                    type: string
+                                required:
+                                - key
+                                - name
+                                type: object
                             required:
-                            - key
-                            - name
+                            - secretKeyRef
                             type: object
                         required:
                         - name
@@ -472,29 +489,37 @@ spec:
                       description: fields defines the import list's configuration
                         fields (e.g., API URL, access token, list ID).
                       items:
-                        description: ConfigField represents a key-value field in a
-                          download client configuration.
+                        description: |-
+                          ConfigField is a named field of a provider's configuration. It sets value
+                          or valueFrom, not both.
+                        maxProperties: 2
                         properties:
                           name:
                             description: name is the field name.
                             type: string
                           value:
-                            description: value is the field value. Can be a string,
-                              number, or boolean.
+                            description: 'value is the field value: a string, number,
+                              boolean or list.'
                             x-kubernetes-preserve-unknown-fields: true
                           valueFrom:
-                            description: valueFrom sources the field value from a
-                              Secret. Mutually exclusive with value.
+                            description: valueFrom reads the field value from a source.
                             properties:
-                              key:
-                                description: key is the key within the Secret.
-                                type: string
-                              name:
-                                description: name is the name of the Secret.
-                                type: string
+                              secretKeyRef:
+                                description: secretKeyRef reads the value from a key
+                                  of a Secret in the resource's namespace.
+                                properties:
+                                  key:
+                                    description: key is the key within the Secret.
+                                    type: string
+                                  name:
+                                    description: name is the name of the Secret.
+                                    type: string
+                                required:
+                                - key
+                                - name
+                                type: object
                             required:
-                            - key
-                            - name
+                            - secretKeyRef
                             type: object
                         required:
                         - name
@@ -643,29 +668,37 @@ spec:
                       description: fields defines the indexer's configuration fields
                         (e.g., baseUrl, apiKey, categories).
                       items:
-                        description: ConfigField represents a key-value field in a
-                          download client configuration.
+                        description: |-
+                          ConfigField is a named field of a provider's configuration. It sets value
+                          or valueFrom, not both.
+                        maxProperties: 2
                         properties:
                           name:
                             description: name is the field name.
                             type: string
                           value:
-                            description: value is the field value. Can be a string,
-                              number, or boolean.
+                            description: 'value is the field value: a string, number,
+                              boolean or list.'
                             x-kubernetes-preserve-unknown-fields: true
                           valueFrom:
-                            description: valueFrom sources the field value from a
-                              Secret. Mutually exclusive with value.
+                            description: valueFrom reads the field value from a source.
                             properties:
-                              key:
-                                description: key is the key within the Secret.
-                                type: string
-                              name:
-                                description: name is the name of the Secret.
-                                type: string
+                              secretKeyRef:
+                                description: secretKeyRef reads the value from a key
+                                  of a Secret in the resource's namespace.
+                                properties:
+                                  key:
+                                    description: key is the key within the Secret.
+                                    type: string
+                                  name:
+                                    description: name is the name of the Secret.
+                                    type: string
+                                required:
+                                - key
+                                - name
+                                type: object
                             required:
-                            - key
-                            - name
+                            - secretKeyRef
                             type: object
                         required:
                         - name
@@ -828,29 +861,37 @@ spec:
                       description: fields defines the notification's configuration
                         fields (e.g., webhook URL, API token).
                       items:
-                        description: ConfigField represents a key-value field in a
-                          download client configuration.
+                        description: |-
+                          ConfigField is a named field of a provider's configuration. It sets value
+                          or valueFrom, not both.
+                        maxProperties: 2
                         properties:
                           name:
                             description: name is the field name.
                             type: string
                           value:
-                            description: value is the field value. Can be a string,
-                              number, or boolean.
+                            description: 'value is the field value: a string, number,
+                              boolean or list.'
                             x-kubernetes-preserve-unknown-fields: true
                           valueFrom:
-                            description: valueFrom sources the field value from a
-                              Secret. Mutually exclusive with value.
+                            description: valueFrom reads the field value from a source.
                             properties:
-                              key:
-                                description: key is the key within the Secret.
-                                type: string
-                              name:
-                                description: name is the name of the Secret.
-                                type: string
+                              secretKeyRef:
+                                description: secretKeyRef reads the value from a key
+                                  of a Secret in the resource's namespace.
+                                properties:
+                                  key:
+                                    description: key is the key within the Secret.
+                                    type: string
+                                  name:
+                                    description: name is the name of the Secret.
+                                    type: string
+                                required:
+                                - key
+                                - name
+                                type: object
                             required:
-                            - key
-                            - name
+                            - secretKeyRef
                             type: object
                         required:
                         - name

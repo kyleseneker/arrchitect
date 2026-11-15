@@ -309,11 +309,15 @@ type BazarrProvider struct {
 	// +optional
 	Enabled *bool `json:"enabled,omitempty"`
 
-	// settings is a map of provider-specific settings. A value written
-	// ENV:<secret>:<key> is read from that key of a Secret in the resource's
-	// namespace.
+	// settings is a map of provider-specific settings.
 	// +optional
 	Settings map[string]string `json:"settings,omitempty"`
+
+	// secretSettings is a map of provider-specific settings read from Secrets
+	// in the resource's namespace, such as passwords and API keys. A setting
+	// can't be in both settings and secretSettings.
+	// +optional
+	SecretSettings map[string]commonv1alpha1.SecretKeyRef `json:"secretSettings,omitempty"`
 }
 
 // BazarrLanguages configures language settings and profiles.

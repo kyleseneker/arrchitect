@@ -73,7 +73,7 @@ func (r *ProwlarrConfigReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	indexers := make([]indexersv1alpha1.ProwlarrIndexer, len(config.Spec.Indexers))
 	copy(indexers, config.Spec.Indexers)
 	for i := range indexers {
-		f, ferr := ctrlcommon.ResolveProwlarrFields(ctx, r.Client, config.Namespace, "indexer "+indexers[i].Name, indexers[i].Fields)
+		f, ferr := ctrlcommon.ResolveConfigFields(ctx, r.Client, config.Namespace, "indexer "+indexers[i].Name, indexers[i].Fields)
 		if ferr != nil {
 			unresolved = append(unresolved, fmt.Sprintf("indexers: %v", ferr))
 			indexers = nil
@@ -84,7 +84,7 @@ func (r *ProwlarrConfigReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	downloadClients := make([]indexersv1alpha1.ProwlarrDownloadClient, len(config.Spec.DownloadClients))
 	copy(downloadClients, config.Spec.DownloadClients)
 	for i := range downloadClients {
-		f, ferr := ctrlcommon.ResolveProwlarrFields(ctx, r.Client, config.Namespace, "download client "+downloadClients[i].Name, downloadClients[i].Fields)
+		f, ferr := ctrlcommon.ResolveConfigFields(ctx, r.Client, config.Namespace, "download client "+downloadClients[i].Name, downloadClients[i].Fields)
 		if ferr != nil {
 			unresolved = append(unresolved, fmt.Sprintf("downloadClients: %v", ferr))
 			downloadClients = nil

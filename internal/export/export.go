@@ -381,30 +381,7 @@ func referencedKeys(obj any, secret string) []string {
 			keys = append(keys, ref.Key)
 		}
 	}
-	raw, _ := json.Marshal(obj)
-	var doc any
-	_ = json.Unmarshal(raw, &doc)
-	var inline []string
-	var walk func(v any)
-	walk = func(v any) {
-		switch x := v.(type) {
-		case string:
-			if key, ok := strings.CutPrefix(x, "ENV:"+secret+":"); ok && !slices.Contains(keys, key) && !slices.Contains(inline, key) {
-				inline = append(inline, key)
-			}
-		case []any:
-			for _, item := range x {
-				walk(item)
-			}
-		case map[string]any:
-			for _, item := range x {
-				walk(item)
-			}
-		}
-	}
-	walk(doc)
-	slices.Sort(inline)
-	return append(keys, inline...)
+	return keys
 }
 
 type reader struct {
@@ -503,7 +480,7 @@ func (r *reader) fields(item map[string]any, defaults map[string]map[string]any,
 		switch {
 		case skip[key]:
 		case reconciler.IsMasked(value) && secrets:
-			out = append(out, map[string]any{"name": key, "valueFrom": r.creds.ref("", kind, name, key)})
+			out = append(out, map[string]any{"name": key, "valueFrom": map[string]any{"secretKeyRef": r.creds.ref("", kind, name, key)}})
 		case reconciler.IsMasked(value):
 			r.warn("%s %q: the app hides %s and the config can't read it from a Secret; set it in the app", kind, name, key)
 		case reflect.DeepEqual(value, defaults[impl][key]):

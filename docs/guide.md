@@ -145,10 +145,29 @@ is synced. When one an item needs is missing, that kind of item is neither
 written nor pruned and is named in a `SyncFailed` message; the rest still
 syncs.
 
-The `fields` of Sonarr, Radarr, Lidarr and Readarr indexers, notifications and
-import lists, and of Prowlarr indexers, download clients and notifications, can
-read a value from a Secret with `valueFrom` instead of `value`. Bazarr provider
-settings use the value `ENV:<secret>:<key>`.
+Provider `fields`, and Autobrr indexer `settings`, read a value from a Secret
+with `valueFrom` instead of `value`:
+
+```yaml
+fields:
+  - name: apiKey
+    valueFrom:
+      secretKeyRef:
+        name: indexer-credentials
+        key: api-key
+```
+
+Bazarr providers put settings read from Secrets in `secretSettings`:
+
+```yaml
+providers:
+  - name: opensubtitlescom
+    settings:
+      use_hash: "true"
+    secretSettings:
+      username: {name: opensubtitles, key: username}
+      password: {name: opensubtitles, key: password}
+```
 
 For a private certificate authority, set `connection.tls.caSecretRef`.
 `connection.tls.insecureSkipVerify` disables verification.

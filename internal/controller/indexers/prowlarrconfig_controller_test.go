@@ -322,11 +322,11 @@ func TestProwlarrResolvesDownloadClientAndNotificationSecrets(t *testing.T) {
 	app := &fakeProwlarr{}
 	url := app.serve(t)
 
-	ref := &commonv1alpha1.SecretKeyRef{Name: "prowlarr-credentials", Key: "qbit-password"}
+	ref := &commonv1alpha1.ValueSource{SecretKeyRef: commonv1alpha1.SecretKeyRef{Name: "prowlarr-credentials", Key: "qbit-password"}}
 	cfg := prowlarrConfig(url)
 	cfg.Spec.DownloadClients = []indexersv1alpha1.ProwlarrDownloadClient{{
 		Name: "qBittorrent", Implementation: "QBittorrent", Protocol: "torrent",
-		Fields: []indexersv1alpha1.ProwlarrField{{Name: "password", ValueFrom: ref}},
+		Fields: []commonv1alpha1.ConfigField{{Name: "password", ValueFrom: ref}},
 	}}
 	cfg.Spec.Notifications = []commonv1alpha1.Notification{{
 		Name: "hook", Implementation: "Webhook",
@@ -355,7 +355,7 @@ func TestProwlarrMissingItemSecretSkipsOnlyItsKind(t *testing.T) {
 	}}
 	cfg.Spec.DownloadClients = []indexersv1alpha1.ProwlarrDownloadClient{{
 		Name: "qBittorrent", Implementation: "QBittorrent", Protocol: "torrent",
-		Fields: []indexersv1alpha1.ProwlarrField{{Name: "password", ValueFrom: &commonv1alpha1.SecretKeyRef{Name: "missing", Key: "password"}}},
+		Fields: []commonv1alpha1.ConfigField{{Name: "password", ValueFrom: &commonv1alpha1.ValueSource{SecretKeyRef: commonv1alpha1.SecretKeyRef{Name: "missing", Key: "password"}}}},
 	}}
 	c := runProwlarr(t, cfg, prowlarrSecret())
 

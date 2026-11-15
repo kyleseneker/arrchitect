@@ -41,8 +41,9 @@ spec:
           value: /api
         - name: apiKey
           valueFrom:
-            name: compat-credentials
-            key: api-key
+            secretKeyRef:
+              name: compat-credentials
+              key: api-key
   downloadClients:
     - name: qBittorrent
       enable: true
@@ -56,12 +57,14 @@ spec:
           value: ${QBITTORRENT_PORT}
         - name: username
           valueFrom:
-            name: compat-credentials
-            key: qbittorrent-username
+            secretKeyRef:
+              name: compat-credentials
+              key: qbittorrent-username
         - name: password
           valueFrom:
-            name: compat-credentials
-            key: qbittorrent-password
+            secretKeyRef:
+              name: compat-credentials
+              key: qbittorrent-password
       categories:
         - clientCategory: tv
           categories: [5000, 5040]
