@@ -675,9 +675,7 @@ func TestUnsetLibraryFieldsAreOmitted(t *testing.T) {
 	}
 }
 
-// Worker limits are per node, so with several nodes the spec must name one:
-// choosing among them would step a different node each pass.
-func TestWorkerNodeNeverGuessesAmongSeveral(t *testing.T) {
+func TestWorkerNodeFindsTheNamedNode(t *testing.T) {
 	node := func(name string) map[string]any { return map[string]any{"nodeName": name} }
 	one := map[string]any{"id-a": node("InternalNode")}
 	two := map[string]any{"id-a": node("InternalNode"), "id-b": node("GpuNode")}
@@ -688,13 +686,11 @@ func TestWorkerNodeNeverGuessesAmongSeveral(t *testing.T) {
 		want    string
 		wantErr string
 	}{
-		{name: "", nodes: one, want: "id-a"},
 		{name: "InternalNode", nodes: one, want: "id-a"},
 		{name: "GpuNode", nodes: two, want: "id-b"},
-		{name: "", nodes: two, wantErr: "found 2 nodes (GpuNode, InternalNode); set workers.nodeName"},
 		{name: "Missing", nodes: two, wantErr: `no node named "Missing" (nodes: GpuNode, InternalNode)`},
 		{name: "Twin", nodes: map[string]any{"id-a": node("Twin"), "id-b": node("Twin")}, wantErr: `node name "Twin" is ambiguous`},
-		{name: "", nodes: map[string]any{}, wantErr: "no nodes registered"},
+		{name: "InternalNode", nodes: map[string]any{}, wantErr: `no node named "InternalNode"`},
 	} {
 		t.Run(tc.name+"/"+tc.want+tc.wantErr, func(t *testing.T) {
 			got, err := workerNode(tc.nodes, tc.name)

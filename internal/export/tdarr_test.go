@@ -81,9 +81,11 @@ func TestTdarrExportsLibrariesFlowsAndWorkers(t *testing.T) {
 	assert.Equal(t, "flow1", cfg.Spec.Flows[0].ID)
 	assert.JSONEq(t, `{"id":"n1"}`, string(cfg.Spec.Flows[0].FlowPlugins[0].Raw))
 
-	assert.Equal(t, "InternalNode", cfg.Spec.Workers.NodeName)
-	assert.Equal(t, 2, *cfg.Spec.Workers.TranscodeCPU)
-	assert.Equal(t, 1, *cfg.Spec.Workers.HealthcheckGPU)
-	assert.Nil(t, cfg.Spec.Workers.TranscodeGPU)
-	assert.Contains(t, res.Warnings, `Tdarr has another node, "Zeta"; TdarrConfig sets workers on one node, so only "InternalNode" is exported`)
+	require.Len(t, cfg.Spec.Workers, 2, "every node's workers are exported")
+	internal := cfg.Spec.Workers[0]
+	assert.Equal(t, "InternalNode", internal.NodeName)
+	assert.Equal(t, 2, *internal.TranscodeCPU)
+	assert.Equal(t, 1, *internal.HealthcheckGPU)
+	assert.Nil(t, internal.TranscodeGPU)
+	assert.Equal(t, "Zeta", cfg.Spec.Workers[1].NodeName)
 }

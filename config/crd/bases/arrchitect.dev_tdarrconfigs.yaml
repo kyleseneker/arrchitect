@@ -472,28 +472,38 @@ spec:
                     type: integer
                 type: object
               workers:
-                description: workers configures the number of worker threads by type.
-                properties:
-                  healthcheckCPU:
-                    description: healthcheckCPU is the number of CPU health check
-                      workers.
-                    type: integer
-                  healthcheckGPU:
-                    description: healthcheckGPU is the number of GPU health check
-                      workers.
-                    type: integer
-                  nodeName:
-                    description: |-
-                      nodeName is the name of the Tdarr node these limits are for. It may be
-                      left out while Tdarr has a single node, and is required once it has more.
-                    type: string
-                  transcodeCPU:
-                    description: transcodeCPU is the number of CPU transcode workers.
-                    type: integer
-                  transcodeGPU:
-                    description: transcodeGPU is the number of GPU transcode workers.
-                    type: integer
-                type: object
+                description: workers configures the number of worker threads on each
+                  Tdarr node.
+                items:
+                  description: TdarrWorkers configures the number of worker threads
+                    on one Tdarr node.
+                  properties:
+                    healthcheckCPU:
+                      description: healthcheckCPU is the number of CPU health check
+                        workers.
+                      type: integer
+                    healthcheckGPU:
+                      description: healthcheckGPU is the number of GPU health check
+                        workers.
+                      type: integer
+                    nodeName:
+                      description: nodeName is the name of the Tdarr node these limits
+                        are for.
+                      minLength: 1
+                      type: string
+                    transcodeCPU:
+                      description: transcodeCPU is the number of CPU transcode workers.
+                      type: integer
+                    transcodeGPU:
+                      description: transcodeGPU is the number of GPU transcode workers.
+                      type: integer
+                  required:
+                  - nodeName
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - nodeName
+                x-kubernetes-list-type: map
             required:
             - connection
             type: object

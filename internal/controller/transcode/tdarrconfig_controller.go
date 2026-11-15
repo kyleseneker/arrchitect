@@ -3,6 +3,7 @@ package transcode
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"maps"
 	"slices"
@@ -144,7 +145,7 @@ func (s *tdarrSync) run(ctx context.Context, spec *transcodev1alpha1.TdarrConfig
 			syncErrors = append(syncErrors, fmt.Sprintf("flow(%s): %v", flow.ID, err))
 		}
 	}
-	if spec.Workers != nil {
+	if len(spec.Workers) > 0 {
 		if err := s.workers(ctx, spec.Workers); err != nil {
 			logger.Error(err, "failed to reconcile workers")
 			syncErrors = append(syncErrors, fmt.Sprintf("workers: %v", err))
@@ -514,12 +515,21 @@ func decodeRawList(items []runtime.RawExtension) ([]any, error) {
 	return out, nil
 }
 
-func (s *tdarrSync) workers(ctx context.Context, workers *transcodev1alpha1.TdarrWorkers) error {
+func (s *tdarrSync) workers(ctx context.Context, workers []transcodev1alpha1.TdarrWorkers) error {
 	nodes, err := s.tc.GetNodes(ctx)
 	if err != nil {
 		return fmt.Errorf("getting nodes: %w", err)
 	}
+	var errs []error
+	for _, w := range workers {
+		if err := s.nodeWorkers(ctx, nodes, w); err != nil {
+			errs = append(errs, fmt.Errorf("node %s: %w", w.NodeName, err))
+		}
+	}
+	return errors.Join(errs...)
+}
 
+func (s *tdarrSync) nodeWorkers(ctx context.Context, nodes map[string]any, workers transcodev1alpha1.TdarrWorkers) error {
 	nodeID, err := workerNode(nodes, workers.NodeName)
 	if err != nil {
 		return err
@@ -568,9 +578,7 @@ func currentWorkerLimits(node any) map[string]int {
 	return out
 }
 
-// workerNode picks the node whose worker limits the spec sets: the named one,
-// or the only one. Limits are per node, and picking among several unnamed
-// nodes would let each pass step a different one.
+// workerNode finds the node with the given name.
 func workerNode(nodes map[string]any, name string) (string, error) {
 	names := make([]string, 0, len(nodes))
 	var matches []string
@@ -578,27 +586,19 @@ func workerNode(nodes map[string]any, name string) (string, error) {
 		n, _ := node.(map[string]any)
 		nodeName, _ := n["nodeName"].(string)
 		names = append(names, nodeName)
-		if name != "" && nodeName == name {
+		if nodeName == name {
 			matches = append(matches, id)
 		}
 	}
 	slices.Sort(names)
-	switch {
-	case len(nodes) == 0:
-		return "", fmt.Errorf("no nodes registered")
-	case name == "" && len(nodes) == 1:
-		for id := range nodes {
-			return id, nil
-		}
-	case name == "":
-		return "", fmt.Errorf("found %d nodes (%s); set workers.nodeName to the one these limits are for",
-			len(nodes), strings.Join(names, ", "))
-	case len(matches) == 1:
+	switch len(matches) {
+	case 1:
 		return matches[0], nil
-	case len(matches) > 1:
+	case 0:
+		return "", fmt.Errorf("no node named %q (nodes: %s)", name, strings.Join(names, ", "))
+	default:
 		return "", fmt.Errorf("node name %q is ambiguous (%d nodes)", name, len(matches))
 	}
-	return "", fmt.Errorf("no node named %q (nodes: %s)", name, strings.Join(names, ", "))
 }
 
 // convergeWorkerLimit steps a worker count toward target. Tdarr's endpoint only

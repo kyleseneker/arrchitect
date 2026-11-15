@@ -64,7 +64,7 @@ func exportTdarr(r *reader) (map[string]any, error) {
 		spec["flows"] = fs
 	}
 
-	if workers := r.tdarrWorkers(nodes); workers != nil {
+	if workers := r.tdarrWorkers(nodes); len(workers) > 0 {
 		spec["workers"] = workers
 	}
 	return spec, nil
@@ -151,28 +151,29 @@ func (r *reader) tdarrLibrary(doc map[string]any, variables []map[string]any) ma
 	return lib
 }
 
-func (r *reader) tdarrWorkers(nodes map[string]any) map[string]any {
-	if len(nodes) == 0 {
-		return nil
-	}
+func (r *reader) tdarrWorkers(nodes map[string]any) []any {
 	byName := map[string]map[string]any{}
 	for _, raw := range nodes {
 		node, _ := raw.(map[string]any)
 		name, _ := node["nodeName"].(string)
+		if name == "" {
+			r.warn("a Tdarr node has no name, so its workers stay as set in Tdarr")
+			continue
+		}
 		byName[name] = node
 	}
-	names := slices.Sorted(maps.Keys(byName))
-	for _, other := range names[1:] {
-		r.warn("Tdarr has another node, %q; TdarrConfig sets workers on one node, so only %q is exported", other, names[0])
-	}
-	limits, _ := byName[names[0]]["workerLimits"].(map[string]any)
-	workers := map[string]any{"nodeName": names[0]}
-	for field, key := range tdarrWorkerTypes {
-		for k, v := range limits {
-			if strings.EqualFold(k, key) {
-				workers[field] = v
+	out := make([]any, 0, len(byName))
+	for _, name := range slices.Sorted(maps.Keys(byName)) {
+		limits, _ := byName[name]["workerLimits"].(map[string]any)
+		workers := map[string]any{"nodeName": name}
+		for field, key := range tdarrWorkerTypes {
+			for k, v := range limits {
+				if strings.EqualFold(k, key) {
+					workers[field] = v
+				}
 			}
 		}
+		out = append(out, workers)
 	}
-	return workers
+	return out
 }

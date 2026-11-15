@@ -110,8 +110,10 @@ func (in *TdarrConfigSpec) DeepCopyInto(out *TdarrConfigSpec) {
 	}
 	if in.Workers != nil {
 		in, out := &in.Workers, &out.Workers
-		*out = new(TdarrWorkers)
-		(*in).DeepCopyInto(*out)
+		*out = make([]TdarrWorkers, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
 	}
 	if in.Settings != nil {
 		in, out := &in.Settings, &out.Settings
