@@ -411,16 +411,8 @@ func (in *BazarrSpec) DeepCopyInto(out *BazarrSpec) {
 		*out = new(BazarrGeneral)
 		(*in).DeepCopyInto(*out)
 	}
-	if in.SonarrConnection != nil {
-		in, out := &in.SonarrConnection, &out.SonarrConnection
-		*out = new(BazarrAppConnection)
-		(*in).DeepCopyInto(*out)
-	}
-	if in.RadarrConnection != nil {
-		in, out := &in.RadarrConnection, &out.RadarrConnection
-		*out = new(BazarrAppConnection)
-		(*in).DeepCopyInto(*out)
-	}
+	in.SonarrConnection.DeepCopyInto(&out.SonarrConnection)
+	in.RadarrConnection.DeepCopyInto(&out.RadarrConnection)
 	if in.SubSync != nil {
 		in, out := &in.SubSync, &out.SubSync
 		*out = new(BazarrSubSync)

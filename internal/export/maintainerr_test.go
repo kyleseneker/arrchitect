@@ -52,14 +52,14 @@ func TestMaintainerrExportsConnectionsAndRuleGroups(t *testing.T) {
 	cfg, ok := res.Config.(*curationv1alpha1.Maintainerr)
 	require.True(t, ok)
 
-	require.NotNil(t, cfg.Spec.MediaServer.Jellyfin)
+	require.NotZero(t, cfg.Spec.MediaServer.Jellyfin)
 	assert.Equal(t, "jf-key", res.Secret.StringData[cfg.Spec.MediaServer.Jellyfin.APIKeySecretRef.Key])
 	require.Len(t, cfg.Spec.Radarr, 1)
 	assert.Equal(t, "keep", cfg.Spec.Radarr[0].ExclusionTag)
 	assert.Equal(t, "radarr-key", res.Secret.StringData[cfg.Spec.Radarr[0].APIKeySecretRef.Key])
-	require.NotNil(t, cfg.Spec.Seerr)
+	require.NotZero(t, cfg.Spec.Seerr)
 	assert.Contains(t, res.Unfilled, cfg.Spec.Seerr.APIKeySecretRef.Key, "a masked key is left to fill in")
-	assert.Nil(t, cfg.Spec.Tautulli)
+	assert.Zero(t, cfg.Spec.Tautulli)
 	assert.Equal(t, "0 3 * * *", cfg.Spec.Jobs.Rules)
 
 	require.Len(t, cfg.Spec.RuleGroups, 1)
@@ -75,13 +75,13 @@ func TestMaintainerrExportsConnectionsAndRuleGroups(t *testing.T) {
 	first := g.Sections[0].Rules[0]
 	assert.Equal(t, "Jellyfin.addDate", first.FirstValue)
 	assert.Equal(t, "BEFORE", first.Action)
-	assert.Equal(t, &curationv1alpha1.MaintainerrCustomValue{Type: "custom_days", Value: intstr.FromInt32(180)}, first.CustomValue)
+	assert.Equal(t, curationv1alpha1.MaintainerrCustomValue{Type: "custom_days", Value: new(intstr.FromInt32(180))}, first.CustomValue)
 	assert.Equal(t, "AND", g.Sections[0].Rules[1].Operator)
-	assert.Equal(t, intstr.FromInt32(0), g.Sections[0].Rules[1].CustomValue.Value)
+	assert.Equal(t, new(intstr.FromInt32(0)), g.Sections[0].Rules[1].CustomValue.Value)
 	last := g.Sections[1].Rules[0]
 	assert.Empty(t, last.Operator, "the section carries the operator joining it")
 	assert.Equal(t, "Radarr.monitored", last.FirstValue)
-	assert.Equal(t, &curationv1alpha1.MaintainerrCustomValue{Type: "boolean", Value: intstr.FromString("false")}, last.CustomValue)
+	assert.Equal(t, curationv1alpha1.MaintainerrCustomValue{Type: "boolean", Value: new(intstr.FromString("false"))}, last.CustomValue)
 	assert.Equal(t, []string{"Discord"}, g.Notifications)
 
 	require.Len(t, cfg.Spec.Notifications, 1)
@@ -89,10 +89,10 @@ func TestMaintainerrExportsConnectionsAndRuleGroups(t *testing.T) {
 	assert.Equal(t, "discord", n.Agent)
 	assert.Equal(t, []string{"mediaAboutToBeHandled", "mediaHandled"}, n.Types)
 	assert.Contains(t, res.Warnings, `notification "Discord": the config can't express notification type 2048, so it isn't exported`)
-	assert.Equal(t, int32(3), *n.AboutScale)
+	assert.Equal(t, int32(3), n.AboutScale)
 	assert.Equal(t, "Maintainerr", fieldNamed(t, n.Options, "botUsername").Value.ToInterface())
 	assert.NotContains(t, fieldNames(n.Options), "botAvatarUrl", "an empty option isn't exported")
 	webhook := fieldNamed(t, n.Options, "webhookUrl")
-	require.NotNil(t, webhook.ValueFrom)
+	require.NotZero(t, webhook.ValueFrom)
 	assert.Equal(t, "https://discord.example/hook", res.Secret.StringData[webhook.ValueFrom.SecretKeyRef.Key])
 }

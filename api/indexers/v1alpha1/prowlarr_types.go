@@ -25,7 +25,7 @@ import (
 type ProwlarrSpec struct {
 	// connection defines how to connect to the Prowlarr instance.
 	// +required
-	Connection commonv1alpha1.AppConnection `json:"connection"`
+	Connection commonv1alpha1.AppConnection `json:"connection,omitempty"`
 
 	// reconcile configures reconciliation behavior (e.g., sync interval).
 	// +optional
@@ -80,7 +80,7 @@ type ProwlarrAppProfile struct {
 	// name uniquely identifies the sync profile.
 	// +kubebuilder:validation:MinLength=1
 	// +required
-	Name string `json:"name"`
+	Name string `json:"name,omitempty"`
 
 	// enableRss enables RSS sync.
 	// +optional
@@ -104,7 +104,8 @@ type ProwlarrAppProfile struct {
 type ProwlarrApplication struct {
 	// name is the display name of the application.
 	// +required
-	Name string `json:"name"`
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name,omitempty"`
 
 	// syncLevel controls how indexers are synced to this application.
 	// +optional
@@ -113,23 +114,27 @@ type ProwlarrApplication struct {
 
 	// implementation is the application type (e.g., Sonarr, Radarr).
 	// +required
-	Implementation string `json:"implementation"`
+	// +kubebuilder:validation:MinLength=1
+	Implementation string `json:"implementation,omitempty"`
 
 	// configContract is the configuration contract name for the implementation.
 	// +required
-	ConfigContract string `json:"configContract"`
+	// +kubebuilder:validation:MinLength=1
+	ConfigContract string `json:"configContract,omitempty"`
 
 	// prowlarrUrl is the URL Prowlarr uses to reach itself (for callbacks).
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	ProwlarrUrl string `json:"prowlarrUrl,omitempty"`
 
 	// baseUrl is the base URL of the application.
 	// +required
-	BaseUrl string `json:"baseUrl"`
+	// +kubebuilder:validation:MinLength=1
+	BaseUrl string `json:"baseUrl,omitempty"`
 
 	// apiKeySecretRef references a Secret containing the application's API key.
 	// +required
-	APIKeySecretRef commonv1alpha1.SecretKeyRef `json:"apiKeySecretRef"`
+	APIKeySecretRef commonv1alpha1.SecretKeyRef `json:"apiKeySecretRef,omitempty"`
 
 	// syncCategories is the list of category IDs to sync to this application.
 	// +optional
@@ -148,15 +153,19 @@ type ProwlarrApplication struct {
 type ProwlarrIndexer struct {
 	// name is the display name of the indexer.
 	// +required
-	Name string `json:"name"`
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name,omitempty"`
 
 	// implementation is the indexer type (e.g., Newznab, Torznab).
 	// +required
-	Implementation string `json:"implementation"`
+	// +kubebuilder:validation:MinLength=1
+	Implementation string `json:"implementation,omitempty"`
 
-	// configContract is the configuration contract name for the implementation.
-	// +required
-	ConfigContract string `json:"configContract"`
+	// configContract is the configuration contract name.
+	// Defaults to "<implementation>Settings" if not set.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	ConfigContract string `json:"configContract,omitempty"`
 
 	// enable controls whether this indexer is active. A new indexer is enabled
 	// unless this is false.
@@ -170,6 +179,7 @@ type ProwlarrIndexer struct {
 	// appProfileName resolves the current sync profile ID by name on each reconciliation.
 	// Takes precedence over appProfileId. Missing or ambiguous names block indexer writes.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	AppProfileName string `json:"appProfileName,omitempty"`
 
 	// priority is the indexer priority. Lower values are higher priority.
@@ -194,19 +204,23 @@ type ProwlarrIndexer struct {
 type ProwlarrProxy struct {
 	// name is the display name of the proxy.
 	// +required
-	Name string `json:"name"`
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name,omitempty"`
 
 	// implementation is the proxy type (e.g., Http, Socks4, Socks5).
 	// +required
-	Implementation string `json:"implementation"`
+	// +kubebuilder:validation:MinLength=1
+	Implementation string `json:"implementation,omitempty"`
 
 	// configContract is the configuration contract name for the implementation.
 	// +required
-	ConfigContract string `json:"configContract"`
+	// +kubebuilder:validation:MinLength=1
+	ConfigContract string `json:"configContract,omitempty"`
 
 	// host is the hostname or IP of the proxy.
 	// +required
-	Host string `json:"host"`
+	// +kubebuilder:validation:MinLength=1
+	Host string `json:"host,omitempty"`
 
 	// requestTimeout is the request timeout in seconds.
 	// +optional
@@ -224,7 +238,8 @@ type ProwlarrProxy struct {
 type ProwlarrDownloadClient struct {
 	// name is the display name of the download client.
 	// +required
-	Name string `json:"name"`
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name,omitempty"`
 
 	// enable controls whether this download client is active. A new download
 	// client is enabled unless this is false.
@@ -234,15 +249,17 @@ type ProwlarrDownloadClient struct {
 	// protocol is the download protocol.
 	// +required
 	// +kubebuilder:validation:Enum=torrent;usenet
-	Protocol string `json:"protocol"`
+	Protocol string `json:"protocol,omitempty"`
 
 	// implementation is the download client type (e.g., QBittorrent, Sabnzbd).
 	// +required
-	Implementation string `json:"implementation"`
+	// +kubebuilder:validation:MinLength=1
+	Implementation string `json:"implementation,omitempty"`
 
 	// configContract is the configuration contract name.
 	// Defaults to "<implementation>Settings" if not set.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	ConfigContract string `json:"configContract,omitempty"`
 
 	// priority is the download client priority. Lower values are higher priority.
@@ -273,7 +290,8 @@ type ProwlarrDownloadClient struct {
 type ProwlarrDownloadClientCategory struct {
 	// clientCategory is the category name in the download client.
 	// +required
-	ClientCategory string `json:"clientCategory"`
+	// +kubebuilder:validation:MinLength=1
+	ClientCategory string `json:"clientCategory,omitempty"`
 
 	// categories is the list of Prowlarr category IDs to map.
 	// +optional
@@ -282,6 +300,7 @@ type ProwlarrDownloadClientCategory struct {
 }
 
 // ProwlarrStatus defines the observed state of Prowlarr.
+// +kubebuilder:validation:MinProperties=1
 type ProwlarrStatus struct {
 	// conditions represent the current state of the Prowlarr resource.
 	// +listType=map
@@ -291,6 +310,7 @@ type ProwlarrStatus struct {
 
 	// observedGeneration is the most recent generation observed.
 	// +optional
+	// +kubebuilder:validation:Minimum=1
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 
 	// lastSyncTime is the timestamp of the last successful reconciliation.
@@ -324,7 +344,7 @@ type Prowlarr struct {
 
 	// spec is the desired state of the Prowlarr.
 	// +required
-	Spec ProwlarrSpec `json:"spec"`
+	Spec ProwlarrSpec `json:"spec,omitzero"`
 
 	// status is the observed state of the Prowlarr.
 	// +optional

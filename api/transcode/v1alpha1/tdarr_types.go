@@ -26,7 +26,7 @@ import (
 type TdarrSpec struct {
 	// connection defines how to connect to the Tdarr instance using an API key.
 	// +required
-	Connection commonv1alpha1.AppConnection `json:"connection"`
+	Connection commonv1alpha1.AppConnection `json:"connection,omitempty"`
 
 	// reconcile configures reconciliation behavior (e.g., sync interval).
 	// +optional
@@ -87,7 +87,7 @@ type TdarrSettings struct {
 	// for stalls.
 	// +optional
 	// +kubebuilder:validation:Minimum=1
-	WorkerStallDetectorInterval *int32 `json:"workerStallDetectorInterval,omitempty"`
+	WorkerStallDetectorInterval int32 `json:"workerStallDetectorInterval,omitempty"`
 
 	// ignoreSchedules runs workers outside their libraries' schedules.
 	// +optional
@@ -178,6 +178,7 @@ type TdarrSettings struct {
 
 	// notificationsCustomText is added to every notification.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	NotificationsCustomText string `json:"notificationsCustomText,omitempty"`
 }
 
@@ -185,30 +186,37 @@ type TdarrSettings struct {
 type TdarrLibrary struct {
 	// id is the Tdarr document ID for this library.
 	// +required
-	ID string `json:"id"`
+	// +kubebuilder:validation:MinLength=1
+	ID string `json:"id,omitempty"`
 
 	// name is the display name of the library.
 	// +required
-	Name string `json:"name"`
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name,omitempty"`
 
 	// folder is the source media folder path.
 	// +required
-	Folder string `json:"folder"`
+	// +kubebuilder:validation:MinLength=1
+	Folder string `json:"folder,omitempty"`
 
 	// cache is the transcode cache folder path.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	Cache string `json:"cache,omitempty"`
 
 	// container is the output container format (e.g., "mkv", "mp4").
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	Container string `json:"container,omitempty"`
 
 	// containerFilter is the container filter for scanning (e.g., "mkv,mp4,avi").
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	ContainerFilter string `json:"containerFilter,omitempty"`
 
 	// foldersToIgnore is a comma-separated list of folder names to skip while scanning.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	FoldersToIgnore string `json:"foldersToIgnore,omitempty"`
 
 	// foldersToIgnoreCaseInsensitive matches foldersToIgnore regardless of case.
@@ -218,16 +226,19 @@ type TdarrLibrary struct {
 	// filterResolutionsSkip is a comma-separated list of resolutions, such as
 	// 720p,1080p, whose files the server skips without sending them to a worker.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	FilterResolutionsSkip string `json:"filterResolutionsSkip,omitempty"`
 
 	// filterCodecsSkip is a comma-separated list of video codecs, such as
 	// hevc,vp9, whose files the server skips.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	FilterCodecsSkip string `json:"filterCodecsSkip,omitempty"`
 
 	// filterContainersSkip is a comma-separated list of containers, such as
 	// mkv,mp4, whose files the server skips.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	FilterContainersSkip string `json:"filterContainersSkip,omitempty"`
 
 	// filterHardlinked skips files linked in more than one place until they no
@@ -242,7 +253,7 @@ type TdarrLibrary struct {
 	// folderWatchScanInterval is how often, in seconds, folder watching polls.
 	// +optional
 	// +kubebuilder:validation:Minimum=1
-	FolderWatchScanInterval *int32 `json:"folderWatchScanInterval,omitempty"`
+	FolderWatchScanInterval int32 `json:"folderWatchScanInterval,omitempty"`
 
 	// folderWatching enables watching the folder for new files.
 	// +optional
@@ -294,6 +305,7 @@ type TdarrLibrary struct {
 	// flowId is the Tdarr flow this library processes files with. Flows are the
 	// current mechanism; classic plugin stacks are the older alternative.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	FlowID string `json:"flowId,omitempty"`
 
 	// pluginStack lists the community plugin IDs to run, in order, for libraries
@@ -315,14 +327,17 @@ type TdarrLibrary struct {
 type TdarrFlow struct {
 	// id is the Tdarr document ID for this flow.
 	// +required
-	ID string `json:"id"`
+	// +kubebuilder:validation:MinLength=1
+	ID string `json:"id,omitempty"`
 
 	// name is the display name of the flow.
 	// +required
-	Name string `json:"name"`
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name,omitempty"`
 
 	// description is a human-readable description of the flow.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	Description string `json:"description,omitempty"`
 
 	// flowPlugins is the raw JSON definition of flow plugin nodes, as Tdarr
@@ -331,13 +346,13 @@ type TdarrFlow struct {
 	// +required
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +listType=atomic
-	FlowPlugins []runtime.RawExtension `json:"flowPlugins"`
+	FlowPlugins []runtime.RawExtension `json:"flowPlugins,omitempty"`
 
 	// flowEdges is the raw JSON definition of flow edge connections.
 	// +required
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +listType=atomic
-	FlowEdges []runtime.RawExtension `json:"flowEdges"`
+	FlowEdges []runtime.RawExtension `json:"flowEdges,omitempty"`
 }
 
 // TdarrWorkers configures the number of worker threads on one Tdarr node.
@@ -345,7 +360,7 @@ type TdarrWorkers struct {
 	// nodeName is the name of the Tdarr node these limits are for.
 	// +required
 	// +kubebuilder:validation:MinLength=1
-	NodeName string `json:"nodeName"`
+	NodeName string `json:"nodeName,omitempty"`
 
 	// transcodeGPU is the number of GPU transcode workers.
 	// +optional
@@ -365,6 +380,7 @@ type TdarrWorkers struct {
 }
 
 // TdarrStatus defines the observed state of Tdarr.
+// +kubebuilder:validation:MinProperties=1
 type TdarrStatus struct {
 	// conditions represent the current state of the Tdarr resource.
 	// +listType=map
@@ -374,6 +390,7 @@ type TdarrStatus struct {
 
 	// observedGeneration is the most recent generation observed.
 	// +optional
+	// +kubebuilder:validation:Minimum=1
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 
 	// lastSyncTime is the timestamp of the last successful reconciliation.
@@ -407,7 +424,7 @@ type Tdarr struct {
 
 	// spec is the desired state of the Tdarr.
 	// +required
-	Spec TdarrSpec `json:"spec"`
+	Spec TdarrSpec `json:"spec,omitzero"`
 
 	// status is the observed state of the Tdarr.
 	// +optional

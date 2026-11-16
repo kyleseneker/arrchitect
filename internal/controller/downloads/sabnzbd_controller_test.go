@@ -203,7 +203,7 @@ func TestSabnzbdObservePlanDoesNotCountAnUnseenPassword(t *testing.T) {
 		"categories": []any{map[string]any{"name": "tv", "dir": "tv", "priority": float64(0), "order": float64(2)}},
 	}
 	spec := sabnzbdSpec()
-	spec.Reconcile = &commonv1alpha1.ReconcileConfig{DriftPolicy: new("observe")}
+	spec.Reconcile = &commonv1alpha1.ReconcileConfig{DriftPolicy: "observe"}
 	assert.Empty(t, planSabnzbd(current, spec, map[string]map[string]string{"Primary": vals}, "observe-unseen"))
 }
 
@@ -212,7 +212,7 @@ func TestSabnzbdObserveReportsDriftWithoutWriting(t *testing.T) {
 	cfg := sabnzbdConfig(app.serve(t))
 	cfg.Spec.Categories = []downloadsv1alpha1.SabnzbdCategory{{Name: "tv", Dir: "tv"}}
 	policy := "observe"
-	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{DriftPolicy: &policy}
+	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{DriftPolicy: policy}
 
 	scheme := runtime.NewScheme()
 	require.NoError(t, clientgoscheme.AddToScheme(scheme))
@@ -303,7 +303,7 @@ func TestSabnzbdValuesUseSABnzbdsForms(t *testing.T) {
 	}, got)
 
 	server := sabnzbdServerValues(downloadsv1alpha1.SabnzbdServer{
-		Host: "news.example.com", Port: 563, SSLVerify: "medium", Optional: new(true), Required: new(false), Timeout: new(int32(30)),
+		Host: "news.example.com", Port: 563, SSLVerify: "medium", Optional: new(true), Required: new(false), Timeout: int32(30),
 	})
 	assert.Equal(t, map[string]string{
 		"host": "news.example.com", "port": "563", "ssl_verify": "2", "optional": "1", "required": "0", "timeout": "30",
@@ -401,7 +401,7 @@ func TestSabnzbdDeletionPolicyRemovesWhatItCreated(t *testing.T) {
 	}}
 	cfg := sabnzbdConfig(app.serve(t))
 	policy := ctrlcommon.DeletionPolicyDelete
-	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{DeletionPolicy: &policy}
+	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{DeletionPolicy: policy}
 	cfg.SetManagedResources(map[string][]string{"servers": {"old"}, "categories": {"tv"}})
 	now := metav1.NewTime(time.Now())
 	cfg.DeletionTimestamp = &now
@@ -420,7 +420,7 @@ func TestSabnzbdObserveReportsWhatPruneWouldDelete(t *testing.T) {
 	cfg := sabnzbdConfig(app.serve(t))
 	cfg.Spec.Servers = []downloadsv1alpha1.SabnzbdServer{{Name: "kept", Host: "news", Port: 563}}
 	observe := "observe"
-	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{Prune: new(true), DriftPolicy: &observe}
+	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{Prune: new(true), DriftPolicy: observe}
 	cfg.SetManagedResources(map[string][]string{"servers": {"observe-old"}})
 	observed := metrics.DriftObservedTotal.WithLabelValues("sabnzbd", "servers", "observe-old")
 	before := testutil.ToFloat64(observed)

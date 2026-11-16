@@ -64,9 +64,11 @@ spec:
                     properties:
                       key:
                         description: key is the key within the Secret.
+                        minLength: 1
                         type: string
                       name:
                         description: name is the name of the Secret.
+                        minLength: 1
                         type: string
                     required:
                     - key
@@ -85,9 +87,11 @@ spec:
                         properties:
                           key:
                             description: key is the key within the Secret.
+                            minLength: 1
                             type: string
                           name:
                             description: name is the name of the Secret.
+                            minLength: 1
                             type: string
                         required:
                         - key
@@ -103,6 +107,7 @@ spec:
                     type: object
                   url:
                     description: url is the base URL of the app (e.g., http://arr-sonarr.arr.svc.cluster.local:8989).
+                    minLength: 1
                     pattern: ^https?://
                     type: string
                 required:
@@ -118,6 +123,7 @@ spec:
                     description:
                       description: description is a human-readable description of
                         the flow.
+                      minLength: 1
                       type: string
                     flowEdges:
                       description: flowEdges is the raw JSON definition of flow edge
@@ -141,9 +147,11 @@ spec:
                       x-kubernetes-preserve-unknown-fields: true
                     id:
                       description: id is the Tdarr document ID for this flow.
+                      minLength: 1
                       type: string
                     name:
                       description: name is the display name of the flow.
+                      minLength: 1
                       type: string
                   required:
                   - flowEdges
@@ -162,14 +170,17 @@ spec:
                   properties:
                     cache:
                       description: cache is the transcode cache folder path.
+                      minLength: 1
                       type: string
                     container:
                       description: container is the output container format (e.g.,
                         "mkv", "mp4").
+                      minLength: 1
                       type: string
                     containerFilter:
                       description: containerFilter is the container filter for scanning
                         (e.g., "mkv,mp4,avi").
+                      minLength: 1
                       type: string
                     decisionMode:
                       description: decisionMode selects how Tdarr decides what to
@@ -186,11 +197,13 @@ spec:
                       description: |-
                         filterCodecsSkip is a comma-separated list of video codecs, such as
                         hevc,vp9, whose files the server skips.
+                      minLength: 1
                       type: string
                     filterContainersSkip:
                       description: |-
                         filterContainersSkip is a comma-separated list of containers, such as
                         mkv,mp4, whose files the server skips.
+                      minLength: 1
                       type: string
                     filterHardlinked:
                       description: |-
@@ -201,14 +214,17 @@ spec:
                       description: |-
                         filterResolutionsSkip is a comma-separated list of resolutions, such as
                         720p,1080p, whose files the server skips without sending them to a worker.
+                      minLength: 1
                       type: string
                     flowId:
                       description: |-
                         flowId is the Tdarr flow this library processes files with. Flows are the
                         current mechanism; classic plugin stacks are the older alternative.
+                      minLength: 1
                       type: string
                     folder:
                       description: folder is the source media folder path.
+                      minLength: 1
                       type: string
                     folderWatchScanInterval:
                       description: folderWatchScanInterval is how often, in seconds,
@@ -223,6 +239,7 @@ spec:
                     foldersToIgnore:
                       description: foldersToIgnore is a comma-separated list of folder
                         names to skip while scanning.
+                      minLength: 1
                       type: string
                     foldersToIgnoreCaseInsensitive:
                       description: foldersToIgnoreCaseInsensitive matches foldersToIgnore
@@ -238,9 +255,11 @@ spec:
                       type: string
                     id:
                       description: id is the Tdarr document ID for this library.
+                      minLength: 1
                       type: string
                     name:
                       description: name is the display name of the library.
+                      minLength: 1
                       type: string
                     pluginStack:
                       description: |-
@@ -396,6 +415,7 @@ spec:
                     type: boolean
                   notificationsCustomText:
                     description: notificationsCustomText is added to every notification.
+                    minLength: 1
                     type: string
                   notificationsDiscordWebhookSecretRef:
                     description: |-
@@ -404,9 +424,11 @@ spec:
                     properties:
                       key:
                         description: key is the key within the Secret.
+                        minLength: 1
                         type: string
                       name:
                         description: name is the name of the Secret.
+                        minLength: 1
                         type: string
                     required:
                     - key
@@ -530,6 +552,7 @@ spec:
             type: object
           status:
             description: status is the observed state of the Tdarr.
+            minProperties: 1
             properties:
               conditions:
                 description: conditions represent the current state of the Tdarr resource.
@@ -626,6 +649,7 @@ spec:
               observedGeneration:
                 description: observedGeneration is the most recent generation observed.
                 format: int64
+                minimum: 1
                 type: integer
             type: object
         required:

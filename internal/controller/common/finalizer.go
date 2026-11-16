@@ -56,8 +56,8 @@ func HandleDeletion(ctx context.Context, c client.Client, recorder events.EventR
 	logger := log.FromContext(ctx)
 
 	policy := ""
-	if rc := obj.GetReconcileConfig(); rc != nil && rc.DeletionPolicy != nil {
-		policy = *rc.DeletionPolicy
+	if rc := obj.GetReconcileConfig(); rc != nil {
+		policy = rc.DeletionPolicy
 	}
 
 	if policy == DeletionPolicyDelete {
@@ -136,7 +136,7 @@ func HandleLifecycle(ctx context.Context, c client.Client, recorder events.Event
 		return true, 0
 	}
 	rc := obj.GetReconcileConfig()
-	deletes := rc != nil && rc.DeletionPolicy != nil && *rc.DeletionPolicy == DeletionPolicyDelete
+	deletes := rc != nil && rc.DeletionPolicy == DeletionPolicyDelete
 	unsupported := deletes && (lc.Remove == nil || ObserveOnly(rc))
 	if err := SetFinalizer(ctx, c, obj, deletes && !unsupported); err != nil {
 		logger.Error(err, "updating finalizer; retrying")

@@ -48,6 +48,10 @@ func exportPlex(r *reader) (map[string]any, error) {
 				if value != "" {
 					out[name] = value
 				}
+			case reflect.Int32:
+				if n, err := strconv.Atoi(value); err == nil && n != 0 {
+					out[name] = n
+				}
 			case reflect.Pointer:
 				switch field.Type.Elem().Kind() {
 				case reflect.Bool:

@@ -63,9 +63,11 @@ spec:
                     dir:
                       description: dir is the subdirectory for this category (relative
                         to complete dir).
+                      minLength: 1
                       type: string
                     name:
                       description: name is the category name.
+                      minLength: 1
                       type: string
                     postProcessing:
                       description: |-
@@ -91,6 +93,7 @@ spec:
                       type: string
                     script:
                       description: script is the post-processing script for this category.
+                      minLength: 1
                       type: string
                   required:
                   - name
@@ -108,9 +111,11 @@ spec:
                     properties:
                       key:
                         description: key is the key within the Secret.
+                        minLength: 1
                         type: string
                       name:
                         description: name is the name of the Secret.
+                        minLength: 1
                         type: string
                     required:
                     - key
@@ -129,9 +134,11 @@ spec:
                         properties:
                           key:
                             description: key is the key within the Secret.
+                            minLength: 1
                             type: string
                           name:
                             description: name is the name of the Secret.
+                            minLength: 1
                             type: string
                         required:
                         - key
@@ -147,6 +154,7 @@ spec:
                     type: object
                   url:
                     description: url is the base URL of the app (e.g., http://arr-sonarr.arr.svc.cluster.local:8989).
+                    minLength: 1
                     pattern: ^https?://
                     type: string
                 required:
@@ -158,18 +166,23 @@ spec:
                 properties:
                   completeDir:
                     description: completeDir is the path for completed downloads.
+                    minLength: 1
                     type: string
                   incompleteDir:
                     description: incompleteDir is the path for incomplete downloads.
+                    minLength: 1
                     type: string
                   nzbBackupDir:
                     description: nzbBackupDir is the path for NZB backups.
+                    minLength: 1
                     type: string
                   scriptDir:
                     description: scriptDir is the path for scripts.
+                    minLength: 1
                     type: string
                   tempDownloadDir:
                     description: tempDownloadDir is the temporary download path.
+                    minLength: 1
                     type: string
                 type: object
               general:
@@ -182,6 +195,7 @@ spec:
                   cacheLimit:
                     description: cacheLimit is the memory used to cache articles,
                       such as 1G.
+                    minLength: 1
                     type: string
                   cleanupList:
                     description: cleanupList lists file extensions, without the dot,
@@ -194,6 +208,7 @@ spec:
                     description: |-
                       completeFree is the free space the complete folder needs to keep
                       downloading, such as 10G.
+                    minLength: 1
                     type: string
                   deobfuscateFinalFilenames:
                     description: deobfuscateFinalFilenames renames obfuscated files
@@ -206,10 +221,12 @@ spec:
                     description: |-
                       downloadFree is the free space the incomplete folder needs to keep
                       downloading, such as 500M.
+                    minLength: 1
                     type: string
                   downloadSpeedLimit:
                     description: downloadSpeedLimit is the download speed limit (e.g.,
                       "100M", "0" for unlimited).
+                    minLength: 1
                     type: string
                   enableAllPar:
                     description: enableAllPar downloads every par2 file, not only
@@ -271,6 +288,7 @@ spec:
                   permissions:
                     description: permissions are the octal permissions set on completed
                       downloads, such as 775.
+                    minLength: 1
                     pattern: ^[0-7]{3,4}$
                     type: string
                   preCheck:
@@ -387,9 +405,11 @@ spec:
                       type: boolean
                     host:
                       description: host is the hostname of the Usenet server.
+                      minLength: 1
                       type: string
                     name:
                       description: name is the display name of the server.
+                      minLength: 1
                       type: string
                     optional:
                       description: optional lets SABnzbd stop using the server for
@@ -401,9 +421,11 @@ spec:
                       properties:
                         key:
                           description: key is the key within the Secret.
+                          minLength: 1
                           type: string
                         name:
                           description: name is the name of the Secret.
+                          minLength: 1
                           type: string
                       required:
                       - key
@@ -412,6 +434,8 @@ spec:
                     port:
                       description: port is the port number.
                       format: int32
+                      maximum: 65535
+                      minimum: 1
                       type: integer
                     priority:
                       description: priority is the server priority. 0 = highest.
@@ -451,9 +475,11 @@ spec:
                       properties:
                         key:
                           description: key is the key within the Secret.
+                          minLength: 1
                           type: string
                         name:
                           description: name is the name of the Secret.
+                          minLength: 1
                           type: string
                       required:
                       - key
@@ -473,6 +499,7 @@ spec:
             type: object
           status:
             description: status is the observed state of the Sabnzbd.
+            minProperties: 1
             properties:
               conditions:
                 description: conditions represent the current state of the Sabnzbd
@@ -570,6 +597,7 @@ spec:
               observedGeneration:
                 description: observedGeneration is the most recent generation observed.
                 format: int64
+                minimum: 1
                 type: integer
             type: object
         required:

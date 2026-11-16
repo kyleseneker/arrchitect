@@ -154,7 +154,7 @@ func TestPVRIndexerNormalizesProtocolAndReferencesMaskedFields(t *testing.T) {
 	idx := indexers[0].Spec
 	assert.Equal(t, "torrent", idx.Protocol)
 	assert.False(t, *idx.EnableInteractiveSearch)
-	assert.Equal(t, int32(25), *idx.Priority)
+	assert.Equal(t, int32(25), idx.Priority)
 	require.Len(t, idx.Fields, 2)
 	assert.Equal(t, `"http://jackett"`, string(idx.Fields[0].Value.Raw))
 	assert.Equal(t, "indexer-torznab-apikey", idx.Fields[1].ValueFrom.SecretKeyRef.Key)
@@ -189,8 +189,8 @@ func TestPVRQualityProfileNamesItsCutoffAndScoredFormats(t *testing.T) {
 	assert.Equal(t, "SDTV", qp.Items[0].Quality.Name)
 	assert.False(t, *qp.Items[0].Allowed)
 	assert.Equal(t, "WEB 1080p", qp.Items[1].Name)
-	assert.Equal(t, int32(3), qp.Items[1].Items[0].Quality.ID)
-	assert.Equal(t, []commonv1alpha1.QualityProfileFormatItem{{Name: "x265", Score: -100}}, qp.FormatItems)
+	assert.Equal(t, new(int32(3)), qp.Items[1].Items[0].Quality.ID)
+	assert.Equal(t, []commonv1alpha1.QualityProfileFormatItem{{Name: "x265", Score: new(int32(-100))}}, qp.FormatItems)
 
 	require.Len(t, cfg.Spec.CustomFormats, 1)
 	raw, err := json.Marshal(cfg.Spec.CustomFormats[0].Specifications[0].Fields)

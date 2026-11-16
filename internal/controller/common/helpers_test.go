@@ -41,8 +41,8 @@ func TestReconcileInterval(t *testing.T) {
 	}{
 		{"nil config", nil, DefaultReconcileInterval},
 		{"nil interval", &commonv1alpha1.ReconcileConfig{}, DefaultReconcileInterval},
-		{"30s", &commonv1alpha1.ReconcileConfig{IntervalSeconds: new(int32(30))}, 30 * time.Second},
-		{"10m", &commonv1alpha1.ReconcileConfig{IntervalSeconds: new(int32(600))}, 10 * time.Minute},
+		{"30s", &commonv1alpha1.ReconcileConfig{IntervalSeconds: int32(30)}, 30 * time.Second},
+		{"10m", &commonv1alpha1.ReconcileConfig{IntervalSeconds: int32(600)}, 10 * time.Minute},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -157,7 +157,7 @@ func TestUpdateResultStatusReportsObservedDrift(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			obj := newConfig("", 0)
-			obj.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{DriftPolicy: &tc.policy}
+			obj.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{DriftPolicy: tc.policy}
 			c := testClient(obj).WithStatusSubresource(obj).Build()
 			UpdateResultStatus(context.Background(), c, obj, tc.result)
 			require.NoError(t, c.Get(context.Background(), client.ObjectKeyFromObject(obj), obj))
@@ -281,8 +281,8 @@ func TestResolveDownloadClientSecrets(t *testing.T) {
 	dcs := []commonv1alpha1.DownloadClient{
 		{
 			Name:              "qbit",
-			UsernameSecretRef: &commonv1alpha1.SecretKeyRef{Name: "qbit-creds", Key: "username"},
-			PasswordSecretRef: &commonv1alpha1.SecretKeyRef{Name: "qbit-creds", Key: "password"},
+			UsernameSecretRef: commonv1alpha1.SecretKeyRef{Name: "qbit-creds", Key: "username"},
+			PasswordSecretRef: commonv1alpha1.SecretKeyRef{Name: "qbit-creds", Key: "password"},
 		},
 		{
 			Name: "no-secrets",
@@ -302,7 +302,7 @@ func TestResolveDownloadClientSecrets_MissingSecret(t *testing.T) {
 	dcs := []commonv1alpha1.DownloadClient{
 		{
 			Name:              "qbit",
-			UsernameSecretRef: &commonv1alpha1.SecretKeyRef{Name: "nonexistent", Key: "username"},
+			UsernameSecretRef: commonv1alpha1.SecretKeyRef{Name: "nonexistent", Key: "username"},
 		},
 	}
 
@@ -315,13 +315,13 @@ func TestReferencesSecretFindsEveryReference(t *testing.T) {
 	ref := commonv1alpha1.SecretKeyRef{Name: "target", Key: "k"}
 	for name, config := range map[string]any{
 		"an optional TLS CA": &pvrv1alpha1.Sonarr{Spec: pvrv1alpha1.SonarrSpec{
-			Connection: commonv1alpha1.AppConnection{TLS: &commonv1alpha1.TLSConfig{CASecretRef: &ref}},
+			Connection: commonv1alpha1.AppConnection{TLS: &commonv1alpha1.TLSConfig{CASecretRef: ref}},
 		}},
 		"a download client password": pvrv1alpha1.SonarrDownloadClientSpec{
-			DownloadClient: commonv1alpha1.DownloadClient{Name: "q", PasswordSecretRef: &ref},
+			DownloadClient: commonv1alpha1.DownloadClient{Name: "q", PasswordSecretRef: ref},
 		},
 		"a field read from a Secret": indexersv1alpha1.ProwlarrSpec{
-			Indexers: []indexersv1alpha1.ProwlarrIndexer{{Name: "x", Fields: []commonv1alpha1.ConfigField{{Name: "apiKey", ValueFrom: &commonv1alpha1.ValueSource{SecretKeyRef: ref}}}}},
+			Indexers: []indexersv1alpha1.ProwlarrIndexer{{Name: "x", Fields: []commonv1alpha1.ConfigField{{Name: "apiKey", ValueFrom: commonv1alpha1.ValueSource{SecretKeyRef: ref}}}}},
 		},
 		"a Usenet server password": downloadsv1alpha1.SabnzbdSpec{
 			Servers: []downloadsv1alpha1.SabnzbdServer{{Name: "s", PasswordSecretRef: &ref}},
@@ -329,7 +329,7 @@ func TestReferencesSecretFindsEveryReference(t *testing.T) {
 		"a map value": map[string]commonv1alpha1.SecretKeyRef{"x": ref},
 		"a Bazarr provider setting": subtitlesv1alpha1.BazarrSpec{
 			Providers: []subtitlesv1alpha1.BazarrProvider{{Name: "opensubtitlescom", Settings: []commonv1alpha1.ConfigField{
-				{Name: "password", ValueFrom: &commonv1alpha1.ValueSource{SecretKeyRef: ref}},
+				{Name: "password", ValueFrom: commonv1alpha1.ValueSource{SecretKeyRef: ref}},
 			}}},
 		},
 	} {
@@ -344,7 +344,7 @@ func TestEnqueueForSecretQueuesOnlyConfigsThatReferToIt(t *testing.T) {
 	require.NoError(t, pvrv1alpha1.AddToScheme(s))
 	withCA := func(name, namespace string) *pvrv1alpha1.Sonarr {
 		return &pvrv1alpha1.Sonarr{Name: name, Namespace: namespace, Spec: pvrv1alpha1.SonarrSpec{
-			Connection: commonv1alpha1.AppConnection{TLS: &commonv1alpha1.TLSConfig{CASecretRef: &commonv1alpha1.SecretKeyRef{Name: "ca", Key: "ca.crt"}}},
+			Connection: commonv1alpha1.AppConnection{TLS: &commonv1alpha1.TLSConfig{CASecretRef: commonv1alpha1.SecretKeyRef{Name: "ca", Key: "ca.crt"}}},
 		}}
 	}
 	c := fake.NewClientBuilder().WithScheme(s).WithObjects(
@@ -367,11 +367,11 @@ func newSecretClient() *fake.ClientBuilder {
 func TestResolveConfigFieldsFromSecret(t *testing.T) {
 	c := newSecretClient().Build()
 	fields := []commonv1alpha1.ConfigField{
-		{Name: "apiKey", ValueFrom: &commonv1alpha1.ValueSource{SecretKeyRef: commonv1alpha1.SecretKeyRef{Name: "tracker", Key: "passkey"}}},
+		{Name: "apiKey", ValueFrom: commonv1alpha1.ValueSource{SecretKeyRef: commonv1alpha1.SecretKeyRef{Name: "tracker", Key: "passkey"}}},
 	}
 	out, err := ResolveConfigFields(context.Background(), c, "arr", "indexer x", fields)
 	require.NoError(t, err)
-	assert.Nil(t, out[0].ValueFrom, "valueFrom should be cleared after resolution")
+	assert.Zero(t, out[0].ValueFrom, "valueFrom should be cleared after resolution")
 	b, _ := json.Marshal(out[0].Value)
 	assert.Equal(t, `"s3cr3t"`, string(b), "expected quoted secret value")
 	assert.Nil(t, fields[0].Value, "input slice was mutated")
@@ -383,7 +383,7 @@ func TestResolveConfigFieldsRejectsBothValueAndValueFrom(t *testing.T) {
 	fields := []commonv1alpha1.ConfigField{{
 		Name:      "apiKey",
 		Value:     &commonv1alpha1.FieldValue{Raw: raw},
-		ValueFrom: &commonv1alpha1.ValueSource{SecretKeyRef: commonv1alpha1.SecretKeyRef{Name: "tracker", Key: "passkey"}},
+		ValueFrom: commonv1alpha1.ValueSource{SecretKeyRef: commonv1alpha1.SecretKeyRef{Name: "tracker", Key: "passkey"}},
 	}}
 	_, err := ResolveConfigFields(context.Background(), c, "arr", "indexer x", fields)
 	require.Error(t, err, "expected an error when both value and valueFrom are set")
@@ -392,7 +392,7 @@ func TestResolveConfigFieldsRejectsBothValueAndValueFrom(t *testing.T) {
 func TestResolveConfigFieldsMissingSecret(t *testing.T) {
 	c := newSecretClient().Build()
 	fields := []commonv1alpha1.ConfigField{
-		{Name: "apiKey", ValueFrom: &commonv1alpha1.ValueSource{SecretKeyRef: commonv1alpha1.SecretKeyRef{Name: "nope", Key: "passkey"}}},
+		{Name: "apiKey", ValueFrom: commonv1alpha1.ValueSource{SecretKeyRef: commonv1alpha1.SecretKeyRef{Name: "nope", Key: "passkey"}}},
 	}
 	_, err := ResolveConfigFields(context.Background(), c, "arr", "indexer x", fields)
 	require.Error(t, err, "expected an error for a missing secret")

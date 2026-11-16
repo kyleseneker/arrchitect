@@ -243,16 +243,6 @@ func (in *JellyfinEncoding) DeepCopyInto(out *JellyfinEncoding) {
 		*out = new(commonv1alpha1.Decimal)
 		**out = **in
 	}
-	if in.MaxMuxingQueueSize != nil {
-		in, out := &in.MaxMuxingQueueSize, &out.MaxMuxingQueueSize
-		*out = new(int32)
-		**out = **in
-	}
-	if in.SubtitleExtractionTimeoutMinutes != nil {
-		in, out := &in.SubtitleExtractionTimeoutMinutes, &out.SubtitleExtractionTimeoutMinutes
-		*out = new(int32)
-		**out = **in
-	}
 	if in.AllowOnDemandMetadataBasedKeyframeExtractionForExtensions != nil {
 		in, out := &in.AllowOnDemandMetadataBasedKeyframeExtractionForExtensions, &out.AllowOnDemandMetadataBasedKeyframeExtractionForExtensions
 		*out = make([]string, len(*in))
@@ -632,35 +622,10 @@ func (in *JellyfinTrickplay) DeepCopyInto(out *JellyfinTrickplay) {
 		*out = new(bool)
 		**out = **in
 	}
-	if in.Interval != nil {
-		in, out := &in.Interval, &out.Interval
-		*out = new(int32)
-		**out = **in
-	}
 	if in.WidthResolutions != nil {
 		in, out := &in.WidthResolutions, &out.WidthResolutions
 		*out = make([]int32, len(*in))
 		copy(*out, *in)
-	}
-	if in.TileWidth != nil {
-		in, out := &in.TileWidth, &out.TileWidth
-		*out = new(int32)
-		**out = **in
-	}
-	if in.TileHeight != nil {
-		in, out := &in.TileHeight, &out.TileHeight
-		*out = new(int32)
-		**out = **in
-	}
-	if in.Qscale != nil {
-		in, out := &in.Qscale, &out.Qscale
-		*out = new(int32)
-		**out = **in
-	}
-	if in.JpegQuality != nil {
-		in, out := &in.JpegQuality, &out.JpegQuality
-		*out = new(int32)
-		**out = **in
 	}
 	if in.ProcessThreads != nil {
 		in, out := &in.ProcessThreads, &out.ProcessThreads
@@ -790,11 +755,6 @@ func (in *PlexNetwork) DeepCopyInto(out *PlexNetwork) {
 	if in.ManualPortMappingMode != nil {
 		in, out := &in.ManualPortMappingMode, &out.ManualPortMappingMode
 		*out = new(bool)
-		**out = **in
-	}
-	if in.ManualPortMappingPort != nil {
-		in, out := &in.ManualPortMappingPort, &out.ManualPortMappingPort
-		*out = new(int32)
 		**out = **in
 	}
 	if in.RelayEnabled != nil {

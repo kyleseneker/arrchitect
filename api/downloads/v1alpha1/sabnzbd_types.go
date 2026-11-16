@@ -9,7 +9,7 @@ import (
 type SabnzbdSpec struct {
 	// connection defines how to connect to the SABnzbd instance.
 	// +required
-	Connection commonv1alpha1.AppConnection `json:"connection"`
+	Connection commonv1alpha1.AppConnection `json:"connection,omitempty"`
 
 	// reconcile configures reconciliation behavior (e.g., sync interval).
 	// +optional
@@ -40,6 +40,7 @@ type SabnzbdSpec struct {
 type SabnzbdGeneral struct {
 	// downloadSpeedLimit is the download speed limit (e.g., "100M", "0" for unlimited).
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	DownloadSpeedLimit string `json:"downloadSpeedLimit,omitempty"`
 
 	// pauseOnPostProcessing pauses downloading during post-processing.
@@ -139,20 +140,24 @@ type SabnzbdGeneral struct {
 	// permissions are the octal permissions set on completed downloads, such as 775.
 	// +optional
 	// +kubebuilder:validation:Pattern=`^[0-7]{3,4}$`
+	// +kubebuilder:validation:MinLength=1
 	Permissions string `json:"permissions,omitempty"`
 
 	// downloadFree is the free space the incomplete folder needs to keep
 	// downloading, such as 500M.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	DownloadFree string `json:"downloadFree,omitempty"`
 
 	// completeFree is the free space the complete folder needs to keep
 	// downloading, such as 10G.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	CompleteFree string `json:"completeFree,omitempty"`
 
 	// cacheLimit is the memory used to cache articles, such as 1G.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	CacheLimit string `json:"cacheLimit,omitempty"`
 
 	// propagationDelay holds back jobs posted less than this many minutes ago.
@@ -173,15 +178,19 @@ type SabnzbdGeneral struct {
 type SabnzbdServer struct {
 	// name is the display name of the server.
 	// +required
-	Name string `json:"name"`
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name,omitempty"`
 
 	// host is the hostname of the Usenet server.
 	// +required
-	Host string `json:"host"`
+	// +kubebuilder:validation:MinLength=1
+	Host string `json:"host,omitempty"`
 
 	// port is the port number.
 	// +required
-	Port int32 `json:"port"`
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=65535
+	Port int32 `json:"port,omitempty"`
 
 	// ssl enables SSL/TLS connection.
 	// +optional
@@ -229,21 +238,24 @@ type SabnzbdServer struct {
 	// timeout is how many seconds SABnzbd waits for the server to answer.
 	// +optional
 	// +kubebuilder:validation:Minimum=1
-	Timeout *int32 `json:"timeout,omitempty"`
+	Timeout int32 `json:"timeout,omitempty"`
 }
 
 // SabnzbdCategory defines a download category.
 type SabnzbdCategory struct {
 	// name is the category name.
 	// +required
-	Name string `json:"name"`
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name,omitempty"`
 
 	// dir is the subdirectory for this category (relative to complete dir).
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	Dir string `json:"dir,omitempty"`
 
 	// script is the post-processing script for this category.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	Script string `json:"script,omitempty"`
 
 	// priority is the download priority. default uses SABnzbd's default
@@ -263,26 +275,32 @@ type SabnzbdCategory struct {
 type SabnzbdFolders struct {
 	// completeDir is the path for completed downloads.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	CompleteDir string `json:"completeDir,omitempty"`
 
 	// incompleteDir is the path for incomplete downloads.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	IncompleteDir string `json:"incompleteDir,omitempty"`
 
 	// tempDownloadDir is the temporary download path.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	TempDownloadDir string `json:"tempDownloadDir,omitempty"`
 
 	// nzbBackupDir is the path for NZB backups.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	NzbBackupDir string `json:"nzbBackupDir,omitempty"`
 
 	// scriptDir is the path for scripts.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	ScriptDir string `json:"scriptDir,omitempty"`
 }
 
 // SabnzbdStatus defines the observed state of Sabnzbd.
+// +kubebuilder:validation:MinProperties=1
 type SabnzbdStatus struct {
 	// conditions represent the current state of the Sabnzbd resource.
 	// +listType=map
@@ -292,6 +310,7 @@ type SabnzbdStatus struct {
 
 	// observedGeneration is the most recent generation observed.
 	// +optional
+	// +kubebuilder:validation:Minimum=1
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 
 	// lastSyncTime is the timestamp of the last successful reconciliation.
@@ -325,7 +344,7 @@ type Sabnzbd struct {
 
 	// spec is the desired state of the Sabnzbd.
 	// +required
-	Spec SabnzbdSpec `json:"spec"`
+	Spec SabnzbdSpec `json:"spec,omitzero"`
 
 	// status is the observed state of the Sabnzbd.
 	// +optional

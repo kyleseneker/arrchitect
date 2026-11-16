@@ -65,9 +65,11 @@ spec:
                     properties:
                       key:
                         description: key is the key within the Secret.
+                        minLength: 1
                         type: string
                       name:
                         description: name is the name of the Secret.
+                        minLength: 1
                         type: string
                     required:
                     - key
@@ -79,9 +81,11 @@ spec:
                     properties:
                       key:
                         description: key is the key within the Secret.
+                        minLength: 1
                         type: string
                       name:
                         description: name is the name of the Secret.
+                        minLength: 1
                         type: string
                     required:
                     - key
@@ -107,9 +111,11 @@ spec:
                         properties:
                           key:
                             description: key is the key within the Secret.
+                            minLength: 1
                             type: string
                           name:
                             description: name is the name of the Secret.
+                            minLength: 1
                             type: string
                         required:
                         - key
@@ -126,6 +132,7 @@ spec:
                   url:
                     description: url is the base URL of the Jellyfin instance (e.g.,
                       http://jellyfin.media.svc.cluster.local:8096).
+                    minLength: 1
                     pattern: ^https?://
                     type: string
                 required:
@@ -231,6 +238,7 @@ spec:
                   encoderPreset:
                     description: encoderPreset is the encoder speed preset (e.g.,
                       "auto", "fast", "medium", "slow").
+                    minLength: 1
                     type: string
                   encodingThreadCount:
                     description: encodingThreadCount is how many threads ffmpeg uses.
@@ -280,6 +288,7 @@ spec:
                   qsvDevice:
                     description: qsvDevice is the Intel Quick Sync device, when there's
                       more than one.
+                    minLength: 1
                     type: string
                   segmentKeepSeconds:
                     description: segmentKeepSeconds is how many seconds of segments
@@ -346,6 +355,7 @@ spec:
                   vaapiDevice:
                     description: vaapiDevice is the VAAPI render device path (e.g.,
                       "/dev/dri/renderD128").
+                    minLength: 1
                     type: string
                   vppTonemappingBrightness:
                     description: vppTonemappingBrightness is the brightness gain of
@@ -394,9 +404,11 @@ spec:
                     metadataCountryCode:
                       description: metadataCountryCode overrides the server-level
                         metadata country code for this library.
+                      minLength: 1
                       type: string
                     name:
                       description: name is the display name of the library.
+                      minLength: 1
                       type: string
                     paths:
                       description: paths is the list of filesystem paths containing
@@ -408,6 +420,7 @@ spec:
                     preferredMetadataLanguage:
                       description: preferredMetadataLanguage overrides the server-level
                         preferred metadata language for this library.
+                      minLength: 1
                       type: string
                   required:
                   - collectionType
@@ -624,6 +637,7 @@ spec:
                   metadataCountryCode:
                     description: metadataCountryCode is the country code for metadata
                       lookups (e.g., "US").
+                    minLength: 1
                     type: string
                   minAudiobookResume:
                     description: |-
@@ -655,6 +669,7 @@ spec:
                   preferredMetadataLanguage:
                     description: preferredMetadataLanguage is the preferred language
                       for metadata (e.g., "en").
+                    minLength: 1
                     type: string
                   quickConnectAvailable:
                     description: quickConnectAvailable lets users sign in on a new
@@ -669,6 +684,7 @@ spec:
                     type: integer
                   serverName:
                     description: serverName is the friendly name of the server.
+                    minLength: 1
                     type: string
                   slowResponseThresholdMs:
                     description: |-
@@ -768,6 +784,7 @@ spec:
                 self.reconcile.deletionPolicy != ''delete'''
           status:
             description: status is the observed state of the Jellyfin.
+            minProperties: 1
             properties:
               conditions:
                 description: conditions represent the current state of the Jellyfin
@@ -869,6 +886,7 @@ spec:
               observedGeneration:
                 description: observedGeneration is the most recent generation observed.
                 format: int64
+                minimum: 1
                 type: integer
             type: object
         required:

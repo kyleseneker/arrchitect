@@ -65,9 +65,11 @@ spec:
                     properties:
                       key:
                         description: key is the key within the Secret.
+                        minLength: 1
                         type: string
                       name:
                         description: name is the name of the Secret.
+                        minLength: 1
                         type: string
                     required:
                     - key
@@ -86,9 +88,11 @@ spec:
                         properties:
                           key:
                             description: key is the key within the Secret.
+                            minLength: 1
                             type: string
                           name:
                             description: name is the name of the Secret.
+                            minLength: 1
                             type: string
                         required:
                         - key
@@ -105,6 +109,7 @@ spec:
                   url:
                     description: url is the base URL of the Seerr instance (e.g.,
                       http://jellyseerr.media.svc.cluster.local:5055).
+                    minLength: 1
                     pattern: ^https?://
                     type: string
                 required:
@@ -117,6 +122,7 @@ spec:
                 properties:
                   hostname:
                     description: hostname is the Jellyfin server hostname.
+                    minLength: 1
                     type: string
                   passwordSecretRef:
                     description: passwordSecretRef references a Secret containing
@@ -124,9 +130,11 @@ spec:
                     properties:
                       key:
                         description: key is the key within the Secret.
+                        minLength: 1
                         type: string
                       name:
                         description: name is the name of the Secret.
+                        minLength: 1
                         type: string
                     required:
                     - key
@@ -139,6 +147,7 @@ spec:
                   urlBase:
                     description: urlBase is the subpath Jellyfin is served under,
                       if any.
+                    minLength: 1
                     type: string
                   useSsl:
                     description: useSsl enables SSL for the Jellyfin connection.
@@ -149,9 +158,11 @@ spec:
                     properties:
                       key:
                         description: key is the key within the Secret.
+                        minLength: 1
                         type: string
                       name:
                         description: name is the name of the Secret.
+                        minLength: 1
                         type: string
                     required:
                     - key
@@ -168,9 +179,11 @@ spec:
                 properties:
                   applicationTitle:
                     description: applicationTitle is the application display title.
+                    minLength: 1
                     type: string
                   applicationUrl:
                     description: applicationUrl is the external URL for the application.
+                    minLength: 1
                     type: string
                   defaultPermissions:
                     description: defaultPermissions is the default permission bitmask
@@ -186,6 +199,7 @@ spec:
                     type: boolean
                   locale:
                     description: locale is the application locale (e.g., "en").
+                    minLength: 1
                     type: string
                   mediaServerLogin:
                     description: mediaServerLogin enables login via the media server
@@ -209,6 +223,7 @@ spec:
                         agent is the notification agent type.
                         Supported values: discord, slack, telegram, pushover, email, webhook,
                         gotify, ntfy, pushbullet, webpush.
+                      minLength: 1
                       type: string
                     enabled:
                       description: enabled enables this notification agent.
@@ -226,6 +241,7 @@ spec:
                         properties:
                           name:
                             description: name is the field name.
+                            minLength: 1
                             type: string
                           value:
                             description: 'value is the field value: a string, number,
@@ -240,9 +256,11 @@ spec:
                                 properties:
                                   key:
                                     description: key is the key within the Secret.
+                                    minLength: 1
                                     type: string
                                   name:
                                     description: name is the name of the Secret.
+                                    minLength: 1
                                     type: string
                                 required:
                                 - key
@@ -291,6 +309,7 @@ spec:
                 properties:
                   hostname:
                     description: hostname is the Plex server hostname.
+                    minLength: 1
                     type: string
                   port:
                     default: 32400
@@ -303,9 +322,11 @@ spec:
                     properties:
                       key:
                         description: key is the key within the Secret.
+                        minLength: 1
                         type: string
                       name:
                         description: name is the name of the Secret.
+                        minLength: 1
                         type: string
                     required:
                     - key
@@ -331,14 +352,17 @@ spec:
                       description: |-
                         activeAnimeDirectory is the root folder for anime. Only applicable when
                         used with Sonarr.
+                      minLength: 1
                       type: string
                     activeAnimeProfileName:
                       description: |-
                         activeAnimeProfileName is the quality profile for anime, resolved against
                         the server on each reconciliation. Only applicable when used with Sonarr.
+                      minLength: 1
                       type: string
                     activeDirectory:
                       description: activeDirectory is the root folder path for media.
+                      minLength: 1
                       type: string
                     activeProfileId:
                       description: activeProfileId is used when activeProfileName
@@ -349,6 +373,7 @@ spec:
                       description: |-
                         activeProfileName is resolved against the service on each reconciliation.
                         When set, it takes precedence over activeProfileId; exactly one match is required.
+                      minLength: 1
                       type: string
                     animeSeriesType:
                       description: |-
@@ -365,9 +390,11 @@ spec:
                       properties:
                         key:
                           description: key is the key within the Secret.
+                          minLength: 1
                           type: string
                         name:
                           description: name is the name of the Secret.
+                          minLength: 1
                           type: string
                       required:
                       - key
@@ -375,6 +402,7 @@ spec:
                       type: object
                     baseUrl:
                       description: baseUrl is the URL base path for the service.
+                      minLength: 1
                       type: string
                     enableSeasonFolders:
                       description: |-
@@ -384,9 +412,11 @@ spec:
                     externalUrl:
                       description: externalUrl is the address users open the server
                         at, for links in Seerr.
+                      minLength: 1
                       type: string
                     hostname:
                       description: hostname is the service hostname.
+                      minLength: 1
                       type: string
                     is4k:
                       description: is4k indicates this is a 4K instance.
@@ -414,6 +444,7 @@ spec:
                       type: string
                     name:
                       description: name is the display name for this service connection.
+                      minLength: 1
                       type: string
                     port:
                       description: port is the service port.
@@ -427,6 +458,7 @@ spec:
                       description: |-
                         seriesType is the series type for Sonarr (e.g., "standard", "anime").
                         Only applicable when used with Sonarr.
+                      minLength: 1
                       type: string
                     syncEnabled:
                       description: syncEnabled scans the server for media and request
@@ -509,14 +541,17 @@ spec:
                       description: |-
                         activeAnimeDirectory is the root folder for anime. Only applicable when
                         used with Sonarr.
+                      minLength: 1
                       type: string
                     activeAnimeProfileName:
                       description: |-
                         activeAnimeProfileName is the quality profile for anime, resolved against
                         the server on each reconciliation. Only applicable when used with Sonarr.
+                      minLength: 1
                       type: string
                     activeDirectory:
                       description: activeDirectory is the root folder path for media.
+                      minLength: 1
                       type: string
                     activeProfileId:
                       description: activeProfileId is used when activeProfileName
@@ -527,6 +562,7 @@ spec:
                       description: |-
                         activeProfileName is resolved against the service on each reconciliation.
                         When set, it takes precedence over activeProfileId; exactly one match is required.
+                      minLength: 1
                       type: string
                     animeSeriesType:
                       description: |-
@@ -543,9 +579,11 @@ spec:
                       properties:
                         key:
                           description: key is the key within the Secret.
+                          minLength: 1
                           type: string
                         name:
                           description: name is the name of the Secret.
+                          minLength: 1
                           type: string
                       required:
                       - key
@@ -553,6 +591,7 @@ spec:
                       type: object
                     baseUrl:
                       description: baseUrl is the URL base path for the service.
+                      minLength: 1
                       type: string
                     enableSeasonFolders:
                       description: |-
@@ -562,9 +601,11 @@ spec:
                     externalUrl:
                       description: externalUrl is the address users open the server
                         at, for links in Seerr.
+                      minLength: 1
                       type: string
                     hostname:
                       description: hostname is the service hostname.
+                      minLength: 1
                       type: string
                     is4k:
                       description: is4k indicates this is a 4K instance.
@@ -592,6 +633,7 @@ spec:
                       type: string
                     name:
                       description: name is the display name for this service connection.
+                      minLength: 1
                       type: string
                     port:
                       description: port is the service port.
@@ -605,6 +647,7 @@ spec:
                       description: |-
                         seriesType is the series type for Sonarr (e.g., "standard", "anime").
                         Only applicable when used with Sonarr.
+                      minLength: 1
                       type: string
                     syncEnabled:
                       description: syncEnabled scans the server for media and request
@@ -635,6 +678,7 @@ spec:
               rule: '!(has(self.jellyfinAuth) && has(self.plexAuth))'
           status:
             description: status is the observed state of the Seerr.
+            minProperties: 1
             properties:
               conditions:
                 description: conditions represent the current state of the Seerr resource.
@@ -735,6 +779,7 @@ spec:
               observedGeneration:
                 description: observedGeneration is the most recent generation observed.
                 format: int64
+                minimum: 1
                 type: integer
             type: object
         required:

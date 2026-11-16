@@ -10,7 +10,7 @@ import (
 type LidarrSpec struct {
 	// connection defines how to connect to the Lidarr instance.
 	// +required
-	Connection commonv1alpha1.AppConnection `json:"connection"`
+	Connection commonv1alpha1.AppConnection `json:"connection,omitempty"`
 
 	// reconcile configures reconciliation behavior (e.g., sync interval).
 	// +optional
@@ -115,6 +115,7 @@ type LidarrMediaManagement struct {
 
 	// extraFileExtensions is a comma-separated list of extra file extensions to import.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	ExtraFileExtensions string `json:"extraFileExtensions,omitempty"`
 
 	// downloadPropersAndRepacks controls how proper/repack releases are handled.
@@ -161,14 +162,17 @@ type LidarrNaming struct {
 
 	// standardTrackFormat is the naming format for standard tracks.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	StandardTrackFormat string `json:"standardTrackFormat,omitempty"`
 
 	// multiDiscTrackFormat is the naming format for multi-disc tracks.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	MultiDiscTrackFormat string `json:"multiDiscTrackFormat,omitempty"`
 
 	// artistFolderFormat is the naming format for artist folders.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	ArtistFolderFormat string `json:"artistFolderFormat,omitempty"`
 }
 
@@ -210,14 +214,17 @@ type LidarrUI struct {
 
 	// shortDateFormat is the short date display format.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	ShortDateFormat string `json:"shortDateFormat,omitempty"`
 
 	// longDateFormat is the long date display format.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	LongDateFormat string `json:"longDateFormat,omitempty"`
 
 	// timeFormat is the time display format.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	TimeFormat string `json:"timeFormat,omitempty"`
 
 	// theme is the UI theme.
@@ -231,6 +238,7 @@ type LidarrUI struct {
 }
 
 // LidarrStatus defines the observed state of Lidarr.
+// +kubebuilder:validation:MinProperties=1
 type LidarrStatus struct {
 	// conditions represent the current state of the Lidarr resource.
 	// +listType=map
@@ -240,6 +248,7 @@ type LidarrStatus struct {
 
 	// observedGeneration is the most recent generation observed.
 	// +optional
+	// +kubebuilder:validation:Minimum=1
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 
 	// lastSyncTime is the timestamp of the last successful reconciliation.
@@ -273,7 +282,7 @@ type Lidarr struct {
 
 	// spec is the desired state of the Lidarr.
 	// +required
-	Spec LidarrSpec `json:"spec"`
+	Spec LidarrSpec `json:"spec,omitzero"`
 
 	// status is the observed state of the Lidarr.
 	// +optional

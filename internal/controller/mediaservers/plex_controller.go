@@ -216,6 +216,8 @@ func buildPlexPreferences(spec mediaserversv1alpha1.PlexSpec) map[string]string 
 				prefs[id] = ctrlcommon.BoolTo01(fv.Elem().Bool())
 			case fv.Kind() == reflect.Pointer && !fv.IsNil() && fv.Elem().CanInt():
 				prefs[id] = strconv.Itoa(int(fv.Elem().Int()))
+			case fv.CanInt() && fv.Int() != 0:
+				prefs[id] = strconv.Itoa(int(fv.Int()))
 			}
 		}
 	}

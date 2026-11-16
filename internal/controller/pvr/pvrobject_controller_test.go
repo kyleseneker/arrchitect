@@ -134,7 +134,7 @@ func TestObjectWaitsForItsInstance(t *testing.T) {
 func TestObjectWithAMissingSecretWritesNothing(t *testing.T) {
 	fa, url := newFakeArr(t, "v3", nil)
 	dc := sonarrDownloadClient()
-	dc.Spec.PasswordSecretRef = &commonv1alpha1.SecretKeyRef{Name: "missing", Key: "password"}
+	dc.Spec.PasswordSecretRef = commonv1alpha1.SecretKeyRef{Name: "missing", Key: "password"}
 	got := reconcileDownloadClient(t, apiKeySecret(), sonarrInstanceAt(url, nil), dc)
 
 	assert.False(t, fa.sawPrefix("POST", "/api/"))
@@ -145,7 +145,7 @@ func TestObjectFollowsItsInstancesObservePolicy(t *testing.T) {
 	fa, url := newFakeArr(t, "v3", nil)
 	observe := "observe"
 	got := reconcileDownloadClient(t, apiKeySecret(),
-		sonarrInstanceAt(url, &commonv1alpha1.ReconcileConfig{DriftPolicy: &observe}), sonarrDownloadClient())
+		sonarrInstanceAt(url, &commonv1alpha1.ReconcileConfig{DriftPolicy: observe}), sonarrDownloadClient())
 
 	assert.False(t, fa.sawPrefix("POST", "/api/"))
 	assert.Equal(t, "DriftDetected", synced(t, got.Status.Conditions).Reason)
@@ -217,7 +217,7 @@ func TestIndexerObjectReadsItsFieldsFromSecrets(t *testing.T) {
 			DeletionPolicy: ctrlcommon.DeletionPolicyDelete,
 			Indexer: commonv1alpha1.Indexer{
 				Name: "NZBgeek", Protocol: "usenet", Implementation: "Newznab",
-				Fields: []commonv1alpha1.ConfigField{{Name: "apiKey", ValueFrom: &commonv1alpha1.ValueSource{
+				Fields: []commonv1alpha1.ConfigField{{Name: "apiKey", ValueFrom: commonv1alpha1.ValueSource{
 					SecretKeyRef: commonv1alpha1.SecretKeyRef{Name: "indexer", Key: "api-key"},
 				}}},
 			},

@@ -10,7 +10,7 @@ import (
 type ReadarrSpec struct {
 	// connection defines how to connect to the Readarr instance.
 	// +required
-	Connection commonv1alpha1.AppConnection `json:"connection"`
+	Connection commonv1alpha1.AppConnection `json:"connection,omitempty"`
 
 	// reconcile configures reconciliation behavior (e.g., sync interval).
 	// +optional
@@ -115,6 +115,7 @@ type ReadarrMediaManagement struct {
 
 	// extraFileExtensions is a comma-separated list of extra file extensions to import.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	ExtraFileExtensions string `json:"extraFileExtensions,omitempty"`
 
 	// downloadPropersAndRepacks controls how proper/repack releases are handled.
@@ -161,10 +162,12 @@ type ReadarrNaming struct {
 
 	// standardBookFormat is the naming format for book files.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	StandardBookFormat string `json:"standardBookFormat,omitempty"`
 
 	// authorFolderFormat is the naming format for author folders.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	AuthorFolderFormat string `json:"authorFolderFormat,omitempty"`
 }
 
@@ -206,14 +209,17 @@ type ReadarrUI struct {
 
 	// shortDateFormat is the short date display format.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	ShortDateFormat string `json:"shortDateFormat,omitempty"`
 
 	// longDateFormat is the long date display format.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	LongDateFormat string `json:"longDateFormat,omitempty"`
 
 	// timeFormat is the time display format.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	TimeFormat string `json:"timeFormat,omitempty"`
 
 	// theme is the UI theme.
@@ -227,6 +233,7 @@ type ReadarrUI struct {
 }
 
 // ReadarrStatus defines the observed state of Readarr.
+// +kubebuilder:validation:MinProperties=1
 type ReadarrStatus struct {
 	// conditions represent the current state of the Readarr resource.
 	// +listType=map
@@ -236,6 +243,7 @@ type ReadarrStatus struct {
 
 	// observedGeneration is the most recent generation observed.
 	// +optional
+	// +kubebuilder:validation:Minimum=1
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 
 	// lastSyncTime is the timestamp of the last successful reconciliation.
@@ -269,7 +277,7 @@ type Readarr struct {
 
 	// spec is the desired state of the Readarr.
 	// +required
-	Spec ReadarrSpec `json:"spec"`
+	Spec ReadarrSpec `json:"spec,omitzero"`
 
 	// status is the observed state of the Readarr.
 	// +optional

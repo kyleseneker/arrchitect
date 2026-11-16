@@ -39,8 +39,8 @@ const DriftPolicyObserve = "observe"
 
 // ReconcileInterval returns the configured interval or the default.
 func ReconcileInterval(rc *commonv1alpha1.ReconcileConfig) time.Duration {
-	if rc != nil && rc.IntervalSeconds != nil {
-		return time.Duration(*rc.IntervalSeconds) * time.Second
+	if rc != nil && rc.IntervalSeconds != 0 {
+		return time.Duration(rc.IntervalSeconds) * time.Second
 	}
 	return DefaultReconcileInterval
 }
@@ -52,7 +52,7 @@ func PruneEnabled(rc *commonv1alpha1.ReconcileConfig) bool {
 
 // ObserveOnly reports whether drift should be recorded without writing.
 func ObserveOnly(rc *commonv1alpha1.ReconcileConfig) bool {
-	return rc != nil && rc.DriftPolicy != nil && *rc.DriftPolicy == DriftPolicyObserve
+	return rc != nil && rc.DriftPolicy == DriftPolicyObserve
 }
 
 // Policy renders the reconcile policy for a CR.
@@ -262,22 +262,22 @@ func ResolveDownloadClientSecrets(ctx context.Context, c client.Reader, namespac
 	resolved := make(map[string]pvrclient.DownloadClientResolvedSecrets, len(downloadClients))
 	for _, dc := range downloadClients {
 		var s pvrclient.DownloadClientResolvedSecrets
-		if dc.UsernameSecretRef != nil {
-			val, err := reconciler.ResolveSecretKeyRef(ctx, c, namespace, *dc.UsernameSecretRef)
+		if dc.UsernameSecretRef != (commonv1alpha1.SecretKeyRef{}) {
+			val, err := reconciler.ResolveSecretKeyRef(ctx, c, namespace, dc.UsernameSecretRef)
 			if err != nil {
 				return nil, fmt.Errorf("download client %q username: %w", dc.Name, err)
 			}
 			s.Username = val
 		}
-		if dc.PasswordSecretRef != nil {
-			val, err := reconciler.ResolveSecretKeyRef(ctx, c, namespace, *dc.PasswordSecretRef)
+		if dc.PasswordSecretRef != (commonv1alpha1.SecretKeyRef{}) {
+			val, err := reconciler.ResolveSecretKeyRef(ctx, c, namespace, dc.PasswordSecretRef)
 			if err != nil {
 				return nil, fmt.Errorf("download client %q password: %w", dc.Name, err)
 			}
 			s.Password = val
 		}
-		if dc.APIKeySecretRef != nil {
-			val, err := reconciler.ResolveSecretKeyRef(ctx, c, namespace, *dc.APIKeySecretRef)
+		if dc.APIKeySecretRef != (commonv1alpha1.SecretKeyRef{}) {
+			val, err := reconciler.ResolveSecretKeyRef(ctx, c, namespace, dc.APIKeySecretRef)
 			if err != nil {
 				return nil, fmt.Errorf("download client %q apiKey: %w", dc.Name, err)
 			}
@@ -297,7 +297,7 @@ func ResolveConfigFields(ctx context.Context, c client.Reader, namespace, owner 
 	out := make([]commonv1alpha1.ConfigField, len(fields))
 	copy(out, fields)
 	for i := range out {
-		if out[i].ValueFrom == nil {
+		if out[i].ValueFrom == (commonv1alpha1.ValueSource{}) {
 			continue
 		}
 		if out[i].Value != nil {
@@ -312,7 +312,7 @@ func ResolveConfigFields(ctx context.Context, c client.Reader, namespace, owner 
 			return nil, fmt.Errorf("%s field %q: encoding secret value: %w", owner, out[i].Name, err)
 		}
 		out[i].Value = &commonv1alpha1.FieldValue{Raw: raw}
-		out[i].ValueFrom = nil
+		out[i].ValueFrom = commonv1alpha1.ValueSource{}
 	}
 	return out, nil
 }
@@ -400,7 +400,9 @@ func collectSecretKeyRefs(v reflect.Value, refs *[]commonv1alpha1.SecretKeyRef) 
 		}
 	case reflect.Struct:
 		if v.Type() == secretKeyRefType {
-			*refs = append(*refs, v.Interface().(commonv1alpha1.SecretKeyRef))
+			if !v.IsZero() {
+				*refs = append(*refs, v.Interface().(commonv1alpha1.SecretKeyRef))
+			}
 			return
 		}
 		for i := range v.NumField() {

@@ -25,7 +25,7 @@ import (
 type AutobrrSpec struct {
 	// connection defines how to connect to the Autobrr instance.
 	// +required
-	Connection commonv1alpha1.AppConnection `json:"connection"`
+	Connection commonv1alpha1.AppConnection `json:"connection,omitempty"`
 
 	// reconcile configures reconciliation behavior (e.g., sync interval).
 	// +optional
@@ -66,7 +66,8 @@ type AutobrrSpec struct {
 type AutobrrDownloadClient struct {
 	// name is the display name of the download client.
 	// +required
-	Name string `json:"name"`
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name,omitempty"`
 
 	// enable controls whether this download client is active. A new download
 	// client is enabled unless this is false.
@@ -76,11 +77,12 @@ type AutobrrDownloadClient struct {
 	// type is the download client type. Deluge means Deluge 2 (Autobrr's DELUGE_V2).
 	// +required
 	// +kubebuilder:validation:Enum=qBittorrent;Deluge;Transmission;rTorrent;SABnzbd;Sonarr;Radarr;Lidarr;Readarr;Whisparr
-	Type string `json:"type"`
+	Type string `json:"type,omitempty"`
 
 	// host is the hostname or URL of the download client.
 	// +required
-	Host string `json:"host"`
+	// +kubebuilder:validation:MinLength=1
+	Host string `json:"host,omitempty"`
 
 	// port is the port of the download client.
 	// +optional
@@ -108,7 +110,8 @@ type AutobrrDownloadClient struct {
 type AutobrrIndexer struct {
 	// name is the display name of the indexer.
 	// +required
-	Name string `json:"name"`
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name,omitempty"`
 
 	// enable controls whether this indexer is active. A new indexer is enabled
 	// unless this is false.
@@ -118,10 +121,12 @@ type AutobrrIndexer struct {
 	// identifier is the Autobrr indexer definition, such as "ipt" or "btn", or
 	// "torznab", "newznab" or "rss" for an indexer that a feed reads from.
 	// +required
-	Identifier string `json:"identifier"`
+	// +kubebuilder:validation:MinLength=1
+	Identifier string `json:"identifier,omitempty"`
 
 	// baseURL is the tracker's site URL. It defaults to the definition's first URL.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	BaseURL string `json:"baseURL,omitempty"`
 
 	// settings are the definition's settings, such as passkey or rsskey.
@@ -135,7 +140,8 @@ type AutobrrIndexer struct {
 type AutobrrIRCNetwork struct {
 	// name is the display name of the IRC network.
 	// +required
-	Name string `json:"name"`
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name,omitempty"`
 
 	// enable controls whether this IRC network connection is active. A new
 	// network is enabled unless this is false.
@@ -144,11 +150,14 @@ type AutobrrIRCNetwork struct {
 
 	// server is the IRC server address (e.g., "irc.example.com").
 	// +required
-	Server string `json:"server"`
+	// +kubebuilder:validation:MinLength=1
+	Server string `json:"server,omitempty"`
 
 	// port is the IRC server port.
 	// +required
-	Port int32 `json:"port"`
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=65535
+	Port int32 `json:"port,omitempty"`
 
 	// tls enables TLS for the IRC connection.
 	// +optional
@@ -156,7 +165,8 @@ type AutobrrIRCNetwork struct {
 
 	// nick is the IRC nickname to use.
 	// +required
-	Nick string `json:"nick"`
+	// +kubebuilder:validation:MinLength=1
+	Nick string `json:"nick,omitempty"`
 
 	// authMechanism is the authentication mechanism (SASL_PLAIN, NickServ, None).
 	// A new network uses None unless this is set.
@@ -174,6 +184,7 @@ type AutobrrIRCNetwork struct {
 
 	// inviteCommand is the IRC command to send to request channel invites.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	InviteCommand string `json:"inviteCommand,omitempty"`
 
 	// channels defines the IRC channels to join.
@@ -187,7 +198,8 @@ type AutobrrIRCNetwork struct {
 type AutobrrIRCChannel struct {
 	// name is the channel name (e.g., "#announce").
 	// +required
-	Name string `json:"name"`
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name,omitempty"`
 
 	// passwordSecretRef references a Secret containing the channel password/key.
 	// +optional
@@ -198,7 +210,8 @@ type AutobrrIRCChannel struct {
 type AutobrrFeed struct {
 	// name is the display name of the feed.
 	// +required
-	Name string `json:"name"`
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name,omitempty"`
 
 	// enable controls whether this feed is active. A new feed is enabled unless
 	// this is false.
@@ -208,11 +221,12 @@ type AutobrrFeed struct {
 	// type is the feed type.
 	// +required
 	// +kubebuilder:validation:Enum=RSS;Torznab;Newznab
-	Type string `json:"type"`
+	Type string `json:"type,omitempty"`
 
 	// url is the feed URL.
 	// +required
-	URL string `json:"url"`
+	// +kubebuilder:validation:MinLength=1
+	URL string `json:"url,omitempty"`
 
 	// apiKeySecretRef references a Secret containing the feed API key (for Torznab/Newznab).
 	// +optional
@@ -226,14 +240,16 @@ type AutobrrFeed struct {
 	// indexerRef is the name of the indexer this feed belongs to: a torznab,
 	// newznab or rss indexer declared under indexers.
 	// +required
-	IndexerRef string `json:"indexerRef"`
+	// +kubebuilder:validation:MinLength=1
+	IndexerRef string `json:"indexerRef,omitempty"`
 }
 
 // AutobrrFilter defines a release filter with match criteria and actions.
 type AutobrrFilter struct {
 	// name is the display name of the filter.
 	// +required
-	Name string `json:"name"`
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name,omitempty"`
 
 	// enable controls whether this filter is active. A new filter is enabled
 	// unless this is false.
@@ -246,14 +262,17 @@ type AutobrrFilter struct {
 
 	// matchReleases is a comma-separated list of release name patterns to match (supports wildcards).
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	MatchReleases string `json:"matchReleases,omitempty"`
 
 	// exceptReleases is a comma-separated list of release name patterns to exclude.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	ExceptReleases string `json:"exceptReleases,omitempty"`
 
 	// matchCategories is a comma-separated list of categories to match.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	MatchCategories string `json:"matchCategories,omitempty"`
 
 	// resolutions is a list of acceptable resolutions.
@@ -273,10 +292,12 @@ type AutobrrFilter struct {
 
 	// minSize is the minimum release size (e.g., "100MB", "1GB").
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	MinSize string `json:"minSize,omitempty"`
 
 	// maxSize is the maximum release size (e.g., "50GB").
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	MaxSize string `json:"maxSize,omitempty"`
 
 	// delay is the delay in seconds before grabbing a matched release.
@@ -300,30 +321,37 @@ type AutobrrFilter struct {
 
 	// matchReleaseGroups is a comma-separated list of release groups to match.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	MatchReleaseGroups string `json:"matchReleaseGroups,omitempty"`
 
 	// exceptReleaseGroups is a comma-separated list of release groups to skip.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	ExceptReleaseGroups string `json:"exceptReleaseGroups,omitempty"`
 
 	// exceptCategories is a comma-separated list of categories to skip.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	ExceptCategories string `json:"exceptCategories,omitempty"`
 
 	// matchUploaders is a comma-separated list of uploaders to match.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	MatchUploaders string `json:"matchUploaders,omitempty"`
 
 	// exceptUploaders is a comma-separated list of uploaders to skip.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	ExceptUploaders string `json:"exceptUploaders,omitempty"`
 
 	// matchReleaseTags is a comma-separated list of release tags to match.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	MatchReleaseTags string `json:"matchReleaseTags,omitempty"`
 
 	// exceptReleaseTags is a comma-separated list of release tags to skip.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	ExceptReleaseTags string `json:"exceptReleaseTags,omitempty"`
 
 	// useRegexReleaseTags reads the release tag patterns as regular expressions.
@@ -332,10 +360,12 @@ type AutobrrFilter struct {
 
 	// matchDescription is a comma-separated list of description patterns to match.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	MatchDescription string `json:"matchDescription,omitempty"`
 
 	// exceptDescription is a comma-separated list of description patterns to skip.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	ExceptDescription string `json:"exceptDescription,omitempty"`
 
 	// useRegexDescription reads the description patterns as regular expressions.
@@ -394,14 +424,17 @@ type AutobrrFilter struct {
 
 	// shows is a comma-separated list of shows to match.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	Shows string `json:"shows,omitempty"`
 
 	// seasons is a comma-separated list of seasons or ranges to match, such as 1,3-5.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	Seasons string `json:"seasons,omitempty"`
 
 	// episodes is a comma-separated list of episodes or ranges to match.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	Episodes string `json:"episodes,omitempty"`
 
 	// smartEpisode skips episodes older than ones already grabbed.
@@ -410,14 +443,17 @@ type AutobrrFilter struct {
 
 	// years is a comma-separated list of years or ranges to match, such as 2018-2024.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	Years string `json:"years,omitempty"`
 
 	// months is a comma-separated list of months to match.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	Months string `json:"months,omitempty"`
 
 	// days is a comma-separated list of days to match.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	Days string `json:"days,omitempty"`
 
 	// freeleech matches only freeleech releases.
@@ -426,6 +462,7 @@ type AutobrrFilter struct {
 
 	// freeleechPercent is the freeleech percentages to match, such as 50%,75%-100%.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	FreeleechPercent string `json:"freeleechPercent,omitempty"`
 
 	// maxDownloads caps how many releases the filter grabs per maxDownloadsUnit.
@@ -475,10 +512,12 @@ type AutobrrFilter struct {
 
 	// artists is a comma-separated list of artists to match.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	Artists string `json:"artists,omitempty"`
 
 	// albums is a comma-separated list of albums to match.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	Albums string `json:"albums,omitempty"`
 
 	// matchReleaseTypes is a list of music release types to match, such as Album or EP.
@@ -488,6 +527,7 @@ type AutobrrFilter struct {
 
 	// exceptReleaseTypes is a comma-separated list of music release types to skip.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	ExceptReleaseTypes string `json:"exceptReleaseTypes,omitempty"`
 
 	// formats is a list of audio formats to match, such as FLAC or MP3.
@@ -534,7 +574,8 @@ type AutobrrFilter struct {
 type AutobrrFilterAction struct {
 	// name is the display name of the action.
 	// +required
-	Name string `json:"name"`
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name,omitempty"`
 
 	// enable controls whether this action is active. A new action is enabled
 	// unless this is false.
@@ -544,46 +585,56 @@ type AutobrrFilterAction struct {
 	// type is the action type. Deluge means Deluge 2 (Autobrr's DELUGE_V2).
 	// +required
 	// +kubebuilder:validation:Enum=qBittorrent;Deluge;Transmission;rTorrent;SABnzbd;Sonarr;Radarr;Lidarr;Readarr;Whisparr;Webhook;Exec;WatchFolder
-	Type string `json:"type"`
+	Type string `json:"type,omitempty"`
 
 	// clientRef is the name of the download client to use (must match a downloadClients entry).
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	ClientRef string `json:"clientRef,omitempty"`
 
 	// category overrides the download client's default category.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	Category string `json:"category,omitempty"`
 
 	// savePath overrides the download client's default save path.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	SavePath string `json:"savePath,omitempty"`
 
 	// webhookURL is the webhook URL (for Webhook action type).
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	WebhookURL string `json:"webhookURL,omitempty"`
 
 	// execCommand is the command to execute (for Exec action type).
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	ExecCommand string `json:"execCommand,omitempty"`
 
 	// execArgs is the arguments for the exec command.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	ExecArgs string `json:"execArgs,omitempty"`
 
 	// watchFolder is the folder path (for WatchFolder action type).
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	WatchFolder string `json:"watchFolder,omitempty"`
 
 	// tags is a comma-separated list of tags the download client gives the torrent.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	Tags string `json:"tags,omitempty"`
 
 	// label is the label the download client gives the torrent.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	Label string `json:"label,omitempty"`
 
 	// downloadPath is where the download client keeps the torrent while it downloads.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	DownloadPath string `json:"downloadPath,omitempty"`
 
 	// paused adds the torrent paused.
@@ -642,15 +693,16 @@ type AutobrrFilterAction struct {
 	// reannounceInterval is how many seconds to wait between reannounce attempts.
 	// +optional
 	// +kubebuilder:validation:Minimum=1
-	ReannounceInterval *int32 `json:"reannounceInterval,omitempty"`
+	ReannounceInterval int32 `json:"reannounceInterval,omitempty"`
 
 	// reannounceMaxAttempts is how many times to reannounce.
 	// +optional
 	// +kubebuilder:validation:Minimum=1
-	ReannounceMaxAttempts *int32 `json:"reannounceMaxAttempts,omitempty"`
+	ReannounceMaxAttempts int32 `json:"reannounceMaxAttempts,omitempty"`
 
 	// webhookType is the content type the webhook sends, such as JSON.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	WebhookType string `json:"webhookType,omitempty"`
 
 	// webhookMethod is the HTTP method the webhook uses.
@@ -660,6 +712,7 @@ type AutobrrFilterAction struct {
 
 	// webhookData is the body the webhook sends; Autobrr fills in its macros.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	WebhookData string `json:"webhookData,omitempty"`
 
 	// webhookHeaders are headers the webhook sends, as Name=Value.
@@ -670,10 +723,12 @@ type AutobrrFilterAction struct {
 	// externalDownloadClient is the download client, by name in Sonarr, Radarr, Lidarr or Readarr,
 	// that the app sends the release to.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	ExternalDownloadClient string `json:"externalDownloadClient,omitempty"`
 }
 
 // AutobrrStatus defines the observed state of Autobrr.
+// +kubebuilder:validation:MinProperties=1
 type AutobrrStatus struct {
 	// conditions represent the current state of the Autobrr resource.
 	// +listType=map
@@ -683,6 +738,7 @@ type AutobrrStatus struct {
 
 	// observedGeneration is the most recent generation observed.
 	// +optional
+	// +kubebuilder:validation:Minimum=1
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 
 	// lastSyncTime is the timestamp of the last successful reconciliation.
@@ -716,7 +772,7 @@ type Autobrr struct {
 
 	// spec is the desired state of the Autobrr.
 	// +required
-	Spec AutobrrSpec `json:"spec"`
+	Spec AutobrrSpec `json:"spec,omitzero"`
 
 	// status is the observed state of the Autobrr.
 	// +optional

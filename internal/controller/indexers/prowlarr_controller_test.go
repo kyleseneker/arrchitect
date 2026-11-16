@@ -230,7 +230,7 @@ func TestProwlarrDeletePolicyCleansTrackedResources(t *testing.T) {
 	app := &fakeProwlarr{existing: map[string][]map[string]any{"indexer": {{"id": float64(7), "name": "owned"}, {"id": float64(8), "name": "manual"}}}}
 	cfg := prowlarrConfig(app.serve(t))
 	policy := "delete"
-	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{DeletionPolicy: &policy}
+	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{DeletionPolicy: policy}
 	cfg.SetManagedResources(map[string][]string{"indexers": {"owned"}})
 	cfg.Finalizers = []string{ctrlcommon.Finalizer}
 	now := metav1.Now()
@@ -326,11 +326,11 @@ func TestProwlarrResolvesDownloadClientAndNotificationSecrets(t *testing.T) {
 	cfg := prowlarrConfig(url)
 	cfg.Spec.DownloadClients = []indexersv1alpha1.ProwlarrDownloadClient{{
 		Name: "qBittorrent", Implementation: "QBittorrent", Protocol: "torrent",
-		Fields: []commonv1alpha1.ConfigField{{Name: "password", ValueFrom: ref}},
+		Fields: []commonv1alpha1.ConfigField{{Name: "password", ValueFrom: *ref}},
 	}}
 	cfg.Spec.Notifications = []commonv1alpha1.Notification{{
 		Name: "hook", Implementation: "Webhook",
-		Fields: []commonv1alpha1.ConfigField{{Name: "password", ValueFrom: ref}},
+		Fields: []commonv1alpha1.ConfigField{{Name: "password", ValueFrom: *ref}},
 	}}
 	secret := prowlarrSecret()
 	secret.Data["qbit-password"] = []byte("s3cret")
@@ -355,7 +355,7 @@ func TestProwlarrMissingItemSecretSkipsOnlyItsKind(t *testing.T) {
 	}}
 	cfg.Spec.DownloadClients = []indexersv1alpha1.ProwlarrDownloadClient{{
 		Name: "qBittorrent", Implementation: "QBittorrent", Protocol: "torrent",
-		Fields: []commonv1alpha1.ConfigField{{Name: "password", ValueFrom: &commonv1alpha1.ValueSource{SecretKeyRef: commonv1alpha1.SecretKeyRef{Name: "missing", Key: "password"}}}},
+		Fields: []commonv1alpha1.ConfigField{{Name: "password", ValueFrom: commonv1alpha1.ValueSource{SecretKeyRef: commonv1alpha1.SecretKeyRef{Name: "missing", Key: "password"}}}},
 	}}
 	c := runProwlarr(t, cfg, prowlarrSecret())
 

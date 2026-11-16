@@ -26,7 +26,7 @@ import (
 type RadarrSpec struct {
 	// connection defines how to connect to the Radarr instance.
 	// +required
-	Connection commonv1alpha1.AppConnection `json:"connection"`
+	Connection commonv1alpha1.AppConnection `json:"connection,omitempty"`
 
 	// reconcile configures reconciliation behavior (e.g., sync interval).
 	// +optional
@@ -146,6 +146,7 @@ type RadarrMediaManagement struct {
 
 	// extraFileExtensions is a comma-separated list of extra file extensions to import.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	ExtraFileExtensions string `json:"extraFileExtensions,omitempty"`
 
 	// downloadPropersAndRepacks controls how proper/repack releases are handled.
@@ -201,10 +202,12 @@ type RadarrNaming struct {
 
 	// standardMovieFormat is the naming format for movies.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	StandardMovieFormat string `json:"standardMovieFormat,omitempty"`
 
 	// movieFolderFormat is the naming format for movie folders.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	MovieFolderFormat string `json:"movieFolderFormat,omitempty"`
 }
 
@@ -240,6 +243,7 @@ type RadarrIndexerConfig struct {
 
 	// whitelistedHardcodedSubs is a comma-separated list of subtitle languages to allow when hardcoded.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	WhitelistedHardcodedSubs string `json:"whitelistedHardcodedSubs,omitempty"`
 }
 
@@ -272,14 +276,17 @@ type RadarrUI struct {
 
 	// shortDateFormat is the short date display format.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	ShortDateFormat string `json:"shortDateFormat,omitempty"`
 
 	// longDateFormat is the long date display format.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	LongDateFormat string `json:"longDateFormat,omitempty"`
 
 	// timeFormat is the time display format.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	TimeFormat string `json:"timeFormat,omitempty"`
 
 	// showRelativeDates shows relative dates (today, yesterday).
@@ -310,6 +317,7 @@ type RadarrUI struct {
 }
 
 // RadarrStatus defines the observed state of Radarr.
+// +kubebuilder:validation:MinProperties=1
 type RadarrStatus struct {
 	// conditions represent the current state of the Radarr resource.
 	// +listType=map
@@ -319,6 +327,7 @@ type RadarrStatus struct {
 
 	// observedGeneration is the most recent generation observed.
 	// +optional
+	// +kubebuilder:validation:Minimum=1
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 
 	// lastSyncTime is the timestamp of the last successful reconciliation.
@@ -352,7 +361,7 @@ type Radarr struct {
 
 	// spec is the desired state of the Radarr.
 	// +required
-	Spec RadarrSpec `json:"spec"`
+	Spec RadarrSpec `json:"spec,omitzero"`
 
 	// status is the observed state of the Radarr.
 	// +optional

@@ -172,7 +172,7 @@ func TestFlareSolverrObserveDoesNotCreatePruneOrClaimSessions(t *testing.T) {
 	app := &fakeFlareSolverr{sessions: []string{"owned", "foreign"}}
 	cfg := flareConfig(app.serve(t), true, []string{"owned"}, "missing")
 	policy := "observe"
-	cfg.Spec.Reconcile.DriftPolicy = &policy
+	cfg.Spec.Reconcile.DriftPolicy = policy
 	c := runFlare(t, cfg)
 	require.NoError(t, c.Get(context.Background(), types.NamespacedName{Name: cfg.Name, Namespace: cfg.Namespace}, cfg))
 	require.Equal(t, int32(2), cfg.Status.ActiveSessions, "active sessions")
@@ -191,7 +191,7 @@ func TestFlareSolverrDeletePolicyAndOwnership(t *testing.T) {
 	app := &fakeFlareSolverr{sessions: []string{"owned", "foreign"}}
 	cfg := flareConfig(app.serve(t), false, []string{"owned"})
 	policy := "delete"
-	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{DeletionPolicy: &policy}
+	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{DeletionPolicy: policy}
 	cfg.Finalizers = []string{ctrlcommon.Finalizer}
 	now := metav1.Now()
 	cfg.DeletionTimestamp = &now

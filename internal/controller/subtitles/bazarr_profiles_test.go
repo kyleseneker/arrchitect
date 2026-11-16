@@ -114,7 +114,7 @@ func TestBazarrObserveReportsAProfilePruneWouldDelete(t *testing.T) {
 			}}
 			cfg := profilesConfig(app.serve(t), 1)
 			observe := "observe"
-			cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{Prune: new(true), DriftPolicy: &observe}
+			cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{Prune: new(true), DriftPolicy: observe}
 			cfg.SetManagedResources(map[string][]string{profilesKind: tt.owned})
 
 			c := runBazarr(t, cfg, bazarrSecrets())
@@ -133,7 +133,7 @@ func TestBazarrDeletionPolicyRemovesTheProfilesItCreated(t *testing.T) {
 	app := &fakeBazarr{profiles: []map[string]any{storedProfile(1, "created"), storedProfile(2, "hand-made")}}
 	cfg := profilesConfig(app.serve(t), 1)
 	policy := ctrlcommon.DeletionPolicyDelete
-	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{DeletionPolicy: &policy}
+	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{DeletionPolicy: policy}
 	cfg.SetManagedResources(map[string][]string{profilesKind: {"1"}})
 	now := metav1.NewTime(time.Now())
 	cfg.DeletionTimestamp = &now

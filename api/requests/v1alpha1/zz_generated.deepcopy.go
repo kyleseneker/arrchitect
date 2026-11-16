@@ -305,16 +305,8 @@ func (in *SeerrSpec) DeepCopyInto(out *SeerrSpec) {
 		*out = new(commonv1alpha1.ReconcileConfig)
 		(*in).DeepCopyInto(*out)
 	}
-	if in.JellyfinAuth != nil {
-		in, out := &in.JellyfinAuth, &out.JellyfinAuth
-		*out = new(SeerrJellyfinAuth)
-		(*in).DeepCopyInto(*out)
-	}
-	if in.PlexAuth != nil {
-		in, out := &in.PlexAuth, &out.PlexAuth
-		*out = new(SeerrPlexAuth)
-		(*in).DeepCopyInto(*out)
-	}
+	in.JellyfinAuth.DeepCopyInto(&out.JellyfinAuth)
+	in.PlexAuth.DeepCopyInto(&out.PlexAuth)
 	if in.Main != nil {
 		in, out := &in.Main, &out.Main
 		*out = new(SeerrMain)

@@ -73,9 +73,11 @@ spec:
                         properties:
                           key:
                             description: key is the key within the Secret.
+                            minLength: 1
                             type: string
                           name:
                             description: name is the name of the Secret.
+                            minLength: 1
                             type: string
                         required:
                         - key
@@ -93,6 +95,7 @@ spec:
                     description: |-
                       url is the base URL of Maintainerr, including any BASE_PATH
                       (e.g., http://maintainerr:6246).
+                    minLength: 1
                     pattern: ^https?://
                     type: string
                 required:
@@ -106,10 +109,12 @@ spec:
                     description: |-
                       collections is when Maintainerr acts on media whose time in a collection
                       has run out (e.g., "0 0-23/12 * * *").
+                    minLength: 1
                     type: string
                   rules:
                     description: rules is when Maintainerr evaluates rule groups (e.g.,
                       "0 0-23/8 * * *").
+                    minLength: 1
                     type: string
                 type: object
               mediaServer:
@@ -130,9 +135,11 @@ spec:
                         properties:
                           key:
                             description: key is the key within the Secret.
+                            minLength: 1
                             type: string
                           name:
                             description: name is the name of the Secret.
+                            minLength: 1
                             type: string
                         required:
                         - key
@@ -141,12 +148,14 @@ spec:
                       url:
                         description: url is the Jellyfin URL as Maintainerr reaches
                           it (e.g., http://jellyfin:8096).
+                        minLength: 1
                         pattern: ^https?://
                         type: string
                       userId:
                         description: |-
                           userId is the Jellyfin administrator Maintainerr acts as. Maintainerr
                           picks the first administrator when it is unset.
+                        minLength: 1
                         type: string
                     required:
                     - apiKeySecretRef
@@ -178,9 +187,11 @@ spec:
                         properties:
                           key:
                             description: key is the key within the Secret.
+                            minLength: 1
                             type: string
                           name:
                             description: name is the name of the Secret.
+                            minLength: 1
                             type: string
                         required:
                         - key
@@ -244,6 +255,7 @@ spec:
                         properties:
                           name:
                             description: name is the field name.
+                            minLength: 1
                             type: string
                           value:
                             description: 'value is the field value: a string, number,
@@ -258,9 +270,11 @@ spec:
                                 properties:
                                   key:
                                     description: key is the key within the Secret.
+                                    minLength: 1
                                     type: string
                                   name:
                                     description: name is the name of the Secret.
+                                    minLength: 1
                                     type: string
                                 required:
                                 - key
@@ -312,9 +326,11 @@ spec:
                       properties:
                         key:
                           description: key is the key within the Secret.
+                          minLength: 1
                           type: string
                         name:
                           description: name is the name of the Secret.
+                          minLength: 1
                           type: string
                       required:
                       - key
@@ -324,6 +340,7 @@ spec:
                       description: |-
                         exclusionTag is the tag tagExclusions looks for. Maintainerr uses "dnd"
                         when it is unset.
+                      minLength: 1
                       pattern: ^[a-z0-9-]+$
                       type: string
                     name:
@@ -345,6 +362,7 @@ spec:
                     url:
                       description: url is the server URL as Maintainerr reaches it
                         (e.g., http://radarr:7878).
+                      minLength: 1
                       pattern: ^https?://
                       type: string
                   required:
@@ -461,6 +479,7 @@ spec:
                       type: string
                     description:
                       description: description is shown on the collection.
+                      minLength: 1
                       type: string
                     forceSeerr:
                       description: |-
@@ -499,16 +518,19 @@ spec:
                       description: |-
                         qualityProfile is the name of the Sonarr or Radarr quality profile that
                         changeQualityProfile switches media to.
+                      minLength: 1
                       type: string
                     radarrServer:
                       description: |-
                         radarrServer names the spec.radarr server to act through. Required when a
                         rule reads Radarr.
+                      minLength: 1
                       type: string
                     schedule:
                       description: |-
                         schedule is a cron expression for this group's rule runs. Unset, the group
                         runs on spec.jobs.rules.
+                      minLength: 1
                       type: string
                     sections:
                       description: |-
@@ -562,6 +584,7 @@ spec:
                                 arrDiskPath:
                                   description: arrDiskPath limits disk-space properties
                                     to one Sonarr or Radarr root folder.
+                                  minLength: 1
                                   type: string
                                 customValue:
                                   description: customValue is a literal value to compare
@@ -597,12 +620,14 @@ spec:
                                     Plex.addDate, Jellyfin.viewCount, Radarr.fileSize). Plex and Jellyfin
                                     properties must belong to the configured media server. A name Maintainerr
                                     lists twice resolves to the one not marked deprecated.
+                                  minLength: 1
                                   pattern: ^[A-Za-z]+\.[A-Za-z0-9_]+$
                                   type: string
                                 lastValue:
                                   description: |-
                                     lastValue is a second property to compare against, as Application.property.
                                     Set lastValue or customValue, not both.
+                                  minLength: 1
                                   pattern: ^[A-Za-z]+\.[A-Za-z0-9_]+$
                                   type: string
                                 operator:
@@ -618,6 +643,7 @@ spec:
                                     username is the media server user that per-user properties (viewCountByUser,
                                     watchTimeByUser, lastViewedAtByUser) are read for. Required by those
                                     properties and not allowed on others.
+                                  minLength: 1
                                   type: string
                               required:
                               - action
@@ -636,6 +662,7 @@ spec:
                       description: |-
                         sonarrServer names the spec.sonarr server to act through. Required when a
                         rule reads Sonarr.
+                      minLength: 1
                       type: string
                     tagInArr:
                       description: tagInArr tags collection members in Sonarr or Radarr.
@@ -669,9 +696,11 @@ spec:
                     properties:
                       key:
                         description: key is the key within the Secret.
+                        minLength: 1
                         type: string
                       name:
                         description: name is the name of the Secret.
+                        minLength: 1
                         type: string
                     required:
                     - key
@@ -679,6 +708,7 @@ spec:
                     type: object
                   url:
                     description: url is the service URL as Maintainerr reaches it.
+                    minLength: 1
                     pattern: ^https?://
                     type: string
                 required:
@@ -697,9 +727,11 @@ spec:
                       properties:
                         key:
                           description: key is the key within the Secret.
+                          minLength: 1
                           type: string
                         name:
                           description: name is the name of the Secret.
+                          minLength: 1
                           type: string
                       required:
                       - key
@@ -709,6 +741,7 @@ spec:
                       description: |-
                         exclusionTag is the tag tagExclusions looks for. Maintainerr uses "dnd"
                         when it is unset.
+                      minLength: 1
                       pattern: ^[a-z0-9-]+$
                       type: string
                     name:
@@ -730,6 +763,7 @@ spec:
                     url:
                       description: url is the server URL as Maintainerr reaches it
                         (e.g., http://radarr:7878).
+                      minLength: 1
                       pattern: ^https?://
                       type: string
                   required:
@@ -752,9 +786,11 @@ spec:
                     properties:
                       key:
                         description: key is the key within the Secret.
+                        minLength: 1
                         type: string
                       name:
                         description: name is the name of the Secret.
+                        minLength: 1
                         type: string
                     required:
                     - key
@@ -762,6 +798,7 @@ spec:
                     type: object
                   url:
                     description: url is the service URL as Maintainerr reaches it.
+                    minLength: 1
                     pattern: ^https?://
                     type: string
                 required:
@@ -773,6 +810,7 @@ spec:
             type: object
           status:
             description: status is the observed state of the Maintainerr.
+            minProperties: 1
             properties:
               conditions:
                 description: conditions represent the current state of the Maintainerr
@@ -870,6 +908,7 @@ spec:
               observedGeneration:
                 description: observedGeneration is the most recent generation observed.
                 format: int64
+                minimum: 1
                 type: integer
             type: object
         required:

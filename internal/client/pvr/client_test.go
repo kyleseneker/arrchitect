@@ -178,7 +178,7 @@ func TestBuildDownloadClientPayload(t *testing.T) {
 			dc: commonv1alpha1.DownloadClient{
 				Name: "qBit", Protocol: "torrent", Implementation: "QBittorrent",
 				Host: "qbit", Port: 8080, Category: "movies",
-				Enable: new(false), Priority: new(int32(5)),
+				Enable: new(false), Priority: int32(5),
 				RemoveCompletedDownloads: new(false),
 				RemoveFailedDownloads:    new(false),
 				UseSsl:                   new(true),
@@ -303,7 +303,7 @@ func TestBuildIndexerPayload(t *testing.T) {
 				Name: "NZBgeek", Protocol: "usenet", Implementation: "Newznab",
 				Enable: new(false), EnableRss: new(false),
 				EnableAutomaticSearch: new(false), EnableInteractiveSearch: new(false),
-				ConfigContract: "CustomContract", Priority: new(int32(10)),
+				ConfigContract: "CustomContract", Priority: int32(10),
 				Fields: []commonv1alpha1.ConfigField{
 					{Name: "baseUrl", Value: fieldValue(`"http://nzbgeek.info"`)},
 				},
@@ -561,9 +561,9 @@ func TestBuildQualityProfilePayload(t *testing.T) {
 			qp: commonv1alpha1.QualityProfile{
 				Name: "HD",
 				FormatItems: []commonv1alpha1.QualityProfileFormatItem{
-					{Name: "x265", Score: 100},
-					{Name: "BR-DISK", Score: -1000},
-					{Name: "Unknown", Score: 50},
+					{Name: "x265", Score: new(int32(100))},
+					{Name: "BR-DISK", Score: new(int32(-1000))},
+					{Name: "Unknown", Score: new(int32(50))},
 				},
 			},
 			cfIDs: map[string]int{"x265": 1, "BR-DISK": 2},
@@ -580,7 +580,7 @@ func TestBuildQualityProfilePayload(t *testing.T) {
 				Name:   "HD",
 				Cutoff: "Bluray-1080p",
 				Items: []commonv1alpha1.QualityProfileItem{
-					{Quality: &commonv1alpha1.QualityReference{ID: 7, Name: "Bluray-1080p"}},
+					{Quality: commonv1alpha1.QualityReference{ID: new(int32(7)), Name: "Bluray-1080p"}},
 				},
 			},
 			cfIDs: map[string]int{},
@@ -685,11 +685,11 @@ func TestSetOptionalBool(t *testing.T) {
 
 func TestFindCutoffID(t *testing.T) {
 	items := []commonv1alpha1.QualityProfileItem{
-		{Quality: &commonv1alpha1.QualityReference{ID: 7, Name: "Bluray-1080p"}},
+		{Quality: commonv1alpha1.QualityReference{ID: new(int32(7)), Name: "Bluray-1080p"}},
 		{Name: "HD Group", Items: []commonv1alpha1.QualityProfileGroupItem{
-			{Quality: commonv1alpha1.QualityReference{ID: 4, Name: "HDTV-1080p"}},
+			{Quality: commonv1alpha1.QualityReference{ID: new(int32(4)), Name: "HDTV-1080p"}},
 		}},
-		{Quality: &commonv1alpha1.QualityReference{ID: 3, Name: "WEBDL-1080p"}},
+		{Quality: commonv1alpha1.QualityReference{ID: new(int32(3)), Name: "WEBDL-1080p"}},
 	}
 
 	tests := []struct {
@@ -723,10 +723,10 @@ func TestCompleteQualityItemsAddsUndeclaredQualitiesAsDisallowed(t *testing.T) {
 	}
 	declared := []commonv1alpha1.QualityProfileItem{
 		{Name: "WEB 1080p", Items: []commonv1alpha1.QualityProfileGroupItem{
-			{Quality: commonv1alpha1.QualityReference{ID: 3, Name: "WEBDL-1080p"}},
-			{Quality: commonv1alpha1.QualityReference{ID: 15, Name: "WEBRip-1080p"}},
+			{Quality: commonv1alpha1.QualityReference{ID: new(int32(3)), Name: "WEBDL-1080p"}},
+			{Quality: commonv1alpha1.QualityReference{ID: new(int32(15)), Name: "WEBRip-1080p"}},
 		}},
-		{Quality: &commonv1alpha1.QualityReference{ID: 7, Name: "Bluray-1080p"}},
+		{Quality: commonv1alpha1.QualityReference{ID: new(int32(7)), Name: "Bluray-1080p"}},
 	}
 
 	items := CompleteQualityItems(BuildQualityItems(declared), declared, definitions)
@@ -754,7 +754,7 @@ func TestBuildQualityItems(t *testing.T) {
 		{
 			name: "individual quality",
 			items: []commonv1alpha1.QualityProfileItem{
-				{Quality: &commonv1alpha1.QualityReference{ID: 7, Name: "Bluray-1080p"}},
+				{Quality: commonv1alpha1.QualityReference{ID: new(int32(7)), Name: "Bluray-1080p"}},
 			},
 			check: func(t *testing.T, result []map[string]any) {
 				require.Len(t, result, 1)
@@ -772,7 +772,7 @@ func TestBuildQualityItems(t *testing.T) {
 					Name:    "HD Group",
 					Allowed: new(true),
 					Items: []commonv1alpha1.QualityProfileGroupItem{
-						{Quality: commonv1alpha1.QualityReference{ID: 4, Name: "HDTV"}, Allowed: new(false)},
+						{Quality: commonv1alpha1.QualityReference{ID: new(int32(4)), Name: "HDTV"}, Allowed: new(false)},
 					},
 				},
 			},
@@ -789,7 +789,7 @@ func TestBuildQualityItems(t *testing.T) {
 		{
 			name: "allowed defaults to true",
 			items: []commonv1alpha1.QualityProfileItem{
-				{Quality: &commonv1alpha1.QualityReference{ID: 1, Name: "SDTV"}},
+				{Quality: commonv1alpha1.QualityReference{ID: new(int32(1)), Name: "SDTV"}},
 			},
 			check: func(t *testing.T, result []map[string]any) {
 				assert.Equal(t, true, result[0]["allowed"])
@@ -798,7 +798,7 @@ func TestBuildQualityItems(t *testing.T) {
 		{
 			name: "allowed explicitly false",
 			items: []commonv1alpha1.QualityProfileItem{
-				{Quality: &commonv1alpha1.QualityReference{ID: 1, Name: "SDTV"}, Allowed: new(false)},
+				{Quality: commonv1alpha1.QualityReference{ID: new(int32(1)), Name: "SDTV"}, Allowed: new(false)},
 			},
 			check: func(t *testing.T, result []map[string]any) {
 				assert.Equal(t, false, result[0]["allowed"])
@@ -938,7 +938,7 @@ func TestRebuildResolvesReferencesAndConverges(t *testing.T) {
 				Indexers:        []commonv1alpha1.Indexer{{Name: "indexer", TagLabels: []string{"tv"}}},
 				Notifications:   []commonv1alpha1.Notification{{Name: "notify", TagLabels: []string{"tv"}}},
 				CustomFormats:   []commonv1alpha1.CustomFormat{{Name: "preferred"}},
-				QualityProfiles: []commonv1alpha1.QualityProfile{{Name: "HD", FormatItems: []commonv1alpha1.QualityProfileFormatItem{{Name: "preferred", Score: 100}}}},
+				QualityProfiles: []commonv1alpha1.QualityProfile{{Name: "HD", FormatItems: []commonv1alpha1.QualityProfileFormatItem{{Name: "preferred", Score: new(int32(100))}}}},
 				ImportLists:     []commonv1alpha1.ImportList{{Name: "list", QualityProfileName: "HD", TagLabels: []string{"tv"}}},
 			}
 			result, err := Reconcile(context.Background(), hc, "v3", struct{}{}, opts, engine.SyncPolicy{}, nil)
@@ -982,7 +982,7 @@ func TestObserveReportsReferencesToDeclaredItemsAsDifferences(t *testing.T) {
 		Tags:            []commonv1alpha1.Tag{{Label: "TV"}},
 		DownloadClients: []commonv1alpha1.DownloadClient{{Name: "downloads", TagLabels: []string{"tv"}}},
 		CustomFormats:   []commonv1alpha1.CustomFormat{{Name: "x265"}},
-		QualityProfiles: []commonv1alpha1.QualityProfile{{Name: "HD", FormatItems: []commonv1alpha1.QualityProfileFormatItem{{Name: "x265", Score: 10}}}},
+		QualityProfiles: []commonv1alpha1.QualityProfile{{Name: "HD", FormatItems: []commonv1alpha1.QualityProfileFormatItem{{Name: "x265", Score: new(int32(10))}}}},
 		ImportLists:     []commonv1alpha1.ImportList{{Name: "list", Implementation: "Trakt", QualityProfileName: "HD"}},
 		DelayProfiles:   []commonv1alpha1.DelayProfile{{TagLabels: []string{"tv"}}},
 	}
@@ -1134,7 +1134,7 @@ func TestExistingItemsKeepWhatTheResourceLeavesOut(t *testing.T) {
 	opts := Options{
 		CategoryField:   "tvCategory",
 		DownloadClients: []commonv1alpha1.DownloadClient{{Name: "qBit", Protocol: "torrent", Implementation: "QBittorrent", Host: "qbit", Port: 8080}},
-		Indexers:        []commonv1alpha1.Indexer{{Name: "Geek", Protocol: "usenet", Implementation: "Newznab", Priority: new(int32(10))}},
+		Indexers:        []commonv1alpha1.Indexer{{Name: "Geek", Protocol: "usenet", Implementation: "Newznab", Priority: int32(10)}},
 		Notifications:   []commonv1alpha1.Notification{{Name: "Discord", Implementation: "Discord", OnDownload: new(true)}},
 	}
 
@@ -1295,7 +1295,7 @@ func TestQualityProfileResolvesCustomFormatsCreatedInTheSameRun(t *testing.T) {
 		CustomFormats: []commonv1alpha1.CustomFormat{{Name: "BR-DISK"}},
 		QualityProfiles: []commonv1alpha1.QualityProfile{{
 			Name:        "WEB-1080p",
-			FormatItems: []commonv1alpha1.QualityProfileFormatItem{{Name: "BR-DISK", Score: 100}},
+			FormatItems: []commonv1alpha1.QualityProfileFormatItem{{Name: "BR-DISK", Score: new(int32(100))}},
 		}},
 	}
 
@@ -1312,10 +1312,10 @@ func TestKeepGroupIDsReusesTheAppsGroupIDs(t *testing.T) {
 		Name:   "Any",
 		Cutoff: "WEB 1080p",
 		Items: []commonv1alpha1.QualityProfileItem{
-			{Quality: &commonv1alpha1.QualityReference{ID: 1, Name: "SDTV"}},
-			{Name: "WEB 720p", Items: []commonv1alpha1.QualityProfileGroupItem{{Quality: commonv1alpha1.QualityReference{ID: 5, Name: "WEBDL-720p"}}}},
-			{Name: "New group", Items: []commonv1alpha1.QualityProfileGroupItem{{Quality: commonv1alpha1.QualityReference{ID: 6, Name: "WEBRip-720p"}}}},
-			{Name: "WEB 1080p", Items: []commonv1alpha1.QualityProfileGroupItem{{Quality: commonv1alpha1.QualityReference{ID: 3, Name: "WEBDL-1080p"}}}},
+			{Quality: commonv1alpha1.QualityReference{ID: new(int32(1)), Name: "SDTV"}},
+			{Name: "WEB 720p", Items: []commonv1alpha1.QualityProfileGroupItem{{Quality: commonv1alpha1.QualityReference{ID: new(int32(5)), Name: "WEBDL-720p"}}}},
+			{Name: "New group", Items: []commonv1alpha1.QualityProfileGroupItem{{Quality: commonv1alpha1.QualityReference{ID: new(int32(6)), Name: "WEBRip-720p"}}}},
+			{Name: "WEB 1080p", Items: []commonv1alpha1.QualityProfileGroupItem{{Quality: commonv1alpha1.QualityReference{ID: new(int32(3)), Name: "WEBDL-1080p"}}}},
 		},
 	}, nil)
 	profile := map[string]any{"items": []any{

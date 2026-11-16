@@ -26,7 +26,7 @@ import (
 type SeerrSpec struct {
 	// connection defines how to connect to the Seerr instance.
 	// +required
-	Connection SeerrConnection `json:"connection"`
+	Connection SeerrConnection `json:"connection,omitzero"`
 
 	// reconcile configures reconciliation behavior (e.g., sync interval).
 	// +optional
@@ -35,12 +35,12 @@ type SeerrSpec struct {
 	// jellyfinAuth defines Jellyfin authentication settings.
 	// Set this for Jellyfin-based Seerr instances. Mutually exclusive with plexAuth.
 	// +optional
-	JellyfinAuth *SeerrJellyfinAuth `json:"jellyfinAuth,omitempty"`
+	JellyfinAuth SeerrJellyfinAuth `json:"jellyfinAuth,omitzero"`
 
 	// plexAuth defines Plex authentication settings.
 	// Set this for Plex-based Seerr instances. Mutually exclusive with jellyfinAuth.
 	// +optional
-	PlexAuth *SeerrPlexAuth `json:"plexAuth,omitempty"`
+	PlexAuth SeerrPlexAuth `json:"plexAuth,omitzero"`
 
 	// main configures general application settings.
 	// +optional
@@ -76,7 +76,8 @@ type SeerrNotificationAgent struct {
 	// Supported values: discord, slack, telegram, pushover, email, webhook,
 	// gotify, ntfy, pushbullet, webpush.
 	// +required
-	Agent string `json:"agent"`
+	// +kubebuilder:validation:MinLength=1
+	Agent string `json:"agent,omitempty"`
 
 	// enabled enables this notification agent.
 	// +optional
@@ -102,7 +103,8 @@ type SeerrConnection struct {
 	// url is the base URL of the Seerr instance (e.g., http://jellyseerr.media.svc.cluster.local:5055).
 	// +required
 	// +kubebuilder:validation:Pattern=`^https?://`
-	URL string `json:"url"`
+	// +kubebuilder:validation:MinLength=1
+	URL string `json:"url,omitempty"`
 
 	// apiKeySecretRef references a Secret containing Seerr's API key. When set,
 	// it is used instead of logging in through the media server.
@@ -119,7 +121,8 @@ type SeerrConnection struct {
 type SeerrPlexAuth struct {
 	// hostname is the Plex server hostname.
 	// +required
-	Hostname string `json:"hostname"`
+	// +kubebuilder:validation:MinLength=1
+	Hostname string `json:"hostname,omitempty"`
 
 	// port is the Plex server port.
 	// +optional
@@ -132,18 +135,19 @@ type SeerrPlexAuth struct {
 
 	// tokenSecretRef references a Secret containing the Plex auth token.
 	// +required
-	TokenSecretRef commonv1alpha1.SecretKeyRef `json:"tokenSecretRef"`
+	TokenSecretRef commonv1alpha1.SecretKeyRef `json:"tokenSecretRef,omitempty"`
 }
 
 // SeerrJellyfinAuth defines the Jellyfin authentication configuration for Seerr.
 type SeerrJellyfinAuth struct {
 	// hostname is the Jellyfin server hostname.
 	// +required
-	Hostname string `json:"hostname"`
+	// +kubebuilder:validation:MinLength=1
+	Hostname string `json:"hostname,omitempty"`
 
 	// port is the Jellyfin server port.
 	// +required
-	Port *int32 `json:"port"`
+	Port *int32 `json:"port,omitempty"`
 
 	// useSsl enables SSL for the Jellyfin connection.
 	// +optional
@@ -151,25 +155,28 @@ type SeerrJellyfinAuth struct {
 
 	// urlBase is the subpath Jellyfin is served under, if any.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	UrlBase string `json:"urlBase,omitempty"`
 
 	// usernameSecretRef references a Secret containing the Jellyfin username.
 	// +required
-	UsernameSecretRef commonv1alpha1.SecretKeyRef `json:"usernameSecretRef"`
+	UsernameSecretRef commonv1alpha1.SecretKeyRef `json:"usernameSecretRef,omitempty"`
 
 	// passwordSecretRef references a Secret containing the Jellyfin password.
 	// +required
-	PasswordSecretRef commonv1alpha1.SecretKeyRef `json:"passwordSecretRef"`
+	PasswordSecretRef commonv1alpha1.SecretKeyRef `json:"passwordSecretRef,omitempty"`
 }
 
 // SeerrMain configures general Seerr application settings.
 type SeerrMain struct {
 	// applicationTitle is the application display title.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	ApplicationTitle string `json:"applicationTitle,omitempty"`
 
 	// applicationUrl is the external URL for the application.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	ApplicationUrl string `json:"applicationUrl,omitempty"`
 
 	// hideAvailable hides already-available media from discovery.
@@ -194,6 +201,7 @@ type SeerrMain struct {
 
 	// locale is the application locale (e.g., "en").
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	Locale string `json:"locale,omitempty"`
 }
 
@@ -201,19 +209,21 @@ type SeerrMain struct {
 type SeerrServiceConnection struct {
 	// name is the display name for this service connection.
 	// +required
-	Name string `json:"name"`
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name,omitempty"`
 
 	// hostname is the service hostname.
 	// +required
-	Hostname string `json:"hostname"`
+	// +kubebuilder:validation:MinLength=1
+	Hostname string `json:"hostname,omitempty"`
 
 	// port is the service port.
 	// +required
-	Port *int32 `json:"port"`
+	Port *int32 `json:"port,omitempty"`
 
 	// apiKeySecretRef references a Secret containing the service API key.
 	// +required
-	APIKeySecretRef commonv1alpha1.SecretKeyRef `json:"apiKeySecretRef"`
+	APIKeySecretRef commonv1alpha1.SecretKeyRef `json:"apiKeySecretRef,omitempty"`
 
 	// useSsl enables SSL for the service connection.
 	// +optional
@@ -221,6 +231,7 @@ type SeerrServiceConnection struct {
 
 	// baseUrl is the URL base path for the service.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	BaseUrl string `json:"baseUrl,omitempty"`
 
 	// activeProfileId is used when activeProfileName is omitted.
@@ -230,10 +241,12 @@ type SeerrServiceConnection struct {
 	// activeProfileName is resolved against the service on each reconciliation.
 	// When set, it takes precedence over activeProfileId; exactly one match is required.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	ActiveProfileName string `json:"activeProfileName,omitempty"`
 
 	// activeDirectory is the root folder path for media.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	ActiveDirectory string `json:"activeDirectory,omitempty"`
 
 	// is4k indicates this is a 4K instance.
@@ -247,6 +260,7 @@ type SeerrServiceConnection struct {
 	// seriesType is the series type for Sonarr (e.g., "standard", "anime").
 	// Only applicable when used with Sonarr.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	SeriesType string `json:"seriesType,omitempty"`
 
 	// minimumAvailability is the minimum availability for Radarr.
@@ -262,6 +276,7 @@ type SeerrServiceConnection struct {
 
 	// externalUrl is the address users open the server at, for links in Seerr.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	ExternalUrl string `json:"externalUrl,omitempty"`
 
 	// syncEnabled scans the server for media and request status.
@@ -279,11 +294,13 @@ type SeerrServiceConnection struct {
 	// activeAnimeProfileName is the quality profile for anime, resolved against
 	// the server on each reconciliation. Only applicable when used with Sonarr.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	ActiveAnimeProfileName string `json:"activeAnimeProfileName,omitempty"`
 
 	// activeAnimeDirectory is the root folder for anime. Only applicable when
 	// used with Sonarr.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	ActiveAnimeDirectory string `json:"activeAnimeDirectory,omitempty"`
 
 	// animeSeriesType is the series type for anime. Only applicable when used
@@ -300,6 +317,7 @@ type SeerrServiceConnection struct {
 }
 
 // SeerrStatus defines the observed state of Seerr.
+// +kubebuilder:validation:MinProperties=1
 type SeerrStatus struct {
 	// conditions represent the current state of the Seerr resource.
 	// +listType=map
@@ -309,6 +327,7 @@ type SeerrStatus struct {
 
 	// observedGeneration is the most recent generation observed.
 	// +optional
+	// +kubebuilder:validation:Minimum=1
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 
 	// lastSyncTime is the timestamp of the last successful reconciliation.
@@ -346,7 +365,7 @@ type Seerr struct {
 
 	// spec is the desired state of the Seerr.
 	// +required
-	Spec SeerrSpec `json:"spec"`
+	Spec SeerrSpec `json:"spec,omitzero"`
 
 	// status is the observed state of the Seerr.
 	// +optional

@@ -47,7 +47,7 @@ func TestJellyfinExportsSettingsLibrariesAndTheAdminUser(t *testing.T) {
 	assert.Equal(t, "100", string(*cfg.Spec.Encoding.TonemappingPeak))
 	assert.Equal(t, "2.5", string(*cfg.Spec.Encoding.DownMixAudioBoost))
 	assert.True(t, *cfg.Spec.Server.EnableMetrics)
-	assert.Equal(t, &mediaserversv1alpha1.JellyfinTrickplay{EnableHwAcceleration: new(true), Interval: new(int32(10000)), WidthResolutions: []int32{320}},
+	assert.Equal(t, &mediaserversv1alpha1.JellyfinTrickplay{EnableHwAcceleration: new(true), Interval: int32(10000), WidthResolutions: []int32{320}},
 		cfg.Spec.Server.TrickplayOptions)
 	assert.Equal(t, &mediaserversv1alpha1.JellyfinNetwork{KnownProxies: []string{"10.0.0.1"}, EnableRemoteAccess: new(true)},
 		cfg.Spec.Network, "the base URL and ports aren't in the config")

@@ -190,7 +190,7 @@ func TestAutobrrMissingSecretDoesNotContactApp(t *testing.T) {
 
 func observedAutobrr(url string, indexer string) *automationv1alpha1.Autobrr {
 	cfg := autobrrConfig(url)
-	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{DriftPolicy: new("observe")}
+	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{DriftPolicy: "observe"}
 	cfg.Spec.Indexers = []automationv1alpha1.AutobrrIndexer{{Name: indexer, Identifier: "torznab"}}
 	return cfg
 }
@@ -330,7 +330,7 @@ func TestAutobrrIndexerUsesItsDefinition(t *testing.T) {
 	cfg.Spec.Indexers = []automationv1alpha1.AutobrrIndexer{{
 		Name: "IPT", Identifier: "ipt",
 		Settings: []commonv1alpha1.ConfigField{{
-			Name: "passkey", ValueFrom: &commonv1alpha1.ValueSource{SecretKeyRef: commonv1alpha1.SecretKeyRef{Name: "autobrr-credentials", Key: "api-key"}},
+			Name: "passkey", ValueFrom: commonv1alpha1.ValueSource{SecretKeyRef: commonv1alpha1.SecretKeyRef{Name: "autobrr-credentials", Key: "api-key"}},
 		}},
 	}}
 

@@ -15,10 +15,10 @@ import (
 
 func discordNotification() curationv1alpha1.MaintainerrNotification {
 	return curationv1alpha1.MaintainerrNotification{
-		Name: "Discord", Agent: "discord", Types: []string{"mediaHandled", "mediaAboutToBeHandled"}, AboutScale: new(int32(5)),
+		Name: "Discord", Agent: "discord", Types: []string{"mediaHandled", "mediaAboutToBeHandled"}, AboutScale: int32(5),
 		Options: []commonv1alpha1.ConfigField{
 			{Name: "botUsername", Value: &commonv1alpha1.FieldValue{Raw: []byte(`"Maintainerr"`)}},
-			{Name: "webhookUrl", ValueFrom: &commonv1alpha1.ValueSource{SecretKeyRef: secretRef("discord-webhook")}},
+			{Name: "webhookUrl", ValueFrom: commonv1alpha1.ValueSource{SecretKeyRef: secretRef("discord-webhook")}},
 		},
 	}
 }

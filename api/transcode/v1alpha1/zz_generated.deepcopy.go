@@ -100,11 +100,6 @@ func (in *TdarrLibrary) DeepCopyInto(out *TdarrLibrary) {
 		*out = new(bool)
 		**out = **in
 	}
-	if in.FolderWatchScanInterval != nil {
-		in, out := &in.FolderWatchScanInterval, &out.FolderWatchScanInterval
-		*out = new(int32)
-		**out = **in
-	}
 	if in.FolderWatching != nil {
 		in, out := &in.FolderWatching, &out.FolderWatching
 		*out = new(bool)
@@ -232,11 +227,6 @@ func (in *TdarrSettings) DeepCopyInto(out *TdarrSettings) {
 	if in.WorkerStallDetector != nil {
 		in, out := &in.WorkerStallDetector, &out.WorkerStallDetector
 		*out = new(bool)
-		**out = **in
-	}
-	if in.WorkerStallDetectorInterval != nil {
-		in, out := &in.WorkerStallDetectorInterval, &out.WorkerStallDetectorInterval
-		*out = new(int32)
 		**out = **in
 	}
 	if in.IgnoreSchedules != nil {

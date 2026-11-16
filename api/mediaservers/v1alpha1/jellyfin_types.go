@@ -27,7 +27,7 @@ import (
 type JellyfinSpec struct {
 	// connection defines how to connect to the Jellyfin instance.
 	// +required
-	Connection JellyfinConnection `json:"connection"`
+	Connection JellyfinConnection `json:"connection,omitzero"`
 
 	// reconcile configures reconciliation behavior (e.g., sync interval).
 	// +optional
@@ -35,7 +35,7 @@ type JellyfinSpec struct {
 
 	// adminUser defines the admin credentials used for initial setup and API access.
 	// +required
-	AdminUser JellyfinAdminUser `json:"adminUser"`
+	AdminUser JellyfinAdminUser `json:"adminUser,omitzero"`
 
 	// server configures Jellyfin server settings.
 	// +optional
@@ -66,7 +66,8 @@ type JellyfinConnection struct {
 	// url is the base URL of the Jellyfin instance (e.g., http://jellyfin.media.svc.cluster.local:8096).
 	// +required
 	// +kubebuilder:validation:Pattern=`^https?://`
-	URL string `json:"url"`
+	// +kubebuilder:validation:MinLength=1
+	URL string `json:"url,omitempty"`
 
 	// tls configures TLS settings for the connection.
 	// Only needed when Jellyfin uses HTTPS with self-signed or private CA certificates.
@@ -78,25 +79,28 @@ type JellyfinConnection struct {
 type JellyfinAdminUser struct {
 	// usernameSecretRef references a Secret containing the admin username.
 	// +required
-	UsernameSecretRef commonv1alpha1.SecretKeyRef `json:"usernameSecretRef"`
+	UsernameSecretRef commonv1alpha1.SecretKeyRef `json:"usernameSecretRef,omitempty"`
 
 	// passwordSecretRef references a Secret containing the admin password.
 	// +required
-	PasswordSecretRef commonv1alpha1.SecretKeyRef `json:"passwordSecretRef"`
+	PasswordSecretRef commonv1alpha1.SecretKeyRef `json:"passwordSecretRef,omitempty"`
 }
 
 // JellyfinServer configures Jellyfin server settings.
 type JellyfinServer struct {
 	// serverName is the friendly name of the server.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	ServerName string `json:"serverName,omitempty"`
 
 	// preferredMetadataLanguage is the preferred language for metadata (e.g., "en").
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	PreferredMetadataLanguage string `json:"preferredMetadataLanguage,omitempty"`
 
 	// metadataCountryCode is the country code for metadata lookups (e.g., "US").
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	MetadataCountryCode string `json:"metadataCountryCode,omitempty"`
 
 	// logFileRetentionDays is the number of days to retain log files.
@@ -242,7 +246,7 @@ type JellyfinTrickplay struct {
 	// interval is the time between thumbnails, in milliseconds.
 	// +optional
 	// +kubebuilder:validation:Minimum=1
-	Interval *int32 `json:"interval,omitempty"`
+	Interval int32 `json:"interval,omitempty"`
 
 	// widthResolutions are the thumbnail widths to make, in pixels.
 	// +optional
@@ -252,24 +256,24 @@ type JellyfinTrickplay struct {
 	// tileWidth is how many thumbnails go across each tile image.
 	// +optional
 	// +kubebuilder:validation:Minimum=1
-	TileWidth *int32 `json:"tileWidth,omitempty"`
+	TileWidth int32 `json:"tileWidth,omitempty"`
 
 	// tileHeight is how many thumbnails go down each tile image.
 	// +optional
 	// +kubebuilder:validation:Minimum=1
-	TileHeight *int32 `json:"tileHeight,omitempty"`
+	TileHeight int32 `json:"tileHeight,omitempty"`
 
 	// qscale is the thumbnails' encoding quality, from 2 (best) to 31.
 	// +optional
 	// +kubebuilder:validation:Minimum=2
 	// +kubebuilder:validation:Maximum=31
-	Qscale *int32 `json:"qscale,omitempty"`
+	Qscale int32 `json:"qscale,omitempty"`
 
 	// jpegQuality is the JPEG quality of the tile images.
 	// +optional
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=100
-	JpegQuality *int32 `json:"jpegQuality,omitempty"`
+	JpegQuality int32 `json:"jpegQuality,omitempty"`
 
 	// processThreads is how many threads making thumbnails uses.
 	// +optional
@@ -349,6 +353,7 @@ type JellyfinEncoding struct {
 
 	// vaapiDevice is the VAAPI render device path (e.g., "/dev/dri/renderD128").
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	VaapiDevice string `json:"vaapiDevice,omitempty"`
 
 	// enableHardwareEncoding enables hardware-accelerated encoding.
@@ -377,6 +382,7 @@ type JellyfinEncoding struct {
 
 	// encoderPreset is the encoder speed preset (e.g., "auto", "fast", "medium", "slow").
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	EncoderPreset string `json:"encoderPreset,omitempty"`
 
 	// hardwareDecodingCodecs is the list of codecs to decode in hardware.
@@ -406,6 +412,7 @@ type JellyfinEncoding struct {
 
 	// qsvDevice is the Intel Quick Sync device, when there's more than one.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	QsvDevice string `json:"qsvDevice,omitempty"`
 
 	// encodingThreadCount is how many threads ffmpeg uses. -1 picks one from the CPU count.
@@ -511,12 +518,12 @@ type JellyfinEncoding struct {
 	// maxMuxingQueueSize is the most packets ffmpeg buffers while muxing.
 	// +optional
 	// +kubebuilder:validation:Minimum=1
-	MaxMuxingQueueSize *int32 `json:"maxMuxingQueueSize,omitempty"`
+	MaxMuxingQueueSize int32 `json:"maxMuxingQueueSize,omitempty"`
 
 	// subtitleExtractionTimeoutMinutes is how long subtitle extraction may take.
 	// +optional
 	// +kubebuilder:validation:Minimum=1
-	SubtitleExtractionTimeoutMinutes *int32 `json:"subtitleExtractionTimeoutMinutes,omitempty"`
+	SubtitleExtractionTimeoutMinutes int32 `json:"subtitleExtractionTimeoutMinutes,omitempty"`
 
 	// allowOnDemandMetadataBasedKeyframeExtractionForExtensions lists the file
 	// extensions, such as mkv, whose key frames Jellyfin reads from metadata
@@ -530,17 +537,18 @@ type JellyfinEncoding struct {
 type JellyfinLibrary struct {
 	// name is the display name of the library.
 	// +required
-	Name string `json:"name"`
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name,omitempty"`
 
 	// collectionType is the type of media in this library.
 	// +required
 	// +kubebuilder:validation:Enum=movies;tvshows;music;musicvideos;homevideos;books;mixed
-	CollectionType string `json:"collectionType"`
+	CollectionType string `json:"collectionType,omitempty"`
 
 	// paths is the list of filesystem paths containing media for this library.
 	// +required
 	// +listType=set
-	Paths []string `json:"paths"`
+	Paths []string `json:"paths,omitempty"`
 
 	// enableRealtimeMonitor enables real-time monitoring of library paths for changes.
 	// +optional
@@ -556,14 +564,17 @@ type JellyfinLibrary struct {
 
 	// preferredMetadataLanguage overrides the server-level preferred metadata language for this library.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	PreferredMetadataLanguage string `json:"preferredMetadataLanguage,omitempty"`
 
 	// metadataCountryCode overrides the server-level metadata country code for this library.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	MetadataCountryCode string `json:"metadataCountryCode,omitempty"`
 }
 
 // JellyfinStatus defines the observed state of Jellyfin.
+// +kubebuilder:validation:MinProperties=1
 type JellyfinStatus struct {
 	// conditions represent the current state of the Jellyfin resource.
 	// +listType=map
@@ -573,6 +584,7 @@ type JellyfinStatus struct {
 
 	// observedGeneration is the most recent generation observed.
 	// +optional
+	// +kubebuilder:validation:Minimum=1
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 
 	// lastSyncTime is the timestamp of the last successful reconciliation.
@@ -610,7 +622,7 @@ type Jellyfin struct {
 
 	// spec is the desired state of the Jellyfin.
 	// +required
-	Spec JellyfinSpec `json:"spec"`
+	Spec JellyfinSpec `json:"spec,omitzero"`
 
 	// status is the observed state of the Jellyfin.
 	// +optional

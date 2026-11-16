@@ -63,7 +63,7 @@ func TestSabnzbdExportsMiscServersAndCategories(t *testing.T) {
 	assert.Equal(t, "medium", server.SSLVerify)
 	assert.False(t, *server.Optional)
 	assert.True(t, *server.Required)
-	assert.Equal(t, int32(60), *server.Timeout)
+	assert.Equal(t, int32(60), server.Timeout)
 	assert.Equal(t, "me", res.Secret.StringData[server.UsernameSecretRef.Key])
 	assert.Equal(t, []string{"server-primary-password"}, res.Unfilled)
 
