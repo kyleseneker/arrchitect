@@ -1,7 +1,7 @@
 # Supply the referenced Secrets and deploy the apps separately.
 # The hostname and local directories below must exist in your installation.
 apiVersion: arrchitect.dev/v1alpha1
-kind: SonarrConfig
+kind: Sonarr
 metadata:
   name: portable-sonarr
   namespace: media
@@ -13,24 +13,32 @@ spec:
       key: api-key
   tags:
     - label: television
-  downloadClients:
-    - name: seedbox
-      implementation: QBittorrent
-      protocol: torrent
-      host: seedbox.example.net
-      port: 8080
-      category: tv
-      tagLabels: [television]
-      usernameSecretRef:
-        name: seedbox-credentials
-        key: username
-      passwordSecretRef:
-        name: seedbox-credentials
-        key: password
   remotePathMappings:
     - host: seedbox.example.net
       remotePath: /downloads/tv
       localPath: /data/seedbox/tv
+---
+apiVersion: arrchitect.dev/v1alpha1
+kind: SonarrDownloadClient
+metadata:
+  name: portable-sonarr-seedbox
+  namespace: media
+spec:
+  sonarrRef:
+    name: portable-sonarr
+  name: seedbox
+  implementation: QBittorrent
+  protocol: torrent
+  host: seedbox.example.net
+  port: 8080
+  category: tv
+  tagLabels: [television]
+  usernameSecretRef:
+    name: seedbox-credentials
+    key: username
+  passwordSecretRef:
+    name: seedbox-credentials
+    key: password
 ---
 apiVersion: arrchitect.dev/v1alpha1
 kind: ProwlarrConfig

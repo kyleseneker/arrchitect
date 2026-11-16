@@ -1,7 +1,9 @@
 # Exporting an existing app
 
 `arrchitect export` reads a running app and prints a config resource that
-matches it, plus a Secret for its credentials.
+matches it, plus a Secret for its credentials. Sonarr's indexers and download
+clients come out as `SonarrIndexer` and `SonarrDownloadClient` resources, each
+named after the config and the item.
 
 ## Install
 

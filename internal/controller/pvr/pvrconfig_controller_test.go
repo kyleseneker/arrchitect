@@ -33,17 +33,17 @@ import (
 const conditionTrue = "True"
 
 // The four PVR controllers are the same implementation with a different API
-// version and download-client category field, so every case runs against all
-// four rather than trusting that Sonarr passing implies the rest do.
+// version, so every case runs against all four rather than trusting that
+// Sonarr passing implies the rest do.
 
 type buildOpts struct {
-	downloadClient bool
-	// missingPassword points the download client's password at a Secret that
-	// doesn't exist.
-	missingPassword bool
-	naming          bool
-	prune           bool
-	managed         map[string][]string
+	notification bool
+	// missingSecret reads the notification's URL from a Secret that doesn't
+	// exist.
+	missingSecret bool
+	naming        bool
+	prune         bool
+	managed       map[string][]string
 }
 
 type pvrApp struct {
@@ -54,28 +54,28 @@ type pvrApp struct {
 	newRec func(c client.Client, s *runtime.Scheme) reconcile.Reconciler
 }
 
-func baseSpec(o buildOpts) (commonv1alpha1.AppConnection, []commonv1alpha1.RootFolder, []commonv1alpha1.DownloadClient, *commonv1alpha1.ReconcileConfig) {
+func baseSpec(o buildOpts) (commonv1alpha1.AppConnection, []commonv1alpha1.RootFolder, []commonv1alpha1.Notification, *commonv1alpha1.ReconcileConfig) {
 	conn := commonv1alpha1.AppConnection{
 		APIKeySecretRef: commonv1alpha1.SecretKeyRef{Name: "app-credentials", Key: "api-key"},
 	}
 	// Lidarr and Readarr need default profiles on a root folder; the others ignore them.
 	roots := []commonv1alpha1.RootFolder{{Path: "/media", DefaultQualityProfileName: "Any", DefaultMetadataProfileName: "Standard"}}
-	var dcs []commonv1alpha1.DownloadClient
-	if o.downloadClient {
-		dcs = []commonv1alpha1.DownloadClient{{
-			Name: "qBittorrent", Protocol: "torrent", Implementation: "QBittorrent",
-			Host: "qbittorrent", Port: 8080, Category: "media",
-		}}
-		if o.missingPassword {
-			dcs[0].PasswordSecretRef = &commonv1alpha1.SecretKeyRef{Name: "missing", Key: "password"}
+	var notifications []commonv1alpha1.Notification
+	if o.notification {
+		url := commonv1alpha1.ConfigField{Name: "url", Value: &commonv1alpha1.FieldValue{Raw: []byte(`"http://hook"`)}}
+		if o.missingSecret {
+			url = commonv1alpha1.ConfigField{Name: "url", ValueFrom: &commonv1alpha1.ValueSource{
+				SecretKeyRef: commonv1alpha1.SecretKeyRef{Name: "missing", Key: "url"},
+			}}
 		}
+		notifications = []commonv1alpha1.Notification{{Name: "Webhook", Implementation: "Webhook", Fields: []commonv1alpha1.ConfigField{url}}}
 	}
 	var rec *commonv1alpha1.ReconcileConfig
 	if o.prune {
 		enabled := true
 		rec = &commonv1alpha1.ReconcileConfig{Prune: &enabled}
 	}
-	return conn, roots, dcs, rec
+	return conn, roots, notifications, rec
 }
 
 func meta() metav1.ObjectMeta {
@@ -85,15 +85,15 @@ func meta() metav1.ObjectMeta {
 var pvrApps = []pvrApp{
 	{
 		name: "sonarr", apiVer: "v3",
-		empty: func() ctrlcommon.ConfigResource { return &pvrv1alpha1.SonarrConfig{} },
+		empty: func() ctrlcommon.ConfigResource { return &pvrv1alpha1.Sonarr{} },
 		newRec: func(c client.Client, s *runtime.Scheme) reconcile.Reconciler {
-			return &SonarrConfigReconciler{Client: c, Scheme: s, Recorder: events.NewFakeRecorder(50)}
+			return &SonarrReconciler{Client: c, Scheme: s, Recorder: events.NewFakeRecorder(50)}
 		},
 		build: func(url string, o buildOpts) ctrlcommon.ConfigResource {
-			conn, roots, dcs, rec := baseSpec(o)
+			conn, roots, notifications, rec := baseSpec(o)
 			conn.URL = url
-			c := &pvrv1alpha1.SonarrConfig{ObjectMeta: meta(), Spec: pvrv1alpha1.SonarrConfigSpec{
-				Connection: conn, RootFolders: roots, DownloadClients: dcs, Reconcile: rec,
+			c := &pvrv1alpha1.Sonarr{ObjectMeta: meta(), Spec: pvrv1alpha1.SonarrSpec{
+				Connection: conn, RootFolders: roots, Notifications: notifications, Reconcile: rec,
 			}}
 			if o.naming {
 				yes := true
@@ -110,10 +110,10 @@ var pvrApps = []pvrApp{
 			return &RadarrConfigReconciler{Client: c, Scheme: s, Recorder: events.NewFakeRecorder(50)}
 		},
 		build: func(url string, o buildOpts) ctrlcommon.ConfigResource {
-			conn, roots, dcs, rec := baseSpec(o)
+			conn, roots, notifications, rec := baseSpec(o)
 			conn.URL = url
 			c := &pvrv1alpha1.RadarrConfig{ObjectMeta: meta(), Spec: pvrv1alpha1.RadarrConfigSpec{
-				Connection: conn, RootFolders: roots, DownloadClients: dcs, Reconcile: rec,
+				Connection: conn, RootFolders: roots, Notifications: notifications, Reconcile: rec,
 			}}
 			if o.naming {
 				yes := true
@@ -130,10 +130,10 @@ var pvrApps = []pvrApp{
 			return &LidarrConfigReconciler{Client: c, Scheme: s, Recorder: events.NewFakeRecorder(50)}
 		},
 		build: func(url string, o buildOpts) ctrlcommon.ConfigResource {
-			conn, roots, dcs, rec := baseSpec(o)
+			conn, roots, notifications, rec := baseSpec(o)
 			conn.URL = url
 			c := &pvrv1alpha1.LidarrConfig{ObjectMeta: meta(), Spec: pvrv1alpha1.LidarrConfigSpec{
-				Connection: conn, RootFolders: roots, DownloadClients: dcs, Reconcile: rec,
+				Connection: conn, RootFolders: roots, Notifications: notifications, Reconcile: rec,
 			}}
 			if o.naming {
 				yes := true
@@ -150,10 +150,10 @@ var pvrApps = []pvrApp{
 			return &ReadarrConfigReconciler{Client: c, Scheme: s, Recorder: events.NewFakeRecorder(50)}
 		},
 		build: func(url string, o buildOpts) ctrlcommon.ConfigResource {
-			conn, roots, dcs, rec := baseSpec(o)
+			conn, roots, notifications, rec := baseSpec(o)
 			conn.URL = url
 			c := &pvrv1alpha1.ReadarrConfig{ObjectMeta: meta(), Spec: pvrv1alpha1.ReadarrConfigSpec{
-				Connection: conn, RootFolders: roots, DownloadClients: dcs, Reconcile: rec,
+				Connection: conn, RootFolders: roots, Notifications: notifications, Reconcile: rec,
 			}}
 			if o.naming {
 				yes := true
@@ -340,19 +340,19 @@ func TestReconcileWritesDeclaredResources(t *testing.T) {
 	for _, app := range pvrApps {
 		t.Run(app.name, func(t *testing.T) {
 			fa, url := newFakeArr(t, app.apiVer, nil)
-			cfg := app.build(url, buildOpts{downloadClient: true, naming: true})
+			cfg := app.build(url, buildOpts{notification: true, naming: true})
 			c := run(t, app, apiKeySecret(), cfg)
 
 			assert.True(t, fa.saw("POST", fa.path("rootfolder")), "root folder was never created")
-			assert.True(t, fa.saw("POST", fa.path("downloadclient")), "download client was never created")
+			assert.True(t, fa.saw("POST", fa.path("notification")), "notification was never created")
 			// Settings are written to /config/<section>/<id>.
 			assert.True(t, fa.sawPrefix("PUT", fa.path("config/naming/")), "naming settings were never pushed")
 			assert.Equal(t, conditionTrue, conditionStatus(t, c, app, "Synced"), "Synced")
 
 			obj := app.empty()
 			require.NoError(t, c.Get(context.Background(), types.NamespacedName{Name: "app", Namespace: "media"}, obj), "fetching config")
-			assert.NotEmpty(t, (*obj.GetManagedResources())["downloadClients"],
-				"managedResources did not record the download client: %+v", *obj.GetManagedResources())
+			assert.NotEmpty(t, (*obj.GetManagedResources())["notifications"],
+				"managedResources did not record the notification: %+v", *obj.GetManagedResources())
 		})
 	}
 }
@@ -384,12 +384,12 @@ func TestReconcileMissingItemSecretSkipsOnlyItsKind(t *testing.T) {
 	for _, app := range pvrApps {
 		t.Run(app.name, func(t *testing.T) {
 			fa, url := newFakeArr(t, app.apiVer, nil)
-			cfg := app.build(url, buildOpts{downloadClient: true, missingPassword: true, naming: true})
+			cfg := app.build(url, buildOpts{notification: true, missingSecret: true, naming: true})
 			c := run(t, app, apiKeySecret(), cfg)
 
 			assert.True(t, fa.saw("POST", fa.path("rootfolder")), "the root folder was held back too")
 			assert.True(t, fa.sawPrefix("PUT", fa.path("config/naming/")), "the settings were held back too")
-			assert.False(t, fa.saw("POST", fa.path("downloadclient")), "a download client was written without its password")
+			assert.False(t, fa.saw("POST", fa.path("notification")), "a notification was written without its URL")
 			assert.Equal(t, conditionTrue, conditionStatus(t, c, app, "Ready"), "the app is reachable")
 			assert.NotEqual(t, conditionTrue, conditionStatus(t, c, app, "Synced"))
 
@@ -398,7 +398,7 @@ func TestReconcileMissingItemSecretSkipsOnlyItsKind(t *testing.T) {
 			synced := apimeta.FindStatusCondition(*obj.GetConditions(), "Synced")
 			require.NotNil(t, synced)
 			assert.Equal(t, "SyncFailed", synced.Reason)
-			assert.Contains(t, synced.Message, `downloadClients: download client "qBittorrent" password: secret "missing" not found`)
+			assert.Contains(t, synced.Message, `notifications: notification Webhook field "url": secret "missing" not found`)
 		})
 	}
 }
@@ -410,15 +410,15 @@ func TestPruneLeavesUnmanagedResourcesAlone(t *testing.T) {
 	for _, app := range pvrApps {
 		t.Run(app.name, func(t *testing.T) {
 			fa, url := newFakeArr(t, app.apiVer, map[string][]map[string]any{
-				"downloadclient": {{"id": float64(7), "name": "hand-made-client"}},
+				"notification": {{"id": float64(7), "name": "hand-made-hook"}},
 			})
-			cfg := app.build(url, buildOpts{downloadClient: true, prune: true})
+			cfg := app.build(url, buildOpts{notification: true, prune: true})
 			run(t, app, apiKeySecret(), cfg)
 
 			// Guard against a vacuous pass: if the reconcile never reached the
 			// app, the absence of a DELETE would prove nothing.
-			require.True(t, fa.saw("POST", fa.path("downloadclient")), "reconcile never reached the app, so the DELETE check is meaningless")
-			assert.False(t, fa.sawPrefix("DELETE", fa.path("downloadclient")), "prune deleted a download client the operator never created")
+			require.True(t, fa.saw("POST", fa.path("notification")), "reconcile never reached the app, so the DELETE check is meaningless")
+			assert.False(t, fa.sawPrefix("DELETE", fa.path("notification")), "prune deleted a notification the operator never created")
 		})
 	}
 }
@@ -429,15 +429,15 @@ func TestPruneRemovesPreviouslyManagedResources(t *testing.T) {
 	for _, app := range pvrApps {
 		t.Run(app.name, func(t *testing.T) {
 			fa, url := newFakeArr(t, app.apiVer, map[string][]map[string]any{
-				"downloadclient": {{"id": float64(7), "name": "retired-client"}},
+				"notification": {{"id": float64(7), "name": "retired-hook"}},
 			})
 			cfg := app.build(url, buildOpts{
-				downloadClient: true, prune: true,
-				managed: map[string][]string{"downloadClients": {"qBittorrent", "retired-client"}},
+				notification: true, prune: true,
+				managed: map[string][]string{"notifications": {"Webhook", "retired-hook"}},
 			})
 			run(t, app, apiKeySecret(), cfg)
 
-			assert.True(t, fa.sawPrefix("DELETE", fa.path("downloadclient")), "prune did not remove a resource it had previously created")
+			assert.True(t, fa.sawPrefix("DELETE", fa.path("notification")), "prune did not remove a resource it had previously created")
 		})
 	}
 }
@@ -445,16 +445,16 @@ func TestPruneRemovesPreviouslyManagedResources(t *testing.T) {
 func TestDeletePolicyCleansOwnedResourcesAcrossPVRControllers(t *testing.T) {
 	for _, app := range pvrApps {
 		t.Run(app.name, func(t *testing.T) {
-			fa, url := newFakeArr(t, app.apiVer, map[string][]map[string]any{"downloadclient": {{"id": float64(7), "name": "owned"}, {"id": float64(8), "name": "manual"}}})
-			cfg := app.build(url, buildOpts{prune: true, managed: map[string][]string{"downloadClients": {"owned"}, "tags": {"shared"}, "rootFolders": {"/media"}}})
+			fa, url := newFakeArr(t, app.apiVer, map[string][]map[string]any{"notification": {{"id": float64(7), "name": "owned"}, {"id": float64(8), "name": "manual"}}})
+			cfg := app.build(url, buildOpts{prune: true, managed: map[string][]string{"notifications": {"owned"}, "tags": {"shared"}, "rootFolders": {"/media"}}})
 			policy := "delete"
 			cfg.GetReconcileConfig().DeletionPolicy = &policy
 			cfg.SetFinalizers([]string{ctrlcommon.Finalizer})
 			now := metav1.Now()
 			cfg.SetDeletionTimestamp(&now)
 			c := run(t, app, apiKeySecret(), cfg)
-			require.True(t, fa.saw("DELETE", fa.path("downloadclient/7")), "owned resource was not cleaned up")
-			require.False(t, fa.saw("DELETE", fa.path("downloadclient/8")), "manual resource was deleted")
+			require.True(t, fa.saw("DELETE", fa.path("notification/7")), "owned resource was not cleaned up")
+			require.False(t, fa.saw("DELETE", fa.path("notification/8")), "manual resource was deleted")
 			require.False(t, fa.sawPrefix("DELETE", fa.path("tag")), "protected resources were deleted")
 			require.False(t, fa.sawPrefix("DELETE", fa.path("rootfolder")), "protected resources were deleted")
 			err := c.Get(context.Background(), client.ObjectKeyFromObject(cfg), app.empty())
@@ -470,7 +470,7 @@ func TestRemoteMappingsReachEveryPVRController(t *testing.T) {
 			cfg := app.build(url, buildOpts{})
 			mappings := []commonv1alpha1.RemotePathMapping{{Host: "seedbox", RemotePath: "/downloads", LocalPath: "/data"}}
 			switch obj := cfg.(type) {
-			case *pvrv1alpha1.SonarrConfig:
+			case *pvrv1alpha1.Sonarr:
 				obj.Spec.RemotePathMappings = mappings
 			case *pvrv1alpha1.RadarrConfig:
 				obj.Spec.RemotePathMappings = mappings

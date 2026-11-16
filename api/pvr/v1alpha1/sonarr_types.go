@@ -5,8 +5,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// SonarrConfigSpec defines the desired state of SonarrConfig.
-type SonarrConfigSpec struct {
+// SonarrSpec is a Sonarr instance's connection and app-wide settings. Indexers
+// and download clients are resources of their own that refer to it.
+type SonarrSpec struct {
 	// connection defines how to connect to the Sonarr instance.
 	// +required
 	Connection commonv1alpha1.AppConnection `json:"connection"`
@@ -40,12 +41,6 @@ type SonarrConfigSpec struct {
 	// +listType=map
 	// +listMapKey=path
 	RootFolders []commonv1alpha1.RootFolder `json:"rootFolders,omitempty"`
-
-	// downloadClients defines download client connections.
-	// +optional
-	// +listType=map
-	// +listMapKey=name
-	DownloadClients []commonv1alpha1.DownloadClient `json:"downloadClients,omitempty"`
 
 	// remotePathMappings translates paths reported by remote download clients.
 	// Entries are matched by host and remotePath. Only operator-created entries can be pruned.
@@ -89,12 +84,6 @@ type SonarrConfigSpec struct {
 	// +listType=map
 	// +listMapKey=label
 	Tags []commonv1alpha1.Tag `json:"tags,omitempty"`
-
-	// indexers defines indexer connections.
-	// +optional
-	// +listType=map
-	// +listMapKey=name
-	Indexers []commonv1alpha1.Indexer `json:"indexers,omitempty"`
 
 	// notifications defines notification/connection configurations.
 	// +optional
@@ -291,9 +280,9 @@ type SonarrUI struct {
 	UILanguage *int `json:"uiLanguage,omitempty"`
 }
 
-// SonarrConfigStatus defines the observed state of SonarrConfig.
-type SonarrConfigStatus struct {
-	// conditions represent the current state of the SonarrConfig resource.
+// SonarrStatus defines the observed state of Sonarr.
+type SonarrStatus struct {
+	// conditions represent the current state of the Sonarr resource.
 	// +listType=map
 	// +listMapKey=type
 	// +optional
@@ -322,31 +311,31 @@ type SonarrConfigStatus struct {
 // +kubebuilder:printcolumn:name="Last Sync",type="date",JSONPath=`.status.lastSyncTime`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=`.metadata.creationTimestamp`
 
-// SonarrConfig is the Schema for the sonarrconfigs API.
-type SonarrConfig struct {
+// Sonarr configures a Sonarr instance the operator connects to.
+type Sonarr struct {
 	metav1.TypeMeta `json:",inline"`
 
 	// +optional
 	metav1.ObjectMeta `json:"metadata,omitzero"`
 
 	// +required
-	Spec SonarrConfigSpec `json:"spec"`
+	Spec SonarrSpec `json:"spec"`
 
 	// +optional
-	Status SonarrConfigStatus `json:"status,omitzero"`
+	Status SonarrStatus `json:"status,omitzero"`
 }
 
 // +kubebuilder:object:root=true
 
-// SonarrConfigList contains a list of SonarrConfig.
-type SonarrConfigList struct {
+// SonarrList contains a list of Sonarr.
+type SonarrList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitzero"`
-	Items           []SonarrConfig `json:"items"`
+	Items           []Sonarr `json:"items"`
 }
 
-func (c *SonarrConfig) GetConditions() *[]metav1.Condition                  { return &c.Status.Conditions }
-func (c *SonarrConfig) GetObservedGeneration() *int64                       { return &c.Status.ObservedGeneration }
-func (c *SonarrConfig) GetLastSyncTime() **metav1.Time                      { return &c.Status.LastSyncTime }
-func (c *SonarrConfig) GetReconcileConfig() *commonv1alpha1.ReconcileConfig { return c.Spec.Reconcile }
-func (c *SonarrConfig) GetManagedResources() *map[string][]string           { return &c.Status.ManagedResources }
+func (c *Sonarr) GetConditions() *[]metav1.Condition                  { return &c.Status.Conditions }
+func (c *Sonarr) GetObservedGeneration() *int64                       { return &c.Status.ObservedGeneration }
+func (c *Sonarr) GetLastSyncTime() **metav1.Time                      { return &c.Status.LastSyncTime }
+func (c *Sonarr) GetReconcileConfig() *commonv1alpha1.ReconcileConfig { return c.Spec.Reconcile }
+func (c *Sonarr) GetManagedResources() *map[string][]string           { return &c.Status.ManagedResources }

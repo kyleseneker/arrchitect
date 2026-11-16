@@ -35,42 +35,18 @@ func reconcilePVR(ctx context.Context, c client.Client, recorder events.EventRec
 		return ctrl.Result{RequeueAfter: after}, nil
 	}
 
-	missingSecret := func(err error) (ctrl.Result, error) {
-		ctrlcommon.UpdateStatusUnreachable(ctx, c, obj, engine.ReasonSecretNotFound, err.Error())
-		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
-	}
-
-	apiKey, err := reconciler.ResolveSecretKeyRef(ctx, c, namespace, conn.APIKeySecretRef)
-	if err != nil {
-		return missingSecret(err)
-	}
-	opts := cfg.options
-	opts.CategoryField = cfg.app.CategoryField
-	opts.ImportListFields = cfg.app.ImportListFields
-	opts.MetadataProfiles = cfg.app.MetadataProfiles
-	opts.Choices = cfg.app.Choices
+	opts := withApp(cfg.options, cfg.app)
 	// A kind whose items name a Secret that can't be read is left out of the
 	// pass, neither written nor pruned, and reported; the rest still syncs.
 	var unresolved []string
+	var err error
 	if opts.DCSecrets, err = ctrlcommon.ResolveDownloadClientSecrets(ctx, c, namespace, opts.DownloadClients); err != nil {
 		unresolved = append(unresolved, fmt.Sprintf("downloadClients: %v", err))
 		opts.DownloadClients = nil
 	}
-	tlsCfg, err := engine.ResolveTLSConfig(ctx, c, namespace, conn.TLS)
-	if err != nil {
-		return missingSecret(err)
-	}
-
-	hc, err := engine.NewHTTPClient(conn.URL, engine.AuthAPIKey,
-		engine.WithOwner(namespace+"/"+obj.GetName()+"/"+string(obj.GetUID())),
-		engine.WithAPIKey(apiKey), engine.WithTLSConfig(tlsCfg), engine.WithAppLabel(cfg.app.Name))
-	if err != nil {
-		ctrlcommon.UpdateStatusUnreachable(ctx, c, obj, engine.ReasonInvalidConfig, err.Error())
-		return ctrl.Result{}, nil
-	}
-	if err := hc.Ping(ctx, "/api/"+cfg.app.APIVersion+"/system/status"); err != nil {
-		ctrlcommon.UpdateStatusUnreachable(ctx, c, obj, engine.ReasonAppUnreachable, err.Error())
-		return ctrl.Result{RequeueAfter: 60 * time.Second}, nil
+	hc, wait := connectPVR(ctx, c, obj, conn, cfg.app)
+	if wait != nil {
+		return *wait, nil
 	}
 
 	if opts.Indexers, err = ctrlcommon.ResolveIndexerSecrets(ctx, c, namespace, opts.Indexers); err != nil {
@@ -94,4 +70,45 @@ func reconcilePVR(ctx context.Context, c client.Client, recorder events.EventRec
 	ctrlcommon.UpdateResultStatus(ctx, c, obj, result)
 
 	return ctrl.Result{RequeueAfter: ctrlcommon.ReconcileInterval(cfg.policy)}, nil
+}
+
+// withApp fills in what the options take from the app itself.
+func withApp(opts pvrclient.Options, app pvrclient.App) pvrclient.Options {
+	opts.CategoryField = app.CategoryField
+	opts.ImportListFields = app.ImportListFields
+	opts.MetadataProfiles = app.MetadataProfiles
+	opts.Choices = app.Choices
+	return opts
+}
+
+// connectPVR resolves an app's connection and checks the app answers. When it
+// can't, it records why on obj and returns when to try again.
+func connectPVR(
+	ctx context.Context, c client.Client, obj ctrlcommon.ConfigResource, conn commonv1alpha1.AppConnection, app pvrclient.App,
+) (*engine.HTTPClient, *ctrl.Result) {
+	namespace := obj.GetNamespace()
+	missingSecret := func(err error) (*engine.HTTPClient, *ctrl.Result) {
+		ctrlcommon.UpdateStatusUnreachable(ctx, c, obj, engine.ReasonSecretNotFound, err.Error())
+		return nil, &ctrl.Result{RequeueAfter: 30 * time.Second}
+	}
+	apiKey, err := reconciler.ResolveSecretKeyRef(ctx, c, namespace, conn.APIKeySecretRef)
+	if err != nil {
+		return missingSecret(err)
+	}
+	tlsCfg, err := engine.ResolveTLSConfig(ctx, c, namespace, conn.TLS)
+	if err != nil {
+		return missingSecret(err)
+	}
+	hc, err := engine.NewHTTPClient(conn.URL, engine.AuthAPIKey,
+		engine.WithOwner(namespace+"/"+obj.GetName()+"/"+string(obj.GetUID())),
+		engine.WithAPIKey(apiKey), engine.WithTLSConfig(tlsCfg), engine.WithAppLabel(app.Name))
+	if err != nil {
+		ctrlcommon.UpdateStatusUnreachable(ctx, c, obj, engine.ReasonInvalidConfig, err.Error())
+		return nil, &ctrl.Result{}
+	}
+	if err := hc.Ping(ctx, "/api/"+app.APIVersion+"/system/status"); err != nil {
+		ctrlcommon.UpdateStatusUnreachable(ctx, c, obj, engine.ReasonAppUnreachable, err.Error())
+		return nil, &ctrl.Result{RequeueAfter: 60 * time.Second}
+	}
+	return hc, nil
 }

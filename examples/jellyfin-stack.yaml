@@ -8,7 +8,7 @@
 #     helm install arrchitect oci://ghcr.io/kyleseneker/charts/arrchitect
 ---
 apiVersion: arrchitect.dev/v1alpha1
-kind: SonarrConfig
+kind: Sonarr
 metadata:
   name: sonarr
   namespace: media
@@ -34,13 +34,21 @@ spec:
     autoRedownloadFailed: true
   rootFolders:
     - path: /media/tv
-  downloadClients:
-    - name: qBittorrent
-      protocol: torrent
-      implementation: QBittorrent
-      host: qbittorrent.media.svc.cluster.local
-      port: 8080
-      category: tv-sonarr
+---
+apiVersion: arrchitect.dev/v1alpha1
+kind: SonarrDownloadClient
+metadata:
+  name: sonarr-qbittorrent
+  namespace: media
+spec:
+  sonarrRef:
+    name: sonarr
+  name: qBittorrent
+  protocol: torrent
+  implementation: QBittorrent
+  host: qbittorrent.media.svc.cluster.local
+  port: 8080
+  category: tv-sonarr
 ---
 apiVersion: arrchitect.dev/v1alpha1
 kind: RadarrConfig

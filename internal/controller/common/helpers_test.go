@@ -181,9 +181,9 @@ func TestUpdateStatusSurvivesASpecEditMidPass(t *testing.T) {
 	cl := testClient(obj).WithStatusSubresource(obj).Build()
 	key := client.ObjectKeyFromObject(obj)
 
-	stale := &pvrv1alpha1.SonarrConfig{}
+	stale := &pvrv1alpha1.Sonarr{}
 	require.NoError(t, cl.Get(ctx, key, stale))
-	edited := &pvrv1alpha1.SonarrConfig{}
+	edited := &pvrv1alpha1.Sonarr{}
 	require.NoError(t, cl.Get(ctx, key, edited))
 	edited.Spec.Connection.URL = "http://sonarr.edited:8989"
 	require.NoError(t, cl.Update(ctx, edited))
@@ -193,7 +193,7 @@ func TestUpdateStatusSurvivesASpecEditMidPass(t *testing.T) {
 	UpdateStatusManaged(stale, map[string][]string{"downloadClients": {"qbit"}})
 	UpdateStatus(ctx, cl, stale, true, engine.ReasonSynced, "ok")
 
-	got := &pvrv1alpha1.SonarrConfig{}
+	got := &pvrv1alpha1.Sonarr{}
 	require.NoError(t, cl.Get(ctx, key, got))
 	assert.Equal(t, map[string][]string{"downloadClients": {"qbit"}}, got.Status.ManagedResources, "ownership was lost")
 	condition := meta.FindStatusCondition(got.Status.Conditions, "Synced")
@@ -240,15 +240,15 @@ func TestConfigChangedPredicate(t *testing.T) {
 	old.Generation = 1
 	cases := []struct {
 		name   string
-		change func(*pvrv1alpha1.SonarrConfig)
+		change func(*pvrv1alpha1.Sonarr)
 		want   bool
 	}{
-		{"status", func(c *pvrv1alpha1.SonarrConfig) { now := metav1.Now(); c.Status.LastSyncTime = &now }, false},
-		{"resource version", func(c *pvrv1alpha1.SonarrConfig) { c.ResourceVersion = "2" }, false},
-		{"spec", func(c *pvrv1alpha1.SonarrConfig) { c.Generation++ }, true},
-		{"deletion", func(c *pvrv1alpha1.SonarrConfig) { now := metav1.Now(); c.DeletionTimestamp = &now }, true},
-		{"finalizers", func(c *pvrv1alpha1.SonarrConfig) { c.Finalizers = nil }, true},
-		{"annotation", func(c *pvrv1alpha1.SonarrConfig) { c.Annotations = map[string]string{"reconcile": "now"} }, true},
+		{"status", func(c *pvrv1alpha1.Sonarr) { now := metav1.Now(); c.Status.LastSyncTime = &now }, false},
+		{"resource version", func(c *pvrv1alpha1.Sonarr) { c.ResourceVersion = "2" }, false},
+		{"spec", func(c *pvrv1alpha1.Sonarr) { c.Generation++ }, true},
+		{"deletion", func(c *pvrv1alpha1.Sonarr) { now := metav1.Now(); c.DeletionTimestamp = &now }, true},
+		{"finalizers", func(c *pvrv1alpha1.Sonarr) { c.Finalizers = nil }, true},
+		{"annotation", func(c *pvrv1alpha1.Sonarr) { c.Annotations = map[string]string{"reconcile": "now"} }, true},
 	}
 	p := ConfigChangedPredicate()
 	for _, tt := range cases {
@@ -317,11 +317,11 @@ func TestResolveDownloadClientSecrets_MissingSecret(t *testing.T) {
 func TestReferencesSecretFindsEveryReference(t *testing.T) {
 	ref := commonv1alpha1.SecretKeyRef{Name: "target", Key: "k"}
 	for name, config := range map[string]any{
-		"an optional TLS CA": &pvrv1alpha1.SonarrConfig{Spec: pvrv1alpha1.SonarrConfigSpec{
+		"an optional TLS CA": &pvrv1alpha1.Sonarr{Spec: pvrv1alpha1.SonarrSpec{
 			Connection: commonv1alpha1.AppConnection{TLS: &commonv1alpha1.TLSConfig{CASecretRef: &ref}},
 		}},
-		"a download client password": pvrv1alpha1.SonarrConfigSpec{
-			DownloadClients: []commonv1alpha1.DownloadClient{{Name: "q", PasswordSecretRef: &ref}},
+		"a download client password": pvrv1alpha1.SonarrDownloadClientSpec{
+			DownloadClient: commonv1alpha1.DownloadClient{Name: "q", PasswordSecretRef: &ref},
 		},
 		"a field read from a Secret": indexersv1alpha1.ProwlarrConfigSpec{
 			Indexers: []indexersv1alpha1.ProwlarrIndexer{{Name: "x", Fields: []commonv1alpha1.ConfigField{{Name: "apiKey", ValueFrom: &commonv1alpha1.ValueSource{SecretKeyRef: ref}}}}},
@@ -343,16 +343,16 @@ func TestEnqueueForSecretQueuesOnlyConfigsThatReferToIt(t *testing.T) {
 	s := runtime.NewScheme()
 	require.NoError(t, scheme.AddToScheme(s))
 	require.NoError(t, pvrv1alpha1.AddToScheme(s))
-	withCA := func(name, namespace string) *pvrv1alpha1.SonarrConfig {
-		return &pvrv1alpha1.SonarrConfig{Name: name, Namespace: namespace, Spec: pvrv1alpha1.SonarrConfigSpec{
+	withCA := func(name, namespace string) *pvrv1alpha1.Sonarr {
+		return &pvrv1alpha1.Sonarr{Name: name, Namespace: namespace, Spec: pvrv1alpha1.SonarrSpec{
 			Connection: commonv1alpha1.AppConnection{TLS: &commonv1alpha1.TLSConfig{CASecretRef: &commonv1alpha1.SecretKeyRef{Name: "ca", Key: "ca.crt"}}},
 		}}
 	}
 	c := fake.NewClientBuilder().WithScheme(s).WithObjects(
 		withCA("uses", "media"), withCA("elsewhere", "other"),
-		&pvrv1alpha1.SonarrConfig{Name: "unrelated", Namespace: "media"},
+		&pvrv1alpha1.Sonarr{Name: "unrelated", Namespace: "media"},
 	).Build()
-	configs := configsForSecret(c, &pvrv1alpha1.SonarrConfigList{})
+	configs := configsForSecret(c, &pvrv1alpha1.SonarrList{})
 
 	reqs := configs(context.Background(), &metav1.PartialObjectMetadata{Name: "ca", Namespace: "media"})
 	assert.Equal(t, []reconcile.Request{{Name: "uses", Namespace: "media"}}, reqs, "Secrets are watched by metadata only")
@@ -400,20 +400,20 @@ func TestResolveConfigFieldsMissingSecret(t *testing.T) {
 }
 
 func TestConfigSyncedGaugeTracksOutcome(t *testing.T) {
-	c := &pvrv1alpha1.SonarrConfig{
+	c := &pvrv1alpha1.Sonarr{
 		Name: "s", Namespace: "arr",
-		Kind: "SonarrConfig",
+		Kind: "Sonarr",
 	}
 	_ = pvrv1alpha1.AddToScheme(scheme.Scheme)
 	cl := fake.NewClientBuilder().WithScheme(scheme.Scheme).
 		WithObjects(c).WithStatusSubresource(c).Build()
 
 	UpdateStatus(context.Background(), cl, c, true, "Synced", "ok")
-	assert.Equal(t, 1.0, testutil.ToFloat64(metrics.ConfigSynced.WithLabelValues("SonarrConfig", "arr", "s")),
+	assert.Equal(t, 1.0, testutil.ToFloat64(metrics.ConfigSynced.WithLabelValues("Sonarr", "arr", "s")),
 		"expected gauge 1 after a successful sync")
 
 	UpdateStatusUnreachable(context.Background(), cl, c, "AppUnreachable", "boom")
-	assert.Equal(t, 0.0, testutil.ToFloat64(metrics.ConfigSynced.WithLabelValues("SonarrConfig", "arr", "s")),
+	assert.Equal(t, 0.0, testutil.ToFloat64(metrics.ConfigSynced.WithLabelValues("Sonarr", "arr", "s")),
 		"expected gauge 0 after failure")
 }
 
@@ -427,15 +427,15 @@ func TestDriftSummaryNamesTheFirstTen(t *testing.T) {
 }
 
 func TestIgnoreDeletedDropsTheSyncedSeries(t *testing.T) {
-	obj := &pvrv1alpha1.SonarrConfig{Name: "gone", Namespace: "media"}
+	obj := &pvrv1alpha1.Sonarr{Name: "gone", Namespace: "media"}
 	key := types.NamespacedName{Name: "gone", Namespace: "media"}
-	metrics.ConfigSynced.WithLabelValues("SonarrConfig", "media", "gone").Set(0)
+	metrics.ConfigSynced.WithLabelValues("Sonarr", "media", "gone").Set(0)
 
 	err := IgnoreDeleted(obj, key, fmt.Errorf("connection refused"))
 	assert.EqualError(t, err, "connection refused")
-	assert.True(t, metrics.ConfigSynced.DeleteLabelValues("SonarrConfig", "media", "gone"), "a read failure isn't a deletion")
+	assert.True(t, metrics.ConfigSynced.DeleteLabelValues("Sonarr", "media", "gone"), "a read failure isn't a deletion")
 
-	metrics.ConfigSynced.WithLabelValues("SonarrConfig", "media", "gone").Set(0)
-	assert.NoError(t, IgnoreDeleted(obj, key, apierrors.NewNotFound(schema.GroupResource{Resource: "sonarrconfigs"}, "gone")))
-	assert.False(t, metrics.ConfigSynced.DeleteLabelValues("SonarrConfig", "media", "gone"), "the series outlived the resource")
+	metrics.ConfigSynced.WithLabelValues("Sonarr", "media", "gone").Set(0)
+	assert.NoError(t, IgnoreDeleted(obj, key, apierrors.NewNotFound(schema.GroupResource{Resource: "sonarrs"}, "gone")))
+	assert.False(t, metrics.ConfigSynced.DeleteLabelValues("Sonarr", "media", "gone"), "the series outlived the resource")
 }

@@ -1,6 +1,7 @@
 # User guide
 
 - [Reconciling](#reconciling)
+- [Indexers and download clients](#indexers-and-download-clients)
 - [Status](#status)
 - [Observe mode](#observe-mode)
 - [Prune](#prune)
@@ -31,6 +32,42 @@ and a name two libraries share is refused rather than guessed.
 On a fresh install, the operator runs the Jellyfin and Seerr setup wizards.
 Seerr's needs Seerr 3.5.0 or later, and when set up through Jellyfin it waits
 until Jellyfin has a library.
+
+## Indexers and download clients
+
+Sonarr's indexers and download clients are resources of their own,
+`SonarrIndexer` and `SonarrDownloadClient`. Each one configures one item in the
+Sonarr that `spec.sonarrRef` names, in the same namespace, and its other fields
+are the item's:
+
+```yaml
+apiVersion: arrchitect.dev/v1alpha1
+kind: SonarrDownloadClient
+metadata:
+  name: sonarr-qbittorrent
+  namespace: media
+spec:
+  sonarrRef:
+    name: sonarr
+  name: qBittorrent
+  protocol: torrent
+  implementation: QBittorrent
+  host: qbittorrent
+  port: 8080
+  category: tv
+```
+
+- The Sonarr's connection, `driftPolicy` and `interval` apply to it. Until the
+  Sonarr exists, it reports `ReferenceNotFound`.
+- `status.id` is the item's ID in Sonarr.
+- An item that already exists is adopted: configured as declared, but never
+  deleted.
+- Renaming `spec.name` replaces the item the resource created.
+- When two resources name the same item in the same Sonarr, the older one
+  configures it and the other reports `NameConflict`.
+- `spec.deletionPolicy` defaults to `delete`: deleting the resource deletes the
+  item it created. `orphan` leaves it. If the Sonarr is deleted first, nothing
+  can be removed, and an `InstanceMissing` warning event says so.
 
 ## Status
 
@@ -97,7 +134,8 @@ prune, removing an item from the resource only stops managing it.
 
 | App | Pruned |
 |---|---|
-| Sonarr, Radarr, Lidarr, Readarr | download clients, indexers, notifications, import lists, custom formats, quality profiles, remote path mappings, delay profiles |
+| Sonarr | notifications, import lists, custom formats, quality profiles, remote path mappings, delay profiles |
+| Radarr, Lidarr, Readarr | download clients, indexers, notifications, import lists, custom formats, quality profiles, remote path mappings, delay profiles |
 | Prowlarr | applications, indexers, proxies, download clients, notifications |
 | FlareSolverr | sessions |
 | Tdarr | library variables |

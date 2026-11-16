@@ -1,5 +1,5 @@
 apiVersion: arrchitect.dev/v1alpha1
-kind: SonarrConfig
+kind: Sonarr
 metadata:
   name: sonarr
 spec:
@@ -56,24 +56,6 @@ spec:
   tags:
     - label: Anime
     - label: hdr
-  downloadClients:
-    - name: qBittorrent
-      protocol: torrent
-      implementation: QBittorrent
-      host: ${HOST}
-      port: ${QBITTORRENT_PORT}
-      category: tv
-      priority: 1
-      removeCompletedDownloads: true
-      removeFailedDownloads: true
-      tagLabels:
-        - hdr
-      usernameSecretRef:
-        name: compat-credentials
-        key: qbittorrent-username
-      passwordSecretRef:
-        name: compat-credentials
-        key: qbittorrent-password
   customFormats:
     - name: x265 (HD)
       includeCustomFormatWhenRenaming: false
@@ -146,30 +128,6 @@ spec:
           score: -5000
         - name: WEBDL
           score: 1000
-  indexers:
-    - name: Compat Torznab
-      protocol: torrent
-      implementation: Torznab
-      enableRss: true
-      enableAutomaticSearch: true
-      enableInteractiveSearch: true
-      priority: 10
-      tagLabels:
-        - anime
-      fields:
-        - name: baseUrl
-          value: ${FAKES}/torznab
-        - name: apiPath
-          value: /api
-        - name: apiKey
-          valueFrom:
-            secretKeyRef:
-              name: compat-credentials
-              key: api-key
-        - name: categories
-          value: [5000, 5040]
-        - name: minimumSeeders
-          value: 1
   notifications:
     - name: Compat Webhook
       implementation: Webhook
@@ -228,3 +186,59 @@ spec:
       enableUsenet: false
     - usenetDelay: 30
       torrentDelay: 10
+---
+apiVersion: arrchitect.dev/v1alpha1
+kind: SonarrDownloadClient
+metadata:
+  name: sonarr-qbittorrent
+spec:
+  sonarrRef:
+    name: sonarr
+  name: qBittorrent
+  protocol: torrent
+  implementation: QBittorrent
+  host: ${HOST}
+  port: ${QBITTORRENT_PORT}
+  category: tv
+  priority: 1
+  removeCompletedDownloads: true
+  removeFailedDownloads: true
+  tagLabels:
+    - hdr
+  usernameSecretRef:
+    name: compat-credentials
+    key: qbittorrent-username
+  passwordSecretRef:
+    name: compat-credentials
+    key: qbittorrent-password
+---
+apiVersion: arrchitect.dev/v1alpha1
+kind: SonarrIndexer
+metadata:
+  name: sonarr-compat-torznab
+spec:
+  sonarrRef:
+    name: sonarr
+  name: Compat Torznab
+  protocol: torrent
+  implementation: Torznab
+  enableRss: true
+  enableAutomaticSearch: true
+  enableInteractiveSearch: true
+  priority: 10
+  tagLabels:
+    - anime
+  fields:
+    - name: baseUrl
+      value: ${FAKES}/torznab
+    - name: apiPath
+      value: /api
+    - name: apiKey
+      valueFrom:
+        secretKeyRef:
+          name: compat-credentials
+          key: api-key
+    - name: categories
+      value: [5000, 5040]
+    - name: minimumSeeders
+      value: 1

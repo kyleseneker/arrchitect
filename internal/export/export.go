@@ -15,6 +15,7 @@ import (
 	"reflect"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -66,7 +67,10 @@ type Options struct {
 // express; and Unreadable the spec fields, as section.field, that the app does
 // not report.
 type Result struct {
-	Config     client.Object
+	Config client.Object
+	// Objects are the app's objects that have kinds of their own, each naming
+	// Config as its instance.
+	Objects    []client.Object
 	Secret     *corev1.Secret
 	Unfilled   []string
 	Warnings   []string
@@ -81,10 +85,27 @@ type app struct {
 	options []engine.HTTPClientOption
 	newObj  func() client.Object
 	export  func(r *reader) (map[string]any, error)
+	// objects maps the spec sections whose items are resources of their own to
+	// the kind each item becomes.
+	objects map[string]objectKind
+}
+
+// objectKind is a kind an app's objects are exported as. ref is the spec
+// field that names the instance.
+type objectKind struct {
+	kind   string
+	ref    string
+	newObj func() client.Object
 }
 
 var apps = map[string]app{
-	"sonarr":  pvrApp(pvrclient.Sonarr, func() client.Object { return &pvrv1alpha1.SonarrConfig{} }),
+	"sonarr": withObjects(pvrApp(pvrclient.Sonarr, func() client.Object { return &pvrv1alpha1.Sonarr{} }),
+		map[string]objectKind{
+			"indexers": {kind: "SonarrIndexer", ref: "sonarrRef",
+				newObj: func() client.Object { return &pvrv1alpha1.SonarrIndexer{} }},
+			"downloadClients": {kind: "SonarrDownloadClient", ref: "sonarrRef",
+				newObj: func() client.Object { return &pvrv1alpha1.SonarrDownloadClient{} }},
+		}),
 	"radarr":  pvrApp(pvrclient.Radarr, func() client.Object { return &pvrv1alpha1.RadarrConfig{} }),
 	"lidarr":  pvrApp(pvrclient.Lidarr, func() client.Object { return &pvrv1alpha1.LidarrConfig{} }),
 	"readarr": pvrApp(pvrclient.Readarr, func() client.Object { return &pvrv1alpha1.ReadarrConfig{} }),
@@ -177,7 +198,7 @@ func Run(ctx context.Context, o Options) (Result, error) {
 		o.ConnectionURL = o.URL
 	}
 	obj := a.newObj()
-	sections := specFields(obj)
+	sections := append(specFields(obj), slices.Sorted(maps.Keys(a.objects))...)
 	for _, x := range o.Exclude {
 		if !slices.Contains(sections, x) {
 			return Result{}, fmt.Errorf("cannot exclude %q; %s has: %s", x, o.App, strings.Join(sections, ", "))
@@ -226,6 +247,10 @@ func Run(ctx context.Context, o Options) (Result, error) {
 		r.warn("connection.url is %s, which the operator won't reach from inside the cluster; pass --connection-url",
 			o.ConnectionURL)
 	}
+	objects, err := splitObjects(spec, a.objects, o)
+	if err != nil {
+		return Result{}, err
+	}
 	raw, err := json.Marshal(map[string]any{
 		"apiVersion": "arrchitect.dev/v1alpha1",
 		"kind":       reflect.TypeOf(obj).Elem().Name(),
@@ -245,7 +270,7 @@ func Run(ctx context.Context, o Options) (Result, error) {
 		StringData: map[string]string{},
 	}
 	var unfilled []string
-	for _, key := range referencedKeys(obj, o.SecretName) {
+	for _, key := range referencedKeys(append([]client.Object{obj}, objects...), o.SecretName) {
 		if value := r.creds.values[key]; value != "" {
 			secret.StringData[key] = value
 		} else {
@@ -255,12 +280,67 @@ func Run(ctx context.Context, o Options) (Result, error) {
 	if len(secret.StringData) == 0 && len(unfilled) == 0 {
 		secret = nil
 	}
-	return Result{Config: obj, Secret: secret, Unfilled: unfilled, Warnings: r.warnings, Unreadable: r.unreadable}, nil
+	return Result{
+		Config: obj, Objects: objects, Secret: secret, Unfilled: unfilled, Warnings: r.warnings, Unreadable: r.unreadable,
+	}, nil
+}
+
+func withObjects(a app, objects map[string]objectKind) app {
+	a.objects = objects
+	return a
+}
+
+// splitObjects moves the items of each section that has a kind of its own out
+// of spec, into resources that name the instance.
+func splitObjects(spec map[string]any, kinds map[string]objectKind, o Options) ([]client.Object, error) {
+	var objects []client.Object
+	for _, section := range slices.Sorted(maps.Keys(kinds)) {
+		k := kinds[section]
+		items, _ := spec[section].([]any)
+		delete(spec, section)
+		for i, item := range items {
+			fields, _ := item.(map[string]any)
+			objSpec := maps.Clone(fields)
+			objSpec[k.ref] = map[string]any{"name": o.Name}
+			name, _ := fields["name"].(string)
+			raw, err := json.Marshal(map[string]any{
+				"apiVersion": "arrchitect.dev/v1alpha1",
+				"kind":       k.kind,
+				"metadata":   map[string]any{"name": objectName(o.Name, name, i), "namespace": o.Namespace},
+				"spec":       objSpec,
+			})
+			if err != nil {
+				return nil, err
+			}
+			obj := k.newObj()
+			if err := json.Unmarshal(raw, obj); err != nil {
+				return nil, fmt.Errorf("reading %s %q into %T: %w", section, name, obj, err)
+			}
+			objects = append(objects, obj)
+		}
+	}
+	return objects, nil
+}
+
+var notNameChars = regexp.MustCompile(`[^a-z0-9]+`)
+
+// objectName turns an object's name in the app, such as "NZBgeek (Prowlarr)",
+// into a resource name under the instance's: "sonarr-nzbgeek-prowlarr".
+func objectName(instance, name string, index int) string {
+	slug := strings.Trim(notNameChars.ReplaceAllString(strings.ToLower(name), "-"), "-")
+	if slug == "" {
+		slug = strconv.Itoa(index + 1)
+	}
+	out := instance + "-" + slug
+	if len(out) > 253 {
+		out = strings.TrimRight(out[:253], "-")
+	}
+	return out
 }
 
 // YAML renders the Secret and the config as one multi-document YAML stream.
 func (r Result) YAML() ([]byte, error) {
-	config, err := documentYAML(r.Config)
+	config, err := r.ConfigYAML()
 	if err != nil || r.Secret == nil {
 		return config, err
 	}
@@ -271,9 +351,20 @@ func (r Result) YAML() ([]byte, error) {
 	return append(append(secret, "---\n"...), config...), nil
 }
 
-// ConfigYAML renders the config alone.
+// ConfigYAML renders the config and its objects, without the Secret.
 func (r Result) ConfigYAML() ([]byte, error) {
-	return documentYAML(r.Config)
+	out, err := documentYAML(r.Config)
+	if err != nil {
+		return nil, err
+	}
+	for _, obj := range r.Objects {
+		doc, err := documentYAML(obj)
+		if err != nil {
+			return nil, err
+		}
+		out = append(append(out, "---\n"...), doc...)
+	}
+	return out, nil
 }
 
 // SecretYAML renders the Secret alone, or nothing when the config reads no
@@ -374,9 +465,9 @@ func specFields(obj client.Object) []string {
 	return names
 }
 
-func referencedKeys(obj any, secret string) []string {
+func referencedKeys(objs []client.Object, secret string) []string {
 	var keys []string
-	for _, ref := range ctrlcommon.SecretKeyRefs(obj) {
+	for _, ref := range ctrlcommon.SecretKeyRefs(objs) {
 		if ref.Name == secret && !slices.Contains(keys, ref.Key) {
 			keys = append(keys, ref.Key)
 		}

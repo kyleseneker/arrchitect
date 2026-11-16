@@ -341,6 +341,15 @@ type QualityProfileGroupItem struct {
 	Allowed *bool `json:"allowed,omitempty"`
 }
 
+// LocalObjectReference names another resource of a known kind in the same
+// namespace.
+type LocalObjectReference struct {
+	// name is the referenced resource's name.
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
+}
+
 // QualityReference identifies a specific quality level by ID and name.
 type QualityReference struct {
 	// id is the quality ID (e.g., 7 for Bluray-1080p). IDs are app-specific.

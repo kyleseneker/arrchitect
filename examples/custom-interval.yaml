@@ -9,7 +9,7 @@
 # reject prune: true with InvalidConfig; see docs/guide.md for which ones can.
 ---
 apiVersion: arrchitect.dev/v1alpha1
-kind: SonarrConfig
+kind: Sonarr
 metadata:
   name: sonarr
   namespace: media

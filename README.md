@@ -24,7 +24,7 @@ release of the line before it.
 
 | App | Resource | Tested versions |
 | --- | --- | --- |
-| Sonarr | `SonarrConfig` | 4.0.20, 4.0.19 |
+| Sonarr | `Sonarr`, `SonarrIndexer`, `SonarrDownloadClient` | 4.0.20, 4.0.19 |
 | Radarr | `RadarrConfig` | 6.4.4, 6.3.0 |
 | Lidarr | `LidarrConfig` | 3.1.6, 3.0.1 |
 | Readarr | `ReadarrConfig` | 0.4.18, 0.4.17 |
@@ -55,7 +55,7 @@ adds a root folder to Sonarr:
 
 ```bash
 kubectl apply -f examples/minimal-sonarr.yaml
-kubectl get sonarrconfig -n media
+kubectl get sonarr -n media
 ```
 
 To start from an existing setup instead, see

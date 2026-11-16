@@ -20,8 +20,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-func newConfig(policy string, deletedAgo time.Duration) *pvrv1alpha1.SonarrConfig {
-	c := &pvrv1alpha1.SonarrConfig{
+func newConfig(policy string, deletedAgo time.Duration) *pvrv1alpha1.Sonarr {
+	c := &pvrv1alpha1.Sonarr{
 		Name: "s", Namespace: "arr", Finalizers: []string{Finalizer},
 	}
 	c.Status.ManagedResources = map[string][]string{"indexers": {"created"}}
@@ -35,7 +35,7 @@ func newConfig(policy string, deletedAgo time.Duration) *pvrv1alpha1.SonarrConfi
 	return c
 }
 
-func testClient(o *pvrv1alpha1.SonarrConfig) *fake.ClientBuilder {
+func testClient(o *pvrv1alpha1.Sonarr) *fake.ClientBuilder {
 	_ = pvrv1alpha1.AddToScheme(scheme.Scheme)
 	return fake.NewClientBuilder().WithScheme(scheme.Scheme).WithObjects(o)
 }

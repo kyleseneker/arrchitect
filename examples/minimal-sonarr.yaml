@@ -11,7 +11,7 @@ stringData:
   api-key: "your-sonarr-api-key"
 ---
 apiVersion: arrchitect.dev/v1alpha1
-kind: SonarrConfig
+kind: Sonarr
 metadata:
   name: sonarr
   namespace: media

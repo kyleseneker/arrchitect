@@ -1,0 +1,25 @@
+apiVersion: arrchitect.dev/v1alpha1
+kind: Sonarr
+metadata:
+  name: sonarr
+spec:
+  connection:
+    url: (join('', ['http://sonarr.', $namespace, '.svc.cluster.local:8989']))
+    apiKeySecretRef:
+      name: sonarr
+      key: api-key
+  rootFolders:
+    - path: /tv
+---
+apiVersion: arrchitect.dev/v1alpha1
+kind: SonarrDownloadClient
+metadata:
+  name: sonarr-qbittorrent
+spec:
+  sonarrRef:
+    name: sonarr
+  name: qBittorrent
+  protocol: torrent
+  implementation: QBittorrent
+  host: qbittorrent.invalid
+  port: 8080

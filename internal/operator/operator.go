@@ -34,6 +34,19 @@ type Reconciler interface {
 	SetupWithManager(mgr ctrl.Manager) error
 }
 
+// Reconcilers sets several reconcilers up as one integration, for an app whose
+// objects have kinds of their own.
+type Reconcilers []Reconciler
+
+func (rs Reconcilers) SetupWithManager(mgr ctrl.Manager) error {
+	for _, r := range rs {
+		if err := r.SetupWithManager(mgr); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // Deps are what a reconciler is built from: the manager's client and scheme,
 // and an event recorder named for the controller.
 type Deps struct {

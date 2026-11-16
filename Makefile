@@ -123,6 +123,9 @@ verify-crd-compat: manifests crdify ## Report CRD changes since the last release
 		git cat-file -e "$$prev:$$crd" 2>/dev/null || { echo "$$crd: new since $$prev"; continue; }; \
 		out="$$("$(CRDIFY)" "git://$$prev?path=$$crd" "file://$$crd" 2>&1)" || { status=1; printf '\n%s\n%s\n' "$$crd" "$$out"; }; \
 	done; \
+	for crd in $$(git ls-tree --name-only "$$prev" config/crd/bases/); do \
+		[ -e "$$crd" ] || { status=1; echo "$$crd: removed since $$prev"; }; \
+	done; \
 	exit $$status
 
 ##@ Build

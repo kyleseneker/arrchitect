@@ -34,7 +34,7 @@ type App struct {
 
 var (
 	Sonarr = App{
-		Name: "sonarr", Kind: "SonarrConfig", APIVersion: "v3", CategoryField: "tvCategory",
+		Name: "sonarr", Kind: "Sonarr", APIVersion: "v3", CategoryField: "tvCategory",
 		ImportListFields: ImportListFields{AutomaticAdd: "enableAutomaticAdd", Monitor: "shouldMonitor"},
 		Choices: map[string]map[string]map[string]int{"naming": {
 			"colonReplacementFormat": {"delete": 0, "dash": 1, "spaceDash": 2, "spaceDashSpace": 3, "smart": 4},

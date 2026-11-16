@@ -10,6 +10,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
 	pvrv1alpha1 "github.com/kyleseneker/arrchitect/api/pvr/v1alpha1"
@@ -84,7 +85,7 @@ func fakeSonarr(t *testing.T, overrides map[string]string) string {
 	return srv.URL
 }
 
-func exportSonarr(t *testing.T, o Options, overrides ...map[string]string) (*pvrv1alpha1.SonarrConfig, Result) {
+func exportSonarr(t *testing.T, o Options, overrides ...map[string]string) (*pvrv1alpha1.Sonarr, Result) {
 	t.Helper()
 	var api map[string]string
 	if len(overrides) > 0 {
@@ -93,9 +94,19 @@ func exportSonarr(t *testing.T, o Options, overrides ...map[string]string) (*pvr
 	o.App, o.URL, o.APIKey = "sonarr", fakeSonarr(t, api), fakeSonarrKey
 	res, err := Run(context.Background(), o)
 	require.NoError(t, err)
-	cfg, ok := res.Config.(*pvrv1alpha1.SonarrConfig)
+	cfg, ok := res.Config.(*pvrv1alpha1.Sonarr)
 	require.True(t, ok)
 	return cfg, res
+}
+
+func objectsOf[T client.Object](res Result) []T {
+	var out []T
+	for _, obj := range res.Objects {
+		if o, ok := obj.(T); ok {
+			out = append(out, o)
+		}
+	}
+	return out
 }
 
 func TestPVRSettingsKeepOnlyFieldsTheCRDHas(t *testing.T) {
@@ -108,9 +119,10 @@ func TestPVRSettingsKeepOnlyFieldsTheCRDHas(t *testing.T) {
 }
 
 func TestPVRDownloadClientMovesCredentialsToTheSecret(t *testing.T) {
-	cfg, res := exportSonarr(t, Options{})
-	require.Len(t, cfg.Spec.DownloadClients, 1)
-	dc := cfg.Spec.DownloadClients[0]
+	_, res := exportSonarr(t, Options{})
+	clients := objectsOf[*pvrv1alpha1.SonarrDownloadClient](res)
+	require.Len(t, clients, 1)
+	dc := clients[0].Spec
 	assert.Equal(t, "qbit", dc.Host)
 	assert.Equal(t, 8080, dc.Port)
 	assert.Equal(t, "tv", dc.Category)
@@ -123,12 +135,12 @@ func TestPVRDownloadClientMovesCredentialsToTheSecret(t *testing.T) {
 
 	assert.Equal(t, "admin", res.Secret.StringData["download-client-qbit-username"], "a visible username is filled in")
 	assert.Equal(t, fakeSonarrKey, res.Secret.StringData["api-key"])
-	assert.Equal(t, []string{"download-client-qbit-password", "indexer-torznab-apikey", "import-list-trakt-accesstoken"}, res.Unfilled)
+	assert.Equal(t, []string{"import-list-trakt-accesstoken", "download-client-qbit-password", "indexer-torznab-apikey"}, res.Unfilled)
 }
 
 func TestPVRDownloadClientWarnsAboutAHiddenFieldItCannotReference(t *testing.T) {
-	cfg, res := exportSonarr(t, Options{})
-	for _, f := range cfg.Spec.DownloadClients[0].Fields {
+	_, res := exportSonarr(t, Options{})
+	for _, f := range objectsOf[*pvrv1alpha1.SonarrDownloadClient](res)[0].Spec.Fields {
 		assert.NotEqual(t, "rpcToken", f.Name)
 	}
 	assert.Contains(t, res.Warnings,
@@ -136,9 +148,10 @@ func TestPVRDownloadClientWarnsAboutAHiddenFieldItCannotReference(t *testing.T) 
 }
 
 func TestPVRIndexerNormalizesProtocolAndReferencesMaskedFields(t *testing.T) {
-	cfg, _ := exportSonarr(t, Options{})
-	require.Len(t, cfg.Spec.Indexers, 1)
-	idx := cfg.Spec.Indexers[0]
+	_, res := exportSonarr(t, Options{})
+	indexers := objectsOf[*pvrv1alpha1.SonarrIndexer](res)
+	require.Len(t, indexers, 1)
+	idx := indexers[0].Spec
 	assert.Equal(t, "torrent", idx.Protocol)
 	assert.False(t, *idx.EnableInteractiveSearch)
 	assert.Equal(t, 25, *idx.Priority)

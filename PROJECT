@@ -15,7 +15,25 @@ resources:
   controller: true
   domain: dev
   group: arrchitect
-  kind: SonarrConfig
+  kind: Sonarr
+  path: github.com/kyleseneker/arrchitect/api/pvr/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: dev
+  group: arrchitect
+  kind: SonarrIndexer
+  path: github.com/kyleseneker/arrchitect/api/pvr/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: dev
+  group: arrchitect
+  kind: SonarrDownloadClient
   path: github.com/kyleseneker/arrchitect/api/pvr/v1alpha1
   version: v1alpha1
 - api:

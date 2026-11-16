@@ -5,29 +5,31 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
 	pvrv1alpha1 "github.com/kyleseneker/arrchitect/api/pvr/v1alpha1"
 	pvrclient "github.com/kyleseneker/arrchitect/internal/client/pvr"
 	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
 )
 
-type SonarrConfigReconciler struct {
+type SonarrReconciler struct {
 	client.Client
 	Scheme   *runtime.Scheme
 	Recorder events.EventRecorder
 }
 
-// +kubebuilder:rbac:groups=arrchitect.dev,resources=sonarrconfigs,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=arrchitect.dev,resources=sonarrconfigs/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=arrchitect.dev,resources=sonarrconfigs/finalizers,verbs=update
+// +kubebuilder:rbac:groups=arrchitect.dev,resources=sonarrs,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=arrchitect.dev,resources=sonarrs/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=arrchitect.dev,resources=sonarrs/finalizers,verbs=update
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
 
-func (r *SonarrConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	var config pvrv1alpha1.SonarrConfig
+func (r *SonarrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	var config pvrv1alpha1.Sonarr
 	if err := r.Get(ctx, req.NamespacedName, &config); err != nil {
 		return ctrl.Result{}, ctrlcommon.IgnoreDeleted(&config, req.NamespacedName, err)
 	}
@@ -37,11 +39,9 @@ func (r *SonarrConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		options: pvrclient.Options{
 			RootFolders:        s.RootFolders,
 			RemotePathMappings: s.RemotePathMappings,
-			DownloadClients:    s.DownloadClients,
 			QualityProfiles:    s.QualityProfiles,
 			CustomFormats:      s.CustomFormats,
 			Tags:               s.Tags,
-			Indexers:           s.Indexers,
 			Notifications:      s.Notifications,
 			ImportLists:        s.ImportLists,
 			QualityDefinitions: s.QualityDefinitions,
@@ -50,10 +50,19 @@ func (r *SonarrConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	})
 }
 
-func (r *SonarrConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *SonarrReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&pvrv1alpha1.SonarrConfig{}, builder.WithPredicates(ctrlcommon.ConfigChangedPredicate())).
-		WatchesMetadata(&corev1.Secret{}, ctrlcommon.EnqueueForSecret(r.Client, &pvrv1alpha1.SonarrConfigList{})).
-		Named("sonarrconfig").
+		For(&pvrv1alpha1.Sonarr{}, builder.WithPredicates(ctrlcommon.ConfigChangedPredicate())).
+		WatchesMetadata(&corev1.Secret{}, ctrlcommon.EnqueueForSecret(r.Client, &pvrv1alpha1.SonarrList{})).
+		Named("sonarr").
 		Complete(r)
+}
+
+// sonarrInstance reads the Sonarr an object names.
+func sonarrInstance(ctx context.Context, c client.Client, namespace string, ref commonv1alpha1.LocalObjectReference) (pvrInstance, error) {
+	var sonarr pvrv1alpha1.Sonarr
+	if err := c.Get(ctx, types.NamespacedName{Namespace: namespace, Name: ref.Name}, &sonarr); err != nil {
+		return pvrInstance{}, err
+	}
+	return pvrInstance{connection: sonarr.Spec.Connection, policy: sonarr.Spec.Reconcile}, nil
 }

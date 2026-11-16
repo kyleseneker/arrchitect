@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -109,7 +110,19 @@ func TestChartAppsMatchTheControllersAndCRDs(t *testing.T) {
 	apps := make([]string, 0, len(values.Apps))
 	for app := range values.Apps {
 		apps = append(apps, app)
-		assert.FileExists(t, filepath.Join(chartDir, "files/crds/arrchitect.dev_"+app+"configs.yaml"))
 	}
 	assert.ElementsMatch(t, controllerNames(t), apps, "values.yaml apps and cmd/operator controllers differ")
+
+	var installed []string
+	for _, m := range render(t) {
+		if m.Kind == "CustomResourceDefinition" {
+			installed = append(installed, "arrchitect.dev_"+strings.TrimSuffix(m.Metadata.Name, ".arrchitect.dev")+".yaml")
+		}
+	}
+	files, err := filepath.Glob(filepath.Join(chartDir, "files/crds/*.yaml"))
+	require.NoError(t, err)
+	for i, f := range files {
+		files[i] = filepath.Base(f)
+	}
+	assert.ElementsMatch(t, files, installed, "the chart's CRD files and the CRDs it installs with every app on differ")
 }
