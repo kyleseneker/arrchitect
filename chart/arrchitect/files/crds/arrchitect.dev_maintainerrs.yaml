@@ -232,33 +232,50 @@ spec:
                       minLength: 1
                       type: string
                     options:
-                      additionalProperties:
-                        description: FieldValue wraps a value that can be a string,
-                          int, or bool.
-                        x-kubernetes-preserve-unknown-fields: true
                       description: |-
-                        options sets the agent's settings, such as botUsername, chatId or
-                        jsonPayload. Values keep their type.
-                      type: object
-                    secretOptions:
-                      additionalProperties:
-                        description: SecretKeyRef references a key within a Kubernetes
-                          Secret.
+                        options are the agent's settings, such as botUsername or jsonPayload,
+                        each a value or read from a Secret, such as webhookUrl or authPass.
+                        Values keep their type.
+                      items:
+                        description: |-
+                          ConfigField is a named field of a provider's configuration. It sets value
+                          or valueFrom, not both.
+                        maxProperties: 2
                         properties:
-                          key:
-                            description: key is the key within the Secret.
-                            type: string
                           name:
-                            description: name is the name of the Secret.
+                            description: name is the field name.
                             type: string
+                          value:
+                            description: 'value is the field value: a string, number,
+                              boolean or list.'
+                            x-kubernetes-preserve-unknown-fields: true
+                          valueFrom:
+                            description: valueFrom reads the field value from a source.
+                            properties:
+                              secretKeyRef:
+                                description: secretKeyRef reads the value from a key
+                                  of a Secret in the resource's namespace.
+                                properties:
+                                  key:
+                                    description: key is the key within the Secret.
+                                    type: string
+                                  name:
+                                    description: name is the name of the Secret.
+                                    type: string
+                                required:
+                                - key
+                                - name
+                                type: object
+                            required:
+                            - secretKeyRef
+                            type: object
                         required:
-                        - key
                         - name
                         type: object
-                      description: |-
-                        secretOptions sets agent settings from Secrets, by setting name, such as
-                        webhookUrl, botAuthToken or authPass. They take precedence over options.
-                      type: object
+                      type: array
+                      x-kubernetes-list-map-keys:
+                      - name
+                      x-kubernetes-list-type: map
                     types:
                       description: types are the events that send a notification.
                       items:
@@ -824,15 +841,32 @@ spec:
                 format: date-time
                 type: string
               managedResources:
-                additionalProperties:
-                  items:
-                    type: string
-                  type: array
                 description: |-
                   managedResources records the resources this operator created, keyed by
                   resource type. Prune only removes entries listed here, so resources
                   created outside the operator are never deleted.
-                type: object
+                items:
+                  description: ManagedResource lists the items of one type the operator
+                    created.
+                  properties:
+                    names:
+                      description: names are the items of that type the operator created.
+                      items:
+                        type: string
+                      type: array
+                      x-kubernetes-list-type: set
+                    type:
+                      description: type is the kind of item, such as downloadClients.
+                      minLength: 1
+                      type: string
+                  required:
+                  - names
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
               observedGeneration:
                 description: observedGeneration is the most recent generation observed.
                 format: int64

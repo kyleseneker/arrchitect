@@ -88,15 +88,13 @@ type SeerrNotificationAgent struct {
 	// +listType=set
 	Types []string `json:"types,omitempty"`
 
-	// options sets the agent's settings, such as botUsername, chatId or
-	// enableMentions. Values keep their type, so enableMentions: false is off.
+	// options are the agent's settings, such as botUsername or chatId, each a
+	// value or read from a Secret, such as webhookUrl or botAPI. Values keep
+	// their type, so enableMentions: false is off.
 	// +optional
-	Options map[string]commonv1alpha1.FieldValue `json:"options,omitempty"`
-
-	// secretOptions sets agent settings from Secrets, by setting name, such as
-	// webhookUrl, botAPI or accessToken. They take precedence over options.
-	// +optional
-	SecretOptions map[string]commonv1alpha1.SecretKeyRef `json:"secretOptions,omitempty"`
+	// +listType=map
+	// +listMapKey=name
+	Options []commonv1alpha1.ConfigField `json:"options,omitempty"`
 }
 
 // SeerrConnection defines how the operator connects to Seerr.
@@ -325,7 +323,9 @@ type SeerrStatus struct {
 	// resource type. Prune only removes entries listed here, so resources
 	// created outside the operator are never deleted.
 	// +optional
-	ManagedResources map[string][]string `json:"managedResources,omitempty"`
+	// +listType=map
+	// +listMapKey=type
+	ManagedResources []commonv1alpha1.ManagedResource `json:"managedResources,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -366,4 +366,10 @@ func (c *Seerr) GetConditions() *[]metav1.Condition                  { return &c
 func (c *Seerr) GetObservedGeneration() *int64                       { return &c.Status.ObservedGeneration }
 func (c *Seerr) GetLastSyncTime() **metav1.Time                      { return &c.Status.LastSyncTime }
 func (c *Seerr) GetReconcileConfig() *commonv1alpha1.ReconcileConfig { return c.Spec.Reconcile }
-func (c *Seerr) GetManagedResources() *map[string][]string           { return &c.Status.ManagedResources }
+func (c *Seerr) GetManagedResources() map[string][]string {
+	return commonv1alpha1.ManagedMap(c.Status.ManagedResources)
+}
+
+func (c *Seerr) SetManagedResources(m map[string][]string) {
+	c.Status.ManagedResources = commonv1alpha1.ManagedList(m)
+}

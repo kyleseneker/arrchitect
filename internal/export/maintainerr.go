@@ -235,11 +235,8 @@ func (e *maintainerrExport) exportNotifications(spec map[string]any) error {
 				options[key] = value
 			}
 		}
-		if len(options) > 0 {
-			notification["options"] = options
-		}
-		if len(secrets) > 0 {
-			notification["secretOptions"] = secrets
+		if len(options)+len(secrets) > 0 {
+			notification["options"] = configFields(options, secrets)
 		}
 		out = append(out, notification)
 	}

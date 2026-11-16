@@ -309,15 +309,12 @@ type BazarrProvider struct {
 	// +optional
 	Enabled *bool `json:"enabled,omitempty"`
 
-	// settings is a map of provider-specific settings.
+	// settings are the provider's settings, each a text value or read from a
+	// Secret in the resource's namespace, such as a password or API key.
 	// +optional
-	Settings map[string]string `json:"settings,omitempty"`
-
-	// secretSettings is a map of provider-specific settings read from Secrets
-	// in the resource's namespace, such as passwords and API keys. A setting
-	// can't be in both settings and secretSettings.
-	// +optional
-	SecretSettings map[string]commonv1alpha1.SecretKeyRef `json:"secretSettings,omitempty"`
+	// +listType=map
+	// +listMapKey=name
+	Settings []commonv1alpha1.ConfigField `json:"settings,omitempty"`
 }
 
 // BazarrLanguages configures language settings and profiles.
@@ -389,7 +386,9 @@ type BazarrStatus struct {
 	// resource type. Prune only removes entries listed here, so resources
 	// created outside the operator are never deleted.
 	// +optional
-	ManagedResources map[string][]string `json:"managedResources,omitempty"`
+	// +listType=map
+	// +listMapKey=type
+	ManagedResources []commonv1alpha1.ManagedResource `json:"managedResources,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -430,4 +429,10 @@ func (c *Bazarr) GetConditions() *[]metav1.Condition                  { return &
 func (c *Bazarr) GetObservedGeneration() *int64                       { return &c.Status.ObservedGeneration }
 func (c *Bazarr) GetLastSyncTime() **metav1.Time                      { return &c.Status.LastSyncTime }
 func (c *Bazarr) GetReconcileConfig() *commonv1alpha1.ReconcileConfig { return c.Spec.Reconcile }
-func (c *Bazarr) GetManagedResources() *map[string][]string           { return &c.Status.ManagedResources }
+func (c *Bazarr) GetManagedResources() map[string][]string {
+	return commonv1alpha1.ManagedMap(c.Status.ManagedResources)
+}
+
+func (c *Bazarr) SetManagedResources(m map[string][]string) {
+	c.Status.ManagedResources = commonv1alpha1.ManagedList(m)
+}

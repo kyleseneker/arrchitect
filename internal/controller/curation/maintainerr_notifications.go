@@ -8,6 +8,7 @@ import (
 
 	curationv1alpha1 "github.com/kyleseneker/arrchitect/api/curation/v1alpha1"
 	maintainerrclient "github.com/kyleseneker/arrchitect/internal/client/maintainerr"
+	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
 	"github.com/kyleseneker/arrchitect/internal/engine"
 	"github.com/kyleseneker/arrchitect/internal/reconciler"
 )
@@ -39,13 +40,9 @@ func (s *maintainerrSync) notifications(ctx context.Context, declared []curation
 }
 
 func (s *maintainerrSync) notification(ctx context.Context, n *curationv1alpha1.MaintainerrNotification, stored []map[string]any) error {
-	secrets := make(map[string]string, len(n.SecretOptions))
-	for name, ref := range n.SecretOptions {
-		value, err := reconciler.ResolveSecretKeyRef(ctx, s.c, s.namespace, ref)
-		if err != nil {
-			return fmt.Errorf("resolving %s: %w", name, err)
-		}
-		secrets[name] = value
+	values, err := ctrlcommon.FieldValues(ctx, s.c, s.namespace, "notification "+n.Name, n.Options)
+	if err != nil {
+		return err
 	}
 
 	var current map[string]any
@@ -58,7 +55,7 @@ func (s *maintainerrSync) notification(ctx context.Context, n *curationv1alpha1.
 		}
 		current = e
 	}
-	body, err := notificationBody(n, secrets, current)
+	body, err := notificationBody(n, values, current)
 	if err != nil {
 		return err
 	}
@@ -75,7 +72,7 @@ func (s *maintainerrSync) notification(ctx context.Context, n *curationv1alpha1.
 // notificationBody is the whole notification Maintainerr saves, since a save
 // replaces every field: what the spec leaves out comes from Maintainerr's copy,
 // or a new notification's defaults.
-func notificationBody(n *curationv1alpha1.MaintainerrNotification, secrets map[string]string, current map[string]any) (map[string]any, error) {
+func notificationBody(n *curationv1alpha1.MaintainerrNotification, values map[string]any, current map[string]any) (map[string]any, error) {
 	body := map[string]any{
 		"name": n.Name, "agent": n.Agent, "enabled": true, "types": []any{}, "aboutScale": defaultAboutScale,
 	}
@@ -108,12 +105,7 @@ func notificationBody(n *curationv1alpha1.MaintainerrNotification, secrets map[s
 		slices.Sort(types)
 		body["types"] = types
 	}
-	for key, value := range n.Options {
-		options[key] = value.ToInterface()
-	}
-	for key, value := range secrets {
-		options[key] = value
-	}
+	maps.Copy(options, values)
 	body["options"] = options
 	return body, nil
 }

@@ -541,15 +541,32 @@ spec:
                 format: date-time
                 type: string
               managedResources:
-                additionalProperties:
-                  items:
-                    type: string
-                  type: array
                 description: |-
                   managedResources records the resources this operator created, keyed by
                   resource type. Prune only removes entries listed here, so resources
                   created outside the operator are never deleted.
-                type: object
+                items:
+                  description: ManagedResource lists the items of one type the operator
+                    created.
+                  properties:
+                    names:
+                      description: names are the items of that type the operator created.
+                      items:
+                        type: string
+                      type: array
+                      x-kubernetes-list-type: set
+                    type:
+                      description: type is the kind of item, such as downloadClients.
+                      minLength: 1
+                      type: string
+                  required:
+                  - names
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
               observedGeneration:
                 description: observedGeneration is the most recent generation observed.
                 format: int64

@@ -161,7 +161,7 @@ func HandleLifecycle(ctx context.Context, c client.Client, recorder events.Event
 // CleanupApp resolves only the credentials needed for deletion. Unrelated spec
 // Secrets must not prevent cleanup, and empty ownership needs no app connection.
 func CleanupApp(ctx context.Context, c client.Reader, recorder events.EventRecorder, obj ConfigResource, connection commonv1alpha1.AppConnection, def engine.AppDefinition, app string) error {
-	managed := *obj.GetManagedResources()
+	managed := obj.GetManagedResources()
 	hasResources := false
 	for _, endpoint := range def.Resources {
 		if endpoint.Prunable && len(managed[endpoint.Name]) > 0 {
@@ -205,7 +205,7 @@ func EmitKeptEvents(recorder events.EventRecorder, obj ConfigResource, app strin
 // ownsNothing reports whether status.managedResources records nothing, so
 // deletion has nothing to remove and needs no connection to the app.
 func ownsNothing(obj ConfigResource) bool {
-	for _, names := range *obj.GetManagedResources() {
+	for _, names := range obj.GetManagedResources() {
 		if len(names) > 0 {
 			return false
 		}

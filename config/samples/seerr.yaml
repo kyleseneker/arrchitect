@@ -50,18 +50,23 @@ spec:
       enabled: true
       types: [mediaPending, mediaApproved, mediaAvailable, mediaFailed, mediaDeclined]
       options:
-        botUsername: "Seerr"
-        enableMentions: false
-      secretOptions:
-        webhookUrl:
-          name: arr-config-secrets
-          key: DISCORD_WEBHOOK_URL
+        - name: botUsername
+          value: "Seerr"
+        - name: enableMentions
+          value: false
+        - name: webhookUrl
+          valueFrom:
+            secretKeyRef:
+              name: arr-config-secrets
+              key: DISCORD_WEBHOOK_URL
     - agent: telegram
       enabled: true
       types: [mediaPending, mediaApproved, mediaAvailable, mediaFailed, mediaDeclined]
       options:
-        chatId: "your-chat-id"
-      secretOptions:
-        botAPI:
-          name: arr-config-secrets
-          key: TELEGRAM_BOT_TOKEN
+        - name: chatId
+          value: "your-chat-id"
+        - name: botAPI
+          valueFrom:
+            secretKeyRef:
+              name: arr-config-secrets
+              key: TELEGRAM_BOT_TOKEN

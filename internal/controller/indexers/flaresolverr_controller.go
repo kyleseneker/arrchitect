@@ -65,7 +65,7 @@ func (r *FlareSolverrReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{RequeueAfter: 60 * time.Second}, nil
 	}
 
-	owned := engine.NewOwnership("flaresolverr", config.Status.ManagedResources)
+	owned := engine.NewOwnership("flaresolverr", config.GetManagedResources())
 	if ctrlcommon.ObserveOnly(config.Spec.Reconcile) {
 		observed := &engine.Writes{App: "flaresolverr", Observe: true}
 		count, err := observeFlareSolverrSessions(ctx, fc, config.Spec.Sessions,
@@ -166,7 +166,7 @@ func observeFlareSolverrSessions(
 }
 
 func cleanupFlareSolverrSessions(ctx context.Context, c client.Reader, config *indexersv1alpha1.FlareSolverr) error {
-	if len(config.Status.ManagedResources["sessions"]) == 0 {
+	if len(config.GetManagedResources()["sessions"]) == 0 {
 		return nil
 	}
 	tlsConfig, err := engine.ResolveTLSConfig(ctx, c, config.Namespace, config.Spec.Connection.TLS)
@@ -182,6 +182,6 @@ func cleanupFlareSolverrSessions(ctx context.Context, c client.Reader, config *i
 	if err != nil {
 		return fmt.Errorf("listing sessions: %w", err)
 	}
-	owned := engine.NewOwnership("flaresolverr", config.Status.ManagedResources)
+	owned := engine.NewOwnership("flaresolverr", config.GetManagedResources())
 	return owned.Cleanup("sessions", existing, func(name string) error { return fc.DestroySession(ctx, name) })
 }

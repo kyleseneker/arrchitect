@@ -300,7 +300,9 @@ type SonarrStatus struct {
 	// resource type. Prune only removes entries listed here, so resources
 	// created outside the operator are never deleted.
 	// +optional
-	ManagedResources map[string][]string `json:"managedResources,omitempty"`
+	// +listType=map
+	// +listMapKey=type
+	ManagedResources []commonv1alpha1.ManagedResource `json:"managedResources,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -341,4 +343,10 @@ func (c *Sonarr) GetConditions() *[]metav1.Condition                  { return &
 func (c *Sonarr) GetObservedGeneration() *int64                       { return &c.Status.ObservedGeneration }
 func (c *Sonarr) GetLastSyncTime() **metav1.Time                      { return &c.Status.LastSyncTime }
 func (c *Sonarr) GetReconcileConfig() *commonv1alpha1.ReconcileConfig { return c.Spec.Reconcile }
-func (c *Sonarr) GetManagedResources() *map[string][]string           { return &c.Status.ManagedResources }
+func (c *Sonarr) GetManagedResources() map[string][]string {
+	return commonv1alpha1.ManagedMap(c.Status.ManagedResources)
+}
+
+func (c *Sonarr) SetManagedResources(m map[string][]string) {
+	c.Status.ManagedResources = commonv1alpha1.ManagedList(m)
+}

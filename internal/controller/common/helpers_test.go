@@ -192,7 +192,7 @@ func TestUpdateStatusSurvivesASpecEditMidPass(t *testing.T) {
 
 	got := &pvrv1alpha1.Sonarr{}
 	require.NoError(t, cl.Get(ctx, key, got))
-	assert.Equal(t, map[string][]string{"downloadClients": {"qbit"}}, got.Status.ManagedResources, "ownership was lost")
+	assert.Equal(t, map[string][]string{"downloadClients": {"qbit"}}, got.GetManagedResources(), "ownership was lost")
 	condition := meta.FindStatusCondition(got.Status.Conditions, "Synced")
 	require.NotNil(t, condition)
 	assert.Equal(t, metav1.ConditionTrue, condition.Status)
@@ -328,7 +328,9 @@ func TestReferencesSecretFindsEveryReference(t *testing.T) {
 		},
 		"a map value": map[string]commonv1alpha1.SecretKeyRef{"x": ref},
 		"a Bazarr provider setting": subtitlesv1alpha1.BazarrSpec{
-			Providers: []subtitlesv1alpha1.BazarrProvider{{Name: "opensubtitlescom", SecretSettings: map[string]commonv1alpha1.SecretKeyRef{"password": ref}}},
+			Providers: []subtitlesv1alpha1.BazarrProvider{{Name: "opensubtitlescom", Settings: []commonv1alpha1.ConfigField{
+				{Name: "password", ValueFrom: &commonv1alpha1.ValueSource{SecretKeyRef: ref}},
+			}}},
 		},
 	} {
 		assert.True(t, ReferencesSecret(config, "target"), name)

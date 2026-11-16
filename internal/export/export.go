@@ -458,6 +458,21 @@ type credentials struct {
 
 var invalidKeyChars = regexp.MustCompile(`[^a-z0-9.]+`)
 
+// configFields lists values and Secret references as fields, ordered by name.
+func configFields[V any](values map[string]V, secrets map[string]any) []any {
+	fields := make([]any, 0, len(values)+len(secrets))
+	for _, name := range slices.Sorted(maps.Keys(values)) {
+		fields = append(fields, map[string]any{"name": name, "value": values[name]})
+	}
+	for _, name := range slices.Sorted(maps.Keys(secrets)) {
+		fields = append(fields, map[string]any{"name": name, "valueFrom": map[string]any{"secretKeyRef": secrets[name]}})
+	}
+	slices.SortFunc(fields, func(a, b any) int {
+		return strings.Compare(a.(map[string]any)["name"].(string), b.(map[string]any)["name"].(string))
+	})
+	return fields
+}
+
 func (c *credentials) ref(value string, parts ...string) map[string]any {
 	base := strings.Trim(invalidKeyChars.ReplaceAllString(strings.ToLower(strings.Join(parts, "-")), "-"), "-")
 	key := base

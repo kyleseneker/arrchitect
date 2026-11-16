@@ -352,16 +352,12 @@ func TestBazarrProviderSecretSettingsReadFromASecret(t *testing.T) {
 	ref := commonv1alpha1.SecretKeyRef{Name: "bazarr-secrets", Key: "sonarr-api-key"}
 
 	form, err := r.bazarrProviderForm(context.Background(), "media", []subtitlesv1alpha1.BazarrProvider{{
-		Name: "opensubtitlescom", Settings: map[string]string{"username": "me"},
-		SecretSettings: map[string]commonv1alpha1.SecretKeyRef{"password": ref},
+		Name: "opensubtitlescom", Settings: []commonv1alpha1.ConfigField{
+			{Name: "username", Value: &commonv1alpha1.FieldValue{Raw: []byte(`"me"`)}},
+			{Name: "password", ValueFrom: &commonv1alpha1.ValueSource{SecretKeyRef: ref}},
+		},
 	}})
 	require.NoError(t, err)
 	assert.Equal(t, "me", form.Get("settings-opensubtitlescom-username"))
 	assert.Equal(t, "sonarr-key", form.Get("settings-opensubtitlescom-password"))
-
-	_, err = r.bazarrProviderForm(context.Background(), "media", []subtitlesv1alpha1.BazarrProvider{{
-		Name: "opensubtitlescom", Settings: map[string]string{"password": "plain"},
-		SecretSettings: map[string]commonv1alpha1.SecretKeyRef{"password": ref},
-	}})
-	assert.ErrorContains(t, err, "password is in both settings and secretSettings")
 }

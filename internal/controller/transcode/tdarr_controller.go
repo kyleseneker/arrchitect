@@ -51,7 +51,7 @@ func (r *TdarrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		if err != nil {
 			return err
 		}
-		return (&tdarrSync{tc: tc, owned: engine.NewOwnership("tdarr", config.Status.ManagedResources)}).cleanup(ctx)
+		return (&tdarrSync{tc: tc, owned: engine.NewOwnership("tdarr", config.GetManagedResources())}).cleanup(ctx)
 	}
 	lifecycle := ctrlcommon.Lifecycle{Remove: cleanup, Prune: true}
 	if done, after := ctrlcommon.HandleLifecycle(ctx, r.Client, r.Recorder, &config, lifecycle); done {
@@ -76,7 +76,7 @@ func (r *TdarrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 
 	sync := &tdarrSync{
 		App: "tdarr", Observe: ctrlcommon.ObserveOnly(config.Spec.Reconcile), tc: tc,
-		prune: ctrlcommon.PruneEnabled(config.Spec.Reconcile), owned: engine.NewOwnership("tdarr", config.Status.ManagedResources),
+		prune: ctrlcommon.PruneEnabled(config.Spec.Reconcile), owned: engine.NewOwnership("tdarr", config.GetManagedResources()),
 	}
 	spec := config.Spec
 	var unresolved []string

@@ -613,18 +613,9 @@ func (in *AutobrrStatus) DeepCopyInto(out *AutobrrStatus) {
 	}
 	if in.ManagedResources != nil {
 		in, out := &in.ManagedResources, &out.ManagedResources
-		*out = make(map[string][]string, len(*in))
-		for key, val := range *in {
-			var outVal []string
-			if val == nil {
-				(*out)[key] = nil
-			} else {
-				inVal := (*in)[key]
-				in, out := &inVal, &outVal
-				*out = make([]string, len(*in))
-				copy(*out, *in)
-			}
-			(*out)[key] = outVal
+		*out = make([]commonv1alpha1.ManagedResource, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
 }

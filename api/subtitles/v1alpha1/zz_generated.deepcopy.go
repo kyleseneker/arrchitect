@@ -380,16 +380,9 @@ func (in *BazarrProvider) DeepCopyInto(out *BazarrProvider) {
 	}
 	if in.Settings != nil {
 		in, out := &in.Settings, &out.Settings
-		*out = make(map[string]string, len(*in))
-		for key, val := range *in {
-			(*out)[key] = val
-		}
-	}
-	if in.SecretSettings != nil {
-		in, out := &in.SecretSettings, &out.SecretSettings
-		*out = make(map[string]commonv1alpha1.SecretKeyRef, len(*in))
-		for key, val := range *in {
-			(*out)[key] = val
+		*out = make([]commonv1alpha1.ConfigField, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
 }
@@ -473,18 +466,9 @@ func (in *BazarrStatus) DeepCopyInto(out *BazarrStatus) {
 	}
 	if in.ManagedResources != nil {
 		in, out := &in.ManagedResources, &out.ManagedResources
-		*out = make(map[string][]string, len(*in))
-		for key, val := range *in {
-			var outVal []string
-			if val == nil {
-				(*out)[key] = nil
-			} else {
-				inVal := (*in)[key]
-				in, out := &inVal, &outVal
-				*out = make([]string, len(*in))
-				copy(*out, *in)
-			}
-			(*out)[key] = outVal
+		*out = make([]commonv1alpha1.ManagedResource, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
 }

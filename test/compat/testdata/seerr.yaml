@@ -85,9 +85,12 @@ spec:
         - issueResolved
         - issueReopened
       options:
-        botUsername: Compat
-        enableMentions: false
-      secretOptions:
-        webhookUrl:
-          name: compat-credentials
-          key: discord-webhook
+        - name: botUsername
+          value: Compat
+        - name: enableMentions
+          value: false
+        - name: webhookUrl
+          valueFrom:
+            secretKeyRef:
+              name: compat-credentials
+              key: discord-webhook

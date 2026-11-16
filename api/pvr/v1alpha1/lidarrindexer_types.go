@@ -46,7 +46,9 @@ type LidarrIndexerStatus struct {
 	// managedResources records what the operator created for this resource,
 	// so deletion only removes what it created.
 	// +optional
-	ManagedResources map[string][]string `json:"managedResources,omitempty"`
+	// +listType=map
+	// +listMapKey=type
+	ManagedResources []commonv1alpha1.ManagedResource `json:"managedResources,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -83,10 +85,16 @@ type LidarrIndexerList struct {
 	Items           []LidarrIndexer `json:"items"`
 }
 
-func (c *LidarrIndexer) GetConditions() *[]metav1.Condition        { return &c.Status.Conditions }
-func (c *LidarrIndexer) GetObservedGeneration() *int64             { return &c.Status.ObservedGeneration }
-func (c *LidarrIndexer) GetLastSyncTime() **metav1.Time            { return &c.Status.LastSyncTime }
-func (c *LidarrIndexer) GetManagedResources() *map[string][]string { return &c.Status.ManagedResources }
+func (c *LidarrIndexer) GetConditions() *[]metav1.Condition { return &c.Status.Conditions }
+func (c *LidarrIndexer) GetObservedGeneration() *int64      { return &c.Status.ObservedGeneration }
+func (c *LidarrIndexer) GetLastSyncTime() **metav1.Time     { return &c.Status.LastSyncTime }
+func (c *LidarrIndexer) GetManagedResources() map[string][]string {
+	return commonv1alpha1.ManagedMap(c.Status.ManagedResources)
+}
+
+func (c *LidarrIndexer) SetManagedResources(m map[string][]string) {
+	c.Status.ManagedResources = commonv1alpha1.ManagedList(m)
+}
 
 // GetReconcileConfig carries only the deletion policy: the interval and drift
 // policy come from the Lidarr the indexer belongs to.

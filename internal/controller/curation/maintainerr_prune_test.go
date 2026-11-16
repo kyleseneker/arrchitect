@@ -32,7 +32,7 @@ func TestMaintainerrPrunesOnlyRuleGroupsItCreated(t *testing.T) {
 	run := newMaintainerrRun(t, spec)
 
 	run.reconcile(t)
-	managed := run.get(t).Status.ManagedResources
+	managed := run.get(t).GetManagedResources()
 	assert.Equal(t, []string{"Stale movies", "Old movies"}, managed[ruleGroupsKind])
 	assert.Equal(t, []string{"Radarr"}, managed["radarr"])
 
@@ -46,7 +46,7 @@ func TestMaintainerrPrunesOnlyRuleGroupsItCreated(t *testing.T) {
 	synced := run.condition(t, "Synced")
 	require.Equal(t, conditionTrue, string(synced.Status), synced.Message)
 	assert.ElementsMatch(t, []any{"Stale movies", "hand-made"}, groupNames(app.groups))
-	assert.Equal(t, []string{"Stale movies"}, run.get(t).Status.ManagedResources[ruleGroupsKind])
+	assert.Equal(t, []string{"Stale movies"}, run.get(t).GetManagedResources()[ruleGroupsKind])
 }
 
 func TestMaintainerrDeletionPolicyRemovesRuleGroupsBeforeServers(t *testing.T) {
@@ -74,7 +74,9 @@ func TestMaintainerrObserveReportsWhatPruneWouldDelete(t *testing.T) {
 	app.groups = append(app.groups, map[string]any{"id": 51, "name": "Observed old", "collection": map[string]any{}})
 
 	cfg := run.get(t)
-	cfg.Status.ManagedResources[ruleGroupsKind] = append(cfg.Status.ManagedResources[ruleGroupsKind], "Observed old")
+	managed := cfg.GetManagedResources()
+	managed[ruleGroupsKind] = append(managed[ruleGroupsKind], "Observed old")
+	cfg.SetManagedResources(managed)
 	require.NoError(t, run.c.Status().Update(context.Background(), cfg))
 	observe := "observe"
 	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{Prune: new(true), DriftPolicy: &observe}

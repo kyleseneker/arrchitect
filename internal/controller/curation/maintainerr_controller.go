@@ -53,7 +53,7 @@ func (r *MaintainerrReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		if err != nil {
 			return err
 		}
-		return (&maintainerrSync{mc: mc, owned: engine.NewOwnership(maintainerrApp, config.Status.ManagedResources)}).cleanup(ctx)
+		return (&maintainerrSync{mc: mc, owned: engine.NewOwnership(maintainerrApp, config.GetManagedResources())}).cleanup(ctx)
 	}
 	lifecycle := ctrlcommon.Lifecycle{Remove: cleanup, Prune: true}
 	if done, after := ctrlcommon.HandleLifecycle(ctx, r.Client, r.Recorder, &config, lifecycle); done {
@@ -78,7 +78,7 @@ func (r *MaintainerrReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	sync := &maintainerrSync{
 		App: maintainerrApp, Observe: ctrlcommon.ObserveOnly(config.Spec.Reconcile),
 		c: r.Client, mc: mc, namespace: config.Namespace,
-		prune: ctrlcommon.PruneEnabled(config.Spec.Reconcile), owned: engine.NewOwnership(maintainerrApp, config.Status.ManagedResources),
+		prune: ctrlcommon.PruneEnabled(config.Spec.Reconcile), owned: engine.NewOwnership(maintainerrApp, config.GetManagedResources()),
 	}
 	syncErrors := sync.run(ctx, &config.Spec)
 	ctrlcommon.UpdateStatusManaged(&config, sync.owned.Managed())

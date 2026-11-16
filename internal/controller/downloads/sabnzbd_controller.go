@@ -84,7 +84,7 @@ func (r *SabnzbdReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	servers, syncErrors := r.resolveSabnzbdServers(ctx, &config)
 	writes := planSabnzbd(current, config.Spec, servers, string(config.UID))
 
-	owned := engine.NewOwnership("sabnzbd", config.Status.ManagedResources)
+	owned := engine.NewOwnership("sabnzbd", config.GetManagedResources())
 	prune := ctrlcommon.PruneEnabled(config.Spec.Reconcile)
 	if ctrlcommon.ObserveOnly(config.Spec.Reconcile) {
 		observed := &engine.Writes{App: "sabnzbd", Observe: true}
@@ -302,7 +302,7 @@ func (r *SabnzbdReconciler) cleanup(ctx context.Context, config *downloadsv1alph
 	if err != nil {
 		return err
 	}
-	owned := engine.NewOwnership("sabnzbd", config.Status.ManagedResources)
+	owned := engine.NewOwnership("sabnzbd", config.GetManagedResources())
 	var errs []error
 	for _, section := range []string{"servers", "categories"} {
 		errs = append(errs, owned.Cleanup(section, sabnzbdNames(current, section), func(name string) error {

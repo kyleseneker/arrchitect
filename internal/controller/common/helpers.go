@@ -139,7 +139,7 @@ func UpdateStatusManaged(obj ConfigResource, managed map[string][]string) {
 	if managed == nil {
 		return
 	}
-	*obj.GetManagedResources() = managed
+	obj.SetManagedResources(managed)
 }
 
 // UpdateStatus sets the Synced and Ready conditions on a config resource and persists the status.
@@ -313,6 +313,22 @@ func ResolveConfigFields(ctx context.Context, c client.Reader, namespace, owner 
 		}
 		out[i].Value = &commonv1alpha1.FieldValue{Raw: raw}
 		out[i].ValueFrom = nil
+	}
+	return out, nil
+}
+
+// FieldValues resolves fields into values by name, reading the ones that come
+// from Secrets.
+func FieldValues(ctx context.Context, c client.Reader, namespace, owner string, fields []commonv1alpha1.ConfigField) (map[string]any, error) {
+	resolved, err := ResolveConfigFields(ctx, c, namespace, owner, fields)
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[string]any, len(resolved))
+	for _, f := range resolved {
+		if f.Value != nil {
+			out[f.Name] = f.Value.ToInterface()
+		}
 	}
 	return out, nil
 }
