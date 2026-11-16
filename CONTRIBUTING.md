@@ -32,7 +32,7 @@ make lint
 | `make test-envtest` | Every sample and admission rule against a real kube-apiserver, and the controllers' Kubernetes side |
 | `make verify-crd-compat` | crdify's report of CRD changes since the last release that existing resources could break on |
 | `make test-compat` | Each app in a container, reconciled from its fixture. `COMPAT_VERSIONS=previous` runs the previous versions; `CONTAINER_TOOL=podman` uses podman |
-| `make test-e2e` | The chart installed into a throwaway kind cluster, upgraded from the last release, against a real Sonarr. Needs docker |
+| `make test-e2e` | The Chainsaw tests in `test/e2e`, in a throwaway kind cluster: the chart installed and upgraded from the last release against a real Sonarr, every controller, and a single-namespace install. Needs docker |
 
 The envtest and compat suites start their own API server, and the e2e
 suite writes its cluster to a kubeconfig in a temporary directory: none of them

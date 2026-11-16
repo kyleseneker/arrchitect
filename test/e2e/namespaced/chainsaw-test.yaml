@@ -1,0 +1,95 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: namespaced
+spec:
+  description: >-
+    Installs the chart the way a single-namespace setup runs it: one watched namespace, only some
+    apps on, and the operator's namespace at the restricted Pod Security level.
+  steps:
+    - name: start Sonarr
+      try:
+        - apply:
+            file: ../resources/sonarr.yaml
+        - assert:
+            file: ../resources/sonarr-ready.yaml
+    - name: install under restricted Pod Security
+      try:
+        - script:
+            content: |
+              kubectl create namespace arrchitect --dry-run=client -o yaml | kubectl apply -f -
+              kubectl label namespace arrchitect --overwrite \
+                pod-security.kubernetes.io/enforce=restricted pod-security.kubernetes.io/enforce-version=latest
+              helm install arrchitect ../../../chart/arrchitect --namespace arrchitect -f values.yaml \
+                --set watchNamespace="$NAMESPACE" --wait --timeout 5m
+      cleanup:
+        - script:
+            content: helm uninstall arrchitect --namespace arrchitect --wait --ignore-not-found
+    - name: reconcile in the watched namespace
+      try:
+        - apply:
+            file: ../resources/sonarrconfig.yaml
+        - assert:
+            resource:
+              apiVersion: arrchitect.dev/v1alpha1
+              kind: SonarrConfig
+              metadata:
+                name: sonarr
+              status:
+                (conditions[?type == 'Ready'] | [0].status): "True"
+                (conditions[?type == 'Synced'] | [0].status): "True"
+      catch: &diagnostics
+        - podLogs:
+            namespace: arrchitect
+            selector: app.kubernetes.io/name=arrchitect
+        - describe:
+            apiVersion: arrchitect.dev/v1alpha1
+            kind: SonarrConfig
+    - name: leave turned-off apps and other namespaces alone
+      try:
+        - apply:
+            file: radarrconfig.yaml
+        - script:
+            content: |
+              outside="$NAMESPACE-outside"
+              kubectl create namespace "$outside"
+              kubectl -n "$outside" apply -f ../resources/sonarr-outside.yaml
+              sleep 30
+              [ -z "$(kubectl -n "$NAMESPACE" get radarrconfig radarr -o jsonpath='{.status.conditions}')" ]
+              [ -z "$(kubectl -n "$outside" get sonarrconfig outside -o jsonpath='{.status.conditions}')" ]
+      cleanup:
+        - script:
+            content: kubectl delete namespace "$NAMESPACE-outside" --ignore-not-found --wait=false
+    - name: serve metrics only to an authorized scraper
+      try:
+        - apply:
+            file: scraper.yaml
+        - script:
+            content: |
+              url=https://arrchitect-metrics.arrchitect.svc.cluster.local:8443/metrics
+              scrape() { kubectl -n "$NAMESPACE" exec deploy/sonarr -- curl -sk "$@" "$url"; }
+              code=$(scrape -o /dev/null -w '%{http_code}')
+              case "$code" in 401|403) ;; *) echo "an anonymous request got $code"; exit 1 ;; esac
+              token=$(kubectl -n arrchitect create token scraper)
+              for _ in $(seq 30); do
+                scrape -f -H "Authorization: Bearer $token" | grep -q '^arrchitect_config_synced' && exit 0
+                sleep 2
+              done
+              echo "the scraper never read the metrics"; exit 1
+      catch: *diagnostics
+    - name: reconcile when a referenced Secret changes
+      description: >-
+        The resource reconciles every five minutes, so a reconcile within a minute of the change can
+        only come from the Secret watch.
+      try:
+        - script:
+            content: |
+              before=$(kubectl -n "$NAMESPACE" get sonarrconfig sonarr -o jsonpath='{.status.lastSyncTime}')
+              sleep 1
+              kubectl -n "$NAMESPACE" patch secret sonarr --type=merge -p "{\"stringData\":{\"rotated\":\"$(date +%s)\"}}"
+              for _ in $(seq 30); do
+                [ "$(kubectl -n "$NAMESPACE" get sonarrconfig sonarr -o jsonpath='{.status.lastSyncTime}')" != "$before" ] && exit 0
+                sleep 2
+              done
+              echo "no reconcile within a minute of the Secret change"; exit 1
+      catch: *diagnostics

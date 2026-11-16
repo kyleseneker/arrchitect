@@ -1,0 +1,20 @@
+apps:
+  sonarr: true
+  radarr: false
+  lidarr: false
+  readarr: false
+  prowlarr: true
+  flaresolverr: false
+  bazarr: false
+  qbittorrent: false
+  sabnzbd: false
+  jellyfin: false
+  plex: false
+  seerr: false
+  maintainerr: false
+  tdarr: false
+  autobrr: false
+image:
+  repository: arrchitect
+  tag: e2e
+  pullPolicy: Never
