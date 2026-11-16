@@ -31,13 +31,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - run: make test-envtest
+
+  # Breaking CRD changes are allowed while the API is v1alpha1, so this reports
+  # them for the release's upgrade notes rather than failing the run.
+  crd-compat:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
-      - run: make test-envtest
-      - run: make test-upgrade
+      - run: make verify-crd-compat
 
   compat:
     name: compat (${{ matrix.versions }})

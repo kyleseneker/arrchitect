@@ -85,15 +85,16 @@ test-envtest: manifests generate setup-envtest ## Apply every sample to a real k
 	KUBEBUILDER_ASSETS="$$('$(ENVTEST)' use $(ENVTEST_K8S_VERSION) --bin-dir '$(LOCALBIN)' -p path)" \
 		go test ./test/envtest/... -count=1
 
-.PHONY: test-upgrade
-test-upgrade: manifests setup-envtest ## Upgrade the last release's CRDs, with its samples stored, to the current CRDs. PREVIOUS_REF= picks another release.
+.PHONY: verify-crd-compat
+verify-crd-compat: manifests crdify ## Report CRD changes since the last release that existing resources could break on. PREVIOUS_REF= picks another release.
 	@prev="$${PREVIOUS_REF:-$$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null)}"; \
-	if [ -z "$$prev" ]; then echo "No earlier release to upgrade from; skipping."; exit 0; fi; \
-	dir="$$(mktemp -d)"; trap 'rm -rf "$$dir"' EXIT; \
-	git archive "$$prev" config/crd/bases config/samples | tar -x -C "$$dir"; \
-	echo "Upgrading from $$prev"; \
-	KUBEBUILDER_ASSETS="$$('$(ENVTEST)' use $(ENVTEST_K8S_VERSION) --bin-dir '$(LOCALBIN)' -p path)" \
-		PREVIOUS_RELEASE="$$dir" go test ./test/envtest/ -run TestUpgradeFromPreviousRelease -count=1 -v
+	if [ -z "$$prev" ]; then echo "No earlier release to compare with; skipping."; exit 0; fi; \
+	echo "Comparing CRDs with $$prev"; status=0; \
+	for crd in config/crd/bases/*.yaml; do \
+		git cat-file -e "$$prev:$$crd" 2>/dev/null || { echo "$$crd: new since $$prev"; continue; }; \
+		out="$$("$(CRDIFY)" "git://$$prev?path=$$crd" "file://$$crd" 2>&1)" || { status=1; printf '\n%s\n%s\n' "$$crd" "$$out"; }; \
+	done; \
+	exit $$status
 
 .PHONY: test-e2e
 test-e2e: kind ## Install the chart into a throwaway kind cluster, with its own kubeconfig, and reconcile a real Sonarr (needs docker).
@@ -153,6 +154,7 @@ $(LOCALBIN):
 
 ## Tool Binaries
 KIND ?= $(LOCALBIN)/kind
+CRDIFY ?= $(LOCALBIN)/crdify
 CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen
 ENVTEST ?= $(LOCALBIN)/setup-envtest
 GOLANGCI_LINT = $(LOCALBIN)/golangci-lint
@@ -160,6 +162,8 @@ GOLANGCI_LINT = $(LOCALBIN)/golangci-lint
 ## Tool Versions
 # renovate: datasource=go depName=sigs.k8s.io/kind
 KIND_VERSION ?= v0.33.0
+# renovate: datasource=go depName=sigs.k8s.io/crdify
+CRDIFY_VERSION ?= v0.6.0
 # renovate: datasource=go depName=sigs.k8s.io/controller-tools
 CONTROLLER_TOOLS_VERSION ?= v0.23.0
 
@@ -175,6 +179,11 @@ ENVTEST_K8S_VERSION ?= $(shell v='$(call gomodver,k8s.io/api)'; \
 
 # renovate: datasource=github-releases depName=golangci/golangci-lint
 GOLANGCI_LINT_VERSION ?= v2.15.0
+.PHONY: crdify
+crdify: $(CRDIFY) ## Download crdify locally if necessary.
+$(CRDIFY): $(LOCALBIN)
+	$(call go-install-tool,$(CRDIFY),sigs.k8s.io/crdify,$(CRDIFY_VERSION))
+
 .PHONY: kind
 kind: $(KIND) ## Download kind locally if necessary.
 $(KIND): $(LOCALBIN)
