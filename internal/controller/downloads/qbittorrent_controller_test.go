@@ -38,17 +38,17 @@ func TestQBPreferencePayloadUsesAPIKeyNames(t *testing.T) {
 		PEX:                   new(false),
 		LSD:                   new(false),
 		Encryption:            new("require"),
-		MaxConnec:             new(200),
-		MaxConnecPerTorrent:   new(50),
-		MaxUploads:            new(20),
-		MaxUploadsPerTorrent:  new(5),
+		MaxConnec:             new(int32(200)),
+		MaxConnecPerTorrent:   new(int32(50)),
+		MaxUploads:            new(int32(20)),
+		MaxUploadsPerTorrent:  new(int32(5)),
 		MaxRatioEnabled:       new(true),
 		MaxRatio:              new("2.0"),
 		MaxRatioAction:        new("stop"),
 		MaxSeedingTimeEnabled: new(true),
-		MaxSeedingTime:        new(10080),
+		MaxSeedingTime:        new(int32(10080)),
 		PreallocateAll:        new(true),
-		WebUIPort:             new(8080),
+		WebUIPort:             new(int32(8080)),
 	}
 
 	got, err := qbPreferencePayload(prefs)
@@ -62,17 +62,17 @@ func TestQBPreferencePayloadUsesAPIKeyNames(t *testing.T) {
 		"pex":                      false,
 		"lsd":                      false,
 		"encryption":               1,
-		"max_connec":               200,
-		"max_connec_per_torrent":   50,
-		"max_uploads":              20,
-		"max_uploads_per_torrent":  5,
+		"max_connec":               int32(200),
+		"max_connec_per_torrent":   int32(50),
+		"max_uploads":              int32(20),
+		"max_uploads_per_torrent":  int32(5),
 		"max_ratio_enabled":        true,
 		"max_ratio":                2.0,
 		"max_ratio_act":            0,
 		"max_seeding_time_enabled": true,
-		"max_seeding_time":         10080,
+		"max_seeding_time":         int32(10080),
 		"preallocate_all":          true,
-		"web_ui_port":              8080,
+		"web_ui_port":              int32(8080),
 	}
 
 	assert.Equal(t, want, got, "payload mismatch")
@@ -109,19 +109,19 @@ func TestQBPreferencePayloadRejectsBadValues(t *testing.T) {
 func TestQBPreferencePayloadConvertsWhatQBittorrentStoresDifferently(t *testing.T) {
 	got, err := qbPreferencePayload(&downloadsv1alpha1.QBittorrentPreferences{
 		TempPath:                      "/downloads/incomplete/",
-		DlLimit:                       new(10240),
-		AltUpLimit:                    new(0),
+		DlLimit:                       new(int32(10240)),
+		AltUpLimit:                    new(int32(0)),
 		SchedulerDays:                 "monday",
 		ExcludedFileNames:             []string{"*.lnk", "*.exe"},
 		NetworkInterface:              new(""),
 		MaxInactiveSeedingTimeEnabled: new(false),
-		MaxInactiveSeedingTime:        new(30),
+		MaxInactiveSeedingTime:        new(int32(30)),
 	})
 	require.NoError(t, err)
 	assert.Equal(t, map[string]any{
 		"temp_path":                         "/downloads/incomplete",
-		"dl_limit":                          10485760,
-		"alt_up_limit":                      0,
+		"dl_limit":                          int64(10485760),
+		"alt_up_limit":                      int64(0),
 		"scheduler_days":                    3,
 		"excluded_file_names":               "*.lnk\n*.exe",
 		"current_network_interface":         "",
@@ -425,7 +425,7 @@ func TestQBDeletionPolicyRemovesWhatItCreated(t *testing.T) {
 func TestQBDisabledLimitIsNotCompared(t *testing.T) {
 	payload, err := qbPreferencePayload(&downloadsv1alpha1.QBittorrentPreferences{
 		MaxRatioEnabled: new(false), MaxRatio: new("2.0"),
-		MaxSeedingTimeEnabled: new(false), MaxSeedingTime: new(1440),
+		MaxSeedingTimeEnabled: new(false), MaxSeedingTime: new(int32(1440)),
 	})
 	require.NoError(t, err)
 	assert.Equal(t, map[string]any{"max_ratio_enabled": false, "max_seeding_time_enabled": false}, payload)

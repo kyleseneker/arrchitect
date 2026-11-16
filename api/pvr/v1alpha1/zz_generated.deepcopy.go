@@ -228,22 +228,22 @@ func (in *LidarrIndexerConfig) DeepCopyInto(out *LidarrIndexerConfig) {
 	*out = *in
 	if in.MinimumAge != nil {
 		in, out := &in.MinimumAge, &out.MinimumAge
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.Retention != nil {
 		in, out := &in.Retention, &out.Retention
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.MaximumSize != nil {
 		in, out := &in.MaximumSize, &out.MaximumSize
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.RssSyncInterval != nil {
 		in, out := &in.RssSyncInterval, &out.RssSyncInterval
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 }
@@ -406,12 +406,12 @@ func (in *LidarrMediaManagement) DeepCopyInto(out *LidarrMediaManagement) {
 	}
 	if in.RecycleBinCleanupDays != nil {
 		in, out := &in.RecycleBinCleanupDays, &out.RecycleBinCleanupDays
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.MinimumFreeSpaceWhenImporting != nil {
 		in, out := &in.MinimumFreeSpaceWhenImporting, &out.MinimumFreeSpaceWhenImporting
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.SetPermissionsLinux != nil {
@@ -611,12 +611,12 @@ func (in *LidarrUI) DeepCopyInto(out *LidarrUI) {
 	*out = *in
 	if in.FirstDayOfWeek != nil {
 		in, out := &in.FirstDayOfWeek, &out.FirstDayOfWeek
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.UILanguage != nil {
 		in, out := &in.UILanguage, &out.UILanguage
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 }
@@ -705,7 +705,7 @@ func (in *RadarrDownloadClientConfig) DeepCopyInto(out *RadarrDownloadClientConf
 	}
 	if in.CheckForFinishedDownloadInterval != nil {
 		in, out := &in.CheckForFinishedDownloadInterval, &out.CheckForFinishedDownloadInterval
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 }
@@ -843,22 +843,22 @@ func (in *RadarrIndexerConfig) DeepCopyInto(out *RadarrIndexerConfig) {
 	*out = *in
 	if in.MinimumAge != nil {
 		in, out := &in.MinimumAge, &out.MinimumAge
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.Retention != nil {
 		in, out := &in.Retention, &out.Retention
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.MaximumSize != nil {
 		in, out := &in.MaximumSize, &out.MaximumSize
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.RssSyncInterval != nil {
 		in, out := &in.RssSyncInterval, &out.RssSyncInterval
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.PreferIndexerFlags != nil {
@@ -868,7 +868,7 @@ func (in *RadarrIndexerConfig) DeepCopyInto(out *RadarrIndexerConfig) {
 	}
 	if in.AvailabilityDelay != nil {
 		in, out := &in.AvailabilityDelay, &out.AvailabilityDelay
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.AllowHardcodedSubs != nil {
@@ -1056,12 +1056,12 @@ func (in *RadarrMediaManagement) DeepCopyInto(out *RadarrMediaManagement) {
 	}
 	if in.RecycleBinCleanupDays != nil {
 		in, out := &in.RecycleBinCleanupDays, &out.RecycleBinCleanupDays
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.MinimumFreeSpaceWhenImporting != nil {
 		in, out := &in.MinimumFreeSpaceWhenImporting, &out.MinimumFreeSpaceWhenImporting
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.EnableMediaInfo != nil {
@@ -1266,7 +1266,7 @@ func (in *RadarrUI) DeepCopyInto(out *RadarrUI) {
 	*out = *in
 	if in.FirstDayOfWeek != nil {
 		in, out := &in.FirstDayOfWeek, &out.FirstDayOfWeek
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.ShowRelativeDates != nil {
@@ -1281,12 +1281,12 @@ func (in *RadarrUI) DeepCopyInto(out *RadarrUI) {
 	}
 	if in.UILanguage != nil {
 		in, out := &in.UILanguage, &out.UILanguage
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.MovieInfoLanguage != nil {
 		in, out := &in.MovieInfoLanguage, &out.MovieInfoLanguage
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 }
@@ -1503,22 +1503,22 @@ func (in *ReadarrIndexerConfig) DeepCopyInto(out *ReadarrIndexerConfig) {
 	*out = *in
 	if in.MinimumAge != nil {
 		in, out := &in.MinimumAge, &out.MinimumAge
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.Retention != nil {
 		in, out := &in.Retention, &out.Retention
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.MaximumSize != nil {
 		in, out := &in.MaximumSize, &out.MaximumSize
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.RssSyncInterval != nil {
 		in, out := &in.RssSyncInterval, &out.RssSyncInterval
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 }
@@ -1681,12 +1681,12 @@ func (in *ReadarrMediaManagement) DeepCopyInto(out *ReadarrMediaManagement) {
 	}
 	if in.RecycleBinCleanupDays != nil {
 		in, out := &in.RecycleBinCleanupDays, &out.RecycleBinCleanupDays
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.MinimumFreeSpaceWhenImporting != nil {
 		in, out := &in.MinimumFreeSpaceWhenImporting, &out.MinimumFreeSpaceWhenImporting
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.SetPermissionsLinux != nil {
@@ -1886,12 +1886,12 @@ func (in *ReadarrUI) DeepCopyInto(out *ReadarrUI) {
 	*out = *in
 	if in.FirstDayOfWeek != nil {
 		in, out := &in.FirstDayOfWeek, &out.FirstDayOfWeek
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.UILanguage != nil {
 		in, out := &in.UILanguage, &out.UILanguage
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 }
@@ -2113,22 +2113,22 @@ func (in *SonarrIndexerConfig) DeepCopyInto(out *SonarrIndexerConfig) {
 	*out = *in
 	if in.MinimumAge != nil {
 		in, out := &in.MinimumAge, &out.MinimumAge
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.Retention != nil {
 		in, out := &in.Retention, &out.Retention
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.MaximumSize != nil {
 		in, out := &in.MaximumSize, &out.MaximumSize
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.RssSyncInterval != nil {
 		in, out := &in.RssSyncInterval, &out.RssSyncInterval
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 }
@@ -2291,12 +2291,12 @@ func (in *SonarrMediaManagement) DeepCopyInto(out *SonarrMediaManagement) {
 	}
 	if in.RecycleBinCleanupDays != nil {
 		in, out := &in.RecycleBinCleanupDays, &out.RecycleBinCleanupDays
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.MinimumFreeSpaceWhenImporting != nil {
 		in, out := &in.MinimumFreeSpaceWhenImporting, &out.MinimumFreeSpaceWhenImporting
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.EnableMediaInfo != nil {
@@ -2506,7 +2506,7 @@ func (in *SonarrUI) DeepCopyInto(out *SonarrUI) {
 	*out = *in
 	if in.FirstDayOfWeek != nil {
 		in, out := &in.FirstDayOfWeek, &out.FirstDayOfWeek
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.ShowRelativeDates != nil {
@@ -2521,7 +2521,7 @@ func (in *SonarrUI) DeepCopyInto(out *SonarrUI) {
 	}
 	if in.UILanguage != nil {
 		in, out := &in.UILanguage, &out.UILanguage
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 }

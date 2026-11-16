@@ -235,13 +235,16 @@ spec:
                   encodingThreadCount:
                     description: encodingThreadCount is how many threads ffmpeg uses.
                       -1 picks one from the CPU count.
+                    format: int32
                     minimum: -1
                     type: integer
                   h264Crf:
                     description: h264Crf is the CRF value for H.264 encoding.
+                    format: int32
                     type: integer
                   h265Crf:
                     description: h265Crf is the CRF value for H.265/HEVC encoding.
+                    format: int32
                     type: integer
                   hardwareAccelerationType:
                     description: hardwareAccelerationType is the hardware acceleration
@@ -266,6 +269,7 @@ spec:
                   maxMuxingQueueSize:
                     description: maxMuxingQueueSize is the most packets ffmpeg buffers
                       while muxing.
+                    format: int32
                     minimum: 1
                     type: integer
                   preferSystemNativeHwDecoder:
@@ -280,16 +284,19 @@ spec:
                   segmentKeepSeconds:
                     description: segmentKeepSeconds is how many seconds of segments
                       enableSegmentDeletion keeps.
+                    format: int32
                     minimum: 0
                     type: integer
                   subtitleExtractionTimeoutMinutes:
                     description: subtitleExtractionTimeoutMinutes is how long subtitle
                       extraction may take.
+                    format: int32
                     minimum: 1
                     type: integer
                   throttleDelaySeconds:
                     description: throttleDelaySeconds is the delay in seconds before
                       throttling begins.
+                    format: int32
                     type: integer
                   tonemappingAlgorithm:
                     description: tonemappingAlgorithm is the algorithm for HDR to
@@ -363,6 +370,7 @@ spec:
                     automaticRefreshIntervalDays:
                       description: automaticRefreshIntervalDays is the number of days
                         between automatic library scans.
+                      format: int32
                       type: integer
                     collectionType:
                       description: collectionType is the type of media in this library.
@@ -537,6 +545,7 @@ spec:
                   activityLogRetentionDays:
                     description: activityLogRetentionDays is how many days the activity
                       log keeps entries.
+                    format: int32
                     minimum: 0
                     type: integer
                   displaySpecialsWithinSeasons:
@@ -579,30 +588,36 @@ spec:
                     description: |-
                       libraryMetadataRefreshConcurrency is how many metadata refreshes run at
                       once. 0 picks one from the CPU count.
+                    format: int32
                     minimum: 0
                     type: integer
                   libraryMonitorDelay:
                     description: libraryMonitorDelay is the delay in seconds before
                       processing library changes.
+                    format: int32
                     type: integer
                   libraryScanFanoutConcurrency:
                     description: |-
                       libraryScanFanoutConcurrency is how many library scan tasks run at once.
                       0 picks one from the CPU count.
+                    format: int32
                     minimum: 0
                     type: integer
                   logFileRetentionDays:
                     description: logFileRetentionDays is the number of days to retain
                       log files.
+                    format: int32
                     type: integer
                   maxAudiobookResume:
                     description: maxAudiobookResume is how many minutes from the end
                       an audiobook counts as played.
+                    format: int32
                     minimum: 0
                     type: integer
                   maxResumePct:
                     description: maxResumePct is how far, in percent, playback must
                       get to count as played.
+                    format: int32
                     maximum: 100
                     minimum: 0
                     type: integer
@@ -614,16 +629,19 @@ spec:
                     description: |-
                       minAudiobookResume is how many minutes an audiobook must play before it
                       can be resumed.
+                    format: int32
                     minimum: 0
                     type: integer
                   minResumeDurationSeconds:
                     description: minResumeDurationSeconds is the shortest item, in
                       seconds, that can be resumed.
+                    format: int32
                     minimum: 0
                     type: integer
                   minResumePct:
                     description: minResumePct is how far, in percent, playback must
                       get before it can be resumed.
+                    format: int32
                     maximum: 100
                     minimum: 0
                     type: integer
@@ -631,6 +649,7 @@ spec:
                     description: |-
                       parallelImageEncodingLimit is how many images are encoded at once. 0
                       picks one from the CPU count.
+                    format: int32
                     minimum: 0
                     type: integer
                   preferredMetadataLanguage:
@@ -645,6 +664,7 @@ spec:
                     description: |-
                       remoteClientBitrateLimit caps the bitrate of each remote stream, in bits
                       per second. 0 means no limit.
+                    format: int32
                     minimum: 0
                     type: integer
                   serverName:
@@ -654,6 +674,7 @@ spec:
                     description: |-
                       slowResponseThresholdMs is how many milliseconds a request takes before
                       it's logged as slow.
+                    format: int32
                     minimum: 0
                     type: integer
                   trickplayOptions:
@@ -674,10 +695,12 @@ spec:
                         type: boolean
                       interval:
                         description: interval is the time between thumbnails, in milliseconds.
+                        format: int32
                         minimum: 1
                         type: integer
                       jpegQuality:
                         description: jpegQuality is the JPEG quality of the tile images.
+                        format: int32
                         maximum: 100
                         minimum: 1
                         type: integer
@@ -694,11 +717,13 @@ spec:
                       processThreads:
                         description: processThreads is how many threads making thumbnails
                           uses.
+                        format: int32
                         minimum: 0
                         type: integer
                       qscale:
                         description: qscale is the thumbnails' encoding quality, from
                           2 (best) to 31.
+                        format: int32
                         maximum: 31
                         minimum: 2
                         type: integer
@@ -712,17 +737,20 @@ spec:
                       tileHeight:
                         description: tileHeight is how many thumbnails go down each
                           tile image.
+                        format: int32
                         minimum: 1
                         type: integer
                       tileWidth:
                         description: tileWidth is how many thumbnails go across each
                           tile image.
+                        format: int32
                         minimum: 1
                         type: integer
                       widthResolutions:
                         description: widthResolutions are the thumbnail widths to
                           make, in pixels.
                         items:
+                          format: int32
                           type: integer
                         type: array
                         x-kubernetes-list-type: set

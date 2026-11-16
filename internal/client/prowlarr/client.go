@@ -229,10 +229,10 @@ func BuildProwlarrDownloadClientPayload(dc indexersv1alpha1.ProwlarrDownloadClie
 }
 
 // intSliceToInterface converts an int slice to an interface slice for JSON serialization.
-func intSliceToInterface(s []int) []any {
+func intSliceToInterface(s []int32) []any {
 	r := make([]any, len(s))
 	for i, v := range s {
-		r[i] = v
+		r[i] = int(v)
 	}
 	return r
 }

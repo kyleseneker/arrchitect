@@ -101,7 +101,7 @@ type JellyfinServer struct {
 
 	// logFileRetentionDays is the number of days to retain log files.
 	// +optional
-	LogFileRetentionDays *int `json:"logFileRetentionDays,omitempty"`
+	LogFileRetentionDays *int32 `json:"logFileRetentionDays,omitempty"`
 
 	// enableGroupingMoviesIntoCollections enables automatic grouping of movies into collections.
 	// +optional
@@ -113,7 +113,7 @@ type JellyfinServer struct {
 
 	// libraryMonitorDelay is the delay in seconds before processing library changes.
 	// +optional
-	LibraryMonitorDelay *int `json:"libraryMonitorDelay,omitempty"`
+	LibraryMonitorDelay *int32 `json:"libraryMonitorDelay,omitempty"`
 
 	// enableMetrics serves Prometheus metrics at /metrics.
 	// +optional
@@ -127,7 +127,7 @@ type JellyfinServer struct {
 	// per second. 0 means no limit.
 	// +optional
 	// +kubebuilder:validation:Minimum=0
-	RemoteClientBitrateLimit *int `json:"remoteClientBitrateLimit,omitempty"`
+	RemoteClientBitrateLimit *int32 `json:"remoteClientBitrateLimit,omitempty"`
 
 	// enableGroupingShowsIntoCollections shows series in collections instead of
 	// on their own.
@@ -147,52 +147,52 @@ type JellyfinServer struct {
 	// +optional
 	// +kubebuilder:validation:Minimum=0
 	// +kubebuilder:validation:Maximum=100
-	MinResumePct *int `json:"minResumePct,omitempty"`
+	MinResumePct *int32 `json:"minResumePct,omitempty"`
 
 	// maxResumePct is how far, in percent, playback must get to count as played.
 	// +optional
 	// +kubebuilder:validation:Minimum=0
 	// +kubebuilder:validation:Maximum=100
-	MaxResumePct *int `json:"maxResumePct,omitempty"`
+	MaxResumePct *int32 `json:"maxResumePct,omitempty"`
 
 	// minResumeDurationSeconds is the shortest item, in seconds, that can be resumed.
 	// +optional
 	// +kubebuilder:validation:Minimum=0
-	MinResumeDurationSeconds *int `json:"minResumeDurationSeconds,omitempty"`
+	MinResumeDurationSeconds *int32 `json:"minResumeDurationSeconds,omitempty"`
 
 	// minAudiobookResume is how many minutes an audiobook must play before it
 	// can be resumed.
 	// +optional
 	// +kubebuilder:validation:Minimum=0
-	MinAudiobookResume *int `json:"minAudiobookResume,omitempty"`
+	MinAudiobookResume *int32 `json:"minAudiobookResume,omitempty"`
 
 	// maxAudiobookResume is how many minutes from the end an audiobook counts as played.
 	// +optional
 	// +kubebuilder:validation:Minimum=0
-	MaxAudiobookResume *int `json:"maxAudiobookResume,omitempty"`
+	MaxAudiobookResume *int32 `json:"maxAudiobookResume,omitempty"`
 
 	// activityLogRetentionDays is how many days the activity log keeps entries.
 	// +optional
 	// +kubebuilder:validation:Minimum=0
-	ActivityLogRetentionDays *int `json:"activityLogRetentionDays,omitempty"`
+	ActivityLogRetentionDays *int32 `json:"activityLogRetentionDays,omitempty"`
 
 	// libraryScanFanoutConcurrency is how many library scan tasks run at once.
 	// 0 picks one from the CPU count.
 	// +optional
 	// +kubebuilder:validation:Minimum=0
-	LibraryScanFanoutConcurrency *int `json:"libraryScanFanoutConcurrency,omitempty"`
+	LibraryScanFanoutConcurrency *int32 `json:"libraryScanFanoutConcurrency,omitempty"`
 
 	// libraryMetadataRefreshConcurrency is how many metadata refreshes run at
 	// once. 0 picks one from the CPU count.
 	// +optional
 	// +kubebuilder:validation:Minimum=0
-	LibraryMetadataRefreshConcurrency *int `json:"libraryMetadataRefreshConcurrency,omitempty"`
+	LibraryMetadataRefreshConcurrency *int32 `json:"libraryMetadataRefreshConcurrency,omitempty"`
 
 	// parallelImageEncodingLimit is how many images are encoded at once. 0
 	// picks one from the CPU count.
 	// +optional
 	// +kubebuilder:validation:Minimum=0
-	ParallelImageEncodingLimit *int `json:"parallelImageEncodingLimit,omitempty"`
+	ParallelImageEncodingLimit *int32 `json:"parallelImageEncodingLimit,omitempty"`
 
 	// enableSlowResponseWarning logs requests slower than slowResponseThresholdMs.
 	// +optional
@@ -202,7 +202,7 @@ type JellyfinServer struct {
 	// it's logged as slow.
 	// +optional
 	// +kubebuilder:validation:Minimum=0
-	SlowResponseThresholdMs *int `json:"slowResponseThresholdMs,omitempty"`
+	SlowResponseThresholdMs *int32 `json:"slowResponseThresholdMs,omitempty"`
 
 	// imageSavingConvention is how Jellyfin names the artwork it saves with media.
 	// +optional
@@ -242,39 +242,39 @@ type JellyfinTrickplay struct {
 	// interval is the time between thumbnails, in milliseconds.
 	// +optional
 	// +kubebuilder:validation:Minimum=1
-	Interval *int `json:"interval,omitempty"`
+	Interval *int32 `json:"interval,omitempty"`
 
 	// widthResolutions are the thumbnail widths to make, in pixels.
 	// +optional
 	// +listType=set
-	WidthResolutions []int `json:"widthResolutions,omitempty"`
+	WidthResolutions []int32 `json:"widthResolutions,omitempty"`
 
 	// tileWidth is how many thumbnails go across each tile image.
 	// +optional
 	// +kubebuilder:validation:Minimum=1
-	TileWidth *int `json:"tileWidth,omitempty"`
+	TileWidth *int32 `json:"tileWidth,omitempty"`
 
 	// tileHeight is how many thumbnails go down each tile image.
 	// +optional
 	// +kubebuilder:validation:Minimum=1
-	TileHeight *int `json:"tileHeight,omitempty"`
+	TileHeight *int32 `json:"tileHeight,omitempty"`
 
 	// qscale is the thumbnails' encoding quality, from 2 (best) to 31.
 	// +optional
 	// +kubebuilder:validation:Minimum=2
 	// +kubebuilder:validation:Maximum=31
-	Qscale *int `json:"qscale,omitempty"`
+	Qscale *int32 `json:"qscale,omitempty"`
 
 	// jpegQuality is the JPEG quality of the tile images.
 	// +optional
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=100
-	JpegQuality *int `json:"jpegQuality,omitempty"`
+	JpegQuality *int32 `json:"jpegQuality,omitempty"`
 
 	// processThreads is how many threads making thumbnails uses.
 	// +optional
 	// +kubebuilder:validation:Minimum=0
-	ProcessThreads *int `json:"processThreads,omitempty"`
+	ProcessThreads *int32 `json:"processThreads,omitempty"`
 }
 
 // JellyfinNetwork configures Jellyfin's network settings. Ports, the base URL,
@@ -369,11 +369,11 @@ type JellyfinEncoding struct {
 
 	// h264Crf is the CRF value for H.264 encoding.
 	// +optional
-	H264Crf *int `json:"h264Crf,omitempty"`
+	H264Crf *int32 `json:"h264Crf,omitempty"`
 
 	// h265Crf is the CRF value for H.265/HEVC encoding.
 	// +optional
-	H265Crf *int `json:"h265Crf,omitempty"`
+	H265Crf *int32 `json:"h265Crf,omitempty"`
 
 	// encoderPreset is the encoder speed preset (e.g., "auto", "fast", "medium", "slow").
 	// +optional
@@ -402,7 +402,7 @@ type JellyfinEncoding struct {
 
 	// throttleDelaySeconds is the delay in seconds before throttling begins.
 	// +optional
-	ThrottleDelaySeconds *int `json:"throttleDelaySeconds,omitempty"`
+	ThrottleDelaySeconds *int32 `json:"throttleDelaySeconds,omitempty"`
 
 	// qsvDevice is the Intel Quick Sync device, when there's more than one.
 	// +optional
@@ -411,7 +411,7 @@ type JellyfinEncoding struct {
 	// encodingThreadCount is how many threads ffmpeg uses. -1 picks one from the CPU count.
 	// +optional
 	// +kubebuilder:validation:Minimum=-1
-	EncodingThreadCount *int `json:"encodingThreadCount,omitempty"`
+	EncodingThreadCount *int32 `json:"encodingThreadCount,omitempty"`
 
 	// enableDecodingColorDepth10Hevc decodes 10-bit HEVC in hardware.
 	// +optional
@@ -493,7 +493,7 @@ type JellyfinEncoding struct {
 	// segmentKeepSeconds is how many seconds of segments enableSegmentDeletion keeps.
 	// +optional
 	// +kubebuilder:validation:Minimum=0
-	SegmentKeepSeconds *int `json:"segmentKeepSeconds,omitempty"`
+	SegmentKeepSeconds *int32 `json:"segmentKeepSeconds,omitempty"`
 
 	// enableAudioVbr encodes audio at a variable bitrate.
 	// +optional
@@ -511,12 +511,12 @@ type JellyfinEncoding struct {
 	// maxMuxingQueueSize is the most packets ffmpeg buffers while muxing.
 	// +optional
 	// +kubebuilder:validation:Minimum=1
-	MaxMuxingQueueSize *int `json:"maxMuxingQueueSize,omitempty"`
+	MaxMuxingQueueSize *int32 `json:"maxMuxingQueueSize,omitempty"`
 
 	// subtitleExtractionTimeoutMinutes is how long subtitle extraction may take.
 	// +optional
 	// +kubebuilder:validation:Minimum=1
-	SubtitleExtractionTimeoutMinutes *int `json:"subtitleExtractionTimeoutMinutes,omitempty"`
+	SubtitleExtractionTimeoutMinutes *int32 `json:"subtitleExtractionTimeoutMinutes,omitempty"`
 
 	// allowOnDemandMetadataBasedKeyframeExtractionForExtensions lists the file
 	// extensions, such as mkv, whose key frames Jellyfin reads from metadata
@@ -552,7 +552,7 @@ type JellyfinLibrary struct {
 
 	// automaticRefreshIntervalDays is the number of days between automatic library scans.
 	// +optional
-	AutomaticRefreshIntervalDays *int `json:"automaticRefreshIntervalDays,omitempty"`
+	AutomaticRefreshIntervalDays *int32 `json:"automaticRefreshIntervalDays,omitempty"`
 
 	// preferredMetadataLanguage overrides the server-level preferred metadata language for this library.
 	// +optional

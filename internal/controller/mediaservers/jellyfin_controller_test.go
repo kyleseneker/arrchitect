@@ -335,7 +335,7 @@ func TestJellyfinObserveNeverRunsSetupOrWritesConfiguration(t *testing.T) {
 // rewrote the configuration on every pass.
 func TestJellyfinSettingsUseJellyfinNames(t *testing.T) {
 	out, err := jellyfinSettings(&mediaserversv1alpha1.JellyfinEncoding{
-		H265Crf: new(28), EncoderPreset: "veryfast", EnableThrottling: new(true),
+		H265Crf: new(int32(28)), EncoderPreset: "veryfast", EnableThrottling: new(true),
 	})
 	require.NoError(t, err)
 	assert.Equal(t, map[string]any{"H265Crf": float64(28), "EncoderPreset": "veryfast", "EnableThrottling": true}, out)
@@ -345,7 +345,7 @@ func TestJellyfinSettingsRenameNestedSettings(t *testing.T) {
 	out, err := jellyfinSettings(&mediaserversv1alpha1.JellyfinServer{
 		EnableMetrics: new(true),
 		TrickplayOptions: &mediaserversv1alpha1.JellyfinTrickplay{
-			EnableHwAcceleration: new(true), WidthResolutions: []int{320, 640},
+			EnableHwAcceleration: new(true), WidthResolutions: []int32{320, 640},
 		},
 	})
 	require.NoError(t, err)

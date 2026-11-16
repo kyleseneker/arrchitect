@@ -46,14 +46,14 @@ func TestResolveReferencesFollowsRecreatedAppProfile(t *testing.T) {
 	first, _, err := ResolveReferences(context.Background(), hc, spec, false)
 	require.NoError(t, err)
 	require.NotNil(t, first.Indexers[0].AppProfileId)
-	assert.Equal(t, 3, *first.Indexers[0].AppProfileId)
+	assert.Equal(t, int32(3), *first.Indexers[0].AppProfileId)
 
 	lists["/api/v1/appprofile"] = []map[string]any{{"id": 7, "name": "Standard"}}
 
 	second, _, err := ResolveReferences(context.Background(), hc, spec, false)
 	require.NoError(t, err)
 	require.NotNil(t, second.Indexers[0].AppProfileId)
-	assert.Equal(t, 7, *second.Indexers[0].AppProfileId)
+	assert.Equal(t, int32(7), *second.Indexers[0].AppProfileId)
 	assert.Nil(t, spec.Indexers[0].AppProfileId, "the input spec must not carry application IDs")
 }
 
@@ -93,7 +93,7 @@ func TestResolveReferencesInObserveModePlansWhatTheSpecDeclares(t *testing.T) {
 
 	resolved, tagIDs, err := ResolveReferences(context.Background(), hc, spec, true)
 	require.NoError(t, err)
-	assert.Equal(t, engine.PlannedID, *resolved.Indexers[0].AppProfileId)
+	assert.Equal(t, int32(engine.PlannedID), *resolved.Indexers[0].AppProfileId)
 	assert.Equal(t, engine.PlannedID, tagIDs["tv"])
 
 	spec.Indexers[0].TagLabels = []string{"typo"}

@@ -97,7 +97,7 @@ type ProwlarrAppProfile struct {
 	// minimumSeeders is the minimum number of seeders for torrent results.
 	// +kubebuilder:validation:Minimum=0
 	// +optional
-	MinimumSeeders *int `json:"minimumSeeders,omitempty"`
+	MinimumSeeders *int32 `json:"minimumSeeders,omitempty"`
 }
 
 // ProwlarrApplication defines an application connection managed by Prowlarr.
@@ -134,7 +134,7 @@ type ProwlarrApplication struct {
 	// syncCategories is the list of category IDs to sync to this application.
 	// +optional
 	// +listType=set
-	SyncCategories []int `json:"syncCategories,omitempty"`
+	SyncCategories []int32 `json:"syncCategories,omitempty"`
 
 	// tagLabels references tags by label, resolved against Prowlarr on each
 	// reconciliation. A missing or ambiguous label blocks writes, and an empty
@@ -165,7 +165,7 @@ type ProwlarrIndexer struct {
 
 	// appProfileId is the application profile ID for this indexer.
 	// +optional
-	AppProfileId *int `json:"appProfileId,omitempty"`
+	AppProfileId *int32 `json:"appProfileId,omitempty"`
 
 	// appProfileName resolves the current sync profile ID by name on each reconciliation.
 	// Takes precedence over appProfileId. Missing or ambiguous names block indexer writes.
@@ -174,7 +174,7 @@ type ProwlarrIndexer struct {
 
 	// priority is the indexer priority. Lower values are higher priority.
 	// +optional
-	Priority *int `json:"priority,omitempty"`
+	Priority *int32 `json:"priority,omitempty"`
 
 	// fields defines configuration fields for the indexer.
 	// +optional
@@ -210,7 +210,7 @@ type ProwlarrProxy struct {
 
 	// requestTimeout is the request timeout in seconds.
 	// +optional
-	RequestTimeout *int `json:"requestTimeout,omitempty"`
+	RequestTimeout *int32 `json:"requestTimeout,omitempty"`
 
 	// tagLabels references tags by label, resolved against Prowlarr on each
 	// reconciliation. A missing or ambiguous label blocks writes, and an empty
@@ -247,7 +247,7 @@ type ProwlarrDownloadClient struct {
 
 	// priority is the download client priority. Lower values are higher priority.
 	// +optional
-	Priority *int `json:"priority,omitempty"`
+	Priority *int32 `json:"priority,omitempty"`
 
 	// categories defines the category mappings for this download client.
 	// +optional
@@ -278,7 +278,7 @@ type ProwlarrDownloadClientCategory struct {
 	// categories is the list of Prowlarr category IDs to map.
 	// +optional
 	// +listType=set
-	Categories []int `json:"categories,omitempty"`
+	Categories []int32 `json:"categories,omitempty"`
 }
 
 // ProwlarrStatus defines the observed state of Prowlarr.

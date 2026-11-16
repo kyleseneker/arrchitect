@@ -60,13 +60,13 @@ func exportBazarrFrom(t *testing.T) (*subtitlesv1alpha1.Bazarr, Result) {
 
 func TestBazarrSettingsMapBackToSpecFields(t *testing.T) {
 	cfg, res := exportBazarrFrom(t)
-	assert.Equal(t, 90, *cfg.Spec.General.MinimumScore)
+	assert.Equal(t, int32(90), *cfg.Spec.General.MinimumScore)
 	assert.Equal(t, "hi", cfg.Spec.General.HiExtension)
 	assert.True(t, *cfg.Spec.SubSync.UseSubsync)
 
 	require.NotNil(t, cfg.Spec.SonarrConnection)
 	assert.Equal(t, "sonarr", cfg.Spec.SonarrConnection.Host)
-	assert.Equal(t, 60, *cfg.Spec.SonarrConnection.SyncInterval)
+	assert.Equal(t, int32(60), *cfg.Spec.SonarrConnection.SyncInterval)
 	assert.Equal(t, "sonarr-api-key", cfg.Spec.SonarrConnection.APIKeySecretRef.Key)
 	assert.Equal(t, "sonarr-key", res.Secret.StringData["sonarr-api-key"])
 	assert.Nil(t, cfg.Spec.RadarrConnection, "Bazarr does not use Radarr")
@@ -99,7 +99,7 @@ func TestBazarrProfilesWarnAboutWhatTheConfigWouldClear(t *testing.T) {
 	cfg, res := exportBazarrFrom(t)
 	require.Len(t, cfg.Spec.Languages.Profiles, 2)
 	english := cfg.Spec.Languages.Profiles[0]
-	assert.Equal(t, 1, *english.ProfileId)
+	assert.Equal(t, int32(1), *english.ProfileId)
 	assert.True(t, *english.Items[0].Forced)
 	assert.False(t, *english.Items[0].HI)
 	assert.Contains(t, res.Warnings, `language profile "Picky": the config can't express its cutoff, must-contain, `+

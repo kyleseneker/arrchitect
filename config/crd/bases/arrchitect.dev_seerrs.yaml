@@ -133,6 +133,7 @@ spec:
                     type: object
                   port:
                     description: port is the Jellyfin server port.
+                    format: int32
                     type: integer
                   urlBase:
                     description: urlBase is the subpath Jellyfin is served under,
@@ -173,6 +174,7 @@ spec:
                   defaultPermissions:
                     description: defaultPermissions is the default permission bitmask
                       for new users.
+                    format: int32
                     type: integer
                   hideAvailable:
                     description: hideAvailable hides already-available media from
@@ -275,6 +277,7 @@ spec:
                   port:
                     default: 32400
                     description: port is the Plex server port.
+                    format: int32
                     type: integer
                   tokenSecretRef:
                     description: tokenSecretRef references a Secret containing the
@@ -322,6 +325,7 @@ spec:
                     activeProfileId:
                       description: activeProfileId is used when activeProfileName
                         is omitted.
+                      format: int32
                       type: integer
                     activeProfileName:
                       description: |-
@@ -395,6 +399,7 @@ spec:
                       type: string
                     port:
                       description: port is the service port.
+                      format: int32
                       type: integer
                     preventSearch:
                       description: preventSearch stops the server from searching as
@@ -498,6 +503,7 @@ spec:
                     activeProfileId:
                       description: activeProfileId is used when activeProfileName
                         is omitted.
+                      format: int32
                       type: integer
                     activeProfileName:
                       description: |-
@@ -571,6 +577,7 @@ spec:
                       type: string
                     port:
                       description: port is the service port.
+                      format: int32
                       type: integer
                     preventSearch:
                       description: preventSearch stops the server from searching as

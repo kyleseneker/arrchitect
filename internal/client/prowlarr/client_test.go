@@ -77,7 +77,7 @@ func TestBuildProwlarrApplicationPayload(t *testing.T) {
 		ConfigContract: "SonarrSettings",
 		ProwlarrUrl:    "http://prowlarr:9696",
 		BaseUrl:        "http://sonarr:8989",
-		SyncCategories: []int{5030, 5040},
+		SyncCategories: []int32{5030, 5040},
 		TagLabels:      []string{"tag1", "tag2"},
 	}
 
@@ -138,7 +138,7 @@ func TestBuildProwlarrIndexerPayload(t *testing.T) {
 			name: "all options",
 			idx: indexersv1alpha1.ProwlarrIndexer{
 				Name: "NZBgeek", Implementation: "Newznab", ConfigContract: "NewznabSettings",
-				Enable: new(false), AppProfileId: new(1), Priority: new(25),
+				Enable: new(false), AppProfileId: new(int32(1)), Priority: new(int32(25)),
 				Fields: []commonv1alpha1.ConfigField{
 					{Name: "baseUrl", Value: &commonv1alpha1.FieldValue{Raw: []byte(`"http://nzbgeek.info"`)}},
 					{Name: "apiKey", Value: nil},
@@ -147,8 +147,8 @@ func TestBuildProwlarrIndexerPayload(t *testing.T) {
 			},
 			check: func(t *testing.T, p map[string]any) {
 				assert.Equal(t, false, p["enable"])
-				assert.Equal(t, 1, p["appProfileId"])
-				assert.Equal(t, 25, p["priority"])
+				assert.Equal(t, int32(1), p["appProfileId"])
+				assert.Equal(t, int32(25), p["priority"])
 
 				fields := p["fields"].([]map[string]any)
 				require.Len(t, fields, 2)
@@ -185,13 +185,13 @@ func TestBuildProwlarrProxyPayload(t *testing.T) {
 			name: "with timeout",
 			proxy: indexersv1alpha1.ProwlarrProxy{
 				Name: "Proxy", Implementation: "Socks5", ConfigContract: "Socks5Settings",
-				Host: "proxy.local", RequestTimeout: new(30),
+				Host: "proxy.local", RequestTimeout: new(int32(30)),
 			},
 			check: func(t *testing.T, p map[string]any) {
 				fields := p["fields"].([]map[string]any)
 				require.Len(t, fields, 2)
 				assert.Equal(t, "requestTimeout", fields[1]["name"])
-				assert.Equal(t, 30, fields[1]["value"])
+				assert.Equal(t, int32(30), fields[1]["value"])
 			},
 		},
 	}
@@ -225,9 +225,9 @@ func TestBuildProwlarrDownloadClientPayload(t *testing.T) {
 			name: "with categories and custom contract",
 			dc: indexersv1alpha1.ProwlarrDownloadClient{
 				Name: "qBit", Protocol: "torrent", Implementation: "QBittorrent",
-				ConfigContract: "CustomContract", Priority: new(5),
+				ConfigContract: "CustomContract", Priority: new(int32(5)),
 				Categories: []indexersv1alpha1.ProwlarrDownloadClientCategory{
-					{ClientCategory: "tv", Categories: []int{5030, 5040}},
+					{ClientCategory: "tv", Categories: []int32{5030, 5040}},
 				},
 				Fields: []commonv1alpha1.ConfigField{
 					{Name: "host", Value: &commonv1alpha1.FieldValue{Raw: []byte(`"qbit.local"`)}},
@@ -235,7 +235,7 @@ func TestBuildProwlarrDownloadClientPayload(t *testing.T) {
 			},
 			check: func(t *testing.T, p map[string]any) {
 				assert.Equal(t, "CustomContract", p["configContract"])
-				assert.Equal(t, 5, p["priority"])
+				assert.Equal(t, int32(5), p["priority"])
 
 				cats := p["categories"].([]map[string]any)
 				require.Len(t, cats, 1)
@@ -256,11 +256,11 @@ func TestBuildProwlarrDownloadClientPayload(t *testing.T) {
 func TestIntSliceToInterface(t *testing.T) {
 	tests := []struct {
 		name  string
-		input []int
+		input []int32
 		want  []any
 	}{
-		{"empty", []int{}, []any{}},
-		{"values", []int{1, 2, 3}, []any{1, 2, 3}},
+		{"empty", []int32{}, []any{}},
+		{"values", []int32{1, 2, 3}, []any{1, 2, 3}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

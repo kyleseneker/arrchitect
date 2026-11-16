@@ -244,6 +244,7 @@ spec:
                     minimumCustomFormatScore:
                       description: minimumCustomFormatScore is the score bypassIfAboveCustomFormatScore
                         needs.
+                      format: int32
                       type: integer
                     preferredProtocol:
                       description: preferredProtocol is the protocol the app picks
@@ -263,11 +264,13 @@ spec:
                     torrentDelay:
                       description: torrentDelay is how many minutes the app waits
                         before grabbing a torrent release.
+                      format: int32
                       minimum: 0
                       type: integer
                     usenetDelay:
                       description: usenetDelay is how many minutes the app waits before
                         grabbing a Usenet release.
+                      format: int32
                       minimum: 0
                       type: integer
                   type: object
@@ -293,6 +296,7 @@ spec:
                   checkForFinishedDownloadInterval:
                     description: checkForFinishedDownloadInterval is the interval
                       in minutes to check for finished downloads.
+                    format: int32
                     type: integer
                   enableCompletedDownloadHandling:
                     description: enableCompletedDownloadHandling auto-imports completed
@@ -369,6 +373,7 @@ spec:
                       type: string
                     listOrder:
                       description: listOrder controls the display order of this list.
+                      format: int32
                       type: integer
                     metadataProfileName:
                       description: |-
@@ -437,13 +442,16 @@ spec:
                   availabilityDelay:
                     description: availabilityDelay is the number of days to wait after
                       a movie is available before searching.
+                    format: int32
                     type: integer
                   maximumSize:
                     description: maximumSize is the maximum release size in MB. 0
                       means unlimited.
+                    format: int32
                     type: integer
                   minimumAge:
                     description: minimumAge is the minimum age in minutes before downloading.
+                    format: int32
                     type: integer
                   preferIndexerFlags:
                     description: preferIndexerFlags prefers releases with indexer
@@ -452,10 +460,12 @@ spec:
                   retention:
                     description: retention is the usenet retention in days. 0 means
                       unlimited.
+                    format: int32
                     type: integer
                   rssSyncInterval:
                     description: rssSyncInterval is the RSS sync interval in minutes.
                       0 disables RSS.
+                    format: int32
                     type: integer
                   whitelistedHardcodedSubs:
                     description: whitelistedHardcodedSubs is a comma-separated list
@@ -507,6 +517,7 @@ spec:
                   minimumFreeSpaceWhenImporting:
                     description: minimumFreeSpaceWhenImporting is the minimum free
                       space in MB required to import.
+                    format: int32
                     type: integer
                   pathsDefaultStatic:
                     description: pathsDefaultStatic prevents Radarr from updating
@@ -520,6 +531,7 @@ spec:
                   recycleBinCleanupDays:
                     description: recycleBinCleanupDays is how many days files stay
                       in the recycling bin.
+                    format: int32
                     type: integer
                   rescanAfterRefresh:
                     description: rescanAfterRefresh controls when to rescan movie
@@ -814,6 +826,7 @@ spec:
                     cutoffFormatScore:
                       description: cutoffFormatScore is the custom format score at
                         which upgrades stop.
+                      format: int32
                       type: integer
                     formatItems:
                       description: |-
@@ -830,6 +843,7 @@ spec:
                           score:
                             description: score is the score to assign. Positive values
                               prefer, negative values penalize.
+                            format: int32
                             type: integer
                         required:
                         - name
@@ -871,6 +885,7 @@ spec:
                                     id:
                                       description: id is the quality ID (e.g., 7 for
                                         Bluray-1080p). IDs are app-specific.
+                                      format: int32
                                       type: integer
                                     name:
                                       description: name is the quality display name
@@ -896,6 +911,7 @@ spec:
                               id:
                                 description: id is the quality ID (e.g., 7 for Bluray-1080p).
                                   IDs are app-specific.
+                                format: int32
                                 type: integer
                               name:
                                 description: name is the quality display name (e.g.,
@@ -914,10 +930,12 @@ spec:
                     minFormatScore:
                       description: minFormatScore is the minimum custom format score
                         required to grab a release.
+                      format: int32
                       type: integer
                     minUpgradeFormatScore:
                       description: minUpgradeFormatScore is the minimum score improvement
                         required for a format-based upgrade.
+                      format: int32
                       type: integer
                     name:
                       description: name is the display name of the quality profile.
@@ -1074,6 +1092,7 @@ spec:
                   firstDayOfWeek:
                     description: firstDayOfWeek is the first day of the week. 0=Sunday,
                       1=Monday.
+                    format: int32
                     maximum: 1
                     minimum: 0
                     type: integer
@@ -1083,6 +1102,7 @@ spec:
                   movieInfoLanguage:
                     description: movieInfoLanguage is the language ID for movie information.
                       -1=Original.
+                    format: int32
                     type: integer
                   movieRuntimeFormat:
                     description: movieRuntimeFormat controls how movie runtimes are
@@ -1109,6 +1129,7 @@ spec:
                     type: string
                   uiLanguage:
                     description: uiLanguage is the UI language ID. 1=English.
+                    format: int32
                     type: integer
                 type: object
             required:

@@ -58,7 +58,7 @@ func (in *BazarrAppConnection) DeepCopyInto(out *BazarrAppConnection) {
 	*out = *in
 	if in.Port != nil {
 		in, out := &in.Port, &out.Port
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.SSL != nil {
@@ -69,7 +69,7 @@ func (in *BazarrAppConnection) DeepCopyInto(out *BazarrAppConnection) {
 	out.APIKeySecretRef = in.APIKeySecretRef
 	if in.HttpTimeout != nil {
 		in, out := &in.HttpTimeout, &out.HttpTimeout
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.OnlyMonitored != nil {
@@ -79,7 +79,7 @@ func (in *BazarrAppConnection) DeepCopyInto(out *BazarrAppConnection) {
 	}
 	if in.SyncInterval != nil {
 		in, out := &in.SyncInterval, &out.SyncInterval
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.ExcludedTags != nil {
@@ -124,12 +124,12 @@ func (in *BazarrGeneral) DeepCopyInto(out *BazarrGeneral) {
 	}
 	if in.MinimumScore != nil {
 		in, out := &in.MinimumScore, &out.MinimumScore
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.MinimumScoreMovie != nil {
 		in, out := &in.MinimumScoreMovie, &out.MinimumScoreMovie
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.UseScenename != nil {
@@ -164,12 +164,12 @@ func (in *BazarrGeneral) DeepCopyInto(out *BazarrGeneral) {
 	}
 	if in.UpgradeFrequency != nil {
 		in, out := &in.UpgradeFrequency, &out.UpgradeFrequency
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.WantedSearchFrequency != nil {
 		in, out := &in.WantedSearchFrequency, &out.WantedSearchFrequency
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.Utf8Encode != nil {
@@ -214,7 +214,7 @@ func (in *BazarrGeneral) DeepCopyInto(out *BazarrGeneral) {
 	}
 	if in.PostprocessingThreshold != nil {
 		in, out := &in.PostprocessingThreshold, &out.PostprocessingThreshold
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.UsePostprocessingThresholdMovie != nil {
@@ -224,7 +224,7 @@ func (in *BazarrGeneral) DeepCopyInto(out *BazarrGeneral) {
 	}
 	if in.PostprocessingThresholdMovie != nil {
 		in, out := &in.PostprocessingThresholdMovie, &out.PostprocessingThresholdMovie
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 }
@@ -274,7 +274,7 @@ func (in *BazarrLanguageProfile) DeepCopyInto(out *BazarrLanguageProfile) {
 	*out = *in
 	if in.ProfileId != nil {
 		in, out := &in.ProfileId, &out.ProfileId
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.Items != nil {
@@ -514,7 +514,7 @@ func (in *BazarrSubSync) DeepCopyInto(out *BazarrSubSync) {
 	}
 	if in.SubsyncThreshold != nil {
 		in, out := &in.SubsyncThreshold, &out.SubsyncThreshold
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.UseSubsyncMovieThreshold != nil {
@@ -524,7 +524,7 @@ func (in *BazarrSubSync) DeepCopyInto(out *BazarrSubSync) {
 	}
 	if in.SubsyncMovieThreshold != nil {
 		in, out := &in.SubsyncMovieThreshold, &out.SubsyncMovieThreshold
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 }

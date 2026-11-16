@@ -42,11 +42,11 @@ func TestSeerrExportsSettingsServicesAndNotifications(t *testing.T) {
 	cfg, ok := res.Config.(*requestsv1alpha1.Seerr)
 	require.True(t, ok)
 	assert.Equal(t, "Requests", cfg.Spec.Main.ApplicationTitle)
-	assert.Equal(t, 32, *cfg.Spec.Main.DefaultPermissions)
+	assert.Equal(t, int32(32), *cfg.Spec.Main.DefaultPermissions)
 
 	require.NotNil(t, cfg.Spec.JellyfinAuth)
 	assert.Equal(t, "jellyfin", cfg.Spec.JellyfinAuth.Hostname)
-	assert.Equal(t, 8096, *cfg.Spec.JellyfinAuth.Port)
+	assert.Equal(t, int32(8096), *cfg.Spec.JellyfinAuth.Port)
 	assert.ElementsMatch(t, []string{"jellyfin-username", "jellyfin-password"}, res.Unfilled)
 
 	require.Len(t, cfg.Spec.Sonarr, 2, "every server is exported")

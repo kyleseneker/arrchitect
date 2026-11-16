@@ -124,7 +124,7 @@ func TestPVRDownloadClientMovesCredentialsToTheSecret(t *testing.T) {
 	require.Len(t, clients, 1)
 	dc := clients[0].Spec
 	assert.Equal(t, "qbit", dc.Host)
-	assert.Equal(t, 8080, dc.Port)
+	assert.Equal(t, int32(8080), dc.Port)
 	assert.Equal(t, "tv", dc.Category)
 	assert.Empty(t, dc.ConfigContract, "the default contract is implied")
 	assert.Equal(t, []string{"anime"}, dc.TagLabels)
@@ -154,7 +154,7 @@ func TestPVRIndexerNormalizesProtocolAndReferencesMaskedFields(t *testing.T) {
 	idx := indexers[0].Spec
 	assert.Equal(t, "torrent", idx.Protocol)
 	assert.False(t, *idx.EnableInteractiveSearch)
-	assert.Equal(t, 25, *idx.Priority)
+	assert.Equal(t, int32(25), *idx.Priority)
 	require.Len(t, idx.Fields, 2)
 	assert.Equal(t, `"http://jackett"`, string(idx.Fields[0].Value.Raw))
 	assert.Equal(t, "indexer-torznab-apikey", idx.Fields[1].ValueFrom.SecretKeyRef.Key)
@@ -189,7 +189,7 @@ func TestPVRQualityProfileNamesItsCutoffAndScoredFormats(t *testing.T) {
 	assert.Equal(t, "SDTV", qp.Items[0].Quality.Name)
 	assert.False(t, *qp.Items[0].Allowed)
 	assert.Equal(t, "WEB 1080p", qp.Items[1].Name)
-	assert.Equal(t, 3, qp.Items[1].Items[0].Quality.ID)
+	assert.Equal(t, int32(3), qp.Items[1].Items[0].Quality.ID)
 	assert.Equal(t, []commonv1alpha1.QualityProfileFormatItem{{Name: "x265", Score: -100}}, qp.FormatItems)
 
 	require.Len(t, cfg.Spec.CustomFormats, 1)
@@ -233,13 +233,13 @@ func TestPVRDelayProfilesFollowTheAppsOrder(t *testing.T) {
 	assert.Equal(t, []commonv1alpha1.DelayProfile{
 		{
 			TagLabels: []string{"anime"}, EnableUsenet: new(false), EnableTorrent: new(true), PreferredProtocol: "torrent",
-			UsenetDelay: new(0), TorrentDelay: new(60), BypassIfHighestQuality: new(false),
-			BypassIfAboveCustomFormatScore: new(true), MinimumCustomFormatScore: new(100),
+			UsenetDelay: new(int32(0)), TorrentDelay: new(int32(60)), BypassIfHighestQuality: new(false),
+			BypassIfAboveCustomFormatScore: new(true), MinimumCustomFormatScore: new(int32(100)),
 		},
 		{
 			EnableUsenet: new(true), EnableTorrent: new(true), PreferredProtocol: "usenet",
-			UsenetDelay: new(0), TorrentDelay: new(0), BypassIfHighestQuality: new(true),
-			BypassIfAboveCustomFormatScore: new(false), MinimumCustomFormatScore: new(0),
+			UsenetDelay: new(int32(0)), TorrentDelay: new(int32(0)), BypassIfHighestQuality: new(true),
+			BypassIfAboveCustomFormatScore: new(false), MinimumCustomFormatScore: new(int32(0)),
 		},
 	}, cfg.Spec.DelayProfiles)
 }
@@ -250,7 +250,7 @@ func TestPVRDelayProfilesReadProtocolItems(t *testing.T) {
 			{"name":"Usenet","protocol":"UsenetDownloadProtocol","allowed":false,"delay":0}],
 		"bypassIfHighestQuality":true,"bypassIfAboveCustomFormatScore":false,"minimumCustomFormatScore":0}]`})
 	assert.Equal(t, []commonv1alpha1.DelayProfile{{
-		EnableUsenet: new(false), EnableTorrent: new(true), PreferredProtocol: "torrent", UsenetDelay: new(0), TorrentDelay: new(15),
-		BypassIfHighestQuality: new(true), BypassIfAboveCustomFormatScore: new(false), MinimumCustomFormatScore: new(0),
+		EnableUsenet: new(false), EnableTorrent: new(true), PreferredProtocol: "torrent", UsenetDelay: new(int32(0)), TorrentDelay: new(int32(15)),
+		BypassIfHighestQuality: new(true), BypassIfAboveCustomFormatScore: new(false), MinimumCustomFormatScore: new(int32(0)),
 	}}, cfg.Spec.DelayProfiles)
 }

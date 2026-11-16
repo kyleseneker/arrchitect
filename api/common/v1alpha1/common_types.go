@@ -203,7 +203,7 @@ type DownloadClient struct {
 
 	// port is the port of the download client.
 	// +required
-	Port int `json:"port"`
+	Port int32 `json:"port"`
 
 	// useSsl enables SSL/TLS for the download client connection.
 	// +optional
@@ -222,7 +222,7 @@ type DownloadClient struct {
 	// +optional
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=50
-	Priority *int `json:"priority,omitempty"`
+	Priority *int32 `json:"priority,omitempty"`
 
 	// removeCompletedDownloads controls whether completed downloads are removed.
 	// A new download client removes them unless this is false.
@@ -279,15 +279,15 @@ type QualityProfile struct {
 
 	// minFormatScore is the minimum custom format score required to grab a release.
 	// +optional
-	MinFormatScore *int `json:"minFormatScore,omitempty"`
+	MinFormatScore *int32 `json:"minFormatScore,omitempty"`
 
 	// cutoffFormatScore is the custom format score at which upgrades stop.
 	// +optional
-	CutoffFormatScore *int `json:"cutoffFormatScore,omitempty"`
+	CutoffFormatScore *int32 `json:"cutoffFormatScore,omitempty"`
 
 	// minUpgradeFormatScore is the minimum score improvement required for a format-based upgrade.
 	// +optional
-	MinUpgradeFormatScore *int `json:"minUpgradeFormatScore,omitempty"`
+	MinUpgradeFormatScore *int32 `json:"minUpgradeFormatScore,omitempty"`
 
 	// items defines the quality ordering and allowed states.
 	// Items at the end of the list are higher priority. Each item is either
@@ -352,7 +352,7 @@ type LocalObjectReference struct {
 type QualityReference struct {
 	// id is the quality ID (e.g., 7 for Bluray-1080p). IDs are app-specific.
 	// +required
-	ID int `json:"id"`
+	ID int32 `json:"id"`
 
 	// name is the quality display name (e.g., "Bluray-1080p").
 	// +optional
@@ -367,7 +367,7 @@ type QualityProfileFormatItem struct {
 
 	// score is the score to assign. Positive values prefer, negative values penalize.
 	// +required
-	Score int `json:"score"`
+	Score int32 `json:"score"`
 }
 
 // QualityDefinition sets the size limits of one of the app's qualities. Sizes
@@ -443,12 +443,12 @@ type DelayProfile struct {
 	// usenetDelay is how many minutes the app waits before grabbing a Usenet release.
 	// +optional
 	// +kubebuilder:validation:Minimum=0
-	UsenetDelay *int `json:"usenetDelay,omitempty"`
+	UsenetDelay *int32 `json:"usenetDelay,omitempty"`
 
 	// torrentDelay is how many minutes the app waits before grabbing a torrent release.
 	// +optional
 	// +kubebuilder:validation:Minimum=0
-	TorrentDelay *int `json:"torrentDelay,omitempty"`
+	TorrentDelay *int32 `json:"torrentDelay,omitempty"`
 
 	// bypassIfHighestQuality skips the delay for a release at the quality
 	// profile's highest allowed quality.
@@ -462,7 +462,7 @@ type DelayProfile struct {
 
 	// minimumCustomFormatScore is the score bypassIfAboveCustomFormatScore needs.
 	// +optional
-	MinimumCustomFormatScore *int `json:"minimumCustomFormatScore,omitempty"`
+	MinimumCustomFormatScore *int32 `json:"minimumCustomFormatScore,omitempty"`
 }
 
 // CustomFormat defines a custom format with matching specifications.
@@ -554,7 +554,7 @@ type Indexer struct {
 	// priority is the indexer priority. Lower values are higher priority.
 	// +optional
 	// +kubebuilder:validation:Minimum=1
-	Priority *int `json:"priority,omitempty"`
+	Priority *int32 `json:"priority,omitempty"`
 
 	// enableRss enables RSS feed polling for this indexer. A new indexer
 	// polls unless this or enable is false.
@@ -809,7 +809,7 @@ type ImportList struct {
 
 	// listOrder controls the display order of this list.
 	// +optional
-	ListOrder *int `json:"listOrder,omitempty"`
+	ListOrder *int32 `json:"listOrder,omitempty"`
 
 	// tagLabels references tags by label, resolved against the app on each
 	// reconciliation. A missing or ambiguous label blocks writes, and an empty

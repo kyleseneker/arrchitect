@@ -750,7 +750,7 @@ func BuildQualityItems(items []commonv1alpha1.QualityProfileItem) []map[string]a
 		if item.Quality != nil {
 			// Individual quality
 			m["quality"] = map[string]any{
-				"id":   item.Quality.ID,
+				"id":   int(item.Quality.ID),
 				"name": item.Quality.Name,
 			}
 			m["items"] = []any{}
@@ -765,7 +765,7 @@ func BuildQualityItems(items []commonv1alpha1.QualityProfileItem) []map[string]a
 				childAllowed := child.Allowed == nil || *child.Allowed
 				children[j] = map[string]any{
 					"quality": map[string]any{
-						"id":   child.Quality.ID,
+						"id":   int(child.Quality.ID),
 						"name": child.Quality.Name,
 					},
 					"items":   []any{},
@@ -792,7 +792,7 @@ func BuildQualityItems(items []commonv1alpha1.QualityProfileItem) []map[string]a
 func FindCutoffID(items []commonv1alpha1.QualityProfileItem, cutoffName string) (int, bool) {
 	for i, item := range items {
 		if item.Quality != nil && item.Quality.Name == cutoffName {
-			return item.Quality.ID, true
+			return int(item.Quality.ID), true
 		}
 		if item.Quality == nil && item.Name == cutoffName {
 			// Group — use 1000+index as the group ID (how these apps number groups)
@@ -1176,10 +1176,10 @@ func CompleteQualityItems(items []map[string]any, declared []commonv1alpha1.Qual
 	mentioned := map[int]bool{}
 	for _, item := range declared {
 		if item.Quality != nil {
-			mentioned[item.Quality.ID] = true
+			mentioned[int(item.Quality.ID)] = true
 		}
 		for _, child := range item.Items {
-			mentioned[child.Quality.ID] = true
+			mentioned[int(child.Quality.ID)] = true
 		}
 	}
 	var missing []map[string]any
@@ -1580,7 +1580,7 @@ func delayProfileBody(base map[string]any, p *delayPlan, protocolItems bool) (ma
 				set[key] = *value
 			}
 		}
-		for key, value := range map[string]*int{"usenetDelay": d.UsenetDelay, "torrentDelay": d.TorrentDelay} {
+		for key, value := range map[string]*int32{"usenetDelay": d.UsenetDelay, "torrentDelay": d.TorrentDelay} {
 			if value != nil {
 				set[key] = *value
 			}
@@ -1620,7 +1620,7 @@ func protocolItemsFor(current any, d commonv1alpha1.DelayProfile) []any {
 	}
 	settings := map[string]struct {
 		allowed *bool
-		delay   *int
+		delay   *int32
 	}{
 		delayProtocols[0].protocol: {d.EnableUsenet, d.UsenetDelay},
 		delayProtocols[1].protocol: {d.EnableTorrent, d.TorrentDelay},

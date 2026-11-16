@@ -129,11 +129,11 @@ type LidarrMediaManagement struct {
 
 	// recycleBinCleanupDays is how many days files stay in the recycling bin.
 	// +optional
-	RecycleBinCleanupDays *int `json:"recycleBinCleanupDays,omitempty"`
+	RecycleBinCleanupDays *int32 `json:"recycleBinCleanupDays,omitempty"`
 
 	// minimumFreeSpaceWhenImporting is the minimum free space in MB required.
 	// +optional
-	MinimumFreeSpaceWhenImporting *int `json:"minimumFreeSpaceWhenImporting,omitempty"`
+	MinimumFreeSpaceWhenImporting *int32 `json:"minimumFreeSpaceWhenImporting,omitempty"`
 
 	// rescanAfterRefresh controls when to rescan artist folders.
 	// +optional
@@ -176,19 +176,19 @@ type LidarrNaming struct {
 type LidarrIndexerConfig struct {
 	// minimumAge is the minimum age in minutes before downloading.
 	// +optional
-	MinimumAge *int `json:"minimumAge,omitempty"`
+	MinimumAge *int32 `json:"minimumAge,omitempty"`
 
 	// retention is the usenet retention in days.
 	// +optional
-	Retention *int `json:"retention,omitempty"`
+	Retention *int32 `json:"retention,omitempty"`
 
 	// maximumSize is the maximum release size in MB.
 	// +optional
-	MaximumSize *int `json:"maximumSize,omitempty"`
+	MaximumSize *int32 `json:"maximumSize,omitempty"`
 
 	// rssSyncInterval is the RSS sync interval in minutes.
 	// +optional
-	RssSyncInterval *int `json:"rssSyncInterval,omitempty"`
+	RssSyncInterval *int32 `json:"rssSyncInterval,omitempty"`
 }
 
 // LidarrDownloadClientConfig configures global download client behavior.
@@ -206,7 +206,7 @@ type LidarrDownloadClientConfig struct {
 type LidarrUI struct {
 	// firstDayOfWeek is the first day of the week. 0=Sunday, 1=Monday.
 	// +optional
-	FirstDayOfWeek *int `json:"firstDayOfWeek,omitempty"`
+	FirstDayOfWeek *int32 `json:"firstDayOfWeek,omitempty"`
 
 	// shortDateFormat is the short date display format.
 	// +optional
@@ -227,7 +227,7 @@ type LidarrUI struct {
 
 	// uiLanguage is the UI language ID.
 	// +optional
-	UILanguage *int `json:"uiLanguage,omitempty"`
+	UILanguage *int32 `json:"uiLanguage,omitempty"`
 }
 
 // LidarrStatus defines the observed state of Lidarr.

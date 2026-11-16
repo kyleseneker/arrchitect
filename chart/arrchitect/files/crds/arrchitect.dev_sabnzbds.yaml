@@ -249,6 +249,7 @@ spec:
                   historyRetentionNumber:
                     description: historyRetentionNumber is the number of jobs or days
                       historyRetention keeps.
+                    format: int32
                     minimum: 0
                     type: integer
                   hostWhitelist:
@@ -278,6 +279,7 @@ spec:
                   propagationDelay:
                     description: propagationDelay holds back jobs posted less than
                       this many minutes ago.
+                    format: int32
                     minimum: 0
                     type: integer
                   safePostProcessing:
@@ -376,6 +378,7 @@ spec:
                   properties:
                     connections:
                       description: connections is the number of simultaneous connections.
+                      format: int32
                       type: integer
                     enable:
                       description: |-
@@ -408,9 +411,11 @@ spec:
                       type: object
                     port:
                       description: port is the port number.
+                      format: int32
                       type: integer
                     priority:
                       description: priority is the server priority. 0 = highest.
+                      format: int32
                       type: integer
                     required:
                       description: |-
@@ -420,6 +425,7 @@ spec:
                     retention:
                       description: retention is the server retention in days. 0 =
                         unlimited.
+                      format: int32
                       type: integer
                     ssl:
                       description: ssl enables SSL/TLS connection.
@@ -436,6 +442,7 @@ spec:
                     timeout:
                       description: timeout is how many seconds SABnzbd waits for the
                         server to answer.
+                      format: int32
                       minimum: 1
                       type: integer
                     usernameSecretRef:

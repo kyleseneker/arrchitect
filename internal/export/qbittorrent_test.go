@@ -43,13 +43,13 @@ func TestQBittorrentExportsPreferencesCategoriesAndLogin(t *testing.T) {
 	prefs := cfg.Spec.Preferences
 	assert.Equal(t, "/downloads/", prefs.SavePath)
 	assert.False(t, *prefs.DHT)
-	assert.Equal(t, 400, *prefs.MaxConnec)
+	assert.Equal(t, int32(400), *prefs.MaxConnec)
 	assert.Equal(t, "2.5", *prefs.MaxRatio)
 	assert.Equal(t, "removeWithContent", *prefs.MaxRatioAction)
 	assert.Equal(t, []downloadsv1alpha1.QBittorrentCategory{{Name: "movies"}, {Name: "tv", SavePath: "/downloads/tv"}}, cfg.Spec.Categories)
 	assert.Equal(t, "/downloads/incomplete", prefs.TempPath)
-	assert.Equal(t, 10, *prefs.DlLimit, "qBittorrent stores bytes per second, the config takes KiB/s")
-	assert.Equal(t, 0, *prefs.UpLimit)
+	assert.Equal(t, int32(10), *prefs.DlLimit, "qBittorrent stores bytes per second, the config takes KiB/s")
+	assert.Equal(t, int32(0), *prefs.UpLimit)
 	assert.Contains(t, res.Warnings,
 		"qBittorrent's upLimit is 1000 bytes per second, which isn't a whole number of KiB/s; exported rounded down")
 	assert.Equal(t, "weekends", prefs.SchedulerDays)

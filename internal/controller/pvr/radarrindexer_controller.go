@@ -49,7 +49,7 @@ func (r *RadarrIndexerReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 			indexers, err := ctrlcommon.ResolveIndexerSecrets(ctx, r.Client, obj.Namespace, []commonv1alpha1.Indexer{s.Indexer})
 			return pvrclient.Options{Indexers: indexers}, err
 		},
-		setID: func(id int) { obj.Status.ID = id },
+		setID: func(id int32) { obj.Status.ID = id },
 	})
 }
 

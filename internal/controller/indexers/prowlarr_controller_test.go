@@ -246,7 +246,7 @@ func TestProwlarrProfileCreatedBeforeIndexer(t *testing.T) {
 	app := &fakeProwlarr{}
 	cfg := prowlarrConfig(app.serve(t))
 	enabled := true
-	legacy := 7
+	legacy := int32(7)
 	cfg.Spec.AppProfiles = []indexersv1alpha1.ProwlarrAppProfile{{Name: "Search", EnableRss: &enabled}}
 	cfg.Spec.Indexers = []indexersv1alpha1.ProwlarrIndexer{{Name: "indexer", AppProfileName: "Search", AppProfileId: &legacy}}
 	c := runProwlarr(t, cfg, prowlarrSecret())
@@ -257,7 +257,7 @@ func TestProwlarrProfileCreatedBeforeIndexer(t *testing.T) {
 	var got indexersv1alpha1.Prowlarr
 	require.NoError(t, c.Get(context.Background(), types.NamespacedName{Name: "prowlarr", Namespace: "media"}, &got))
 	require.Equal(t, []string{"Search"}, got.Status.ManagedResources["appProfiles"])
-	require.Equal(t, 7, *got.Spec.Indexers[0].AppProfileId)
+	require.Equal(t, int32(7), *got.Spec.Indexers[0].AppProfileId)
 }
 
 func TestProwlarrProfileReferenceFailuresPreserveOwnership(t *testing.T) {
@@ -291,7 +291,7 @@ func TestProwlarrRestoredProfileIDAndLegacyFallback(t *testing.T) {
 	for _, named := range []bool{false, true} {
 		app := &fakeProwlarr{existing: map[string][]map[string]any{"appprofile": {{"name": "Search", "id": 84}}}}
 		cfg := prowlarrConfig(app.serve(t))
-		legacy := 7
+		legacy := int32(7)
 		idx := indexersv1alpha1.ProwlarrIndexer{Name: "indexer", AppProfileId: &legacy}
 		if named {
 			idx.AppProfileName = "Search"

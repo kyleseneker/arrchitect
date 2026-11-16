@@ -632,13 +632,13 @@ func fullyPopulatedLibrary() transcodev1alpha1.TdarrLibrary {
 		FoldersToIgnore: "extras", FolderWatching: new(false),
 		ProcessLibrary: new(true), ProcessTranscodes: new(true), ProcessHealthChecks: new(true),
 		HealthCheckMode: "thorough", DecisionMode: "flows",
-		ScanOnStart: new(true), ScheduledScanFindNew: new(true), ScannerThreadCount: new(1),
-		FFmpeg: new(true), Priority: new(1), FlowID: "hevc-qsv",
+		ScanOnStart: new(true), ScheduledScanFindNew: new(true), ScannerThreadCount: new(int32(1)),
+		FFmpeg: new(true), Priority: new(int32(1)), FlowID: "hevc-qsv",
 		PluginStack: []string{"Tdarr_Plugin_x"},
 		Variables:   map[string]string{"k": "v"},
 
 		FoldersToIgnoreCaseInsensitive: new(true), FilterResolutionsSkip: "480p", FilterCodecsSkip: "hevc",
-		FilterContainersSkip: "mkv", FilterHardlinked: new(true), UseFsEvents: new(false), FolderWatchScanInterval: new(30),
+		FilterContainersSkip: "mkv", FilterHardlinked: new(true), UseFsEvents: new(false), FolderWatchScanInterval: new(int32(30)),
 	}
 }
 
@@ -731,7 +731,7 @@ func TestTdarrWritesGlobalSettingsWithTheWebhookFromItsSecret(t *testing.T) {
 	app := &fakeTdarr{docFound: true}
 	cfg := tdarrConfig(app.serve(t))
 	cfg.Spec.Settings = &transcodev1alpha1.TdarrSettings{
-		AutoPauseIfCacheFull: new(true), AutoPauseIfCacheFullThreshold: new(50), NotificationsTranscodeError: new(true),
+		AutoPauseIfCacheFull: new(true), AutoPauseIfCacheFullThreshold: new(int32(50)), NotificationsTranscodeError: new(true),
 		NotificationsDiscordWebhookSecretRef: &commonv1alpha1.SecretKeyRef{Name: "tdarr-credentials", Key: "discord"},
 	}
 

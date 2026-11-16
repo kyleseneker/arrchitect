@@ -426,7 +426,7 @@ func TestSeerrWithoutAPIKeyLogsInAndFetchesKey(t *testing.T) {
 	app := &fakeSeerr{initialized: true}
 	addr := app.serve(t)
 
-	port := 8096
+	port := int32(8096)
 	cfg := seerrConfig(addr)
 	cfg.Spec.JellyfinAuth = &requestsv1alpha1.SeerrJellyfinAuth{
 		Hostname:          "jellyfin",
@@ -448,7 +448,7 @@ func TestSeerrJellyfinLoginCarriesServerTypeAndURLBase(t *testing.T) {
 	app := &fakeSeerr{initialized: true}
 	addr := app.serve(t)
 
-	port := 8096
+	port := int32(8096)
 	cfg := seerrConfig(addr)
 	cfg.Spec.JellyfinAuth = &requestsv1alpha1.SeerrJellyfinAuth{
 		Hostname:          "jellyfin",
@@ -483,7 +483,7 @@ func TestSeerrPlexLoginSendsToken(t *testing.T) {
 }
 
 func firstRunJellyfinConfig(addr string) *requestsv1alpha1.Seerr {
-	port := 8096
+	port := int32(8096)
 	cfg := seerrConfig(addr)
 	cfg.Spec.Connection.APIKeySecretRef = &commonv1alpha1.SecretKeyRef{Name: "seerr-secrets", Key: "api-key"}
 	cfg.Spec.JellyfinAuth = &requestsv1alpha1.SeerrJellyfinAuth{
@@ -524,7 +524,7 @@ func TestSeerrFirstRunEnablesJellyfinLibraries(t *testing.T) {
 func TestSeerrRetriedSetupDoesNotDuplicateConnections(t *testing.T) {
 	app := &fakeSeerr{} // no Jellyfin libraries yet, so setup fails and is retried
 	addr := app.serve(t)
-	port := 8989
+	port := int32(8989)
 	cfg := firstRunJellyfinConfig(addr)
 	key := commonv1alpha1.SecretKeyRef{Name: "seerr-secrets", Key: "api-key"}
 	cfg.Spec.Sonarr = []requestsv1alpha1.SeerrServiceConnection{{Name: "Sonarr", Hostname: "sonarr", Port: &port, APIKeySecretRef: key}}
@@ -554,7 +554,7 @@ func TestSeerrFirstRunWaitsForJellyfinLibraries(t *testing.T) {
 func TestSeerrFailedSetupKeepsTrackOfTheServersItCreated(t *testing.T) {
 	app := &fakeSeerr{}
 	cfg := firstRunJellyfinConfig(app.serve(t))
-	port := 8989
+	port := int32(8989)
 	cfg.Spec.Sonarr = []requestsv1alpha1.SeerrServiceConnection{{
 		Name: "Sonarr", Hostname: "sonarr", Port: &port, APIKeySecretRef: commonv1alpha1.SecretKeyRef{Name: "seerr-secrets", Key: "api-key"},
 	}}
@@ -646,7 +646,7 @@ func TestSeerrServiceFieldsAllReachThePayload(t *testing.T) {
 func TestSeerrSendsWhatANewServerRequires(t *testing.T) {
 	app := &fakeSeerr{initialized: true}
 	cfg := seerrWithAPIKey(app.serve(t))
-	port := 8989
+	port := int32(8989)
 	cfg.Spec.Sonarr = []requestsv1alpha1.SeerrServiceConnection{{
 		Name: "Sonarr", Hostname: "sonarr", Port: &port, APIKeySecretRef: commonv1alpha1.SecretKeyRef{Name: "seerr-secrets", Key: "api-key"},
 	}}
@@ -676,7 +676,7 @@ func TestSeerrServerUpdateKeepsWhatTheResourceLeavesOut(t *testing.T) {
 		}},
 	}}
 	cfg := seerrWithAPIKey(app.serve(t))
-	port := 8989
+	port := int32(8989)
 	cfg.Spec.Sonarr = []requestsv1alpha1.SeerrServiceConnection{{
 		Name: "Sonarr", Hostname: "sonarr", Port: &port, APIKeySecretRef: commonv1alpha1.SecretKeyRef{Name: "seerr-secrets", Key: "api-key"},
 	}}
@@ -736,7 +736,7 @@ func TestSeerrPrunesTheConnectionItCreatedUnderAnOldName(t *testing.T) {
 		"sonarr": {{"id": float64(0), "name": "Old"}, {"id": float64(1), "name": "Hand-made"}},
 	}}
 	cfg := seerrWithAPIKey(app.serve(t))
-	port := 8989
+	port := int32(8989)
 	cfg.Spec.Sonarr = []requestsv1alpha1.SeerrServiceConnection{{
 		Name: "New", Hostname: "sonarr", Port: &port,
 		APIKeySecretRef: commonv1alpha1.SecretKeyRef{Name: "seerr-secrets", Key: "api-key"},
@@ -771,7 +771,7 @@ func TestSeerrObserveReportsAConnectionPruneWouldDelete(t *testing.T) {
 		"sonarr": {{"id": float64(0), "name": "ObserveOld"}, {"id": float64(1), "name": "Hand-made"}},
 	}}
 	cfg := seerrWithAPIKey(app.serve(t))
-	port := 8989
+	port := int32(8989)
 	cfg.Spec.Sonarr = []requestsv1alpha1.SeerrServiceConnection{{
 		Name: "New", Hostname: "sonarr", Port: &port,
 		APIKeySecretRef: commonv1alpha1.SecretKeyRef{Name: "seerr-secrets", Key: "api-key"},
@@ -840,7 +840,7 @@ func TestSeerrManagesEveryDeclaredServer(t *testing.T) {
 		"sonarr": {{"id": float64(0), "name": "Sonarr", "hostname": "old-sonarr"}},
 	}}
 	cfg := seerrWithAPIKey(app.serve(t))
-	port := 8989
+	port := int32(8989)
 	key := commonv1alpha1.SecretKeyRef{Name: "seerr-secrets", Key: "api-key"}
 	cfg.Spec.Sonarr = []requestsv1alpha1.SeerrServiceConnection{
 		{Name: "Sonarr", Hostname: "sonarr", Port: &port, APIKeySecretRef: key, IsDefault: new(true)},

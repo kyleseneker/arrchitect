@@ -41,7 +41,7 @@ func profilesConfig(url string, ids ...int) *subtitlesv1alpha1.Bazarr {
 	cfg.Spec.Languages = &subtitlesv1alpha1.BazarrLanguages{}
 	for _, id := range ids {
 		cfg.Spec.Languages.Profiles = append(cfg.Spec.Languages.Profiles, subtitlesv1alpha1.BazarrLanguageProfile{
-			ProfileId: new(id), Name: "declared", Items: []subtitlesv1alpha1.BazarrLanguageItem{{Language: "en"}},
+			ProfileId: new(int32(id)), Name: "declared", Items: []subtitlesv1alpha1.BazarrLanguageItem{{Language: "en"}},
 		})
 	}
 	return cfg

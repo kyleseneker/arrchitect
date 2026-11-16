@@ -71,7 +71,7 @@ func (r *FlareSolverrReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		count, err := observeFlareSolverrSessions(ctx, fc, config.Spec.Sessions,
 			ctrlcommon.PruneEnabled(config.Spec.Reconcile), owned, observed)
 		if err == nil {
-			config.Status.ActiveSessions = count
+			config.Status.ActiveSessions = int32(count)
 		}
 		ctrlcommon.UpdateObservationStatus(ctx, r.Client, &config, observed.Drift(), err)
 		return ctrl.Result{RequeueAfter: ctrlcommon.ReconcileInterval(config.Spec.Reconcile)}, nil
@@ -88,7 +88,7 @@ func (r *FlareSolverrReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 	// Update active session count
 	if sessions, err := fc.ListSessions(ctx); err == nil {
-		config.Status.ActiveSessions = len(sessions)
+		config.Status.ActiveSessions = int32(len(sessions))
 	}
 
 	if len(syncErrors) > 0 {

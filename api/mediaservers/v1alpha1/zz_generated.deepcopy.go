@@ -115,12 +115,12 @@ func (in *JellyfinEncoding) DeepCopyInto(out *JellyfinEncoding) {
 	}
 	if in.H264Crf != nil {
 		in, out := &in.H264Crf, &out.H264Crf
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.H265Crf != nil {
 		in, out := &in.H265Crf, &out.H265Crf
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.HardwareDecodingCodecs != nil {
@@ -150,12 +150,12 @@ func (in *JellyfinEncoding) DeepCopyInto(out *JellyfinEncoding) {
 	}
 	if in.ThrottleDelaySeconds != nil {
 		in, out := &in.ThrottleDelaySeconds, &out.ThrottleDelaySeconds
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.EncodingThreadCount != nil {
 		in, out := &in.EncodingThreadCount, &out.EncodingThreadCount
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.EnableDecodingColorDepth10Hevc != nil {
@@ -230,7 +230,7 @@ func (in *JellyfinEncoding) DeepCopyInto(out *JellyfinEncoding) {
 	}
 	if in.SegmentKeepSeconds != nil {
 		in, out := &in.SegmentKeepSeconds, &out.SegmentKeepSeconds
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.EnableAudioVbr != nil {
@@ -245,12 +245,12 @@ func (in *JellyfinEncoding) DeepCopyInto(out *JellyfinEncoding) {
 	}
 	if in.MaxMuxingQueueSize != nil {
 		in, out := &in.MaxMuxingQueueSize, &out.MaxMuxingQueueSize
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.SubtitleExtractionTimeoutMinutes != nil {
 		in, out := &in.SubtitleExtractionTimeoutMinutes, &out.SubtitleExtractionTimeoutMinutes
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.AllowOnDemandMetadataBasedKeyframeExtractionForExtensions != nil {
@@ -290,7 +290,7 @@ func (in *JellyfinLibrary) DeepCopyInto(out *JellyfinLibrary) {
 	}
 	if in.AutomaticRefreshIntervalDays != nil {
 		in, out := &in.AutomaticRefreshIntervalDays, &out.AutomaticRefreshIntervalDays
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 }
@@ -412,7 +412,7 @@ func (in *JellyfinServer) DeepCopyInto(out *JellyfinServer) {
 	*out = *in
 	if in.LogFileRetentionDays != nil {
 		in, out := &in.LogFileRetentionDays, &out.LogFileRetentionDays
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.EnableGroupingMoviesIntoCollections != nil {
@@ -427,7 +427,7 @@ func (in *JellyfinServer) DeepCopyInto(out *JellyfinServer) {
 	}
 	if in.LibraryMonitorDelay != nil {
 		in, out := &in.LibraryMonitorDelay, &out.LibraryMonitorDelay
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.EnableMetrics != nil {
@@ -442,7 +442,7 @@ func (in *JellyfinServer) DeepCopyInto(out *JellyfinServer) {
 	}
 	if in.RemoteClientBitrateLimit != nil {
 		in, out := &in.RemoteClientBitrateLimit, &out.RemoteClientBitrateLimit
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.EnableGroupingShowsIntoCollections != nil {
@@ -462,47 +462,47 @@ func (in *JellyfinServer) DeepCopyInto(out *JellyfinServer) {
 	}
 	if in.MinResumePct != nil {
 		in, out := &in.MinResumePct, &out.MinResumePct
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.MaxResumePct != nil {
 		in, out := &in.MaxResumePct, &out.MaxResumePct
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.MinResumeDurationSeconds != nil {
 		in, out := &in.MinResumeDurationSeconds, &out.MinResumeDurationSeconds
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.MinAudiobookResume != nil {
 		in, out := &in.MinAudiobookResume, &out.MinAudiobookResume
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.MaxAudiobookResume != nil {
 		in, out := &in.MaxAudiobookResume, &out.MaxAudiobookResume
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.ActivityLogRetentionDays != nil {
 		in, out := &in.ActivityLogRetentionDays, &out.ActivityLogRetentionDays
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.LibraryScanFanoutConcurrency != nil {
 		in, out := &in.LibraryScanFanoutConcurrency, &out.LibraryScanFanoutConcurrency
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.LibraryMetadataRefreshConcurrency != nil {
 		in, out := &in.LibraryMetadataRefreshConcurrency, &out.LibraryMetadataRefreshConcurrency
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.ParallelImageEncodingLimit != nil {
 		in, out := &in.ParallelImageEncodingLimit, &out.ParallelImageEncodingLimit
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.EnableSlowResponseWarning != nil {
@@ -512,7 +512,7 @@ func (in *JellyfinServer) DeepCopyInto(out *JellyfinServer) {
 	}
 	if in.SlowResponseThresholdMs != nil {
 		in, out := &in.SlowResponseThresholdMs, &out.SlowResponseThresholdMs
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.TrickplayOptions != nil {
@@ -643,37 +643,37 @@ func (in *JellyfinTrickplay) DeepCopyInto(out *JellyfinTrickplay) {
 	}
 	if in.Interval != nil {
 		in, out := &in.Interval, &out.Interval
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.WidthResolutions != nil {
 		in, out := &in.WidthResolutions, &out.WidthResolutions
-		*out = make([]int, len(*in))
+		*out = make([]int32, len(*in))
 		copy(*out, *in)
 	}
 	if in.TileWidth != nil {
 		in, out := &in.TileWidth, &out.TileWidth
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.TileHeight != nil {
 		in, out := &in.TileHeight, &out.TileHeight
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.Qscale != nil {
 		in, out := &in.Qscale, &out.Qscale
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.JpegQuality != nil {
 		in, out := &in.JpegQuality, &out.JpegQuality
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.ProcessThreads != nil {
 		in, out := &in.ProcessThreads, &out.ProcessThreads
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 }
@@ -803,7 +803,7 @@ func (in *PlexNetwork) DeepCopyInto(out *PlexNetwork) {
 	}
 	if in.ManualPortMappingPort != nil {
 		in, out := &in.ManualPortMappingPort, &out.ManualPortMappingPort
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.RelayEnabled != nil {
@@ -873,7 +873,7 @@ func (in *PlexServer) DeepCopyInto(out *PlexServer) {
 	}
 	if in.LibraryScanInterval != nil {
 		in, out := &in.LibraryScanInterval, &out.LibraryScanInterval
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.ScannerLowPriority != nil {
@@ -888,17 +888,17 @@ func (in *PlexServer) DeepCopyInto(out *PlexServer) {
 	}
 	if in.VideoPlayedThreshold != nil {
 		in, out := &in.VideoPlayedThreshold, &out.VideoPlayedThreshold
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.ButlerStartHour != nil {
 		in, out := &in.ButlerStartHour, &out.ButlerStartHour
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.ButlerEndHour != nil {
 		in, out := &in.ButlerEndHour, &out.ButlerEndHour
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.ButlerTaskBackupDatabase != nil {
@@ -1068,7 +1068,7 @@ func (in *PlexTranscoder) DeepCopyInto(out *PlexTranscoder) {
 	}
 	if in.MaxSimultaneousVideoTranscodes != nil {
 		in, out := &in.MaxSimultaneousVideoTranscodes, &out.MaxSimultaneousVideoTranscodes
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.TranscodeHwEncodingEnabled != nil {
@@ -1078,7 +1078,7 @@ func (in *PlexTranscoder) DeepCopyInto(out *PlexTranscoder) {
 	}
 	if in.TranscoderThrottleBuffer != nil {
 		in, out := &in.TranscoderThrottleBuffer, &out.TranscoderThrottleBuffer
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.TranscoderHevcEncoding != nil {

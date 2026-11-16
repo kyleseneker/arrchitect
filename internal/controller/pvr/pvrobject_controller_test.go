@@ -119,7 +119,7 @@ func TestObjectAdoptsAnExistingItemWithoutOwningIt(t *testing.T) {
 
 	assert.False(t, fa.saw("POST", fa.path("downloadclient")))
 	assert.True(t, fa.sawPrefix("PUT", fa.path("downloadclient/7")))
-	assert.Equal(t, 7, got.Status.ID)
+	assert.Equal(t, int32(7), got.Status.ID)
 	assert.Empty(t, got.Status.ManagedResources["downloadClients"], "an adopted item must never be deleted with the object")
 }
 

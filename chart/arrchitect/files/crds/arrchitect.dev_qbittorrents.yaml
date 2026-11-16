@@ -157,12 +157,14 @@ spec:
                     description: |-
                       altDlLimit is the download speed limit in KiB/s while the alternative
                       limits are on. 0 means unlimited.
+                    format: int32
                     minimum: 0
                     type: integer
                   altUpLimit:
                     description: |-
                       altUpLimit is the upload speed limit in KiB/s while the alternative limits
                       are on. 0 means unlimited.
+                    format: int32
                     minimum: 0
                     type: integer
                   anonymousMode:
@@ -196,6 +198,7 @@ spec:
                   dlLimit:
                     description: dlLimit is the global download speed limit in KiB/s.
                       0 means unlimited.
+                    format: int32
                     minimum: 0
                     type: integer
                   dontCountSlowTorrents:
@@ -238,6 +241,7 @@ spec:
                     type: boolean
                   listenPort:
                     description: listenPort is the port for incoming connections.
+                    format: int32
                     maximum: 65535
                     minimum: 1
                     type: integer
@@ -250,28 +254,34 @@ spec:
                   maxActiveDownloads:
                     description: maxActiveDownloads is how many torrents can download
                       at once. -1 means unlimited.
+                    format: int32
                     type: integer
                   maxActiveTorrents:
                     description: maxActiveTorrents is how many torrents can be active
                       at once. -1 means unlimited.
+                    format: int32
                     type: integer
                   maxActiveUploads:
                     description: maxActiveUploads is how many torrents can seed at
                       once. -1 means unlimited.
+                    format: int32
                     type: integer
                   maxConnec:
                     description: maxConnec is the global maximum number of connections.
                       -1 means unlimited.
+                    format: int32
                     type: integer
                   maxConnecPerTorrent:
                     description: maxConnecPerTorrent is the maximum connections per
                       torrent. -1 means unlimited.
+                    format: int32
                     type: integer
                   maxInactiveSeedingTime:
                     description: |-
                       maxInactiveSeedingTime is the global inactive seeding time limit in
                       minutes. It applies while maxInactiveSeedingTimeEnabled is true, here or
                       in qBittorrent.
+                    format: int32
                     type: integer
                   maxInactiveSeedingTimeEnabled:
                     description: |-
@@ -300,6 +310,7 @@ spec:
                     description: |-
                       maxSeedingTime is the global seeding time limit in minutes. It applies
                       while maxSeedingTimeEnabled is true, here or in qBittorrent.
+                    format: int32
                     type: integer
                   maxSeedingTimeEnabled:
                     description: maxSeedingTimeEnabled enables the global seeding
@@ -308,10 +319,12 @@ spec:
                   maxUploads:
                     description: maxUploads is the global maximum number of upload
                       slots. -1 means unlimited.
+                    format: int32
                     type: integer
                   maxUploadsPerTorrent:
                     description: maxUploadsPerTorrent is the maximum upload slots
                       per torrent. -1 means unlimited.
+                    format: int32
                     type: integer
                   networkInterface:
                     description: |-
@@ -349,24 +362,28 @@ spec:
                   scheduleFromHour:
                     description: scheduleFromHour is the hour the alternative limits
                       start.
+                    format: int32
                     maximum: 23
                     minimum: 0
                     type: integer
                   scheduleFromMin:
                     description: scheduleFromMin is the minute the alternative limits
                       start.
+                    format: int32
                     maximum: 59
                     minimum: 0
                     type: integer
                   scheduleToHour:
                     description: scheduleToHour is the hour the alternative limits
                       end.
+                    format: int32
                     maximum: 23
                     minimum: 0
                     type: integer
                   scheduleToMin:
                     description: scheduleToMin is the minute the alternative limits
                       end.
+                    format: int32
                     maximum: 59
                     minimum: 0
                     type: integer
@@ -392,18 +409,21 @@ spec:
                     description: |-
                       slowTorrentDlRateThreshold is the download speed in KiB/s below which a
                       torrent counts as slow.
+                    format: int32
                     minimum: 0
                     type: integer
                   slowTorrentInactiveTimer:
                     description: |-
                       slowTorrentInactiveTimer is how many seconds a torrent stays under the
                       thresholds before it counts as slow.
+                    format: int32
                     minimum: 0
                     type: integer
                   slowTorrentUlRateThreshold:
                     description: |-
                       slowTorrentUlRateThreshold is the upload speed in KiB/s below which a
                       torrent counts as slow.
+                    format: int32
                     minimum: 0
                     type: integer
                   tempPath:
@@ -439,6 +459,7 @@ spec:
                   upLimit:
                     description: upLimit is the global upload speed limit in KiB/s.
                       0 means unlimited.
+                    format: int32
                     minimum: 0
                     type: integer
                   upnp:
@@ -447,6 +468,7 @@ spec:
                     type: boolean
                   webUiPort:
                     description: webUiPort is the Web UI listening port.
+                    format: int32
                     type: integer
                 type: object
               reconcile:

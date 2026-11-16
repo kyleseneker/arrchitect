@@ -82,7 +82,7 @@ func TestProwlarrApplicationReferencesItsKeyAndWarnsAboutUnmodelledFields(t *tes
 	require.Len(t, cfg.Spec.Applications, 1)
 	a := cfg.Spec.Applications[0]
 	assert.Equal(t, "http://sonarr:8989", a.BaseUrl)
-	assert.Equal(t, []int{5000, 5040}, a.SyncCategories)
+	assert.Equal(t, []int32{5000, 5040}, a.SyncCategories)
 	assert.Equal(t, "application-sonarr-api-key", a.APIKeySecretRef.Key)
 	assert.Contains(t, res.Unfilled, "application-sonarr-api-key")
 	assert.Contains(t, res.Warnings, `application "Sonarr": the config has no animeSyncCategories, so it stays as set in Prowlarr`)
@@ -92,7 +92,7 @@ func TestProwlarrProxyKeepsHostAndTimeoutOnly(t *testing.T) {
 	cfg, res := exportProwlarrFrom(t)
 	require.Len(t, cfg.Spec.Proxies, 2)
 	assert.Equal(t, "http://flaresolverr:8191/", cfg.Spec.Proxies[0].Host)
-	assert.Equal(t, 60, *cfg.Spec.Proxies[0].RequestTimeout)
+	assert.Equal(t, int32(60), *cfg.Spec.Proxies[0].RequestTimeout)
 	assert.Contains(t, res.Warnings,
 		`proxy "Socks": the config's proxies have only host and requestTimeout, so username stays as set in Prowlarr`)
 }
@@ -101,7 +101,7 @@ func TestProwlarrDownloadClientOmitsDefaultFields(t *testing.T) {
 	cfg, _ := exportProwlarrFrom(t)
 	require.Len(t, cfg.Spec.DownloadClients, 1)
 	dc := cfg.Spec.DownloadClients[0]
-	assert.Equal(t, []indexersv1alpha1.ProwlarrDownloadClientCategory{{ClientCategory: "tv", Categories: []int{5000}}}, dc.Categories)
+	assert.Equal(t, []indexersv1alpha1.ProwlarrDownloadClientCategory{{ClientCategory: "tv", Categories: []int32{5000}}}, dc.Categories)
 	names := make([]string, 0, len(dc.Fields))
 	for _, f := range dc.Fields {
 		names = append(names, f.Name)

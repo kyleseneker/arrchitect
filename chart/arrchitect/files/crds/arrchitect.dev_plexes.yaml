@@ -179,6 +179,7 @@ spec:
                   manualPortMappingPort:
                     description: manualPortMappingPort is the public port for remote
                       access.
+                    format: int32
                     maximum: 65535
                     minimum: 1
                     type: integer
@@ -269,12 +270,14 @@ spec:
                   butlerEndHour:
                     description: butlerEndHour is the hour scheduled maintenance tasks
                       must stop.
+                    format: int32
                     maximum: 23
                     minimum: 0
                     type: integer
                   butlerStartHour:
                     description: butlerStartHour is the hour scheduled maintenance
                       tasks may start.
+                    format: int32
                     maximum: 23
                     minimum: 0
                     type: integer
@@ -352,6 +355,7 @@ spec:
                     - 21600
                     - 43200
                     - 86400
+                    format: int32
                     type: integer
                   logDebug:
                     description: logDebug enables debug logging.
@@ -395,6 +399,7 @@ spec:
                     - 85
                     - 90
                     - 95
+                    format: int32
                     type: integer
                 type: object
               transcoder:
@@ -411,6 +416,7 @@ spec:
                   maxSimultaneousVideoTranscodes:
                     description: maxSimultaneousVideoTranscodes limits concurrent
                       transcodes. 0 = unlimited.
+                    format: int32
                     type: integer
                   transcodeHwEncodingEnabled:
                     description: transcodeHwEncodingEnabled enables hardware encoding.
@@ -455,6 +461,7 @@ spec:
                     description: |-
                       transcoderThrottleBuffer is how many seconds ahead of playback the
                       transcoder works before slowing down.
+                    format: int32
                     minimum: 0
                     type: integer
                 type: object

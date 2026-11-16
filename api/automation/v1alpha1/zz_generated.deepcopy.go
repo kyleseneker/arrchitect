@@ -63,7 +63,7 @@ func (in *AutobrrDownloadClient) DeepCopyInto(out *AutobrrDownloadClient) {
 	}
 	if in.Port != nil {
 		in, out := &in.Port, &out.Port
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.TLS != nil {
@@ -113,7 +113,7 @@ func (in *AutobrrFeed) DeepCopyInto(out *AutobrrFeed) {
 	}
 	if in.Interval != nil {
 		in, out := &in.Interval, &out.Interval
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 }
@@ -138,7 +138,7 @@ func (in *AutobrrFilter) DeepCopyInto(out *AutobrrFilter) {
 	}
 	if in.Priority != nil {
 		in, out := &in.Priority, &out.Priority
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.Resolutions != nil {
@@ -158,7 +158,7 @@ func (in *AutobrrFilter) DeepCopyInto(out *AutobrrFilter) {
 	}
 	if in.Delay != nil {
 		in, out := &in.Delay, &out.Delay
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.UseRegex != nil {
@@ -248,27 +248,27 @@ func (in *AutobrrFilter) DeepCopyInto(out *AutobrrFilter) {
 	}
 	if in.MaxDownloads != nil {
 		in, out := &in.MaxDownloads, &out.MaxDownloads
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.MinSeeders != nil {
 		in, out := &in.MinSeeders, &out.MinSeeders
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.MaxSeeders != nil {
 		in, out := &in.MaxSeeders, &out.MaxSeeders
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.MinLeechers != nil {
 		in, out := &in.MinLeechers, &out.MinLeechers
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.MaxLeechers != nil {
 		in, out := &in.MaxLeechers, &out.MaxLeechers
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.ExceptTags != nil {
@@ -313,7 +313,7 @@ func (in *AutobrrFilter) DeepCopyInto(out *AutobrrFilter) {
 	}
 	if in.LogScore != nil {
 		in, out := &in.LogScore, &out.LogScore
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.Actions != nil {
@@ -365,12 +365,12 @@ func (in *AutobrrFilterAction) DeepCopyInto(out *AutobrrFilterAction) {
 	}
 	if in.LimitUploadSpeed != nil {
 		in, out := &in.LimitUploadSpeed, &out.LimitUploadSpeed
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.LimitDownloadSpeed != nil {
 		in, out := &in.LimitDownloadSpeed, &out.LimitDownloadSpeed
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.LimitRatio != nil {
@@ -380,7 +380,7 @@ func (in *AutobrrFilterAction) DeepCopyInto(out *AutobrrFilterAction) {
 	}
 	if in.LimitSeedTime != nil {
 		in, out := &in.LimitSeedTime, &out.LimitSeedTime
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.ReannounceSkip != nil {
@@ -395,12 +395,12 @@ func (in *AutobrrFilterAction) DeepCopyInto(out *AutobrrFilterAction) {
 	}
 	if in.ReannounceInterval != nil {
 		in, out := &in.ReannounceInterval, &out.ReannounceInterval
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.ReannounceMaxAttempts != nil {
 		in, out := &in.ReannounceMaxAttempts, &out.ReannounceMaxAttempts
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.WebhookHeaders != nil {

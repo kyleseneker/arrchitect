@@ -84,7 +84,7 @@ type AutobrrDownloadClient struct {
 
 	// port is the port of the download client.
 	// +optional
-	Port *int `json:"port,omitempty"`
+	Port *int32 `json:"port,omitempty"`
 
 	// tls enables TLS for the connection.
 	// +optional
@@ -148,7 +148,7 @@ type AutobrrIRCNetwork struct {
 
 	// port is the IRC server port.
 	// +required
-	Port int `json:"port"`
+	Port int32 `json:"port"`
 
 	// tls enables TLS for the IRC connection.
 	// +optional
@@ -221,7 +221,7 @@ type AutobrrFeed struct {
 	// interval is the feed polling interval in minutes. A new feed polls every
 	// 15 minutes unless this is set.
 	// +optional
-	Interval *int `json:"interval,omitempty"`
+	Interval *int32 `json:"interval,omitempty"`
 
 	// indexerRef is the name of the indexer this feed belongs to: a torznab,
 	// newznab or rss indexer declared under indexers.
@@ -242,7 +242,7 @@ type AutobrrFilter struct {
 
 	// priority controls filter evaluation order. Lower values are evaluated first.
 	// +optional
-	Priority *int `json:"priority,omitempty"`
+	Priority *int32 `json:"priority,omitempty"`
 
 	// matchReleases is a comma-separated list of release name patterns to match (supports wildcards).
 	// +optional
@@ -281,7 +281,7 @@ type AutobrrFilter struct {
 
 	// delay is the delay in seconds before grabbing a matched release.
 	// +optional
-	Delay *int `json:"delay,omitempty"`
+	Delay *int32 `json:"delay,omitempty"`
 
 	// useRegex enables regex matching for release patterns.
 	// +optional
@@ -431,7 +431,7 @@ type AutobrrFilter struct {
 	// maxDownloads caps how many releases the filter grabs per maxDownloadsUnit.
 	// +optional
 	// +kubebuilder:validation:Minimum=0
-	MaxDownloads *int `json:"maxDownloads,omitempty"`
+	MaxDownloads *int32 `json:"maxDownloads,omitempty"`
 
 	// maxDownloadsUnit is the period maxDownloads counts over.
 	// +optional
@@ -441,22 +441,22 @@ type AutobrrFilter struct {
 	// minSeeders is the fewest seeders a release may have.
 	// +optional
 	// +kubebuilder:validation:Minimum=0
-	MinSeeders *int `json:"minSeeders,omitempty"`
+	MinSeeders *int32 `json:"minSeeders,omitempty"`
 
 	// maxSeeders is the most seeders a release may have.
 	// +optional
 	// +kubebuilder:validation:Minimum=0
-	MaxSeeders *int `json:"maxSeeders,omitempty"`
+	MaxSeeders *int32 `json:"maxSeeders,omitempty"`
 
 	// minLeechers is the fewest leechers a release may have.
 	// +optional
 	// +kubebuilder:validation:Minimum=0
-	MinLeechers *int `json:"minLeechers,omitempty"`
+	MinLeechers *int32 `json:"minLeechers,omitempty"`
 
 	// maxLeechers is the most leechers a release may have.
 	// +optional
 	// +kubebuilder:validation:Minimum=0
-	MaxLeechers *int `json:"maxLeechers,omitempty"`
+	MaxLeechers *int32 `json:"maxLeechers,omitempty"`
 
 	// exceptTags is a list of tags to skip.
 	// +optional
@@ -521,7 +521,7 @@ type AutobrrFilter struct {
 	// +optional
 	// +kubebuilder:validation:Minimum=0
 	// +kubebuilder:validation:Maximum=100
-	LogScore *int `json:"logScore,omitempty"`
+	LogScore *int32 `json:"logScore,omitempty"`
 
 	// actions defines what to do when a release matches this filter.
 	// +optional
@@ -615,12 +615,12 @@ type AutobrrFilterAction struct {
 	// limitUploadSpeed caps the torrent's upload speed, in KiB/s.
 	// +optional
 	// +kubebuilder:validation:Minimum=0
-	LimitUploadSpeed *int `json:"limitUploadSpeed,omitempty"`
+	LimitUploadSpeed *int32 `json:"limitUploadSpeed,omitempty"`
 
 	// limitDownloadSpeed caps the torrent's download speed, in KiB/s.
 	// +optional
 	// +kubebuilder:validation:Minimum=0
-	LimitDownloadSpeed *int `json:"limitDownloadSpeed,omitempty"`
+	LimitDownloadSpeed *int32 `json:"limitDownloadSpeed,omitempty"`
 
 	// limitRatio is the share ratio at which the torrent stops seeding.
 	// +optional
@@ -629,7 +629,7 @@ type AutobrrFilterAction struct {
 	// limitSeedTime is how many minutes the torrent seeds.
 	// +optional
 	// +kubebuilder:validation:Minimum=0
-	LimitSeedTime *int `json:"limitSeedTime,omitempty"`
+	LimitSeedTime *int32 `json:"limitSeedTime,omitempty"`
 
 	// reannounceSkip adds the torrent without waiting for it to announce.
 	// +optional
@@ -642,12 +642,12 @@ type AutobrrFilterAction struct {
 	// reannounceInterval is how many seconds to wait between reannounce attempts.
 	// +optional
 	// +kubebuilder:validation:Minimum=1
-	ReannounceInterval *int `json:"reannounceInterval,omitempty"`
+	ReannounceInterval *int32 `json:"reannounceInterval,omitempty"`
 
 	// reannounceMaxAttempts is how many times to reannounce.
 	// +optional
 	// +kubebuilder:validation:Minimum=1
-	ReannounceMaxAttempts *int `json:"reannounceMaxAttempts,omitempty"`
+	ReannounceMaxAttempts *int32 `json:"reannounceMaxAttempts,omitempty"`
 
 	// webhookType is the content type the webhook sends, such as JSON.
 	// +optional

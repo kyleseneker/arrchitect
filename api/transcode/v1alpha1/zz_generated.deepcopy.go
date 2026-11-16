@@ -102,7 +102,7 @@ func (in *TdarrLibrary) DeepCopyInto(out *TdarrLibrary) {
 	}
 	if in.FolderWatchScanInterval != nil {
 		in, out := &in.FolderWatchScanInterval, &out.FolderWatchScanInterval
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.FolderWatching != nil {
@@ -137,7 +137,7 @@ func (in *TdarrLibrary) DeepCopyInto(out *TdarrLibrary) {
 	}
 	if in.ScannerThreadCount != nil {
 		in, out := &in.ScannerThreadCount, &out.ScannerThreadCount
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.FFmpeg != nil {
@@ -147,7 +147,7 @@ func (in *TdarrLibrary) DeepCopyInto(out *TdarrLibrary) {
 	}
 	if in.Priority != nil {
 		in, out := &in.Priority, &out.Priority
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.PluginStack != nil {
@@ -216,7 +216,7 @@ func (in *TdarrSettings) DeepCopyInto(out *TdarrSettings) {
 	}
 	if in.StagedFileLimit != nil {
 		in, out := &in.StagedFileLimit, &out.StagedFileLimit
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.AutoPauseIfCacheFull != nil {
@@ -226,7 +226,7 @@ func (in *TdarrSettings) DeepCopyInto(out *TdarrSettings) {
 	}
 	if in.AutoPauseIfCacheFullThreshold != nil {
 		in, out := &in.AutoPauseIfCacheFullThreshold, &out.AutoPauseIfCacheFullThreshold
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.WorkerStallDetector != nil {
@@ -236,7 +236,7 @@ func (in *TdarrSettings) DeepCopyInto(out *TdarrSettings) {
 	}
 	if in.WorkerStallDetectorInterval != nil {
 		in, out := &in.WorkerStallDetectorInterval, &out.WorkerStallDetectorInterval
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.IgnoreSchedules != nil {
@@ -276,12 +276,12 @@ func (in *TdarrSettings) DeepCopyInto(out *TdarrSettings) {
 	}
 	if in.JobHistorySizeLimitGB != nil {
 		in, out := &in.JobHistorySizeLimitGB, &out.JobHistorySizeLimitGB
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.BackupLimit != nil {
 		in, out := &in.BackupLimit, &out.BackupLimit
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.LogFullCliOutput != nil {
@@ -450,22 +450,22 @@ func (in *TdarrWorkers) DeepCopyInto(out *TdarrWorkers) {
 	*out = *in
 	if in.TranscodeGPU != nil {
 		in, out := &in.TranscodeGPU, &out.TranscodeGPU
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.TranscodeCPU != nil {
 		in, out := &in.TranscodeCPU, &out.TranscodeCPU
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.HealthcheckGPU != nil {
 		in, out := &in.HealthcheckGPU, &out.HealthcheckGPU
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.HealthcheckCPU != nil {
 		in, out := &in.HealthcheckCPU, &out.HealthcheckCPU
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 }

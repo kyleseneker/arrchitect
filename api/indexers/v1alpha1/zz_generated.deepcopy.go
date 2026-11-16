@@ -235,7 +235,7 @@ func (in *ProwlarrAppProfile) DeepCopyInto(out *ProwlarrAppProfile) {
 	}
 	if in.MinimumSeeders != nil {
 		in, out := &in.MinimumSeeders, &out.MinimumSeeders
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 }
@@ -256,7 +256,7 @@ func (in *ProwlarrApplication) DeepCopyInto(out *ProwlarrApplication) {
 	out.APIKeySecretRef = in.APIKeySecretRef
 	if in.SyncCategories != nil {
 		in, out := &in.SyncCategories, &out.SyncCategories
-		*out = make([]int, len(*in))
+		*out = make([]int32, len(*in))
 		copy(*out, *in)
 	}
 	if in.TagLabels != nil {
@@ -286,7 +286,7 @@ func (in *ProwlarrDownloadClient) DeepCopyInto(out *ProwlarrDownloadClient) {
 	}
 	if in.Priority != nil {
 		in, out := &in.Priority, &out.Priority
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.Categories != nil {
@@ -325,7 +325,7 @@ func (in *ProwlarrDownloadClientCategory) DeepCopyInto(out *ProwlarrDownloadClie
 	*out = *in
 	if in.Categories != nil {
 		in, out := &in.Categories, &out.Categories
-		*out = make([]int, len(*in))
+		*out = make([]int32, len(*in))
 		copy(*out, *in)
 	}
 }
@@ -350,12 +350,12 @@ func (in *ProwlarrIndexer) DeepCopyInto(out *ProwlarrIndexer) {
 	}
 	if in.AppProfileId != nil {
 		in, out := &in.AppProfileId, &out.AppProfileId
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.Priority != nil {
 		in, out := &in.Priority, &out.Priority
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.Fields != nil {
@@ -419,7 +419,7 @@ func (in *ProwlarrProxy) DeepCopyInto(out *ProwlarrProxy) {
 	*out = *in
 	if in.RequestTimeout != nil {
 		in, out := &in.RequestTimeout, &out.RequestTimeout
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.TagLabels != nil {

@@ -566,7 +566,7 @@ func syncJellyfinLibraries(ctx context.Context, sc *seerrclient.Client, w *engin
 func reconcileSeerrJellyfin(ctx context.Context, sc *seerrclient.Client, w *engine.Writes, auth *requestsv1alpha1.SeerrJellyfinAuth) error {
 	port := 0
 	if auth.Port != nil {
-		port = *auth.Port
+		port = int(*auth.Port)
 	}
 	payload := map[string]any{
 		"ip":      auth.Hostname,
@@ -599,7 +599,7 @@ func syncPlexLibraries(ctx context.Context, sc *seerrclient.Client, w *engine.Wr
 func reconcileSeerrPlex(ctx context.Context, sc *seerrclient.Client, w *engine.Writes, auth *requestsv1alpha1.SeerrPlexAuth) error {
 	port := 32400
 	if auth.Port != nil {
-		port = *auth.Port
+		port = int(*auth.Port)
 	}
 	payload := map[string]any{
 		"ip":     auth.Hostname,
@@ -683,7 +683,7 @@ func (r *SeerrReconciler) authenticate(ctx context.Context, sc *seerrclient.Clie
 		}
 		jfPort := 0
 		if config.Spec.JellyfinAuth.Port != nil {
-			jfPort = *config.Spec.JellyfinAuth.Port
+			jfPort = int(*config.Spec.JellyfinAuth.Port)
 		}
 		useSsl := config.Spec.JellyfinAuth.UseSsl != nil && *config.Spec.JellyfinAuth.UseSsl
 		configured, err := sc.MediaServerConfigured(ctx)

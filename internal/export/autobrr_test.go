@@ -58,7 +58,7 @@ func TestAutobrrExportsEachResourceWithSecretsInTheSecret(t *testing.T) {
 	require.Len(t, cfg.Spec.DownloadClients, 2)
 	dc := cfg.Spec.DownloadClients[0]
 	assert.Equal(t, "qBittorrent", dc.Type)
-	assert.Equal(t, 8080, *dc.Port)
+	assert.Equal(t, int32(8080), *dc.Port)
 	assert.Equal(t, "admin", res.Secret.StringData[dc.UsernameSecretRef.Key])
 	assert.Contains(t, res.Unfilled, dc.PasswordSecretRef.Key)
 	assert.Nil(t, dc.APIKeySecretRef)
@@ -75,7 +75,7 @@ func TestAutobrrExportsEachResourceWithSecretsInTheSecret(t *testing.T) {
 
 	require.Len(t, cfg.Spec.Feeds, 1)
 	feed := cfg.Spec.Feeds[0]
-	assert.Equal(t, 15, *feed.Interval)
+	assert.Equal(t, int32(15), *feed.Interval)
 	assert.Equal(t, "Torznab", feed.Type)
 	assert.Equal(t, "Feed", feed.IndexerRef)
 	require.Len(t, cfg.Spec.Indexers, 2)
@@ -101,11 +101,11 @@ func TestAutobrrExportsEachResourceWithSecretsInTheSecret(t *testing.T) {
 
 	assert.Equal(t, []string{"cam"}, filter.ExceptTags)
 	assert.Equal(t, []string{"DV"}, filter.MatchHdr)
-	assert.Equal(t, 5, *filter.MaxDownloads)
+	assert.Equal(t, int32(5), *filter.MaxDownloads)
 	assert.Equal(t, "DAY", filter.MaxDownloadsUnit)
 	assert.Nil(t, filter.Freeleech, "Autobrr's empty defaults aren't exported")
 	assert.Nil(t, filter.MinSeeders)
-	assert.Equal(t, 1, *filter.Priority)
+	assert.Equal(t, int32(1), *filter.Priority)
 	action := filter.Actions[0]
 	assert.Equal(t, "1.5", string(*action.LimitRatio))
 	assert.Equal(t, "SUBFOLDER_CREATE", action.ContentLayout)

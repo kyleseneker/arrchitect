@@ -160,11 +160,11 @@ type RadarrMediaManagement struct {
 
 	// recycleBinCleanupDays is how many days files stay in the recycling bin.
 	// +optional
-	RecycleBinCleanupDays *int `json:"recycleBinCleanupDays,omitempty"`
+	RecycleBinCleanupDays *int32 `json:"recycleBinCleanupDays,omitempty"`
 
 	// minimumFreeSpaceWhenImporting is the minimum free space in MB required to import.
 	// +optional
-	MinimumFreeSpaceWhenImporting *int `json:"minimumFreeSpaceWhenImporting,omitempty"`
+	MinimumFreeSpaceWhenImporting *int32 `json:"minimumFreeSpaceWhenImporting,omitempty"`
 
 	// enableMediaInfo enables media info scanning.
 	// +optional
@@ -212,19 +212,19 @@ type RadarrNaming struct {
 type RadarrIndexerConfig struct {
 	// minimumAge is the minimum age in minutes before downloading.
 	// +optional
-	MinimumAge *int `json:"minimumAge,omitempty"`
+	MinimumAge *int32 `json:"minimumAge,omitempty"`
 
 	// retention is the usenet retention in days. 0 means unlimited.
 	// +optional
-	Retention *int `json:"retention,omitempty"`
+	Retention *int32 `json:"retention,omitempty"`
 
 	// maximumSize is the maximum release size in MB. 0 means unlimited.
 	// +optional
-	MaximumSize *int `json:"maximumSize,omitempty"`
+	MaximumSize *int32 `json:"maximumSize,omitempty"`
 
 	// rssSyncInterval is the RSS sync interval in minutes. 0 disables RSS.
 	// +optional
-	RssSyncInterval *int `json:"rssSyncInterval,omitempty"`
+	RssSyncInterval *int32 `json:"rssSyncInterval,omitempty"`
 
 	// preferIndexerFlags prefers releases with indexer flags.
 	// +optional
@@ -232,7 +232,7 @@ type RadarrIndexerConfig struct {
 
 	// availabilityDelay is the number of days to wait after a movie is available before searching.
 	// +optional
-	AvailabilityDelay *int `json:"availabilityDelay,omitempty"`
+	AvailabilityDelay *int32 `json:"availabilityDelay,omitempty"`
 
 	// allowHardcodedSubs allows importing releases with hardcoded subtitles.
 	// +optional
@@ -259,7 +259,7 @@ type RadarrDownloadClientConfig struct {
 
 	// checkForFinishedDownloadInterval is the interval in minutes to check for finished downloads.
 	// +optional
-	CheckForFinishedDownloadInterval *int `json:"checkForFinishedDownloadInterval,omitempty"`
+	CheckForFinishedDownloadInterval *int32 `json:"checkForFinishedDownloadInterval,omitempty"`
 }
 
 // RadarrUI configures UI display settings.
@@ -268,7 +268,7 @@ type RadarrUI struct {
 	// +optional
 	// +kubebuilder:validation:Minimum=0
 	// +kubebuilder:validation:Maximum=1
-	FirstDayOfWeek *int `json:"firstDayOfWeek,omitempty"`
+	FirstDayOfWeek *int32 `json:"firstDayOfWeek,omitempty"`
 
 	// shortDateFormat is the short date display format.
 	// +optional
@@ -297,7 +297,7 @@ type RadarrUI struct {
 
 	// uiLanguage is the UI language ID. 1=English.
 	// +optional
-	UILanguage *int `json:"uiLanguage,omitempty"`
+	UILanguage *int32 `json:"uiLanguage,omitempty"`
 
 	// movieRuntimeFormat controls how movie runtimes are displayed.
 	// +optional
@@ -306,7 +306,7 @@ type RadarrUI struct {
 
 	// movieInfoLanguage is the language ID for movie information. -1=Original.
 	// +optional
-	MovieInfoLanguage *int `json:"movieInfoLanguage,omitempty"`
+	MovieInfoLanguage *int32 `json:"movieInfoLanguage,omitempty"`
 }
 
 // RadarrStatus defines the observed state of Radarr.
