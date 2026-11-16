@@ -5,6 +5,13 @@ on:
   push:
     branches: [main]
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   lint:
     runs-on: ubuntu-latest
@@ -25,20 +32,19 @@ jobs:
         with:
           go-version-file: go.mod
       - run: make test
-      - run: make verify-crds
 
-  envtest:
+  verify-crds:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
-      - run: make test-envtest
+      - run: make verify-crds
 
   # Breaking CRD changes are allowed while the API is v1alpha1, so this reports
   # them for the release's upgrade notes rather than failing the run.
-  crd-compat:
+  verify-crd-compat:
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
@@ -50,8 +56,16 @@ jobs:
           go-version-file: go.mod
       - run: make verify-crd-compat
 
-  compat:
-    name: compat (${{ matrix.versions }})
+  test-chart:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: helm/chart-testing-action@720270857a28afd41e2426521a7801db09e9b510 # v2.9.0
+      - run: ct lint --config ct.yaml --all
+      - run: make test-chart
+
+  test-compat:
+    name: test-compat (${{ matrix.versions }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -66,15 +80,7 @@ jobs:
         env:
           COMPAT_VERSIONS: ${{ matrix.versions }}
 
-  chart:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: helm/chart-testing-action@720270857a28afd41e2426521a7801db09e9b510 # v2.9.0
-      - run: ct lint --config ct.yaml --all
-      - run: make test-chart
-
-  e2e:
+  test-e2e:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

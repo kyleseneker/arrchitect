@@ -37,35 +37,16 @@ all: build
 
 .PHONY: help
 help: ## Display this help.
-	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_0-9-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
+	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_0-9-]+:.*?##/ { printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
 
 ##@ Development
 
 .PHONY: manifests
-manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
+manifests: controller-gen ## Generate the CRDs and the operator's ClusterRole from the API types and markers.
 	"$(CONTROLLER_GEN)" rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 
-CHART_CRDS = chart/arrchitect/files/crds
-
-.PHONY: sync-crds
-sync-crds: manifests ## Copy generated CRDs into the Helm chart, kept on uninstall.
-	@mkdir -p $(CHART_CRDS)
-	@for f in config/crd/bases/*.yaml; do \
-		awk '/^    controller-gen.kubebuilder.io\/version:/ {print "    helm.sh/resource-policy: keep"} {print}' $$f > $(CHART_CRDS)/$$(basename $$f); \
-	done
-	@echo "CRDs synced into $(CHART_CRDS)"
-
-.PHONY: verify-crds
-verify-crds: sync-crds ## Fail if chart CRDs drift from generated CRDs.
-	@if [ -n "$$(git status --porcelain $(CHART_CRDS))" ]; then \
-		echo "chart CRDs are out of date; run 'make sync-crds' and commit"; \
-		git --no-pager diff --stat $(CHART_CRDS); \
-		exit 1; \
-	fi
-	@echo "chart CRDs are up to date"
-
 .PHONY: generate
-generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
+generate: controller-gen ## Generate the API types' DeepCopy methods.
 	"$(CONTROLLER_GEN)" object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
 .PHONY: fmt
@@ -77,32 +58,23 @@ vet: ## Run go vet against code.
 	go vet ./...
 
 .PHONY: test
-test: manifests generate fmt vet ## Run tests.
-	go test ./... -coverprofile cover.out
-
-.PHONY: test-envtest
-test-envtest: manifests generate setup-envtest ## Apply every sample to a real kube-apiserver.
+test: manifests generate fmt vet setup-envtest ## Run the unit tests and the envtest tests against a real kube-apiserver.
 	KUBEBUILDER_ASSETS="$$('$(ENVTEST)' use $(ENVTEST_K8S_VERSION) --bin-dir '$(LOCALBIN)' -p path)" \
-		go test ./test/envtest/... -count=1
+		go test ./... -coverprofile cover.out
 
 .PHONY: test-chart
 test-chart: helm-unittest ## Run the chart's helm-unittest suites.
 	HELM_PLUGINS="$(HELM_PLUGINS)" helm unittest chart/arrchitect
 
-.PHONY: verify-crd-compat
-verify-crd-compat: manifests crdify ## Report CRD changes since the last release that existing resources could break on. PREVIOUS_REF= picks another release.
-	@prev="$${PREVIOUS_REF:-$$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null)}"; \
-	if [ -z "$$prev" ]; then echo "No earlier release to compare with; skipping."; exit 0; fi; \
-	echo "Comparing CRDs with $$prev"; status=0; \
-	for crd in config/crd/bases/*.yaml; do \
-		git cat-file -e "$$prev:$$crd" 2>/dev/null || { echo "$$crd: new since $$prev"; continue; }; \
-		out="$$("$(CRDIFY)" "git://$$prev?path=$$crd" "file://$$crd" 2>&1)" || { status=1; printf '\n%s\n%s\n' "$$crd" "$$out"; }; \
-	done; \
-	exit $$status
+.PHONY: test-compat
+test-compat: manifests generate setup-envtest ## Reconcile every app running in a container (needs docker, or CONTAINER_TOOL=podman). COMPAT_VERSIONS=previous for the previous versions, COMPAT_RUN=TestSonarr to narrow.
+	$(if $(filter podman,$(CONTAINER_TOOL)),DOCKER_HOST="unix://$$(podman machine inspect --format '{{.ConnectionInfo.PodmanSocket.Path}}')" TESTCONTAINERS_RYUK_DISABLED=true) \
+	KUBEBUILDER_ASSETS="$$('$(ENVTEST)' use $(ENVTEST_K8S_VERSION) --bin-dir '$(LOCALBIN)' -p path)" \
+		go test -tags=compat ./test/compat/... -count=1 -v -timeout 45m -run '$(COMPAT_RUN)'
 
 .PHONY: test-e2e
 test-e2e: IMG = arrchitect:e2e
-test-e2e: kind chainsaw docker-build ## Run the Chainsaw tests in a throwaway kind cluster, against a real Sonarr (needs docker). The cluster's kubeconfig is a temporary file.
+test-e2e: kind chainsaw docker-build ## Run the Chainsaw tests in a throwaway kind cluster (needs docker). Its kubeconfig is a temporary file.
 	@dir="$$(mktemp -d)"; export KUBECONFIG="$$dir/kubeconfig"; \
 	trap '"$(KIND)" delete cluster --name $(KIND_CLUSTER); rm -rf "$$dir"' EXIT; \
 	"$(KIND)" create cluster --name $(KIND_CLUSTER) --wait 120s; \
@@ -110,12 +82,6 @@ test-e2e: kind chainsaw docker-build ## Run the Chainsaw tests in a throwaway ki
 	SONARR_IMAGE="$$(sed -n 's/^[[:space:]]*sonarrImage = "\(.*\)"$$/\1/p' test/compat/images_test.go)" \
 	PREVIOUS_RELEASE="$$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null)" \
 		"$(CHAINSAW)" test --config test/e2e/.chainsaw.yaml --test-dir test/e2e
-
-.PHONY: test-compat
-test-compat: manifests generate setup-envtest ## Reconcile every integration against pinned application containers (needs docker, or CONTAINER_TOOL=podman). Narrow with COMPAT_RUN=TestSonarr.
-	$(if $(filter podman,$(CONTAINER_TOOL)),DOCKER_HOST="unix://$$(podman machine inspect --format '{{.ConnectionInfo.PodmanSocket.Path}}')" TESTCONTAINERS_RYUK_DISABLED=true) \
-	KUBEBUILDER_ASSETS="$$('$(ENVTEST)' use $(ENVTEST_K8S_VERSION) --bin-dir '$(LOCALBIN)' -p path)" \
-		go test -tags=compat ./test/compat/... -count=1 -v -timeout 45m -run '$(COMPAT_RUN)'
 
 .PHONY: lint
 lint: golangci-lint ## Run golangci-lint linter
@@ -128,6 +94,36 @@ lint-fix: golangci-lint ## Run golangci-lint linter and perform fixes
 .PHONY: lint-config
 lint-config: golangci-lint ## Verify golangci-lint linter configuration
 	"$(GOLANGCI_LINT)" config verify
+
+CHART_CRDS = chart/arrchitect/files/crds
+
+.PHONY: sync-crds
+sync-crds: manifests ## Copy the generated CRDs into the chart, kept on uninstall.
+	@mkdir -p $(CHART_CRDS)
+	@for f in config/crd/bases/*.yaml; do \
+		awk '/^    controller-gen.kubebuilder.io\/version:/ {print "    helm.sh/resource-policy: keep"} {print}' $$f > $(CHART_CRDS)/$$(basename $$f); \
+	done
+	@echo "CRDs synced into $(CHART_CRDS)"
+
+.PHONY: verify-crds
+verify-crds: sync-crds ## Fail if the chart's CRDs differ from the generated ones.
+	@if [ -n "$$(git status --porcelain $(CHART_CRDS))" ]; then \
+		echo "chart CRDs are out of date; run 'make sync-crds' and commit"; \
+		git --no-pager diff --stat $(CHART_CRDS); \
+		exit 1; \
+	fi
+	@echo "chart CRDs are up to date"
+
+.PHONY: verify-crd-compat
+verify-crd-compat: manifests crdify ## Report CRD changes since the last release that existing resources could break on. PREVIOUS_REF= picks another release.
+	@prev="$${PREVIOUS_REF:-$$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null)}"; \
+	if [ -z "$$prev" ]; then echo "No earlier release to compare with; skipping."; exit 0; fi; \
+	echo "Comparing CRDs with $$prev"; status=0; \
+	for crd in config/crd/bases/*.yaml; do \
+		git cat-file -e "$$prev:$$crd" 2>/dev/null || { echo "$$crd: new since $$prev"; continue; }; \
+		out="$$("$(CRDIFY)" "git://$$prev?path=$$crd" "file://$$crd" 2>&1)" || { status=1; printf '\n%s\n%s\n' "$$crd" "$$out"; }; \
+	done; \
+	exit $$status
 
 ##@ Build
 
@@ -152,7 +148,7 @@ docker-build: ## Build the operator's image, or the CLI's with BINARY=cli, for A
 	$(CONTAINER_TOOL) build --platform linux/$(ARCH) --build-arg BINARY=arrchitect-$(BINARY) -f Dockerfile -t ${IMG} bin/image
 
 .PHONY: docker-push
-docker-push: ## Push docker image with the manager.
+docker-push: ## Push the image built by docker-build.
 	$(CONTAINER_TOOL) push ${IMG}
 
 ##@ Dependencies
@@ -196,27 +192,6 @@ ENVTEST_K8S_VERSION ?= $(shell v='$(call gomodver,k8s.io/api)'; \
 
 # renovate: datasource=github-releases depName=golangci/golangci-lint
 GOLANGCI_LINT_VERSION ?= v2.15.0
-.PHONY: helm-unittest
-helm-unittest: ## Install the helm-unittest plugin into bin if necessary.
-	@HELM_PLUGINS="$(HELM_PLUGINS)" helm plugin list 2>/dev/null | grep -Eq "^unittest[[:space:]]+$(HELM_UNITTEST_VERSION:v%=%)[[:space:]]" || { \
-		HELM_PLUGINS="$(HELM_PLUGINS)" helm plugin uninstall unittest >/dev/null 2>&1 || true; \
-		HELM_PLUGINS="$(HELM_PLUGINS)" helm plugin install https://github.com/helm-unittest/helm-unittest.git \
-			--version $(HELM_UNITTEST_VERSION) $$(helm version --short | grep -q '^v4' && echo --verify=false); }
-
-.PHONY: chainsaw
-chainsaw: $(CHAINSAW) ## Download chainsaw locally if necessary.
-$(CHAINSAW): $(LOCALBIN)
-	$(call go-install-tool,$(CHAINSAW),github.com/kyverno/chainsaw,$(CHAINSAW_VERSION))
-
-.PHONY: crdify
-crdify: $(CRDIFY) ## Download crdify locally if necessary.
-$(CRDIFY): $(LOCALBIN)
-	$(call go-install-tool,$(CRDIFY),sigs.k8s.io/crdify,$(CRDIFY_VERSION))
-
-.PHONY: kind
-kind: $(KIND) ## Download kind locally if necessary.
-$(KIND): $(LOCALBIN)
-	$(call go-install-tool,$(KIND),sigs.k8s.io/kind,$(KIND_VERSION))
 
 .PHONY: controller-gen
 controller-gen: $(CONTROLLER_GEN) ## Download controller-gen locally if necessary.
@@ -245,6 +220,28 @@ $(GOLANGCI_LINT): $(LOCALBIN)
 		$(GOLANGCI_LINT) custom --destination $(LOCALBIN) --name golangci-lint-custom && \
 		mv -f $(LOCALBIN)/golangci-lint-custom $(GOLANGCI_LINT); \
 	} || true
+
+.PHONY: helm-unittest
+helm-unittest: ## Install the helm-unittest plugin into bin if necessary.
+	@HELM_PLUGINS="$(HELM_PLUGINS)" helm plugin list 2>/dev/null | grep -Eq "^unittest[[:space:]]+$(HELM_UNITTEST_VERSION:v%=%)[[:space:]]" || { \
+		HELM_PLUGINS="$(HELM_PLUGINS)" helm plugin uninstall unittest >/dev/null 2>&1 || true; \
+		HELM_PLUGINS="$(HELM_PLUGINS)" helm plugin install https://github.com/helm-unittest/helm-unittest.git \
+			--version $(HELM_UNITTEST_VERSION) $$(helm version --short | grep -q '^v4' && echo --verify=false); }
+
+.PHONY: chainsaw
+chainsaw: $(CHAINSAW) ## Download chainsaw locally if necessary.
+$(CHAINSAW): $(LOCALBIN)
+	$(call go-install-tool,$(CHAINSAW),github.com/kyverno/chainsaw,$(CHAINSAW_VERSION))
+
+.PHONY: crdify
+crdify: $(CRDIFY) ## Download crdify locally if necessary.
+$(CRDIFY): $(LOCALBIN)
+	$(call go-install-tool,$(CRDIFY),sigs.k8s.io/crdify,$(CRDIFY_VERSION))
+
+.PHONY: kind
+kind: $(KIND) ## Download kind locally if necessary.
+$(KIND): $(LOCALBIN)
+	$(call go-install-tool,$(KIND),sigs.k8s.io/kind,$(KIND_VERSION))
 
 # go-install-tool will 'go install' any package with custom target and name of binary, if it doesn't exist
 # $1 - target path with name of binary

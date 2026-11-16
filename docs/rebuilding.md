@@ -69,11 +69,11 @@ paths. Do not run destructive rebuild tests against a production database.
    the dependency.
 
 The regular Go suite covers these ordering/failure cases with stateful HTTP
-fixtures. `make test-envtest` checks Kubernetes schema acceptance. `make test-compat`
+fixtures, and its envtest tests check Kubernetes schema acceptance. `make test-compat`
 reconciles every integration against fresh containers of the application releases
-pinned in [test/compat/images_test.go](../test/compat/images_test.go), reads the
-settings back and checks that a second pass makes no writes. It does not cover
-releases other than the pinned ones.
+pinned in [test/compat/images_test.go](../test/compat/images_test.go), current and
+previous, reads the settings back and checks that a second pass makes no writes. It
+does not cover releases other than the pinned ones.
 
 ## Remaining rebuild limitations
 

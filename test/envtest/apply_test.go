@@ -5,8 +5,7 @@
 // which never talk to an API server. This applies every committed sample and
 // example so those failures surface here instead of in someone's cluster.
 //
-// Skipped unless KUBEBUILDER_ASSETS is set, so `make test` stays hermetic.
-// Run it with `make test-envtest`.
+// Skipped unless KUBEBUILDER_ASSETS is set, which `make test` does.
 package envtest
 
 import (
@@ -34,7 +33,7 @@ const group = "arrchitect.dev/v1alpha1"
 
 func TestSamplesApply(t *testing.T) {
 	if os.Getenv("KUBEBUILDER_ASSETS") == "" {
-		t.Skip("KUBEBUILDER_ASSETS unset; run via `make test-envtest`")
+		t.Skip("KUBEBUILDER_ASSETS unset; run via `make test`")
 	}
 
 	env := &envtest.Environment{
