@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package v1alpha1 contains API Schema definitions for the subtitles v1alpha1 API group.
+// Package v1alpha1 contains the arrchitect.dev/v1alpha1 kinds for Bazarr.
 // +kubebuilder:object:generate=true
 // +groupName=arrchitect.dev
 package v1alpha1

@@ -114,6 +114,18 @@ verify-crds: sync-crds ## Fail if the chart's CRDs differ from the generated one
 	fi
 	@echo "chart CRDs are up to date"
 
+.PHONY: api-docs
+api-docs: crd-ref-docs ## Generate the API reference in docs/api.md from the API types.
+	"$(CRD_REF_DOCS)" --source-path=./api --config=hack/api-docs.yaml --renderer=markdown --output-path=docs/api.md
+
+.PHONY: verify-api-docs
+verify-api-docs: api-docs ## Fail if docs/api.md differs from the API types.
+	@if [ -n "$$(git status --porcelain docs/api.md)" ]; then \
+		echo "docs/api.md is out of date; run 'make api-docs' and commit"; \
+		exit 1; \
+	fi
+	@echo "docs/api.md is up to date"
+
 .PHONY: verify-crd-compat
 verify-crd-compat: manifests crdify ## Report CRD changes since the last release that existing resources could break on. PREVIOUS_REF= picks another release.
 	@prev="$${PREVIOUS_REF:-$$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null)}"; \
@@ -166,6 +178,7 @@ KIND ?= $(LOCALBIN)/kind
 KIND_CLUSTER ?= arrchitect-e2e
 CHAINSAW ?= $(LOCALBIN)/chainsaw
 CRDIFY ?= $(LOCALBIN)/crdify
+CRD_REF_DOCS ?= $(LOCALBIN)/crd-ref-docs
 HELM_PLUGINS ?= $(LOCALBIN)/helm-plugins
 CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen
 ENVTEST ?= $(LOCALBIN)/setup-envtest
@@ -178,6 +191,8 @@ KIND_VERSION ?= v0.33.0
 CHAINSAW_VERSION ?= v0.2.15
 # renovate: datasource=go depName=sigs.k8s.io/crdify
 CRDIFY_VERSION ?= v0.6.0
+# renovate: datasource=go depName=github.com/elastic/crd-ref-docs
+CRD_REF_DOCS_VERSION ?= v0.3.0
 # renovate: datasource=github-releases depName=helm-unittest/helm-unittest
 HELM_UNITTEST_VERSION ?= v1.2.1
 # renovate: datasource=go depName=sigs.k8s.io/controller-tools
@@ -240,6 +255,11 @@ $(CHAINSAW): $(LOCALBIN)
 crdify: $(CRDIFY) ## Download crdify locally if necessary.
 $(CRDIFY): $(LOCALBIN)
 	$(call go-install-tool,$(CRDIFY),sigs.k8s.io/crdify,$(CRDIFY_VERSION))
+
+.PHONY: crd-ref-docs
+crd-ref-docs: $(CRD_REF_DOCS) ## Download crd-ref-docs locally if necessary.
+$(CRD_REF_DOCS): $(LOCALBIN)
+	$(call go-install-tool,$(CRD_REF_DOCS),github.com/elastic/crd-ref-docs,$(CRD_REF_DOCS_VERSION))
 
 .PHONY: kind
 kind: $(KIND) ## Download kind locally if necessary.
