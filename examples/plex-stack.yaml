@@ -83,7 +83,7 @@ spec:
   category: radarr
 ---
 apiVersion: arrchitect.dev/v1alpha1
-kind: ProwlarrConfig
+kind: Prowlarr
 metadata:
   name: prowlarr
   namespace: media
@@ -116,7 +116,7 @@ spec:
       syncCategories: [2000, 2010, 2020, 2030, 2040, 2045, 2050, 2060, 2070, 2080]
 ---
 apiVersion: arrchitect.dev/v1alpha1
-kind: QBittorrentConfig
+kind: QBittorrent
 metadata:
   name: qbittorrent
   namespace: media
@@ -140,7 +140,7 @@ spec:
       savePath: /downloads/movies
 ---
 apiVersion: arrchitect.dev/v1alpha1
-kind: PlexConfig
+kind: Plex
 metadata:
   name: plex
   namespace: media
@@ -169,7 +169,7 @@ spec:
         - /media/tv
 ---
 apiVersion: arrchitect.dev/v1alpha1
-kind: SeerrConfig
+kind: Seerr
 metadata:
   name: seerr
   namespace: media

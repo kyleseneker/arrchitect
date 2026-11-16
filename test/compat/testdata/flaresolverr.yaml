@@ -1,5 +1,5 @@
 apiVersion: arrchitect.dev/v1alpha1
-kind: FlareSolverrConfig
+kind: FlareSolverr
 metadata:
   name: flaresolverr
 spec:

@@ -152,7 +152,7 @@ func (r *reader) bazarrProviderSettings(provider string, values map[string]any) 
 			raw, _ := json.Marshal(v)
 			text = string(raw)
 		default:
-			r.warn("provider %q: BazarrConfig provider settings hold text, so %s stays as set in Bazarr", provider, key)
+			r.warn("provider %q: the config's provider settings hold text, so %s stays as set in Bazarr", provider, key)
 			continue
 		}
 		if text == "" || text == "[]" {
@@ -175,13 +175,13 @@ func (r *reader) bazarrProfiles(profiles []map[string]any) []any {
 	for _, p := range profiles {
 		name, _ := p["name"].(string)
 		if p["cutoff"] != nil || len(texts(p["mustContain"])) > 0 || len(texts(p["mustNotContain"])) > 0 || p["originalFormat"] == true {
-			r.warn("language profile %q: BazarrConfig can't express its cutoff, must-contain, must-not-contain or "+
+			r.warn("language profile %q: the config can't express its cutoff, must-contain, must-not-contain or "+
 				"original-format setting, and applying the config would clear it", name)
 		}
 		var items []any
 		for j, it := range list(p["items"]) {
 			if num(it["id"]) != float64(j+1) {
-				r.warn("language profile %q: Bazarr numbers its items differently than BazarrConfig, so applying "+
+				r.warn("language profile %q: Bazarr numbers its items differently than the config, so applying "+
 					"the config would renumber them", name)
 			}
 			items = append(items, map[string]any{

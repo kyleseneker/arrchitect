@@ -14,14 +14,14 @@ type Client struct {
 	hc *engine.HTTPClient
 }
 
-// Choices maps the names PlexConfig uses for a preference to the values Plex
+// Choices maps the names Plex uses for a preference to the values Plex
 // stores, by field.
 var Choices = map[string]map[string]string{
 	"secureConnections": {"required": "0", "preferred": "1", "disabled": "2"},
 	"transcoderQuality": {"automatic": "0", "preferSpeed": "1", "preferQuality": "2", "maximumQuality": "3"},
 }
 
-// Preferences maps each PlexConfig settings section and field to the Plex
+// Preferences maps each Plex settings section and field to the Plex
 // preference it sets.
 var Preferences = map[string]map[string]string{
 	"server": {

@@ -41,7 +41,7 @@ spec:
     key: password
 ---
 apiVersion: arrchitect.dev/v1alpha1
-kind: ProwlarrConfig
+kind: Prowlarr
 metadata:
   name: portable-prowlarr
   namespace: media

@@ -1,0 +1,370 @@
+package mediaservers
+
+import (
+	"context"
+	"encoding/json"
+	"net"
+	"net/http"
+	"net/http/httptest"
+	"slices"
+	"strings"
+	"sync"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/tools/events"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+
+	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
+	mediaserversv1alpha1 "github.com/kyleseneker/arrchitect/api/mediaservers/v1alpha1"
+)
+
+const conditionTrue = "True"
+
+// fakeJellyfin implements the handful of endpoints the reconciler drives:
+// the public info probe, the four startup-wizard steps, authentication, and
+// the virtual-folder (library) list.
+type fakeJellyfin struct {
+	config        map[string]any
+	failure       string
+	mu            sync.Mutex
+	requests      []string
+	setupComplete bool
+	existingLibs  []map[string]any
+}
+
+func (f *fakeJellyfin) saw(method, path string) bool {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return slices.Contains(f.requests, method+" "+path)
+}
+
+// routableAddr returns a non-loopback IPv4 address. The operator's HTTP client
+// blocks loopback and link-local as SSRF protection, so a fake on 127.0.0.1 is
+// unreachable by design and assertions against it pass for the wrong reason.
+func routableAddr(t *testing.T) string {
+	t.Helper()
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		t.Skipf("cannot enumerate interfaces: %v", err)
+	}
+	for _, a := range addrs {
+		ipnet, ok := a.(*net.IPNet)
+		if !ok {
+			continue
+		}
+		ip := ipnet.IP.To4()
+		if ip == nil || ip.IsLoopback() || ip.IsLinkLocalUnicast() {
+			continue
+		}
+		return ip.String()
+	}
+	t.Skip("no routable non-loopback IPv4 address on this host")
+	return ""
+}
+
+func (f *fakeJellyfin) serve(t *testing.T) string {
+	t.Helper()
+	ln, err := net.Listen("tcp", net.JoinHostPort(routableAddr(t), "0"))
+	if err != nil {
+		t.Skipf("cannot bind a routable listener: %v", err)
+	}
+	srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		f.mu.Lock()
+		f.requests = append(f.requests, r.Method+" "+r.URL.Path)
+		f.mu.Unlock()
+
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path == f.failure {
+			w.WriteHeader(500)
+			return
+		}
+		switch r.URL.Path {
+		case "/System/Info/Public":
+			f.mu.Lock()
+			done := f.setupComplete
+			f.mu.Unlock()
+			_ = json.NewEncoder(w).Encode(map[string]any{"StartupWizardCompleted": done})
+		case "/System/Configuration":
+			_ = json.NewEncoder(w).Encode(f.config)
+		case "/Users/AuthenticateByName":
+			_ = json.NewEncoder(w).Encode(map[string]any{"AccessToken": "test-token"})
+		case "/Library/VirtualFolders":
+			if r.Method == http.MethodGet {
+				f.mu.Lock()
+				libs := f.existingLibs
+				f.mu.Unlock()
+				if libs == nil {
+					libs = []map[string]any{}
+				}
+				_ = json.NewEncoder(w).Encode(libs)
+				return
+			}
+			w.WriteHeader(http.StatusNoContent)
+		default:
+			// Startup wizard steps and config posts.
+			_ = json.NewEncoder(w).Encode(map[string]any{})
+		}
+	}))
+	_ = srv.Listener.Close()
+	srv.Listener = ln
+	srv.Start()
+	t.Cleanup(srv.Close)
+	return srv.URL
+}
+
+func adminSecret() *corev1.Secret {
+	return &corev1.Secret{
+		Name: "jellyfin-admin", Namespace: "media",
+		Data: map[string][]byte{"username": []byte("admin"), "password": []byte("hunter2")},
+	}
+}
+
+func jellyfinConfig(url string, libs ...mediaserversv1alpha1.JellyfinLibrary) *mediaserversv1alpha1.Jellyfin {
+	return &mediaserversv1alpha1.Jellyfin{
+		Name: "jellyfin", Namespace: "media",
+		Spec: mediaserversv1alpha1.JellyfinSpec{
+			Connection: mediaserversv1alpha1.JellyfinConnection{URL: url},
+			AdminUser: mediaserversv1alpha1.JellyfinAdminUser{
+				UsernameSecretRef: commonv1alpha1.SecretKeyRef{Name: "jellyfin-admin", Key: "username"},
+				PasswordSecretRef: commonv1alpha1.SecretKeyRef{Name: "jellyfin-admin", Key: "password"},
+			},
+			Libraries: libs,
+		},
+	}
+}
+
+func runJellyfin(t *testing.T, objs ...client.Object) client.Client {
+	t.Helper()
+	scheme := runtime.NewScheme()
+	require.NoError(t, clientgoscheme.AddToScheme(scheme), "adding client-go scheme")
+	require.NoError(t, mediaserversv1alpha1.AddToScheme(scheme), "adding mediaservers scheme")
+	b := fake.NewClientBuilder().WithScheme(scheme).
+		WithStatusSubresource(&mediaserversv1alpha1.Jellyfin{})
+	for _, o := range objs {
+		b = b.WithObjects(o)
+	}
+	c := b.Build()
+	r := &JellyfinReconciler{Client: c, Scheme: scheme, Recorder: events.NewFakeRecorder(50)}
+	_, err := r.Reconcile(context.Background(), ctrl.Request{
+		Name: "jellyfin", Namespace: "media",
+	})
+	require.NoError(t, err, "reconcile")
+	return c
+}
+
+func jellyfinSynced(t *testing.T, c client.Client) string {
+	t.Helper()
+	var cfg mediaserversv1alpha1.Jellyfin
+	require.NoError(t, c.Get(context.Background(), types.NamespacedName{Name: "jellyfin", Namespace: "media"}, &cfg), "fetching config")
+	for _, cond := range cfg.Status.Conditions {
+		if cond.Type == "Synced" {
+			return string(cond.Status)
+		}
+	}
+	return ""
+}
+
+// A fresh Jellyfin reports the wizard incomplete; the operator must drive it
+// rather than leaving the server unconfigured.
+func TestReconcileRunsSetupWizardOnFreshInstall(t *testing.T) {
+	app := &fakeJellyfin{setupComplete: false}
+	url := app.serve(t)
+
+	c := runJellyfin(t, adminSecret(), jellyfinConfig(url))
+
+	for _, step := range []string{"/Startup/User", "/Startup/Configuration", "/Startup/RemoteAccess", "/Startup/Complete"} {
+		assert.True(t, app.saw("POST", step), "wizard step %s was never run", step)
+	}
+	assert.Equal(t, conditionTrue, jellyfinSynced(t, c), "Synced")
+}
+
+// An already-configured server must not be put back through the wizard, which
+// would try to recreate the admin user.
+func TestReconcileSkipsWizardWhenSetupComplete(t *testing.T) {
+	app := &fakeJellyfin{setupComplete: true}
+	url := app.serve(t)
+
+	runJellyfin(t, adminSecret(), jellyfinConfig(url))
+
+	assert.False(t, app.saw("POST", "/Startup/User"), "re-ran the setup wizard against an already-configured server")
+	assert.True(t, app.saw("POST", "/Users/AuthenticateByName"), "never authenticated against the configured server")
+}
+
+func TestReconcileCreatesMissingLibrary(t *testing.T) {
+	app := &fakeJellyfin{setupComplete: true}
+	url := app.serve(t)
+
+	runJellyfin(t, adminSecret(), jellyfinConfig(url,
+		mediaserversv1alpha1.JellyfinLibrary{Name: "Movies", CollectionType: "movies", Paths: []string{"/media/movies"}}))
+
+	assert.True(t, app.saw("POST", "/Library/VirtualFolders"), "declared library was never created")
+}
+
+// An existing library by the same name is never recreated, which would
+// duplicate or clobber it, and is left alone while it matches.
+func TestReconcileLeavesAMatchingLibraryAlone(t *testing.T) {
+	app := &fakeJellyfin{
+		setupComplete: true,
+		existingLibs:  []map[string]any{{"Name": "Movies", "CollectionType": "movies", "ItemId": "lib1", "Locations": []string{"/media/movies"}}},
+	}
+	url := app.serve(t)
+
+	runJellyfin(t, adminSecret(), jellyfinConfig(url,
+		mediaserversv1alpha1.JellyfinLibrary{Name: "Movies", CollectionType: "movies", Paths: []string{"/media/movies/"}}))
+
+	assert.False(t, app.saw("POST", "/Library/VirtualFolders"), "recreated a library that already existed")
+	assert.False(t, app.saw("POST", "/Library/VirtualFolders/Paths"))
+	assert.False(t, app.saw("DELETE", "/Library/VirtualFolders/Paths"))
+	assert.False(t, app.saw("POST", "/Library/VirtualFolders/LibraryOptions"))
+}
+
+func TestReconcileSyncsAnExistingLibrarysFoldersAndOptions(t *testing.T) {
+	app := &fakeJellyfin{
+		setupComplete: true,
+		existingLibs: []map[string]any{{
+			"Name": "Movies", "CollectionType": "movies", "ItemId": "lib1", "Locations": []string{"/media/old", "/media/movies"},
+			"LibraryOptions": map[string]any{"EnableRealtimeMonitor": false},
+		}},
+	}
+	url := app.serve(t)
+
+	runJellyfin(t, adminSecret(), jellyfinConfig(url, mediaserversv1alpha1.JellyfinLibrary{
+		Name: "Movies", CollectionType: "movies", Paths: []string{"/media/movies", "/media/new"}, EnableRealtimeMonitor: new(true),
+	}))
+
+	assert.True(t, app.saw("POST", "/Library/VirtualFolders/Paths"), "the new folder was not added")
+	assert.True(t, app.saw("DELETE", "/Library/VirtualFolders/Paths"), "the undeclared folder was not removed")
+	assert.True(t, app.saw("POST", "/Library/VirtualFolders/LibraryOptions"), "the options were not saved")
+	assert.False(t, app.saw("POST", "/Library/VirtualFolders"), "recreated a library that already existed")
+}
+
+func TestReconcileRefusesToChangeALibrarysType(t *testing.T) {
+	app := &fakeJellyfin{setupComplete: true, existingLibs: []map[string]any{{"Name": "Movies", "Locations": []string{"/media/movies"}}}}
+	url := app.serve(t)
+
+	c := runJellyfin(t, adminSecret(), jellyfinConfig(url,
+		mediaserversv1alpha1.JellyfinLibrary{Name: "Movies", CollectionType: "movies", Paths: []string{"/media/movies"}}))
+
+	assert.NotEqual(t, conditionTrue, jellyfinSynced(t, c), "a mixed library can't become a movies library in place")
+	assert.False(t, app.saw("DELETE", "/Library/VirtualFolders/Paths"))
+}
+
+func TestReconcileRefusesALibraryNameTwoLibrariesShare(t *testing.T) {
+	app := &fakeJellyfin{setupComplete: true, existingLibs: []map[string]any{
+		{"Name": "Movies", "CollectionType": "movies", "Locations": []string{"/media/movies"}},
+		{"Name": "Movies", "CollectionType": "movies", "Locations": []string{"/media/other"}},
+	}}
+	url := app.serve(t)
+
+	c := runJellyfin(t, adminSecret(), jellyfinConfig(url,
+		mediaserversv1alpha1.JellyfinLibrary{Name: "Movies", CollectionType: "movies", Paths: []string{"/media/movies"}}))
+
+	assert.NotEqual(t, conditionTrue, jellyfinSynced(t, c))
+	assert.False(t, app.saw("DELETE", "/Library/VirtualFolders/Paths"), "removing a folder from one of two libraries is a guess")
+}
+
+func TestReconcileMissingSecretDoesNotContactApp(t *testing.T) {
+	app := &fakeJellyfin{setupComplete: true}
+	url := app.serve(t)
+
+	c := runJellyfin(t, jellyfinConfig(url)) // no Secret
+
+	assert.False(t, app.saw("GET", "/System/Info/Public"), "contacted the app despite failing to resolve admin credentials")
+	assert.NotEqual(t, conditionTrue, jellyfinSynced(t, c), "Synced = True despite missing credentials")
+}
+
+func TestJellyfinObserveNeverRunsSetupOrWritesConfiguration(t *testing.T) {
+	for _, tt := range []struct {
+		name                  string
+		initialized, matching bool
+		failure, reason       string
+	}{
+		{"fresh", false, false, "", "DriftDetected"},
+		{"drift", true, false, "", "DriftDetected"},
+		{"matching", true, true, "", "Observed"},
+		{"empty spec", true, true, "", "Observed"},
+		{"library failure", true, true, "/Library/VirtualFolders", "SyncFailed"},
+		{"encoding failure", true, true, "/System/Configuration/encoding", "SyncFailed"},
+		{"read failure", true, true, "/System/Configuration", "SyncFailed"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			app := &fakeJellyfin{setupComplete: tt.initialized, failure: tt.failure}
+			if tt.matching {
+				app.existingLibs = []map[string]any{{"Name": "Movies", "CollectionType": "movies", "Locations": []string{"/media/movies"}}}
+				app.config = map[string]any{"ServerName": "Media", "Unmanaged": true}
+			}
+			cfg := jellyfinConfig(app.serve(t),
+				mediaserversv1alpha1.JellyfinLibrary{Name: "Movies", CollectionType: "movies", Paths: []string{"/media/movies/"}})
+			cfg.Spec.Server = &mediaserversv1alpha1.JellyfinServer{ServerName: "Media"}
+			if tt.name == "empty spec" {
+				cfg.Spec.Server = nil
+				cfg.Spec.Libraries = nil
+			}
+			if tt.name == "encoding failure" {
+				cfg.Spec.Encoding = &mediaserversv1alpha1.JellyfinEncoding{}
+			}
+			policy := "observe"
+			cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{DriftPolicy: &policy}
+			c := runJellyfin(t, adminSecret(), cfg)
+			require.NoError(t, c.Get(context.Background(), types.NamespacedName{Name: cfg.Name, Namespace: cfg.Namespace}, cfg))
+			app.mu.Lock()
+			defer app.mu.Unlock()
+			for _, req := range app.requests {
+				assert.True(t, strings.HasPrefix(req, "GET ") || req == "POST /Users/AuthenticateByName", "observe wrote: %s", req)
+			}
+			if assert.NotNil(t, cfg.Status.Initialized, "initialization status changed") {
+				assert.Equal(t, tt.initialized, *cfg.Status.Initialized, "initialization status changed")
+			}
+			require.True(t, slices.ContainsFunc(cfg.Status.Conditions, func(condition metav1.Condition) bool {
+				return condition.Type == "Synced" && condition.Reason == tt.reason
+			}), "want %s, got %+v", tt.reason, cfg.Status.Conditions)
+		})
+	}
+}
+
+// Jellyfin reads settings back in PascalCase; camelCase keys never matched and
+// rewrote the configuration on every pass.
+func TestJellyfinSettingsUseJellyfinNames(t *testing.T) {
+	out, err := jellyfinSettings(&mediaserversv1alpha1.JellyfinEncoding{
+		H265Crf: new(28), EncoderPreset: "veryfast", EnableThrottling: new(true),
+	})
+	require.NoError(t, err)
+	assert.Equal(t, map[string]any{"H265Crf": float64(28), "EncoderPreset": "veryfast", "EnableThrottling": true}, out)
+}
+
+func TestJellyfinSettingsRenameNestedSettings(t *testing.T) {
+	out, err := jellyfinSettings(&mediaserversv1alpha1.JellyfinServer{
+		EnableMetrics: new(true),
+		TrickplayOptions: &mediaserversv1alpha1.JellyfinTrickplay{
+			EnableHwAcceleration: new(true), WidthResolutions: []int{320, 640},
+		},
+	})
+	require.NoError(t, err)
+	assert.Equal(t, map[string]any{
+		"EnableMetrics": true,
+		"TrickplayOptions": map[string]any{
+			"EnableHwAcceleration": true, "WidthResolutions": []any{float64(320), float64(640)},
+		},
+	}, out)
+}
+
+func TestReconcileWritesJellyfinNetworkSettings(t *testing.T) {
+	app := &fakeJellyfin{setupComplete: true}
+	url := app.serve(t)
+	cfg := jellyfinConfig(url)
+	cfg.Spec.Network = &mediaserversv1alpha1.JellyfinNetwork{KnownProxies: []string{"10.0.0.1"}}
+
+	c := runJellyfin(t, adminSecret(), cfg)
+
+	assert.True(t, app.saw("POST", "/System/Configuration/network"), "network settings were never written")
+	assert.Equal(t, conditionTrue, jellyfinSynced(t, c))
+}

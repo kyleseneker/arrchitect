@@ -27,7 +27,7 @@ spec:
     - path: /media/tv
 ---
 apiVersion: arrchitect.dev/v1alpha1
-kind: JellyfinConfig
+kind: Jellyfin
 metadata:
   name: jellyfin
   namespace: media

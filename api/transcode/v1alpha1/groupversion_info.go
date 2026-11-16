@@ -34,7 +34,7 @@ var (
 
 func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(SchemeGroupVersion,
-		&TdarrConfig{}, &TdarrConfigList{},
+		&Tdarr{}, &TdarrList{},
 	)
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
 	return nil

@@ -79,61 +79,61 @@ func meta(name string) metav1.ObjectMeta {
 func controllerCases() []controllerCase {
 	return []controllerCase{
 		{
-			name:        "BazarrConfig",
+			name:        "Bazarr",
 			addToScheme: subtitlesv1alpha1.AddToScheme,
-			newObj:      func() client.Object { return &subtitlesv1alpha1.BazarrConfig{} },
+			newObj:      func() client.Object { return &subtitlesv1alpha1.Bazarr{} },
 			newCR: func(url string) client.Object {
-				return &subtitlesv1alpha1.BazarrConfig{
+				return &subtitlesv1alpha1.Bazarr{
 					ObjectMeta: meta("bazarr"),
-					Spec:       subtitlesv1alpha1.BazarrConfigSpec{Connection: appConn(url), Reconcile: orphan()},
+					Spec:       subtitlesv1alpha1.BazarrSpec{Connection: appConn(url), Reconcile: orphan()},
 				}
 			},
 			newRec: func(c client.Client, s *runtime.Scheme) reconcile.Reconciler {
-				return &subtitles.BazarrConfigReconciler{Client: c, Scheme: s, Recorder: events.NewFakeRecorder(50)}
+				return &subtitles.BazarrReconciler{Client: c, Scheme: s, Recorder: events.NewFakeRecorder(50)}
 			},
 		},
 		{
-			name:        "MaintainerrConfig",
+			name:        "Maintainerr",
 			addToScheme: curationv1alpha1.AddToScheme,
-			newObj:      func() client.Object { return &curationv1alpha1.MaintainerrConfig{} },
+			newObj:      func() client.Object { return &curationv1alpha1.Maintainerr{} },
 			newCR: func(url string) client.Object {
-				return &curationv1alpha1.MaintainerrConfig{
+				return &curationv1alpha1.Maintainerr{
 					ObjectMeta: meta("maintainerr"),
-					Spec: curationv1alpha1.MaintainerrConfigSpec{
+					Spec: curationv1alpha1.MaintainerrSpec{
 						Connection: curationv1alpha1.MaintainerrConnection{URL: url}, Reconcile: orphan(),
 					},
 				}
 			},
 			newRec: func(c client.Client, s *runtime.Scheme) reconcile.Reconciler {
-				return &curation.MaintainerrConfigReconciler{Client: c, Scheme: s, Recorder: events.NewFakeRecorder(50)}
+				return &curation.MaintainerrReconciler{Client: c, Scheme: s, Recorder: events.NewFakeRecorder(50)}
 			},
 		},
 		{
-			name:        "AutobrrConfig",
+			name:        "Autobrr",
 			addToScheme: automationv1alpha1.AddToScheme,
-			newObj:      func() client.Object { return &automationv1alpha1.AutobrrConfig{} },
+			newObj:      func() client.Object { return &automationv1alpha1.Autobrr{} },
 			newCR: func(url string) client.Object {
-				return &automationv1alpha1.AutobrrConfig{
+				return &automationv1alpha1.Autobrr{
 					ObjectMeta: meta("autobrr"),
-					Spec:       automationv1alpha1.AutobrrConfigSpec{Connection: appConn(url), Reconcile: orphan()},
+					Spec:       automationv1alpha1.AutobrrSpec{Connection: appConn(url), Reconcile: orphan()},
 				}
 			},
 			newRec: func(c client.Client, s *runtime.Scheme) reconcile.Reconciler {
-				return &automation.AutobrrConfigReconciler{Client: c, Scheme: s, Recorder: events.NewFakeRecorder(50)}
+				return &automation.AutobrrReconciler{Client: c, Scheme: s, Recorder: events.NewFakeRecorder(50)}
 			},
 		},
 		{
-			name:        "SabnzbdConfig",
+			name:        "Sabnzbd",
 			addToScheme: downloadsv1alpha1.AddToScheme,
-			newObj:      func() client.Object { return &downloadsv1alpha1.SabnzbdConfig{} },
+			newObj:      func() client.Object { return &downloadsv1alpha1.Sabnzbd{} },
 			newCR: func(url string) client.Object {
-				return &downloadsv1alpha1.SabnzbdConfig{
+				return &downloadsv1alpha1.Sabnzbd{
 					ObjectMeta: meta("sabnzbd"),
-					Spec:       downloadsv1alpha1.SabnzbdConfigSpec{Connection: appConn(url), Reconcile: orphan()},
+					Spec:       downloadsv1alpha1.SabnzbdSpec{Connection: appConn(url), Reconcile: orphan()},
 				}
 			},
 			newRec: func(c client.Client, s *runtime.Scheme) reconcile.Reconciler {
-				return &downloads.SabnzbdConfigReconciler{Client: c, Scheme: s, Recorder: events.NewFakeRecorder(50)}
+				return &downloads.SabnzbdReconciler{Client: c, Scheme: s, Recorder: events.NewFakeRecorder(50)}
 			},
 		},
 		{
@@ -187,62 +187,62 @@ func controllerCases() []controllerCase {
 			},
 		},
 		{
-			name:        "ProwlarrConfig",
+			name:        "Prowlarr",
 			addToScheme: indexersv1alpha1.AddToScheme,
-			newObj:      func() client.Object { return &indexersv1alpha1.ProwlarrConfig{} },
+			newObj:      func() client.Object { return &indexersv1alpha1.Prowlarr{} },
 			newCR: func(url string) client.Object {
-				return &indexersv1alpha1.ProwlarrConfig{
+				return &indexersv1alpha1.Prowlarr{
 					ObjectMeta: meta("prowlarr"),
-					Spec:       indexersv1alpha1.ProwlarrConfigSpec{Connection: appConn(url), Reconcile: orphan()},
+					Spec:       indexersv1alpha1.ProwlarrSpec{Connection: appConn(url), Reconcile: orphan()},
 				}
 			},
 			newRec: func(c client.Client, s *runtime.Scheme) reconcile.Reconciler {
-				return &indexers.ProwlarrConfigReconciler{Client: c, Scheme: s, Recorder: events.NewFakeRecorder(50)}
+				return &indexers.ProwlarrReconciler{Client: c, Scheme: s, Recorder: events.NewFakeRecorder(50)}
 			},
 		},
 		{
-			name:        "JellyfinConfig",
+			name:        "Jellyfin",
 			addToScheme: mediaserversv1alpha1.AddToScheme,
-			newObj:      func() client.Object { return &mediaserversv1alpha1.JellyfinConfig{} },
+			newObj:      func() client.Object { return &mediaserversv1alpha1.Jellyfin{} },
 			newCR: func(url string) client.Object {
-				return &mediaserversv1alpha1.JellyfinConfig{
+				return &mediaserversv1alpha1.Jellyfin{
 					ObjectMeta: meta("jellyfin"),
-					Spec: mediaserversv1alpha1.JellyfinConfigSpec{
+					Spec: mediaserversv1alpha1.JellyfinSpec{
 						Connection: mediaserversv1alpha1.JellyfinConnection{URL: url},
 						Reconcile:  orphan(),
 					},
 				}
 			},
 			newRec: func(c client.Client, s *runtime.Scheme) reconcile.Reconciler {
-				return &mediaservers.JellyfinConfigReconciler{Client: c, Scheme: s, Recorder: events.NewFakeRecorder(50)}
+				return &mediaservers.JellyfinReconciler{Client: c, Scheme: s, Recorder: events.NewFakeRecorder(50)}
 			},
 		},
 		{
-			name:        "SeerrConfig",
+			name:        "Seerr",
 			addToScheme: requestsv1alpha1.AddToScheme,
-			newObj:      func() client.Object { return &requestsv1alpha1.SeerrConfig{} },
+			newObj:      func() client.Object { return &requestsv1alpha1.Seerr{} },
 			newCR: func(url string) client.Object {
 				ref := secretRef("api-key")
-				return &requestsv1alpha1.SeerrConfig{
+				return &requestsv1alpha1.Seerr{
 					ObjectMeta: meta("seerr"),
-					Spec: requestsv1alpha1.SeerrConfigSpec{
+					Spec: requestsv1alpha1.SeerrSpec{
 						Connection: requestsv1alpha1.SeerrConnection{URL: url, APIKeySecretRef: &ref},
 						Reconcile:  orphan(),
 					},
 				}
 			},
 			newRec: func(c client.Client, s *runtime.Scheme) reconcile.Reconciler {
-				return &requests.SeerrConfigReconciler{Client: c, Scheme: s, Recorder: events.NewFakeRecorder(50)}
+				return &requests.SeerrReconciler{Client: c, Scheme: s, Recorder: events.NewFakeRecorder(50)}
 			},
 		},
 		{
-			name:        "QBittorrentConfig",
+			name:        "QBittorrent",
 			addToScheme: downloadsv1alpha1.AddToScheme,
-			newObj:      func() client.Object { return &downloadsv1alpha1.QBittorrentConfig{} },
+			newObj:      func() client.Object { return &downloadsv1alpha1.QBittorrent{} },
 			newCR: func(url string) client.Object {
-				return &downloadsv1alpha1.QBittorrentConfig{
+				return &downloadsv1alpha1.QBittorrent{
 					ObjectMeta: meta("qbittorrent"),
-					Spec: downloadsv1alpha1.QBittorrentConfigSpec{
+					Spec: downloadsv1alpha1.QBittorrentSpec{
 						Connection: downloadsv1alpha1.QBittorrentConnection{
 							URL:               url,
 							UsernameSecretRef: secretRef("username"),
@@ -253,7 +253,7 @@ func controllerCases() []controllerCase {
 				}
 			},
 			newRec: func(c client.Client, s *runtime.Scheme) reconcile.Reconciler {
-				return &downloads.QBittorrentConfigReconciler{Client: c, Scheme: s, Recorder: events.NewFakeRecorder(50)}
+				return &downloads.QBittorrentReconciler{Client: c, Scheme: s, Recorder: events.NewFakeRecorder(50)}
 			},
 		},
 		{
@@ -416,54 +416,54 @@ func controllerCases() []controllerCase {
 			},
 		},
 		{
-			name:        "FlareSolverrConfig",
+			name:        "FlareSolverr",
 			addToScheme: indexersv1alpha1.AddToScheme,
-			newObj:      func() client.Object { return &indexersv1alpha1.FlareSolverrConfig{} },
+			newObj:      func() client.Object { return &indexersv1alpha1.FlareSolverr{} },
 			newCR: func(url string) client.Object {
-				return &indexersv1alpha1.FlareSolverrConfig{
+				return &indexersv1alpha1.FlareSolverr{
 					ObjectMeta: meta("flaresolverr"),
-					Spec: indexersv1alpha1.FlareSolverrConfigSpec{
+					Spec: indexersv1alpha1.FlareSolverrSpec{
 						Connection: indexersv1alpha1.FlareSolverrConnection{URL: url},
 						Reconcile:  orphan(),
 					},
 				}
 			},
 			newRec: func(c client.Client, s *runtime.Scheme) reconcile.Reconciler {
-				return &indexers.FlareSolverrConfigReconciler{Client: c, Scheme: s, Recorder: events.NewFakeRecorder(50)}
+				return &indexers.FlareSolverrReconciler{Client: c, Scheme: s, Recorder: events.NewFakeRecorder(50)}
 			},
 		},
 		{
-			name:        "PlexConfig",
+			name:        "Plex",
 			addToScheme: mediaserversv1alpha1.AddToScheme,
-			newObj:      func() client.Object { return &mediaserversv1alpha1.PlexConfig{} },
+			newObj:      func() client.Object { return &mediaserversv1alpha1.Plex{} },
 			newCR: func(url string) client.Object {
-				return &mediaserversv1alpha1.PlexConfig{
+				return &mediaserversv1alpha1.Plex{
 					ObjectMeta: meta("plex"),
-					Spec: mediaserversv1alpha1.PlexConfigSpec{
+					Spec: mediaserversv1alpha1.PlexSpec{
 						Connection: mediaserversv1alpha1.PlexConnection{URL: url, TokenSecretRef: secretRef("token")},
 						Reconcile:  orphan(),
 					},
 				}
 			},
 			newRec: func(c client.Client, s *runtime.Scheme) reconcile.Reconciler {
-				return &mediaservers.PlexConfigReconciler{Client: c, Scheme: s, Recorder: events.NewFakeRecorder(50)}
+				return &mediaservers.PlexReconciler{Client: c, Scheme: s, Recorder: events.NewFakeRecorder(50)}
 			},
 		},
 		{
-			name:        "TdarrConfig",
+			name:        "Tdarr",
 			addToScheme: transcodev1alpha1.AddToScheme,
-			newObj:      func() client.Object { return &transcodev1alpha1.TdarrConfig{} },
+			newObj:      func() client.Object { return &transcodev1alpha1.Tdarr{} },
 			newCR: func(url string) client.Object {
-				return &transcodev1alpha1.TdarrConfig{
+				return &transcodev1alpha1.Tdarr{
 					ObjectMeta: meta("tdarr"),
-					Spec: transcodev1alpha1.TdarrConfigSpec{
+					Spec: transcodev1alpha1.TdarrSpec{
 						Connection: appConn(url),
 						Reconcile:  orphan(),
 					},
 				}
 			},
 			newRec: func(c client.Client, s *runtime.Scheme) reconcile.Reconciler {
-				return &transcode.TdarrConfigReconciler{Client: c, Scheme: s, Recorder: events.NewFakeRecorder(50)}
+				return &transcode.TdarrReconciler{Client: c, Scheme: s, Recorder: events.NewFakeRecorder(50)}
 			},
 		},
 	}
@@ -530,7 +530,7 @@ func TestSecretChangeReconcilesTheConfigReferringToIt(t *testing.T) {
 		Client:     operator.ClientOptions(),
 	})
 	require.NoError(t, err)
-	rec := &indexers.FlareSolverrConfigReconciler{
+	rec := &indexers.FlareSolverrReconciler{
 		Client: mgr.GetClient(), Scheme: mgr.GetScheme(), Recorder: events.NewFakeRecorder(100),
 	}
 	require.NoError(t, rec.SetupWithManager(mgr))
@@ -540,14 +540,14 @@ func TestSecretChangeReconcilesTheConfigReferringToIt(t *testing.T) {
 
 	app := httptest.NewTLSServer(http.NotFoundHandler())
 	t.Cleanup(app.Close)
-	cr := &indexersv1alpha1.FlareSolverrConfig{ObjectMeta: meta("watched"), Spec: indexersv1alpha1.FlareSolverrConfigSpec{
+	cr := &indexersv1alpha1.FlareSolverr{ObjectMeta: meta("watched"), Spec: indexersv1alpha1.FlareSolverrSpec{
 		Connection: indexersv1alpha1.FlareSolverrConnection{URL: app.URL, TLS: &commonv1alpha1.TLSConfig{
 			CASecretRef: &commonv1alpha1.SecretKeyRef{Name: "private-ca", Key: "ca.crt"},
 		}},
 	}}
 	require.NoError(t, c.Create(ctx, cr))
 	syncedReason := func() string {
-		var got indexersv1alpha1.FlareSolverrConfig
+		var got indexersv1alpha1.FlareSolverr
 		if c.Get(ctx, client.ObjectKeyFromObject(cr), &got) != nil {
 			return ""
 		}
@@ -582,15 +582,15 @@ func TestDeletePolicyReleasesTheObject(t *testing.T) {
 		ObjectMeta: meta("app-credentials"), Data: map[string][]byte{"api-key": []byte("k")},
 	}))
 	deletePolicy := "delete"
-	cr := &transcodev1alpha1.TdarrConfig{
+	cr := &transcodev1alpha1.Tdarr{
 		ObjectMeta: meta("tdarr"),
-		Spec: transcodev1alpha1.TdarrConfigSpec{
+		Spec: transcodev1alpha1.TdarrSpec{
 			Connection: appConn(fakeAppServer(t)),
 			Reconcile:  &commonv1alpha1.ReconcileConfig{DeletionPolicy: &deletePolicy},
 		},
 	}
 	require.NoError(t, c.Create(ctx, cr))
-	r := &transcode.TdarrConfigReconciler{Client: c, Scheme: c.Scheme(), Recorder: events.NewFakeRecorder(50)}
+	r := &transcode.TdarrReconciler{Client: c, Scheme: c.Scheme(), Recorder: events.NewFakeRecorder(50)}
 	req := ctrl.Request{Name: cr.Name, Namespace: cr.Namespace}
 
 	_, err := r.Reconcile(ctx, req)
@@ -601,7 +601,7 @@ func TestDeletePolicyReleasesTheObject(t *testing.T) {
 
 	require.Eventually(t, func() bool {
 		_, _ = r.Reconcile(ctx, req)
-		return apierrors.IsNotFound(c.Get(ctx, req.NamespacedName, &transcodev1alpha1.TdarrConfig{}))
+		return apierrors.IsNotFound(c.Get(ctx, req.NamespacedName, &transcodev1alpha1.Tdarr{}))
 	}, 30*time.Second, 200*time.Millisecond, "the resource is still present after deletion")
 }
 

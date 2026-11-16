@@ -140,7 +140,7 @@ func (r *reader) seerrOptions(agent string, v any) (map[string]any, map[string]a
 		case float64, bool:
 			options[key] = x
 		default:
-			r.warn("notification %q: SeerrConfig can't express %s, so it stays as set in Seerr", agent, key)
+			r.warn("notification %q: the config can't express %s, so it stays as set in Seerr", agent, key)
 		}
 	}
 	return options, secrets
@@ -169,7 +169,7 @@ func (r *reader) seerrNotificationTypes(agent string, bits int) []any {
 		}
 	}
 	if bits != 0 {
-		r.warn("notification %q: SeerrConfig can't express type bits %d, and applying the config would clear them", agent, bits)
+		r.warn("notification %q: the config can't express type bits %d, and applying it would clear them", agent, bits)
 	}
 	return types
 }

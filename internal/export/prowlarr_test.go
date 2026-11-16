@@ -36,7 +36,7 @@ var fakeProwlarrAPI = map[string]string{
 	"/notification/schema":   `[]`,
 }
 
-func exportProwlarrFrom(t *testing.T) (*indexersv1alpha1.ProwlarrConfig, Result) {
+func exportProwlarrFrom(t *testing.T) (*indexersv1alpha1.Prowlarr, Result) {
 	t.Helper()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, ok := fakeProwlarrAPI[r.URL.Path[len("/api/v1"):]]
@@ -49,7 +49,7 @@ func exportProwlarrFrom(t *testing.T) (*indexersv1alpha1.ProwlarrConfig, Result)
 	t.Cleanup(srv.Close)
 	res, err := Run(context.Background(), Options{App: "prowlarr", URL: srv.URL, APIKey: "k"})
 	require.NoError(t, err)
-	cfg, ok := res.Config.(*indexersv1alpha1.ProwlarrConfig)
+	cfg, ok := res.Config.(*indexersv1alpha1.Prowlarr)
 	require.True(t, ok)
 	return cfg, res
 }
@@ -85,7 +85,7 @@ func TestProwlarrApplicationReferencesItsKeyAndWarnsAboutUnmodelledFields(t *tes
 	assert.Equal(t, []int{5000, 5040}, a.SyncCategories)
 	assert.Equal(t, "application-sonarr-api-key", a.APIKeySecretRef.Key)
 	assert.Contains(t, res.Unfilled, "application-sonarr-api-key")
-	assert.Contains(t, res.Warnings, `application "Sonarr": ProwlarrConfig has no animeSyncCategories, so it stays as set in Prowlarr`)
+	assert.Contains(t, res.Warnings, `application "Sonarr": the config has no animeSyncCategories, so it stays as set in Prowlarr`)
 }
 
 func TestProwlarrProxyKeepsHostAndTimeoutOnly(t *testing.T) {
@@ -94,7 +94,7 @@ func TestProwlarrProxyKeepsHostAndTimeoutOnly(t *testing.T) {
 	assert.Equal(t, "http://flaresolverr:8191/", cfg.Spec.Proxies[0].Host)
 	assert.Equal(t, 60, *cfg.Spec.Proxies[0].RequestTimeout)
 	assert.Contains(t, res.Warnings,
-		`proxy "Socks": ProwlarrConfig proxies have only host and requestTimeout, so username stays as set in Prowlarr`)
+		`proxy "Socks": the config's proxies have only host and requestTimeout, so username stays as set in Prowlarr`)
 }
 
 func TestProwlarrDownloadClientOmitsDefaultFields(t *testing.T) {

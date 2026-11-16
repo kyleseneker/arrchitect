@@ -53,7 +53,7 @@ func (e *prowlarrExport) application(item map[string]any, defaults map[string]ma
 		case "prowlarrUrl", "baseUrl", "syncCategories", "apiKey":
 		default:
 			if !reflect.DeepEqual(value, defaults[impl][field]) {
-				e.warn("application %q: ProwlarrConfig has no %s, so it stays as set in Prowlarr", name, field)
+				e.warn("application %q: the config has no %s, so it stays as set in Prowlarr", name, field)
 			}
 		}
 	}
@@ -80,7 +80,7 @@ func (e *prowlarrExport) proxy(item map[string]any, _ map[string]map[string]any)
 			p[field] = value
 		default:
 			if value != nil && value != "" {
-				e.warn("proxy %q: ProwlarrConfig proxies have only host and requestTimeout, so %s stays as set in Prowlarr", name, field)
+				e.warn("proxy %q: the config's proxies have only host and requestTimeout, so %s stays as set in Prowlarr", name, field)
 			}
 		}
 	}

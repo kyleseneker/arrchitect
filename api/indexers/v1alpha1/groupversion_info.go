@@ -34,8 +34,8 @@ var (
 
 func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(SchemeGroupVersion,
-		&ProwlarrConfig{}, &ProwlarrConfigList{},
-		&FlareSolverrConfig{}, &FlareSolverrConfigList{},
+		&Prowlarr{}, &ProwlarrList{},
+		&FlareSolverr{}, &FlareSolverrList{},
 	)
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
 	return nil

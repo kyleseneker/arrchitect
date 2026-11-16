@@ -97,9 +97,9 @@ func TestSeerr(t *testing.T) {
 			"jellyfin-username": jellyfinAdmin, "jellyfin-password": jellyfinPassword,
 			"sonarr-api-key": sonarrKey, "radarr-api-key": radarrKey, "discord-webhook": fakes + "/webhook",
 		},
-		newObj: func() ctrlcommon.ConfigResource { return &requestsv1alpha1.SeerrConfig{} },
+		newObj: func() ctrlcommon.ConfigResource { return &requestsv1alpha1.Seerr{} },
 		reconciler: func(c client.Client) reconcile.Reconciler {
-			return &requests.SeerrConfigReconciler{Client: c, Scheme: c.Scheme(), Recorder: events.NewFakeRecorder(100)}
+			return &requests.SeerrReconciler{Client: c, Scheme: c.Scheme(), Recorder: events.NewFakeRecorder(100)}
 		},
 		proxy:   proxy,
 		observe: true,

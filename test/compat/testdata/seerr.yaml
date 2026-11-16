@@ -1,5 +1,5 @@
 apiVersion: arrchitect.dev/v1alpha1
-kind: SeerrConfig
+kind: Seerr
 metadata:
   name: seerr
 spec:

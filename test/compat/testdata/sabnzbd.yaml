@@ -1,5 +1,5 @@
 apiVersion: arrchitect.dev/v1alpha1
-kind: SabnzbdConfig
+kind: Sabnzbd
 metadata:
   name: sabnzbd
 spec:

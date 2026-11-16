@@ -1,0 +1,611 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    helm.sh/resource-policy: keep
+    controller-gen.kubebuilder.io/version: v0.23.0
+  name: tdarrs.arrchitect.dev
+spec:
+  group: arrchitect.dev
+  names:
+    categories:
+    - arrchitect
+    kind: Tdarr
+    listKind: TdarrList
+    plural: tdarrs
+    singular: tdarr
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .status.conditions[?(@.type=="Synced")].status
+      name: Synced
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Ready")].status
+      name: Ready
+      type: string
+    - jsonPath: .status.lastSyncTime
+      name: Last Sync
+      type: date
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: Tdarr configures a Tdarr instance the operator connects to.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: TdarrSpec defines the desired state of Tdarr.
+            properties:
+              connection:
+                description: connection defines how to connect to the Tdarr instance
+                  using an API key.
+                properties:
+                  apiKeySecretRef:
+                    description: apiKeySecretRef references a Secret containing the
+                      API key.
+                    properties:
+                      key:
+                        description: key is the key within the Secret.
+                        type: string
+                      name:
+                        description: name is the name of the Secret.
+                        type: string
+                    required:
+                    - key
+                    - name
+                    type: object
+                  tls:
+                    description: |-
+                      tls configures TLS settings for the connection.
+                      Only needed when the app uses HTTPS with self-signed or private CA certificates.
+                    properties:
+                      caSecretRef:
+                        description: |-
+                          caSecretRef references a Secret containing a PEM-encoded CA certificate bundle
+                          used to verify the target app's TLS certificate.
+                          The Secret must contain the CA certificate under the specified key.
+                        properties:
+                          key:
+                            description: key is the key within the Secret.
+                            type: string
+                          name:
+                            description: name is the name of the Secret.
+                            type: string
+                        required:
+                        - key
+                        - name
+                        type: object
+                      insecureSkipVerify:
+                        description: |-
+                          insecureSkipVerify disables TLS certificate verification.
+                          WARNING: This makes the connection susceptible to machine-in-the-middle attacks.
+                          Only use for testing or when the target app uses a self-signed certificate and
+                          providing a CA is not practical.
+                        type: boolean
+                    type: object
+                  url:
+                    description: url is the base URL of the app (e.g., http://arr-sonarr.arr.svc.cluster.local:8989).
+                    pattern: ^https?://
+                    type: string
+                required:
+                - apiKeySecretRef
+                - url
+                type: object
+              flows:
+                description: flows defines transcoding flows (plugins and edges).
+                items:
+                  description: TdarrFlow defines a transcoding flow with plugins and
+                    edges.
+                  properties:
+                    description:
+                      description: description is a human-readable description of
+                        the flow.
+                      type: string
+                    flowEdges:
+                      description: flowEdges is the raw JSON definition of flow edge
+                        connections.
+                      items:
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                      type: array
+                      x-kubernetes-list-type: atomic
+                      x-kubernetes-preserve-unknown-fields: true
+                    flowPlugins:
+                      description: |-
+                        flowPlugins is the raw JSON definition of flow plugin nodes, as Tdarr
+                        exports it. Quote the y key of each node's position ("y": 200): YAML 1.1
+                        parsers, kubectl's included, read a bare y as the boolean true.
+                      items:
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                      type: array
+                      x-kubernetes-list-type: atomic
+                      x-kubernetes-preserve-unknown-fields: true
+                    id:
+                      description: id is the Tdarr document ID for this flow.
+                      type: string
+                    name:
+                      description: name is the display name of the flow.
+                      type: string
+                  required:
+                  - flowEdges
+                  - flowPlugins
+                  - id
+                  - name
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - id
+                x-kubernetes-list-type: map
+              libraries:
+                description: libraries defines media libraries to manage in Tdarr.
+                items:
+                  description: TdarrLibrary defines a media library in Tdarr.
+                  properties:
+                    cache:
+                      description: cache is the transcode cache folder path.
+                      type: string
+                    container:
+                      description: container is the output container format (e.g.,
+                        "mkv", "mp4").
+                      type: string
+                    containerFilter:
+                      description: containerFilter is the container filter for scanning
+                        (e.g., "mkv,mp4,avi").
+                      type: string
+                    decisionMode:
+                      description: decisionMode selects how Tdarr decides what to
+                        do with a file.
+                      enum:
+                      - flows
+                      - plugins
+                      type: string
+                    ffmpeg:
+                      description: ffmpeg enables using FFmpeg (true) vs HandBrake
+                        (false) for transcoding.
+                      type: boolean
+                    filterCodecsSkip:
+                      description: |-
+                        filterCodecsSkip is a comma-separated list of video codecs, such as
+                        hevc,vp9, whose files the server skips.
+                      type: string
+                    filterContainersSkip:
+                      description: |-
+                        filterContainersSkip is a comma-separated list of containers, such as
+                        mkv,mp4, whose files the server skips.
+                      type: string
+                    filterHardlinked:
+                      description: |-
+                        filterHardlinked skips files linked in more than one place until they no
+                        longer are.
+                      type: boolean
+                    filterResolutionsSkip:
+                      description: |-
+                        filterResolutionsSkip is a comma-separated list of resolutions, such as
+                        720p,1080p, whose files the server skips without sending them to a worker.
+                      type: string
+                    flowId:
+                      description: |-
+                        flowId is the Tdarr flow this library processes files with. Flows are the
+                        current mechanism; classic plugin stacks are the older alternative.
+                      type: string
+                    folder:
+                      description: folder is the source media folder path.
+                      type: string
+                    folderWatchScanInterval:
+                      description: folderWatchScanInterval is how often, in seconds,
+                        folder watching polls.
+                      minimum: 1
+                      type: integer
+                    folderWatching:
+                      description: folderWatching enables watching the folder for
+                        new files.
+                      type: boolean
+                    foldersToIgnore:
+                      description: foldersToIgnore is a comma-separated list of folder
+                        names to skip while scanning.
+                      type: string
+                    foldersToIgnoreCaseInsensitive:
+                      description: foldersToIgnoreCaseInsensitive matches foldersToIgnore
+                        regardless of case.
+                      type: boolean
+                    healthCheckMode:
+                      description: |-
+                        healthCheckMode selects the health check to run. quick uses HandBrake to
+                        read file headers; thorough decodes every frame with FFmpeg.
+                      enum:
+                      - quick
+                      - thorough
+                      type: string
+                    id:
+                      description: id is the Tdarr document ID for this library.
+                      type: string
+                    name:
+                      description: name is the display name of the library.
+                      type: string
+                    pluginStack:
+                      description: |-
+                        pluginStack lists the community plugin IDs to run, in order, for libraries
+                        not using a flow.
+                      items:
+                        type: string
+                      type: array
+                      x-kubernetes-list-type: atomic
+                    priority:
+                      description: priority is the processing priority for this library.
+                        Lower values are higher priority.
+                      type: integer
+                    processHealthChecks:
+                      description: processHealthChecks enables health check jobs for
+                        this library.
+                      type: boolean
+                    processLibrary:
+                      description: processLibrary enables processing of files in this
+                        library.
+                      type: boolean
+                    processTranscodes:
+                      description: processTranscodes enables transcode jobs for this
+                        library.
+                      type: boolean
+                    scanOnStart:
+                      description: scanOnStart enables scanning the library when Tdarr
+                        starts.
+                      type: boolean
+                    scannerThreadCount:
+                      description: scannerThreadCount is the number of threads used
+                        for scanning.
+                      type: integer
+                    scheduledScanFindNew:
+                      description: scheduledScanFindNew enables scheduled scans for
+                        new files.
+                      type: boolean
+                    useFsEvents:
+                      description: useFsEvents watches the folder with file system
+                        events instead of polling.
+                      type: boolean
+                    variables:
+                      additionalProperties:
+                        type: string
+                      description: |-
+                        variables are user-defined library variables. Flows read them as
+                        {{{args.variables.user.<name>}}}, which is how community flows are
+                        configured without editing the flow itself. A variable removed from this
+                        map is deleted from Tdarr only with spec.reconcile.prune, and only if the
+                        operator created it.
+                      type: object
+                  required:
+                  - folder
+                  - id
+                  - name
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - id
+                x-kubernetes-list-type: map
+              reconcile:
+                description: reconcile configures reconciliation behavior (e.g., sync
+                  interval).
+                properties:
+                  deletionPolicy:
+                    description: |-
+                      deletionPolicy controls what happens to resources in the app when this CR
+                      is deleted. "orphan" leaves them in place, "delete" removes the resources
+                      the operator created.
+                      Default: orphan.
+                    enum:
+                    - orphan
+                    - delete
+                    type: string
+                  driftPolicy:
+                    description: |-
+                      driftPolicy controls whether drift is corrected or only recorded.
+                      "enforce" rewrites a resource whose live state differs from this CR.
+                      "observe" leaves the app untouched and only counts the difference, which
+                      makes drift measurable before handing the operator write authority.
+                      Default: enforce.
+                    enum:
+                    - enforce
+                    - observe
+                    type: string
+                  interval:
+                    description: |-
+                      interval overrides the default reconciliation interval (default: 5m).
+                      Uses standard Kubernetes duration format (e.g., "30s", "5m", "1h"), and
+                      is at least 30s.
+                    type: string
+                    x-kubernetes-validations:
+                    - message: interval must be at least 30s
+                      rule: duration(self) >= duration('30s')
+                  prune:
+                    description: |-
+                      prune deletes resources the operator created, tracked in
+                      status.managedResources, once they are removed from this spec. Resources
+                      it did not create are never deleted, and a resource type with nothing
+                      declared is left alone. Root folders and tags are never pruned.
+                      Not every integration supports prune; one that does not rejects it with
+                      InvalidConfig rather than ignoring it.
+                      Default: false (only create/update, never delete).
+                    type: boolean
+                type: object
+                x-kubernetes-validations:
+                - message: deletionPolicy delete conflicts with driftPolicy observe
+                  rule: '!has(self.deletionPolicy) || self.deletionPolicy != ''delete''
+                    || !has(self.driftPolicy) || self.driftPolicy != ''observe'''
+              settings:
+                description: |-
+                  settings configures Tdarr's server-wide options. Pausing nodes is left to
+                  whoever runs Tdarr.
+                properties:
+                  alternateLibraries:
+                    description: alternateLibraries takes queued files from each library
+                      in turn.
+                    type: boolean
+                  autoAcceptTranscodes:
+                    description: |-
+                      autoAcceptTranscodes moves a successful transcode into the library or
+                      output folder without waiting in staging for review.
+                    type: boolean
+                  autoPauseIfCacheFull:
+                    description: |-
+                      autoPauseIfCacheFull pauses every node when a library cache has less
+                      free space than autoPauseIfCacheFullThreshold.
+                    type: boolean
+                  autoPauseIfCacheFullThreshold:
+                    description: |-
+                      autoPauseIfCacheFullThreshold is the free cache space, in GB, below which
+                      autoPauseIfCacheFull pauses the nodes.
+                    minimum: 0
+                    type: integer
+                  backupLimit:
+                    description: backupLimit is how many server backups are kept.
+                    minimum: 0
+                    type: integer
+                  ignoreSchedules:
+                    description: ignoreSchedules runs workers outside their libraries'
+                      schedules.
+                    type: boolean
+                  jobHistorySizeLimitGB:
+                    description: jobHistorySizeLimitGB caps the job history, in GB.
+                    minimum: 0
+                    type: integer
+                  logFullCliOutput:
+                    description: logFullCliOutput logs the whole FFmpeg and HandBrake
+                      output of each job.
+                    type: boolean
+                  notificationsCustomText:
+                    description: notificationsCustomText is added to every notification.
+                    type: string
+                  notificationsDiscordWebhookSecretRef:
+                    description: |-
+                      notificationsDiscordWebhookSecretRef references the Discord webhook URL
+                      notifications go to.
+                    properties:
+                      key:
+                        description: key is the key within the Secret.
+                        type: string
+                      name:
+                        description: name is the name of the Secret.
+                        type: string
+                    required:
+                    - key
+                    - name
+                    type: object
+                  notificationsHealthcheckCancelled:
+                    description: notificationsHealthcheckCancelled notifies when a
+                      health check is cancelled.
+                    type: boolean
+                  notificationsHealthcheckError:
+                    description: notificationsHealthcheckError notifies when a health
+                      check fails.
+                    type: boolean
+                  notificationsHealthcheckSuccess:
+                    description: notificationsHealthcheckSuccess notifies when a health
+                      check succeeds.
+                    type: boolean
+                  notificationsRequireReview:
+                    description: notificationsRequireReview notifies when a file waits
+                      in staging for review.
+                    type: boolean
+                  notificationsServerStarted:
+                    description: notificationsServerStarted notifies when the server
+                      starts.
+                    type: boolean
+                  notificationsServerUpdateReady:
+                    description: notificationsServerUpdateReady notifies when a server
+                      update is ready.
+                    type: boolean
+                  notificationsTranscodeCancelled:
+                    description: notificationsTranscodeCancelled notifies when a transcode
+                      is cancelled.
+                    type: boolean
+                  notificationsTranscodeError:
+                    description: notificationsTranscodeError notifies when a transcode
+                      fails.
+                    type: boolean
+                  notificationsTranscodeSuccess:
+                    description: notificationsTranscodeSuccess notifies when a transcode
+                      succeeds.
+                    type: boolean
+                  pluginAutoUpdate:
+                    description: pluginAutoUpdate keeps the community plugins up to
+                      date.
+                    type: boolean
+                  prioritiseHealthChecks:
+                    description: prioritiseHealthChecks takes health checks before
+                      transcodes.
+                    type: boolean
+                  prioritiseLibraries:
+                    description: prioritiseLibraries takes queued files by library
+                      priority.
+                    type: boolean
+                  prioritiseTranscodes:
+                    description: prioritiseTranscodes takes transcodes before health
+                      checks.
+                    type: boolean
+                  runMkvpropedit:
+                    description: runMkvpropedit runs mkvpropedit on files before the
+                      plugins.
+                    type: boolean
+                  stagedFileLimit:
+                    description: stagedFileLimit is how many files can wait in staging
+                      for review.
+                    minimum: 0
+                    type: integer
+                  verboseLogs:
+                    description: verboseLogs enables verbose logging.
+                    type: boolean
+                  workerStallDetector:
+                    description: workerStallDetector cancels workers that stall.
+                    type: boolean
+                  workerStallDetectorInterval:
+                    description: |-
+                      workerStallDetectorInterval is how often, in seconds, workers are checked
+                      for stalls.
+                    minimum: 1
+                    type: integer
+                type: object
+              workers:
+                description: workers configures the number of worker threads on each
+                  Tdarr node.
+                items:
+                  description: TdarrWorkers configures the number of worker threads
+                    on one Tdarr node.
+                  properties:
+                    healthcheckCPU:
+                      description: healthcheckCPU is the number of CPU health check
+                        workers.
+                      type: integer
+                    healthcheckGPU:
+                      description: healthcheckGPU is the number of GPU health check
+                        workers.
+                      type: integer
+                    nodeName:
+                      description: nodeName is the name of the Tdarr node these limits
+                        are for.
+                      minLength: 1
+                      type: string
+                    transcodeCPU:
+                      description: transcodeCPU is the number of CPU transcode workers.
+                      type: integer
+                    transcodeGPU:
+                      description: transcodeGPU is the number of GPU transcode workers.
+                      type: integer
+                  required:
+                  - nodeName
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - nodeName
+                x-kubernetes-list-type: map
+            required:
+            - connection
+            type: object
+          status:
+            description: TdarrStatus defines the observed state of Tdarr.
+            properties:
+              conditions:
+                description: conditions represent the current state of the Tdarr resource.
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+              lastSyncTime:
+                description: lastSyncTime is the timestamp of the last successful
+                  reconciliation.
+                format: date-time
+                type: string
+              managedResources:
+                additionalProperties:
+                  items:
+                    type: string
+                  type: array
+                description: |-
+                  managedResources records the resources this operator created, keyed by
+                  resource type. Prune only removes entries listed here, so resources
+                  created outside the operator are never deleted.
+                type: object
+              observedGeneration:
+                description: observedGeneration is the most recent generation observed.
+                format: int64
+                type: integer
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

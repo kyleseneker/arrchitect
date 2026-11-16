@@ -1,0 +1,55 @@
+apiVersion: arrchitect.dev/v1alpha1
+kind: Autobrr
+metadata:
+  name: autobrr
+  labels:
+    app.kubernetes.io/name: arrchitect
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  connection:
+    url: http://autobrr:7474
+    apiKeySecretRef:
+      name: autobrr-secrets
+      key: api-key
+  downloadClients:
+    - name: qBittorrent
+      type: qBittorrent
+      host: qbittorrent.media.svc.cluster.local
+      port: 8080
+      usernameSecretRef:
+        name: qbittorrent-secrets
+        key: username
+      passwordSecretRef:
+        name: qbittorrent-secrets
+        key: password
+  indexers:
+    - name: IPTorrents
+      identifier: ipt
+      settings:
+        - name: passkey
+          valueFrom:
+            secretKeyRef:
+              name: autobrr-secrets
+              key: ipt-passkey
+  filters:
+    - name: "TV Shows - 1080p"
+      priority: 1
+      indexers:
+        - IPTorrents
+      resolutions:
+        - "1080p"
+      sources:
+        - "BluRay"
+        - "WEB-DL"
+        - "WEB"
+      exceptReleaseGroups: "YIFY,RARBG"
+      smartEpisode: true
+      maxDownloads: 10
+      maxDownloadsUnit: DAY
+      actions:
+        - name: "Send to qBittorrent"
+          type: qBittorrent
+          clientRef: qBittorrent
+          category: tv
+          contentLayout: ORIGINAL
+          limitSeedTime: 10080

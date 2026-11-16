@@ -59,9 +59,9 @@ func TestMaintainerr(t *testing.T) {
 			"jellyfin-api-key": jellyfinKey, "radarr-api-key": radarrKey, "seerr-api-key": randomKey(),
 			"webhook-url": "http://webhook.invalid/maintainerr",
 		},
-		newObj: func() ctrlcommon.ConfigResource { return &curationv1alpha1.MaintainerrConfig{} },
+		newObj: func() ctrlcommon.ConfigResource { return &curationv1alpha1.Maintainerr{} },
 		reconciler: func(c client.Client) reconcile.Reconciler {
-			return &curation.MaintainerrConfigReconciler{Client: c, Scheme: c.Scheme(), Recorder: events.NewFakeRecorder(100)}
+			return &curation.MaintainerrReconciler{Client: c, Scheme: c.Scheme(), Recorder: events.NewFakeRecorder(100)}
 		},
 		proxy:   proxy,
 		observe: true,

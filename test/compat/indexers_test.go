@@ -43,9 +43,9 @@ func TestProwlarr(t *testing.T) {
 			"api-key": key, "sonarr-api-key": sonarrKey,
 			"qbittorrent-username": qbittorrentUser, "qbittorrent-password": qbitPassword,
 		},
-		newObj: func() ctrlcommon.ConfigResource { return &indexersv1alpha1.ProwlarrConfig{} },
+		newObj: func() ctrlcommon.ConfigResource { return &indexersv1alpha1.Prowlarr{} },
 		reconciler: func(c client.Client) reconcile.Reconciler {
-			return &indexers.ProwlarrConfigReconciler{Client: c, Scheme: c.Scheme(), Recorder: events.NewFakeRecorder(100)}
+			return &indexers.ProwlarrReconciler{Client: c, Scheme: c.Scheme(), Recorder: events.NewFakeRecorder(100)}
 		},
 		proxy:   proxy,
 		observe: true,
@@ -90,9 +90,9 @@ func TestFlareSolverr(t *testing.T) {
 		fixture: "flaresolverr.yaml",
 		export:  "flaresolverr",
 		vars:    map[string]string{"URL": proxy.url()},
-		newObj:  func() ctrlcommon.ConfigResource { return &indexersv1alpha1.FlareSolverrConfig{} },
+		newObj:  func() ctrlcommon.ConfigResource { return &indexersv1alpha1.FlareSolverr{} },
 		reconciler: func(c client.Client) reconcile.Reconciler {
-			return &indexers.FlareSolverrConfigReconciler{Client: c, Scheme: c.Scheme(), Recorder: events.NewFakeRecorder(100)}
+			return &indexers.FlareSolverrReconciler{Client: c, Scheme: c.Scheme(), Recorder: events.NewFakeRecorder(100)}
 		},
 		proxy: proxy,
 		// Every command is a POST to /v1; listing sessions changes nothing.

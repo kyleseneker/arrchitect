@@ -49,7 +49,7 @@ func TestMaintainerrExportsConnectionsAndRuleGroups(t *testing.T) {
 
 	res, err := Run(context.Background(), Options{App: "maintainerr", URL: srv.URL})
 	require.NoError(t, err)
-	cfg, ok := res.Config.(*curationv1alpha1.MaintainerrConfig)
+	cfg, ok := res.Config.(*curationv1alpha1.Maintainerr)
 	require.True(t, ok)
 
 	require.NotNil(t, cfg.Spec.MediaServer.Jellyfin)
@@ -88,7 +88,7 @@ func TestMaintainerrExportsConnectionsAndRuleGroups(t *testing.T) {
 	n := cfg.Spec.Notifications[0]
 	assert.Equal(t, "discord", n.Agent)
 	assert.Equal(t, []string{"mediaAboutToBeHandled", "mediaHandled"}, n.Types)
-	assert.Contains(t, res.Warnings, `notification "Discord": MaintainerrConfig can't express notification type 2048, so it isn't exported`)
+	assert.Contains(t, res.Warnings, `notification "Discord": the config can't express notification type 2048, so it isn't exported`)
 	assert.Equal(t, int32(3), *n.AboutScale)
 	assert.Equal(t, "Maintainerr", n.Options["botUsername"].ToInterface())
 	assert.NotContains(t, n.Options, "botAvatarUrl", "an empty option isn't exported")

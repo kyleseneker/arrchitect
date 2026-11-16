@@ -58,9 +58,9 @@ func TestBazarr(t *testing.T) {
 			"SONARR_PORT": strconv.Itoa(sonarr.port), "RADARR_PORT": strconv.Itoa(radarr.port),
 		},
 		secrets: map[string]string{"api-key": key, "sonarr-api-key": sonarrKey, "radarr-api-key": radarrKey},
-		newObj:  func() ctrlcommon.ConfigResource { return &subtitlesv1alpha1.BazarrConfig{} },
+		newObj:  func() ctrlcommon.ConfigResource { return &subtitlesv1alpha1.Bazarr{} },
 		reconciler: func(c client.Client) reconcile.Reconciler {
-			return &subtitles.BazarrConfigReconciler{Client: c, Scheme: c.Scheme(), Recorder: events.NewFakeRecorder(100)}
+			return &subtitles.BazarrReconciler{Client: c, Scheme: c.Scheme(), Recorder: events.NewFakeRecorder(100)}
 		},
 		proxy:   proxy,
 		observe: true,

@@ -124,7 +124,7 @@ func (r *reader) tdarrLibrary(doc map[string]any, variables []map[string]any) ma
 		case decision["settingsPlugin"] == true:
 			lib["decisionMode"] = "plugins"
 		default:
-			r.warn("library %q decides by video and audio settings, which TdarrConfig can't express, so they stay as set in Tdarr", name)
+			r.warn("library %q decides by video and audio settings, which the config can't express, so they stay as set in Tdarr", name)
 		}
 	}
 	if plugins := r.tdarrPlugins(name, list(doc["pluginIDs"])); len(plugins) > 0 {

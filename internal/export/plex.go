@@ -42,7 +42,7 @@ func exportPlex(r *reader) (map[string]any, error) {
 				if choices, ok := plexclient.Choices[name]; ok && value != "" {
 					stored := value
 					if value = plexChoice(choices, stored); value == "" {
-						r.warn("Plex's %s is %s, which PlexConfig can't express, so %s.%s stays as set in Plex", id, stored, section, name)
+						r.warn("Plex's %s is %s, which the config can't express, so %s.%s stays as set in Plex", id, stored, section, name)
 					}
 				}
 				if value != "" {

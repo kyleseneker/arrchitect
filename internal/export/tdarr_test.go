@@ -51,7 +51,7 @@ func TestTdarrExportsLibrariesFlowsAndWorkers(t *testing.T) {
 
 	res, err := Run(context.Background(), Options{App: "tdarr", URL: srv.URL, APIKey: "k"})
 	require.NoError(t, err)
-	cfg, ok := res.Config.(*transcodev1alpha1.TdarrConfig)
+	cfg, ok := res.Config.(*transcodev1alpha1.Tdarr)
 	require.True(t, ok)
 
 	require.Len(t, cfg.Spec.Libraries, 2)
@@ -75,7 +75,7 @@ func TestTdarrExportsLibrariesFlowsAndWorkers(t *testing.T) {
 		`library "Movies": plugin Off is disabled, local or has options, which pluginStack can't express`)
 	assert.Empty(t, cfg.Spec.Libraries[1].DecisionMode)
 	assert.Contains(t, res.Warnings,
-		`library "TV" decides by video and audio settings, which TdarrConfig can't express, so they stay as set in Tdarr`)
+		`library "TV" decides by video and audio settings, which the config can't express, so they stay as set in Tdarr`)
 
 	require.Len(t, cfg.Spec.Flows, 1)
 	assert.Equal(t, "flow1", cfg.Spec.Flows[0].ID)

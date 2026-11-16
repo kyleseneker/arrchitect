@@ -1,5 +1,5 @@
 apiVersion: arrchitect.dev/v1alpha1
-kind: ProwlarrConfig
+kind: Prowlarr
 metadata:
   name: prowlarr
 spec:

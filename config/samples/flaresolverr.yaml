@@ -1,0 +1,12 @@
+apiVersion: arrchitect.dev/v1alpha1
+kind: FlareSolverr
+metadata:
+  name: flaresolverr
+  labels:
+    app.kubernetes.io/name: arrchitect
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  connection:
+    url: http://flaresolverr:8191
+  sessions:
+    - name: prowlarr

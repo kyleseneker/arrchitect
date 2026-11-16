@@ -51,7 +51,7 @@ func exportSabnzbd(r *reader) (map[string]any, error) {
 		if name, ok := sabChoice(choice.Values, misc[choice.Key]); ok {
 			general[field] = name
 		} else if v, set := misc[choice.Key]; set {
-			r.warn("SabnzbdConfig can't express %s %v; %s is left out", choice.Key, v, field)
+			r.warn("the config can't express %s %v; %s is left out", choice.Key, v, field)
 		}
 	}
 	switch sort := sabText(misc["auto_sort"]); sort {
@@ -60,7 +60,7 @@ func exportSabnzbd(r *reader) (map[string]any, error) {
 	case "1", "avg_age asc":
 		general["autoSort"] = true
 	default:
-		r.warn("SabnzbdConfig can't express the queue sort %q; autoSort is left out", sort)
+		r.warn("the config can't express the queue sort %q; autoSort is left out", sort)
 	}
 	if len(general) > 0 {
 		spec["general"] = general

@@ -69,7 +69,7 @@ resources:
   controller: true
   domain: dev
   group: arrchitect
-  kind: ProwlarrConfig
+  kind: Prowlarr
   path: github.com/kyleseneker/arrchitect/api/indexers/v1alpha1
   version: v1alpha1
 - api:
@@ -78,7 +78,7 @@ resources:
   controller: true
   domain: dev
   group: arrchitect
-  kind: BazarrConfig
+  kind: Bazarr
   path: github.com/kyleseneker/arrchitect/api/subtitles/v1alpha1
   version: v1alpha1
 - api:
@@ -141,7 +141,7 @@ resources:
   controller: true
   domain: dev
   group: arrchitect
-  kind: QBittorrentConfig
+  kind: QBittorrent
   path: github.com/kyleseneker/arrchitect/api/downloads/v1alpha1
   version: v1alpha1
 - api:
@@ -150,7 +150,7 @@ resources:
   controller: true
   domain: dev
   group: arrchitect
-  kind: SabnzbdConfig
+  kind: Sabnzbd
   path: github.com/kyleseneker/arrchitect/api/downloads/v1alpha1
   version: v1alpha1
 - api:
@@ -159,7 +159,7 @@ resources:
   controller: true
   domain: dev
   group: arrchitect
-  kind: JellyfinConfig
+  kind: Jellyfin
   path: github.com/kyleseneker/arrchitect/api/mediaservers/v1alpha1
   version: v1alpha1
 - api:
@@ -168,7 +168,7 @@ resources:
   controller: true
   domain: dev
   group: arrchitect
-  kind: PlexConfig
+  kind: Plex
   path: github.com/kyleseneker/arrchitect/api/mediaservers/v1alpha1
   version: v1alpha1
 - api:
@@ -177,7 +177,7 @@ resources:
   controller: true
   domain: dev
   group: arrchitect
-  kind: SeerrConfig
+  kind: Seerr
   path: github.com/kyleseneker/arrchitect/api/requests/v1alpha1
   version: v1alpha1
 - api:
@@ -186,7 +186,7 @@ resources:
   controller: true
   domain: dev
   group: arrchitect
-  kind: TdarrConfig
+  kind: Tdarr
   path: github.com/kyleseneker/arrchitect/api/transcode/v1alpha1
   version: v1alpha1
 - api:
@@ -195,7 +195,7 @@ resources:
   controller: true
   domain: dev
   group: arrchitect
-  kind: FlareSolverrConfig
+  kind: FlareSolverr
   path: github.com/kyleseneker/arrchitect/api/indexers/v1alpha1
   version: v1alpha1
 - api:
@@ -204,7 +204,7 @@ resources:
   controller: true
   domain: dev
   group: arrchitect
-  kind: AutobrrConfig
+  kind: Autobrr
   path: github.com/kyleseneker/arrchitect/api/automation/v1alpha1
   version: v1alpha1
 - api:
@@ -213,7 +213,7 @@ resources:
   controller: true
   domain: dev
   group: arrchitect
-  kind: MaintainerrConfig
+  kind: Maintainerr
   path: github.com/kyleseneker/arrchitect/api/curation/v1alpha1
   version: v1alpha1
 version: "3"

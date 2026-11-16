@@ -1,5 +1,5 @@
 apiVersion: arrchitect.dev/v1alpha1
-kind: MaintainerrConfig
+kind: Maintainerr
 metadata:
   name: maintainerr
 spec:

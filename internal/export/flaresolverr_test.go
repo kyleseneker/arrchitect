@@ -20,7 +20,7 @@ func TestFlareSolverrExportsSessionsWithoutASecret(t *testing.T) {
 
 	res, err := Run(context.Background(), Options{App: "flaresolverr", URL: srv.URL})
 	require.NoError(t, err)
-	cfg, ok := res.Config.(*indexersv1alpha1.FlareSolverrConfig)
+	cfg, ok := res.Config.(*indexersv1alpha1.FlareSolverr)
 	require.True(t, ok)
 	assert.Equal(t, []indexersv1alpha1.FlareSolverrSession{{Name: "compat"}, {Name: "prowlarr"}}, cfg.Spec.Sessions)
 	assert.Equal(t, srv.URL, cfg.Spec.Connection.URL)

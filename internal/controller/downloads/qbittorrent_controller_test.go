@@ -1,0 +1,488 @@
+package downloads
+
+import (
+	"context"
+	"encoding/json"
+	"net"
+	"net/http"
+	"net/http/httptest"
+	"slices"
+	"strings"
+	"sync"
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/events"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+
+	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
+	downloadsv1alpha1 "github.com/kyleseneker/arrchitect/api/downloads/v1alpha1"
+	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
+	"github.com/kyleseneker/arrchitect/internal/controller/internal/contract"
+)
+
+func TestQBPreferencePayloadUsesAPIKeyNames(t *testing.T) {
+	prefs := &downloadsv1alpha1.QBittorrentPreferences{
+		SavePath:              "/data/torrents",
+		Locale:                "en",
+		TempPathEnabled:       new(true),
+		DHT:                   new(false),
+		PEX:                   new(false),
+		LSD:                   new(false),
+		Encryption:            new("require"),
+		MaxConnec:             new(200),
+		MaxConnecPerTorrent:   new(50),
+		MaxUploads:            new(20),
+		MaxUploadsPerTorrent:  new(5),
+		MaxRatioEnabled:       new(true),
+		MaxRatio:              new("2.0"),
+		MaxRatioAction:        new("stop"),
+		MaxSeedingTimeEnabled: new(true),
+		MaxSeedingTime:        new(10080),
+		PreallocateAll:        new(true),
+		WebUIPort:             new(8080),
+	}
+
+	got, err := qbPreferencePayload(prefs)
+	require.NoError(t, err, "qbPreferencePayload")
+
+	want := map[string]any{
+		"save_path":                "/data/torrents",
+		"locale":                   "en",
+		"temp_path_enabled":        true,
+		"dht":                      false,
+		"pex":                      false,
+		"lsd":                      false,
+		"encryption":               1,
+		"max_connec":               200,
+		"max_connec_per_torrent":   50,
+		"max_uploads":              20,
+		"max_uploads_per_torrent":  5,
+		"max_ratio_enabled":        true,
+		"max_ratio":                2.0,
+		"max_ratio_act":            0,
+		"max_seeding_time_enabled": true,
+		"max_seeding_time":         10080,
+		"preallocate_all":          true,
+		"web_ui_port":              8080,
+	}
+
+	assert.Equal(t, want, got, "payload mismatch")
+}
+
+func TestQBPreferencePayloadCoversEverySpecField(t *testing.T) {
+	contract.AssertEveryFieldEmitted(t, &downloadsv1alpha1.QBittorrentPreferences{},
+		func(p *downloadsv1alpha1.QBittorrentPreferences) map[string]any {
+			out, err := qbPreferencePayload(p)
+			require.NoError(t, err, "qbPreferencePayload")
+			return out
+		},
+		func(p *downloadsv1alpha1.QBittorrentPreferences) {
+			p.MaxRatio = new("1.0")
+			p.MaxRatioAction = new("stop")
+			p.Encryption = new("require")
+			p.MaxRatioEnabled = new(true)
+			p.MaxSeedingTimeEnabled = new(true)
+			p.MaxInactiveSeedingTimeEnabled = new(true)
+			p.SchedulerDays = "weekends"
+			p.ExcludedFileNames = []string{"*.lnk"}
+		})
+}
+
+func TestQBPreferencePayloadRejectsBadValues(t *testing.T) {
+	_, err := qbPreferencePayload(&downloadsv1alpha1.QBittorrentPreferences{MaxRatio: new("abc")})
+	assert.Error(t, err, "expected error for unparseable maxRatio")
+	_, err = qbPreferencePayload(&downloadsv1alpha1.QBittorrentPreferences{MaxRatioAction: new("nope")})
+	assert.Error(t, err, "expected error for unknown maxRatioAction")
+	_, err = qbPreferencePayload(&downloadsv1alpha1.QBittorrentPreferences{SchedulerDays: "someday"})
+	assert.Error(t, err, "expected error for unknown schedulerDays")
+}
+
+func TestQBPreferencePayloadConvertsWhatQBittorrentStoresDifferently(t *testing.T) {
+	got, err := qbPreferencePayload(&downloadsv1alpha1.QBittorrentPreferences{
+		TempPath:                      "/downloads/incomplete/",
+		DlLimit:                       new(10240),
+		AltUpLimit:                    new(0),
+		SchedulerDays:                 "monday",
+		ExcludedFileNames:             []string{"*.lnk", "*.exe"},
+		NetworkInterface:              new(""),
+		MaxInactiveSeedingTimeEnabled: new(false),
+		MaxInactiveSeedingTime:        new(30),
+	})
+	require.NoError(t, err)
+	assert.Equal(t, map[string]any{
+		"temp_path":                         "/downloads/incomplete",
+		"dl_limit":                          10485760,
+		"alt_up_limit":                      0,
+		"scheduler_days":                    3,
+		"excluded_file_names":               "*.lnk\n*.exe",
+		"current_network_interface":         "",
+		"max_inactive_seeding_time_enabled": false,
+	}, got)
+}
+
+func TestQBPreferencePayloadOmitsUnsetFields(t *testing.T) {
+	got, err := qbPreferencePayload(&downloadsv1alpha1.QBittorrentPreferences{MaxRatioAction: new("removeWithContent")})
+	require.NoError(t, err, "qbPreferencePayload")
+	assert.Equal(t, map[string]any{"max_ratio_act": 3}, got, "expected only max_ratio_act=3")
+}
+
+func TestQBObserveReadsWithoutChangingPreferencesOrCategories(t *testing.T) {
+	for _, tt := range []struct{ name, path, failure, reason string }{
+		{"matching", "/existing", "", "Observed"},
+		{"empty spec", "", "", "Observed"},
+		{"empty preferences", "", "", "Observed"},
+		{"invalid ratio", "", "", "SyncFailed"},
+		{"drift", "/new", "", "DriftDetected"},
+		{"preferences unavailable", "/existing", "/api/v2/app/preferences", "SyncFailed"},
+		{"categories unavailable", "/existing", "/api/v2/torrents/categories", "SyncFailed"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			var requests []string
+			var mu sync.Mutex
+			ln, err := net.Listen("tcp", net.JoinHostPort(routableAddr(t), "0"))
+			require.NoError(t, err)
+			srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				mu.Lock()
+				requests = append(requests, r.Method+" "+r.URL.Path)
+				mu.Unlock()
+				if r.URL.Path == tt.failure {
+					w.WriteHeader(500)
+					return
+				}
+				switch r.URL.Path {
+				case "/api/v2/auth/login":
+					http.SetCookie(w, &http.Cookie{Name: "SID", Value: "session", Path: "/"})
+					_, _ = w.Write([]byte("Ok."))
+				case "/api/v2/app/version":
+					_, _ = w.Write([]byte("v5"))
+				case "/api/v2/app/preferences":
+					_, _ = w.Write([]byte(`{"save_path":"/existing","unmanaged":true}`))
+				case "/api/v2/torrents/categories":
+					_, _ = w.Write([]byte(`{"tv":{"savePath":"/existing"}}`))
+				default:
+					assert.Failf(t, "unexpected request", "%s %s", r.Method, r.URL.Path)
+					w.WriteHeader(500)
+				}
+			}))
+			_ = srv.Listener.Close()
+			srv.Listener = ln
+			srv.Start()
+			defer srv.Close()
+			scheme := runtime.NewScheme()
+			require.NoError(t, downloadsv1alpha1.AddToScheme(scheme))
+			require.NoError(t, corev1.AddToScheme(scheme))
+			policy := "observe"
+			cfg := &downloadsv1alpha1.QBittorrent{Name: "qbit", Namespace: "media"}
+			cfg.Spec.Connection = downloadsv1alpha1.QBittorrentConnection{URL: srv.URL,
+				UsernameSecretRef: commonv1alpha1.SecretKeyRef{Name: "creds", Key: "user"}, PasswordSecretRef: commonv1alpha1.SecretKeyRef{Name: "creds", Key: "password"}}
+			cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{DriftPolicy: &policy}
+			cfg.Spec.Preferences = &downloadsv1alpha1.QBittorrentPreferences{SavePath: tt.path}
+			cfg.Spec.Categories = []downloadsv1alpha1.QBittorrentCategory{{Name: "tv", SavePath: tt.path}}
+			switch tt.name {
+			case "empty spec":
+				cfg.Spec.Preferences = nil
+				cfg.Spec.Categories = nil
+			case "empty preferences":
+				cfg.Spec.Preferences = &downloadsv1alpha1.QBittorrentPreferences{}
+				cfg.Spec.Categories = nil
+			case "invalid ratio":
+				cfg.Spec.Preferences.MaxRatio = new("invalid")
+			}
+			if tt.name == "drift" {
+				cfg.Spec.Categories = append(cfg.Spec.Categories, downloadsv1alpha1.QBittorrentCategory{Name: "missing"})
+			}
+			secret := &corev1.Secret{Name: "creds", Namespace: "media", Data: map[string][]byte{"user": []byte("user"), "password": []byte("password")}}
+			c := fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(cfg).WithObjects(cfg, secret).Build()
+			rec := &QBittorrentReconciler{Client: c, Scheme: scheme}
+			key := types.NamespacedName{Name: cfg.Name, Namespace: cfg.Namespace}
+			_, err = rec.Reconcile(context.Background(), ctrl.Request{NamespacedName: key})
+			require.NoError(t, err)
+			require.NoError(t, c.Get(context.Background(), key, cfg))
+			mu.Lock()
+			defer mu.Unlock()
+			for _, req := range requests {
+				assert.False(t, strings.HasPrefix(req, "POST ") && req != "POST /api/v2/auth/login", "observe wrote: %s", req)
+			}
+			require.True(t, slices.ContainsFunc(cfg.Status.Conditions, func(condition metav1.Condition) bool {
+				return condition.Type == "Synced" && condition.Reason == tt.reason
+			}), "want %s, got %+v", tt.reason, cfg.Status.Conditions)
+		})
+	}
+}
+
+// Enforcement used to call setPreferences and editCategory on every pass. It
+// must write only what differs, comparing paths the way qBittorrent stores them.
+func TestQBEnforceWritesOnlyWhatDiffers(t *testing.T) {
+	for _, tt := range []struct {
+		name, path string
+		writes     []string
+	}{
+		{"matching, trailing slash declared", "/existing/", nil},
+		{"drift", "/new", []string{"POST /api/v2/app/setPreferences", "POST /api/v2/torrents/editCategory"}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			var writes []string
+			var mu sync.Mutex
+			ln, err := net.Listen("tcp", net.JoinHostPort(routableAddr(t), "0"))
+			require.NoError(t, err)
+			srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				switch r.URL.Path {
+				case "/api/v2/auth/login":
+					http.SetCookie(w, &http.Cookie{Name: "SID", Value: "session", Path: "/"})
+					_, _ = w.Write([]byte("Ok."))
+				case "/api/v2/app/version":
+					_, _ = w.Write([]byte("v5"))
+				case "/api/v2/app/preferences":
+					_, _ = w.Write([]byte(`{"save_path":"/existing","unmanaged":true}`))
+				case "/api/v2/torrents/categories":
+					_, _ = w.Write([]byte(`{"tv":{"name":"tv","savePath":"/existing"}}`))
+				default:
+					mu.Lock()
+					writes = append(writes, r.Method+" "+r.URL.Path)
+					mu.Unlock()
+				}
+			}))
+			_ = srv.Listener.Close()
+			srv.Listener = ln
+			srv.Start()
+			defer srv.Close()
+
+			scheme := runtime.NewScheme()
+			require.NoError(t, downloadsv1alpha1.AddToScheme(scheme))
+			require.NoError(t, corev1.AddToScheme(scheme))
+			cfg := &downloadsv1alpha1.QBittorrent{Name: "qbit", Namespace: "media"}
+			cfg.Spec.Connection = downloadsv1alpha1.QBittorrentConnection{URL: srv.URL,
+				UsernameSecretRef: commonv1alpha1.SecretKeyRef{Name: "creds", Key: "user"},
+				PasswordSecretRef: commonv1alpha1.SecretKeyRef{Name: "creds", Key: "password"}}
+			cfg.Spec.Preferences = &downloadsv1alpha1.QBittorrentPreferences{SavePath: tt.path}
+			cfg.Spec.Categories = []downloadsv1alpha1.QBittorrentCategory{{Name: "tv", SavePath: tt.path}}
+			secret := &corev1.Secret{Name: "creds", Namespace: "media",
+				Data: map[string][]byte{"user": []byte("admin"), "password": []byte("pw")}}
+			c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(cfg, secret).
+				WithStatusSubresource(&downloadsv1alpha1.QBittorrent{}).Build()
+			r := &QBittorrentReconciler{Client: c, Scheme: scheme}
+			req := ctrl.Request{Name: "qbit", Namespace: "media"}
+			_, err = r.Reconcile(context.Background(), req)
+			require.NoError(t, err)
+			assert.Equal(t, tt.writes, writes)
+		})
+	}
+}
+
+type fakeQB struct {
+	mu         sync.Mutex
+	categories map[string]any
+	removed    []string
+	writes     []string
+}
+
+func (f *fakeQB) serve(t *testing.T) string {
+	t.Helper()
+	ln, err := net.Listen("tcp", net.JoinHostPort(routableAddr(t), "0"))
+	require.NoError(t, err)
+	srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		f.mu.Lock()
+		defer f.mu.Unlock()
+		switch r.URL.Path {
+		case "/api/v2/auth/login":
+			http.SetCookie(w, &http.Cookie{Name: "SID", Value: "session", Path: "/"})
+			_, _ = w.Write([]byte("Ok."))
+		case "/api/v2/app/version":
+			_, _ = w.Write([]byte("v5"))
+		case "/api/v2/torrents/categories":
+			_ = json.NewEncoder(w).Encode(f.categories)
+		case "/api/v2/torrents/removeCategories":
+			require.NoError(t, r.ParseForm())
+			f.removed = append(f.removed, r.Form.Get("categories"))
+			delete(f.categories, r.Form.Get("categories"))
+		default:
+			f.writes = append(f.writes, r.Method+" "+r.URL.Path)
+		}
+	}))
+	_ = srv.Listener.Close()
+	srv.Listener = ln
+	srv.Start()
+	t.Cleanup(srv.Close)
+	return srv.URL
+}
+
+func qbConfig(url string, categories ...string) *downloadsv1alpha1.QBittorrent {
+	cfg := &downloadsv1alpha1.QBittorrent{Name: "qbit", Namespace: "media"}
+	cfg.Spec.Connection = downloadsv1alpha1.QBittorrentConnection{URL: url,
+		UsernameSecretRef: commonv1alpha1.SecretKeyRef{Name: "creds", Key: "user"},
+		PasswordSecretRef: commonv1alpha1.SecretKeyRef{Name: "creds", Key: "password"}}
+	for _, name := range categories {
+		cfg.Spec.Categories = append(cfg.Spec.Categories, downloadsv1alpha1.QBittorrentCategory{Name: name, SavePath: "/downloads/" + name})
+	}
+	return cfg
+}
+
+func runQB(t *testing.T, cfg *downloadsv1alpha1.QBittorrent) *downloadsv1alpha1.QBittorrent {
+	t.Helper()
+	scheme := runtime.NewScheme()
+	require.NoError(t, downloadsv1alpha1.AddToScheme(scheme))
+	require.NoError(t, corev1.AddToScheme(scheme))
+	secret := &corev1.Secret{Name: "creds", Namespace: "media",
+		Data: map[string][]byte{"user": []byte("admin"), "password": []byte("pw")}}
+	c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(cfg, secret).
+		WithStatusSubresource(&downloadsv1alpha1.QBittorrent{}).Build()
+	r := &QBittorrentReconciler{Client: c, Scheme: scheme, Recorder: events.NewFakeRecorder(20)}
+	key := types.NamespacedName{Name: "qbit", Namespace: "media"}
+	_, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: key})
+	require.NoError(t, err)
+	var got downloadsv1alpha1.QBittorrent
+	if err := c.Get(context.Background(), key, &got); err != nil {
+		return nil
+	}
+	return &got
+}
+
+func qbCategories(names ...string) map[string]any {
+	out := map[string]any{}
+	for _, n := range names {
+		out[n] = map[string]any{"name": n, "savePath": "/downloads/" + n}
+	}
+	return out
+}
+
+func TestQBPrunesOnlyCategoriesItCreated(t *testing.T) {
+	app := &fakeQB{categories: qbCategories("tv", "old", "hand-made")}
+	cfg := qbConfig(app.serve(t), "tv")
+	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{Prune: new(true)}
+	cfg.Status.ManagedResources = map[string][]string{"categories": {"tv", "old"}}
+
+	got := runQB(t, cfg)
+
+	assert.Equal(t, []string{"old"}, app.removed)
+	assert.Equal(t, []string{"tv"}, got.Status.ManagedResources["categories"])
+}
+
+func TestQBRecordsTheCategoriesItCreates(t *testing.T) {
+	app := &fakeQB{categories: qbCategories("adopted")}
+
+	got := runQB(t, qbConfig(app.serve(t), "adopted", "created"))
+
+	assert.Equal(t, []string{"POST /api/v2/torrents/createCategory"}, app.writes)
+	assert.Equal(t, []string{"created"}, got.Status.ManagedResources["categories"])
+}
+
+func TestQBLeavesAnUndeclaredCategorySavePathAlone(t *testing.T) {
+	app := &fakeQB{categories: qbCategories("tv")}
+	cfg := qbConfig(app.serve(t))
+	cfg.Spec.Categories = []downloadsv1alpha1.QBittorrentCategory{{Name: "tv"}}
+
+	runQB(t, cfg)
+	assert.Empty(t, app.writes)
+
+	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{DriftPolicy: new("observe")}
+	got := runQB(t, cfg)
+	synced := meta.FindStatusCondition(got.Status.Conditions, "Synced")
+	require.NotNil(t, synced)
+	assert.Equal(t, "Observed", synced.Reason)
+}
+
+func TestQBObserveReportsACategoryPruneWouldDelete(t *testing.T) {
+	app := &fakeQB{categories: qbCategories("tv", "old")}
+	cfg := qbConfig(app.serve(t), "tv")
+	observe := "observe"
+	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{Prune: new(true), DriftPolicy: &observe}
+	cfg.Status.ManagedResources = map[string][]string{"categories": {"old"}}
+
+	got := runQB(t, cfg)
+
+	assert.Empty(t, app.removed)
+	synced := meta.FindStatusCondition(got.Status.Conditions, "Synced")
+	require.NotNil(t, synced)
+	assert.Equal(t, "DriftDetected", synced.Reason)
+	assert.Equal(t, "differs: categories(old); observe policy prevents application writes", synced.Message)
+}
+
+func TestQBDeletionPolicyRemovesWhatItCreated(t *testing.T) {
+	app := &fakeQB{categories: qbCategories("tv", "hand-made")}
+	cfg := qbConfig(app.serve(t), "tv")
+	policy := ctrlcommon.DeletionPolicyDelete
+	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{DeletionPolicy: &policy}
+	cfg.Status.ManagedResources = map[string][]string{"categories": {"tv"}}
+	now := metav1.NewTime(time.Now())
+	cfg.DeletionTimestamp = &now
+	cfg.Finalizers = []string{ctrlcommon.Finalizer}
+
+	runQB(t, cfg)
+
+	assert.Equal(t, []string{"tv"}, app.removed)
+}
+
+// qBittorrent stores a disabled limit as -1 and ignores a limit sent with it.
+func TestQBDisabledLimitIsNotCompared(t *testing.T) {
+	payload, err := qbPreferencePayload(&downloadsv1alpha1.QBittorrentPreferences{
+		MaxRatioEnabled: new(false), MaxRatio: new("2.0"),
+		MaxSeedingTimeEnabled: new(false), MaxSeedingTime: new(1440),
+	})
+	require.NoError(t, err)
+	assert.Equal(t, map[string]any{"max_ratio_enabled": false, "max_seeding_time_enabled": false}, payload)
+
+	enabled, err := qbPreferencePayload(&downloadsv1alpha1.QBittorrentPreferences{MaxRatioEnabled: new(true), MaxRatio: new("2.0")})
+	require.NoError(t, err)
+	assert.Equal(t, 2.0, enabled["max_ratio"])
+}
+
+func TestCompleteLimitPairsSendsBothHalves(t *testing.T) {
+	tests := []struct {
+		name    string
+		payload map[string]any
+		current map[string]any
+		want    map[string]any
+		err     string
+	}{
+		{
+			name:    "a switch turned on carries the stored limit",
+			payload: map[string]any{"max_ratio_enabled": true},
+			current: map[string]any{"max_ratio_enabled": false, "max_ratio": 2.5},
+			want:    map[string]any{"max_ratio_enabled": true, "max_ratio": 2.5},
+		},
+		{
+			name:    "a switch turned on with no limit anywhere is refused rather than sent as 0",
+			payload: map[string]any{"max_seeding_time_enabled": true},
+			current: map[string]any{"max_seeding_time_enabled": false, "max_seeding_time": -1.0},
+			err:     "maxSeedingTimeEnabled is true, but the limit isn't set",
+		},
+		{
+			name:    "a limit carries the switch qBittorrent has on",
+			payload: map[string]any{"max_ratio": 1.5},
+			current: map[string]any{"max_ratio_enabled": true, "max_ratio": 2.0},
+			want:    map[string]any{"max_ratio_enabled": true, "max_ratio": 1.5},
+		},
+		{
+			name:    "a limit whose switch is off in qBittorrent isn't applied",
+			payload: map[string]any{"max_inactive_seeding_time": 60},
+			current: map[string]any{"max_inactive_seeding_time_enabled": false, "max_inactive_seeding_time": -1.0},
+			want:    map[string]any{},
+		},
+		{
+			name:    "both halves declared are left alone",
+			payload: map[string]any{"max_ratio_enabled": true, "max_ratio": 1.0},
+			current: map[string]any{"max_ratio_enabled": false, "max_ratio": -1.0},
+			want:    map[string]any{"max_ratio_enabled": true, "max_ratio": 1.0},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := completeLimitPairs(tt.payload, tt.current)
+			if tt.err != "" {
+				assert.ErrorContains(t, err, tt.err)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, tt.payload)
+		})
+	}
+}

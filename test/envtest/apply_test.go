@@ -183,20 +183,20 @@ func TestAdmissionRules(t *testing.T) {
 		{name: "a Lidarr root folder without profiles", kind: "Lidarr", spec: conn + `
   rootFolders: [{path: /music}]`,
 			rejected: "Lidarr root folders need defaultQualityProfileName and defaultMetadataProfileName"},
-		{name: "prune on Jellyfin", kind: "JellyfinConfig", spec: `
+		{name: "prune on Jellyfin", kind: "Jellyfin", spec: `
   connection: {url: http://jellyfin:8096}
   adminUser:
     usernameSecretRef: {name: app, key: username}
     passwordSecretRef: {name: app, key: password}
   reconcile: {prune: true}`,
-			rejected: "JellyfinConfig doesn't support prune"},
-		{name: "deletionPolicy delete on Plex", kind: "PlexConfig", spec: `
+			rejected: "Jellyfin doesn't support prune"},
+		{name: "deletionPolicy delete on Plex", kind: "Plex", spec: `
   connection:
     url: http://plex:32400
     tokenSecretRef: {name: app, key: token}
   reconcile: {deletionPolicy: delete}`,
-			rejected: "PlexConfig doesn't support deletionPolicy delete"},
-		{name: "Seerr with both auths", kind: "SeerrConfig", spec: `
+			rejected: "Plex doesn't support deletionPolicy delete"},
+		{name: "Seerr with both auths", kind: "Seerr", spec: `
   connection:
     url: http://seerr:5055
     apiKeySecretRef: {name: app, key: api-key}

@@ -1,5 +1,5 @@
 apiVersion: arrchitect.dev/v1alpha1
-kind: QBittorrentConfig
+kind: QBittorrent
 metadata:
   name: qbittorrent
 spec:

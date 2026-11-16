@@ -39,7 +39,7 @@ func TestResolveReferencesFollowsRecreatedAppProfile(t *testing.T) {
 		"/api/v1/appprofile": {{"id": 3, "name": "Standard"}},
 	}
 	hc := referenceServer(t, lists)
-	spec := indexersv1alpha1.ProwlarrConfigSpec{
+	spec := indexersv1alpha1.ProwlarrSpec{
 		Indexers: []indexersv1alpha1.ProwlarrIndexer{{Name: "idx", AppProfileName: "Standard"}},
 	}
 
@@ -61,7 +61,7 @@ func TestResolveReferencesRejectsMissingAppProfile(t *testing.T) {
 	hc := referenceServer(t, map[string][]map[string]any{
 		"/api/v1/appprofile": {{"id": 3, "name": "Standard"}},
 	})
-	spec := indexersv1alpha1.ProwlarrConfigSpec{
+	spec := indexersv1alpha1.ProwlarrSpec{
 		Indexers: []indexersv1alpha1.ProwlarrIndexer{{Name: "idx", AppProfileName: "Gone"}},
 	}
 
@@ -74,7 +74,7 @@ func TestResolveReferencesRejectsMissingTag(t *testing.T) {
 	hc := referenceServer(t, map[string][]map[string]any{
 		"/api/v1/tag": {{"id": 1, "label": "known"}},
 	})
-	spec := indexersv1alpha1.ProwlarrConfigSpec{
+	spec := indexersv1alpha1.ProwlarrSpec{
 		Indexers: []indexersv1alpha1.ProwlarrIndexer{{Name: "idx", TagLabels: []string{"known", "unknown"}}},
 	}
 
@@ -85,7 +85,7 @@ func TestResolveReferencesRejectsMissingTag(t *testing.T) {
 
 func TestResolveReferencesInObserveModePlansWhatTheSpecDeclares(t *testing.T) {
 	hc := referenceServer(t, map[string][]map[string]any{})
-	spec := indexersv1alpha1.ProwlarrConfigSpec{
+	spec := indexersv1alpha1.ProwlarrSpec{
 		AppProfiles: []indexersv1alpha1.ProwlarrAppProfile{{Name: "Standard"}},
 		Indexers:    []indexersv1alpha1.ProwlarrIndexer{{Name: "x", TagLabels: []string{"tv"}, AppProfileName: "Standard"}},
 	}

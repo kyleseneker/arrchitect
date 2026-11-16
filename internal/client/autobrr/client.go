@@ -111,7 +111,7 @@ type Client struct {
 	hc *engine.HTTPClient
 }
 
-// Types maps AutobrrConfig's download client and action types to Autobrr's
+// Types maps Autobrr's download client and action types to Autobrr's
 // constants, which are all Autobrr accepts.
 var Types = map[string]string{
 	"qBittorrent": "QBITTORRENT", "Deluge": "DELUGE_V2", "Transmission": "TRANSMISSION",
@@ -120,7 +120,7 @@ var Types = map[string]string{
 	"Webhook": "WEBHOOK", "Exec": "EXEC", "WatchFolder": "WATCH_FOLDER",
 }
 
-// IRCAuthMechanisms maps AutobrrConfig's IRC auth mechanisms to Autobrr's constants.
+// IRCAuthMechanisms maps Autobrr's IRC auth mechanisms to Autobrr's constants.
 var IRCAuthMechanisms = map[string]string{"None": "NONE", "NickServ": "NICKSERV", "SASL_PLAIN": "SASL_PLAIN"}
 
 // NewClient creates a new Autobrr API client.
