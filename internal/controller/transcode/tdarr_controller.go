@@ -33,7 +33,7 @@ type TdarrReconciler struct {
 	Recorder events.EventRecorder
 }
 
-// +kubebuilder:rbac:groups=arrchitect.dev,resources=tdarrs,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=arrchitect.dev,resources=tdarrs,verbs=get;list;watch;update;patch
 // +kubebuilder:rbac:groups=arrchitect.dev,resources=tdarrs/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=arrchitect.dev,resources=tdarrs/finalizers,verbs=update
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch

@@ -31,7 +31,7 @@ type AutobrrReconciler struct {
 	Recorder events.EventRecorder
 }
 
-// +kubebuilder:rbac:groups=arrchitect.dev,resources=autobrrs,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=arrchitect.dev,resources=autobrrs,verbs=get;list;watch;update;patch
 // +kubebuilder:rbac:groups=arrchitect.dev,resources=autobrrs/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=arrchitect.dev,resources=autobrrs/finalizers,verbs=update
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
