@@ -1,3 +1,5 @@
+// Package hack checks that the chart agrees with the rest of the repository.
+// The chart's own behaviour is tested with helm-unittest in chart/arrchitect/tests.
 package hack
 
 import (
@@ -6,8 +8,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
-	"slices"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -20,24 +20,13 @@ const chartDir = "../chart/arrchitect"
 type manifest struct {
 	Kind     string `json:"kind"`
 	Metadata struct {
-		Name        string            `json:"name"`
-		Labels      map[string]string `json:"labels"`
-		Annotations map[string]string `json:"annotations"`
+		Name string `json:"name"`
 	} `json:"metadata"`
 	Rules []struct {
 		APIGroups []string `json:"apiGroups"`
 		Resources []string `json:"resources"`
 		Verbs     []string `json:"verbs"`
 	} `json:"rules"`
-	Spec struct {
-		Template struct {
-			Spec struct {
-				Containers []struct {
-					Args []string `json:"args"`
-				} `json:"containers"`
-			} `json:"spec"`
-		} `json:"template"`
-	} `json:"spec"`
 }
 
 func render(t *testing.T, args ...string) []manifest {
@@ -59,12 +48,9 @@ func render(t *testing.T, args ...string) []manifest {
 	return manifests
 }
 
-func grantsOf(manifests []manifest, kinds ...string) map[string]bool {
+func grants(manifests []manifest) map[string]bool {
 	out := map[string]bool{}
 	for _, m := range manifests {
-		if !slices.Contains(kinds, m.Kind) {
-			continue
-		}
 		for _, r := range m.Rules {
 			for _, g := range r.APIGroups {
 				for _, res := range r.Resources {
@@ -73,16 +59,6 @@ func grantsOf(manifests []manifest, kinds ...string) map[string]bool {
 					}
 				}
 			}
-		}
-	}
-	return out
-}
-
-func named(manifests []manifest, name string) []manifest {
-	var out []manifest
-	for _, m := range manifests {
-		if m.Metadata.Name == name {
-			out = append(out, m)
 		}
 	}
 	return out
@@ -106,9 +82,16 @@ func TestChartGrantsWhatTheControllersNeed(t *testing.T) {
 	require.NoError(t, err)
 	var generated manifest
 	require.NoError(t, yaml.Unmarshal(data, &generated))
-	rendered := grantsOf(named(render(t), "test"), "ClusterRole")
+	var operator []manifest
+	for _, m := range render(t) {
+		if m.Kind == "ClusterRole" && m.Metadata.Name == "test" {
+			operator = append(operator, m)
+		}
+	}
+	require.Len(t, operator, 1, "the operator's ClusterRole is named after the release")
+	rendered := grants(operator)
 
-	for grant := range grantsOf([]manifest{generated}, "ClusterRole") {
+	for grant := range grants([]manifest{generated}) {
 		assert.True(t, rendered[grant], "the chart's ClusterRole is missing %q from config/rbac/role.yaml", grant)
 	}
 	assert.False(t, rendered["coordination.k8s.io leases delete"], "leases belong in a Role in the release namespace")
@@ -127,58 +110,4 @@ func TestChartAppsMatchTheControllersAndCRDs(t *testing.T) {
 		assert.FileExists(t, filepath.Join(chartDir, "files/crds/arrchitect.dev_"+app+"configs.yaml"))
 	}
 	assert.ElementsMatch(t, controllerNames(t), apps, "values.yaml apps and cmd/operator controllers differ")
-}
-
-func TestChartLeavesOutWhatAnAppTurnedOffNeeds(t *testing.T) {
-	manifests := render(t, "--set", "apps.tdarr=false")
-
-	var crds, args []string
-	for _, m := range manifests {
-		switch m.Kind {
-		case "CustomResourceDefinition":
-			crds = append(crds, m.Metadata.Name)
-			assert.Equal(t, "keep", m.Metadata.Annotations["helm.sh/resource-policy"],
-				"uninstalling must not delete %s", m.Metadata.Name)
-		case "Deployment":
-			args = m.Spec.Template.Spec.Containers[0].Args
-		}
-	}
-	assert.Len(t, crds, len(controllerNames(t))-1)
-	assert.NotContains(t, crds, "tdarrconfigs.arrchitect.dev")
-	assert.NotContains(t, grantsOf(manifests, "ClusterRole"), "arrchitect.dev tdarrconfigs get")
-	enabled := slices.IndexFunc(args, func(a string) bool { return strings.HasPrefix(a, "--enable-controllers=") })
-	require.GreaterOrEqual(t, enabled, 0)
-	assert.NotContains(t, strings.Split(strings.TrimPrefix(args[enabled], "--enable-controllers="), ","), "tdarr")
-}
-
-func TestChartAggregatesAccessIntoTheBuiltInRoles(t *testing.T) {
-	const aggregateTo = "rbac.authorization.k8s.io/aggregate-to-"
-	manifests := render(t, "--set", "apps.tdarr=false")
-
-	view := named(manifests, "test-view")
-	require.Len(t, view, 1)
-	for _, role := range []string{"view", "edit", "admin"} {
-		assert.Equal(t, "true", view[0].Metadata.Labels[aggregateTo+role], "view aggregates into %s", role)
-	}
-	edit := named(manifests, "test-edit")
-	require.Len(t, edit, 1)
-	assert.NotContains(t, edit[0].Metadata.Labels, aggregateTo+"view", "viewers must not write")
-	for _, role := range []string{"edit", "admin"} {
-		assert.Equal(t, "true", edit[0].Metadata.Labels[aggregateTo+role], "edit aggregates into %s", role)
-	}
-
-	viewGrants, editGrants := grantsOf(view, "ClusterRole"), grantsOf(edit, "ClusterRole")
-	for _, app := range controllerNames(t) {
-		if app == "tdarr" {
-			continue
-		}
-		assert.True(t, viewGrants["arrchitect.dev "+app+"configs list"], "viewers can't list %sconfigs", app)
-		assert.True(t, editGrants["arrchitect.dev "+app+"configs patch"], "editors can't patch %sconfigs", app)
-	}
-	assert.NotContains(t, viewGrants, "arrchitect.dev tdarrconfigs get", "a turned-off app gets no access")
-	for grant := range editGrants {
-		assert.NotContains(t, grant, "/status", "only the operator writes status")
-	}
-
-	assert.Empty(t, named(render(t, "--set", "rbac.aggregateClusterRoles=false"), "test-view"))
 }
