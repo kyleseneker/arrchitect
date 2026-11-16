@@ -49,11 +49,10 @@ jobs:
           go-version-file: go.mod
       - run: make verify-api-docs
 
-  # Breaking CRD changes are allowed while the API is v1alpha1, so this reports
-  # them for the release's upgrade notes rather than failing the run.
+  # Breaking CRD changes are allowed while the API is v1alpha1, so they show as a
+  # warning for the release's upgrade notes rather than failing the run.
   verify-crd-compat:
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -61,7 +60,20 @@ jobs:
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
-      - run: make verify-crd-compat
+      - name: make verify-crd-compat
+        run: |
+          if out="$(make verify-crd-compat 2>&1)"; then
+            echo "$out"
+            exit 0
+          fi
+          echo "$out"
+          echo "::warning title=Breaking CRD changes::Existing resources could break on these CRD changes; note them in the upgrade notes. See the job summary."
+          {
+            echo "### Breaking CRD changes since the last release"
+            echo '```'
+            echo "$out"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
 
   test-chart:
     runs-on: ubuntu-latest
