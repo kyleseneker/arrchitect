@@ -107,6 +107,9 @@ spec:
               [ "$(can create edit-user)" = yes ]
               [ "$(can delete edit-user)" = yes ]
     - name: uninstall, keeping the CRDs and resources
+      description: >-
+        The download client deletes what it created by default, so it keeps its finalizer with no
+        operator left to remove it, as it would for anyone uninstalling first.
       try:
         - script:
             content: helm uninstall arrchitect --namespace arrchitect --wait
@@ -122,3 +125,16 @@ spec:
               kind: Sonarr
               metadata:
                 name: sonarr
+        - assert:
+            resource:
+              apiVersion: arrchitect.dev/v1alpha1
+              kind: SonarrDownloadClient
+              metadata:
+                name: sonarr-qbittorrent
+                finalizers:
+                  - arrchitect.dev/finalizer
+      cleanup:
+        - script:
+            content: |
+              kubectl -n "$NAMESPACE" patch sonarrdownloadclient sonarr-qbittorrent --type=merge \
+                -p '{"metadata":{"finalizers":null}}'

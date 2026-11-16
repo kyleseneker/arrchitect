@@ -166,7 +166,9 @@ Deleting a resource leaves the app unchanged. With
 `spec.reconcile.deletionPolicy: delete`, the operator first deletes the items it
 created, the same kinds prune covers. Everything else is kept. Only resources
 with `delete` carry the operator's finalizer, so removing the operator never
-leaves the others stuck deleting.
+leaves the others stuck deleting. Indexers and download clients default to
+`delete`: delete them before uninstalling the operator, or remove the
+finalizer from each one after.
 
 `delete` is supported for the apps in the prune table, and not in observe mode;
 the API server rejects it on Jellyfin and Plex and alongside `driftPolicy: observe`. An item the app won't delete
