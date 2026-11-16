@@ -31,8 +31,7 @@ func TestBazarr(t *testing.T) {
 
 	var key string
 	waitFor(t, "bazarr api key", 3*time.Minute, func() error {
-		out, err := runTool("exec", bazarr.id, "sh", "-c",
-			`sed -n '/^auth:/,/^[^ ]/p' /config/config/config.yaml | sed -n 's/^  apikey: *//p'`)
+		out, err := bazarr.run(`sed -n '/^auth:/,/^[^ ]/p' /config/config/config.yaml | sed -n 's/^  apikey: *//p'`)
 		if err != nil || out == "" {
 			return fmt.Errorf("apikey not written yet: %v", err)
 		}

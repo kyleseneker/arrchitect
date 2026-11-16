@@ -6,7 +6,8 @@
 // second pass makes no writes, so nothing the operator sends is rewritten by the
 // application into a value the operator then sees as drift.
 //
-// Run with `make test-compat`; it needs docker (or CONTAINER_TOOL=podman).
+// Run with `make test-compat`. Containers run through testcontainers-go, on docker
+// or, with CONTAINER_TOOL=podman, on the podman machine.
 package compat
 
 import (

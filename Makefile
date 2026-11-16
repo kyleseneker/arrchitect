@@ -108,8 +108,9 @@ test-e2e: kind ## Install the chart into a throwaway kind cluster, with its own 
 
 .PHONY: test-compat
 test-compat: manifests generate setup-envtest ## Reconcile every integration against pinned application containers (needs docker, or CONTAINER_TOOL=podman). Narrow with COMPAT_RUN=TestSonarr.
+	$(if $(filter podman,$(CONTAINER_TOOL)),DOCKER_HOST="unix://$$(podman machine inspect --format '{{.ConnectionInfo.PodmanSocket.Path}}')" TESTCONTAINERS_RYUK_DISABLED=true) \
 	KUBEBUILDER_ASSETS="$$('$(ENVTEST)' use $(ENVTEST_K8S_VERSION) --bin-dir '$(LOCALBIN)' -p path)" \
-		CONTAINER_TOOL=$(CONTAINER_TOOL) go test -tags=compat ./test/compat/... -count=1 -v -timeout 45m -run '$(COMPAT_RUN)'
+		go test -tags=compat ./test/compat/... -count=1 -v -timeout 45m -run '$(COMPAT_RUN)'
 
 .PHONY: lint
 lint: golangci-lint ## Run golangci-lint linter

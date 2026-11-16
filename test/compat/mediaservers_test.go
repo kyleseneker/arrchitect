@@ -35,11 +35,7 @@ func startJellyfin(t *testing.T) *container {
 	// Jellyfin 12 serves a startup placeholder, system info included, before the
 	// real server takes the port over; its log says when that has happened.
 	waitFor(t, "jellyfin", 3*time.Minute, func() error {
-		logs, err := runTool("logs", jf.id)
-		if err != nil {
-			return err
-		}
-		if !strings.Contains(logs, "Startup complete") {
+		if !strings.Contains(jf.logs(t), "Startup complete") {
 			return fmt.Errorf("still starting")
 		}
 		return nil
