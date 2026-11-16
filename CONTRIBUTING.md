@@ -34,7 +34,7 @@ of the same name.
 | `make test-chart` | The chart's templates, with the helm-unittest suites in `chart/arrchitect/tests`. CI also runs `ct lint` | helm |
 | `make verify-crds` | That the chart carries the generated CRDs | |
 | `make verify-api-docs` | That `docs/api.md` matches the API types | |
-| `make verify-crd-compat` | crdify's report of CRD changes since the last release that existing resources could break on. It doesn't fail CI while the API is v1alpha1 | git history |
+| `make verify-crd-compat` | crdify's report of CRD changes since the last release that existing resources could break on. In CI it shows as a warning, not a failure, while the API is v1alpha1 | git history |
 | `make test-compat` | Each app running in a container, reconciled from its fixture in `test/compat/testdata`. `COMPAT_VERSIONS=previous` runs each app's previous version | docker or podman |
 | `make test-e2e` | The image and chart in a kind cluster, with the Chainsaw tests in `test/e2e`: install and upgrade from the last release, every controller, and a single-namespace install | docker |
 
