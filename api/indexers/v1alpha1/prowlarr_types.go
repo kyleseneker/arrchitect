@@ -316,12 +316,15 @@ type ProwlarrStatus struct {
 type Prowlarr struct {
 	metav1.TypeMeta `json:",inline"`
 
+	// metadata is the standard object metadata.
 	// +optional
 	metav1.ObjectMeta `json:"metadata,omitzero"`
 
+	// spec is the desired state of the Prowlarr.
 	// +required
 	Spec ProwlarrSpec `json:"spec"`
 
+	// status is the observed state of the Prowlarr.
 	// +optional
 	Status ProwlarrStatus `json:"status,omitzero"`
 }

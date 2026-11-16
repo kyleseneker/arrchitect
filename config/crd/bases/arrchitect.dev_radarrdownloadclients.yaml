@@ -52,8 +52,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: RadarrDownloadClientSpec is one download client in a Radarr
-              instance.
+            description: spec is the desired state of the RadarrDownloadClient.
             properties:
               apiKeySecretRef:
                 description: apiKeySecretRef references a Secret containing the API
@@ -236,7 +235,7 @@ spec:
             - radarrRef
             type: object
           status:
-            description: RadarrDownloadClientStatus is the observed state of a RadarrDownloadClient.
+            description: status is the observed state of the RadarrDownloadClient.
             properties:
               conditions:
                 description: conditions represent the current state of the download

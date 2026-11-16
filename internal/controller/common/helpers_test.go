@@ -34,9 +34,6 @@ import (
 )
 
 func TestReconcileInterval(t *testing.T) {
-	fiveMin := metav1.Duration{Duration: 5 * time.Minute}
-	tenMin := metav1.Duration{Duration: 10 * time.Minute}
-
 	tests := []struct {
 		name string
 		rc   *commonv1alpha1.ReconcileConfig
@@ -44,8 +41,8 @@ func TestReconcileInterval(t *testing.T) {
 	}{
 		{"nil config", nil, DefaultReconcileInterval},
 		{"nil interval", &commonv1alpha1.ReconcileConfig{}, DefaultReconcileInterval},
-		{"5m", &commonv1alpha1.ReconcileConfig{Interval: &fiveMin}, 5 * time.Minute},
-		{"10m", &commonv1alpha1.ReconcileConfig{Interval: &tenMin}, 10 * time.Minute},
+		{"30s", &commonv1alpha1.ReconcileConfig{IntervalSeconds: new(int32(30))}, 30 * time.Second},
+		{"10m", &commonv1alpha1.ReconcileConfig{IntervalSeconds: new(int32(600))}, 10 * time.Minute},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

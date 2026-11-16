@@ -19,8 +19,8 @@ the resource, and writes what differs. Fields left out of the resource are not
 managed: an item that already exists in the app keeps them, and a new item gets
 the app's defaults. An empty list, such as `tagLabels: []`, is declared and
 clears the item's tags. It reconciles every 5 minutes, when the resource changes, and when a
-Secret the resource refers to changes. `spec.reconcile.interval` changes the
-period, down to a minimum of 30s.
+Secret the resource refers to changes. `spec.reconcile.intervalSeconds` changes
+the period, down to a minimum of 30.
 
 Download clients, indexers, notifications and other lists are matched by name.
 Root folders are created if missing and otherwise left alone. Jellyfin and
@@ -57,7 +57,7 @@ spec:
   category: tv
 ```
 
-- The app's connection, `driftPolicy` and `interval` apply to it. Until the
+- The app's connection, `driftPolicy` and `intervalSeconds` apply to it. Until the
   app's resource exists, it reports `ReferenceNotFound`.
 - `status.id` is the item's ID in the app.
 - An item that already exists is adopted: configured as declared, but never

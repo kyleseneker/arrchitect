@@ -53,8 +53,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: SonarrDownloadClientSpec is one download client in a Sonarr
-              instance.
+            description: spec is the desired state of the SonarrDownloadClient.
             properties:
               apiKeySecretRef:
                 description: apiKeySecretRef references a Secret containing the API
@@ -237,7 +236,7 @@ spec:
             - sonarrRef
             type: object
           status:
-            description: SonarrDownloadClientStatus is the observed state of a SonarrDownloadClient.
+            description: status is the observed state of the SonarrDownloadClient.
             properties:
               conditions:
                 description: conditions represent the current state of the download

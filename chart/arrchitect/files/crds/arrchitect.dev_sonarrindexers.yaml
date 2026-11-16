@@ -53,7 +53,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: SonarrIndexerSpec is one indexer in a Sonarr instance.
+            description: spec is the desired state of the SonarrIndexer.
             properties:
               configContract:
                 description: |-
@@ -177,7 +177,7 @@ spec:
             - sonarrRef
             type: object
           status:
-            description: SonarrIndexerStatus is the observed state of a SonarrIndexer.
+            description: status is the observed state of the SonarrIndexer.
             properties:
               conditions:
                 description: conditions represent the current state of the indexer.

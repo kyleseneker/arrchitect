@@ -52,8 +52,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: ReadarrDownloadClientSpec is one download client in a Readarr
-              instance.
+            description: spec is the desired state of the ReadarrDownloadClient.
             properties:
               apiKeySecretRef:
                 description: apiKeySecretRef references a Secret containing the API
@@ -236,7 +235,7 @@ spec:
             - readarrRef
             type: object
           status:
-            description: ReadarrDownloadClientStatus is the observed state of a ReadarrDownloadClient.
+            description: status is the observed state of the ReadarrDownloadClient.
             properties:
               conditions:
                 description: conditions represent the current state of the download

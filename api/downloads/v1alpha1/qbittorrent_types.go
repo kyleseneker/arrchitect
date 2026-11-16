@@ -397,12 +397,15 @@ type QBittorrentStatus struct {
 type QBittorrent struct {
 	metav1.TypeMeta `json:",inline"`
 
+	// metadata is the standard object metadata.
 	// +optional
 	metav1.ObjectMeta `json:"metadata,omitzero"`
 
+	// spec is the desired state of the QBittorrent.
 	// +required
 	Spec QBittorrentSpec `json:"spec"`
 
+	// status is the observed state of the QBittorrent.
 	// +optional
 	Status QBittorrentStatus `json:"status,omitzero"`
 }

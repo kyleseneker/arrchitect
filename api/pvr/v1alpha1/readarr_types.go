@@ -228,12 +228,19 @@ type ReadarrUI struct {
 
 // ReadarrStatus defines the observed state of Readarr.
 type ReadarrStatus struct {
+	// conditions represent the current state of the Readarr resource.
 	// +listType=map
 	// +listMapKey=type
 	// +optional
-	Conditions         []metav1.Condition `json:"conditions,omitempty"`
-	ObservedGeneration int64              `json:"observedGeneration,omitempty"`
-	LastSyncTime       *metav1.Time       `json:"lastSyncTime,omitempty"`
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
+
+	// observedGeneration is the most recent generation observed.
+	// +optional
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
+
+	// lastSyncTime is the timestamp of the last successful reconciliation.
+	// +optional
+	LastSyncTime *metav1.Time `json:"lastSyncTime,omitempty"`
 
 	// managedResources records the resources this operator created, keyed by
 	// resource type. Prune only removes entries listed here, so resources
@@ -254,12 +261,15 @@ type ReadarrStatus struct {
 type Readarr struct {
 	metav1.TypeMeta `json:",inline"`
 
+	// metadata is the standard object metadata.
 	// +optional
 	metav1.ObjectMeta `json:"metadata,omitzero"`
 
+	// spec is the desired state of the Readarr.
 	// +required
 	Spec ReadarrSpec `json:"spec"`
 
+	// status is the observed state of the Readarr.
 	// +optional
 	Status ReadarrStatus `json:"status,omitzero"`
 }

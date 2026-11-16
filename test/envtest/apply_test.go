@@ -170,8 +170,8 @@ func TestAdmissionRules(t *testing.T) {
   port: 8080`,
 			rejected: "Unsupported value"},
 		{name: "an interval under 30s", kind: "Sonarr", spec: conn + `
-  reconcile: {interval: 10s}`,
-			rejected: "interval must be at least 30s"},
+  reconcile: {intervalSeconds: 10}`,
+			rejected: "should be greater than or equal to 30"},
 		{name: "delete in observe mode", kind: "Sonarr", spec: conn + `
   reconcile: {deletionPolicy: delete, driftPolicy: observe}`,
 			rejected: "deletionPolicy delete conflicts with driftPolicy observe"},

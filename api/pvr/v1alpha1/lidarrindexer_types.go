@@ -61,12 +61,15 @@ type LidarrIndexerStatus struct {
 type LidarrIndexer struct {
 	metav1.TypeMeta `json:",inline"`
 
+	// metadata is the standard object metadata.
 	// +optional
 	metav1.ObjectMeta `json:"metadata,omitzero"`
 
+	// spec is the desired state of the LidarrIndexer.
 	// +required
 	Spec LidarrIndexerSpec `json:"spec"`
 
+	// status is the observed state of the LidarrIndexer.
 	// +optional
 	Status LidarrIndexerStatus `json:"status,omitzero"`
 }

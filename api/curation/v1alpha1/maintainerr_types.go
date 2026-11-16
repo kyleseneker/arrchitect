@@ -471,12 +471,15 @@ type MaintainerrStatus struct {
 type Maintainerr struct {
 	metav1.TypeMeta `json:",inline"`
 
+	// metadata is the standard object metadata.
 	// +optional
 	metav1.ObjectMeta `json:"metadata,omitzero"`
 
+	// spec is the desired state of the Maintainerr.
 	// +required
 	Spec MaintainerrSpec `json:"spec"`
 
+	// status is the observed state of the Maintainerr.
 	// +optional
 	Status MaintainerrStatus `json:"status,omitzero"`
 }

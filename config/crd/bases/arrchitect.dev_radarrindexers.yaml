@@ -52,7 +52,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: RadarrIndexerSpec is one indexer in a Radarr instance.
+            description: spec is the desired state of the RadarrIndexer.
             properties:
               configContract:
                 description: |-
@@ -176,7 +176,7 @@ spec:
             - radarrRef
             type: object
           status:
-            description: RadarrIndexerStatus is the observed state of a RadarrIndexer.
+            description: status is the observed state of the RadarrIndexer.
             properties:
               conditions:
                 description: conditions represent the current state of the indexer.
