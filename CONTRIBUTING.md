@@ -29,11 +29,11 @@ make lint
 | --- | --- |
 | `make test` | Unit tests |
 | `make test-envtest` | Every sample and admission rule against a real kube-apiserver, and the controllers' Kubernetes side |
-| `make test-upgrade` | The last release's samples stored under its CRDs, then the CRDs upgraded and the current samples applied over them |
+| `make verify-crd-compat` | crdify's report of CRD changes since the last release that existing resources could break on |
 | `make test-compat` | Each app in a container, reconciled from its fixture. `COMPAT_VERSIONS=previous` runs the previous versions; `CONTAINER_TOOL=podman` uses podman |
 | `make test-e2e` | The chart installed into a throwaway kind cluster, upgraded from the last release, against a real Sonarr. Needs docker |
 
-The envtest, upgrade and compat suites start their own API server, and the e2e
+The envtest and compat suites start their own API server, and the e2e
 suite writes its cluster to a kubeconfig in a temporary directory: none of them
 reads or changes your default kubeconfig.
 
