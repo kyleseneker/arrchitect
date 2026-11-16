@@ -38,7 +38,7 @@ import (
 func startControlPlane(t *testing.T, adders ...func(*runtime.Scheme) error) (*rest.Config, client.Client) {
 	t.Helper()
 	if os.Getenv("KUBEBUILDER_ASSETS") == "" {
-		t.Skip("KUBEBUILDER_ASSETS unset; run via `make test-envtest`")
+		t.Skip("KUBEBUILDER_ASSETS unset; run via `make test`")
 	}
 
 	env := &envtest.Environment{

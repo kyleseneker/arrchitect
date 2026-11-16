@@ -5,38 +5,45 @@
 1. Fork and clone: `git clone https://github.com/<your-username>/arrchitect`
 2. Branch: `git checkout -b my-feature`
 3. Make your changes
-4. `make test lint verify-crds`
+4. `make lint test test-chart verify-crds`
 5. Push and open a PR
 
-You'll need the Go version in `go.mod`, kubebuilder, a cluster to point
-`KUBECONFIG` at, and access to whichever app you're working on. Most of the interesting behavior
-only shows up against a real Sonarr or Jellyfin, so it helps to have one
-running.
+You'll need the Go version in `go.mod` and helm; the Makefile installs every
+other tool into `bin/`. The app and end-to-end suites also need docker or
+podman. Most of the interesting behavior only shows up against a real Sonarr or
+Jellyfin, so it helps to have one running.
 
 ```bash
+make help                     # every target
+make manifests generate       # after editing anything in api/
+make sync-crds                # copy the generated CRDs into the chart
 make run                      # run the operator against the cluster in KUBECONFIG, which must be set
 make build                    # the operator and the CLI
-make docker-build             # the operator's image for this machine; IMG= to tag, ARCH= to cross-build
-make test
-make manifests generate       # after editing anything in api/
-make sync-crds                # copy generated CRDs into the chart
-make lint
+make docker-build             # the operator's image; IMG= to tag, ARCH= to cross-build
 ```
 
 ## Tests
 
-| Command | What it runs |
-| --- | --- |
-| `make test` | Unit tests |
-| `make test-chart` | The chart's helm-unittest suites in `chart/arrchitect/tests` |
-| `make test-envtest` | Every sample and admission rule against a real kube-apiserver, and the controllers' Kubernetes side |
-| `make verify-crd-compat` | crdify's report of CRD changes since the last release that existing resources could break on |
-| `make test-compat` | Each app in a container, reconciled from its fixture. `COMPAT_VERSIONS=previous` runs the previous versions; `CONTAINER_TOOL=podman` uses podman |
-| `make test-e2e` | The Chainsaw tests in `test/e2e`, in a throwaway kind cluster: the chart installed and upgraded from the last release against a real Sonarr, every controller, and a single-namespace install. Needs docker |
+Each layer catches what the ones before it can't. CI runs each target as a job
+of the same name.
 
-The envtest and compat suites start their own API server, and the e2e
-suite writes its cluster to a kubeconfig in a temporary directory: none of them
-reads or changes your default kubeconfig.
+| Target | What it covers | Needs |
+| --- | --- | --- |
+| `make test` | Unit tests against fakes, and envtest tests against a real kube-apiserver: every sample and admission rule, and the controllers' Kubernetes side | Go |
+| `make test-chart` | The chart's templates, with the helm-unittest suites in `chart/arrchitect/tests`. CI also runs `ct lint` | helm |
+| `make verify-crds` | That the chart carries the generated CRDs | |
+| `make verify-crd-compat` | crdify's report of CRD changes since the last release that existing resources could break on. It doesn't fail CI while the API is v1alpha1 | git history |
+| `make test-compat` | Each app running in a container, reconciled from its fixture in `test/compat/testdata`. `COMPAT_VERSIONS=previous` runs each app's previous version | docker or podman |
+| `make test-e2e` | The image and chart in a kind cluster, with the Chainsaw tests in `test/e2e`: install and upgrade from the last release, every controller, and a single-namespace install | docker |
+
+`config/samples` holds one readable example per kind for users; envtest checks
+the API server accepts each one, and the end-to-end suite runs them. The compat
+fixtures in `test/compat/testdata` are different: they set as many fields as the
+app accepts and point at the test's containers.
+
+None of the suites reads or changes your default kubeconfig: envtest and compat
+start their own API server, and the end-to-end suite writes its kind cluster to
+a kubeconfig in a temporary directory.
 
 `test/compat/images_test.go` pins each app's current version, which Renovate
 bumps, and the newest release of the line before it. When a current pin moves
