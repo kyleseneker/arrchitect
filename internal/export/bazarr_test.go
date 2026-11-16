@@ -64,12 +64,12 @@ func TestBazarrSettingsMapBackToSpecFields(t *testing.T) {
 	assert.Equal(t, "hi", cfg.Spec.General.HiExtension)
 	assert.True(t, *cfg.Spec.SubSync.UseSubsync)
 
-	require.NotNil(t, cfg.Spec.SonarrConnection)
+	require.NotZero(t, cfg.Spec.SonarrConnection)
 	assert.Equal(t, "sonarr", cfg.Spec.SonarrConnection.Host)
 	assert.Equal(t, int32(60), *cfg.Spec.SonarrConnection.SyncInterval)
 	assert.Equal(t, "sonarr-api-key", cfg.Spec.SonarrConnection.APIKeySecretRef.Key)
 	assert.Equal(t, "sonarr-key", res.Secret.StringData["sonarr-api-key"])
-	assert.Nil(t, cfg.Spec.RadarrConnection, "Bazarr does not use Radarr")
+	assert.Zero(t, cfg.Spec.RadarrConnection, "Bazarr does not use Radarr")
 	assert.Equal(t, []string{"en", "es"}, cfg.Spec.Languages.Enabled)
 
 	assert.Equal(t, []subtitlesv1alpha1.BazarrPathMapping{{RemotePath: "/tv", LocalPath: "/media/tv"}}, cfg.Spec.General.PathMappings)
@@ -90,7 +90,7 @@ func TestBazarrProviderSecretsMoveToTheSecret(t *testing.T) {
 		return &commonv1alpha1.FieldValue{Raw: []byte(`"` + s + `"`)}
 	}
 	assert.Equal(t, []commonv1alpha1.ConfigField{
-		{Name: "password", ValueFrom: &commonv1alpha1.ValueSource{
+		{Name: "password", ValueFrom: commonv1alpha1.ValueSource{
 			SecretKeyRef: commonv1alpha1.SecretKeyRef{Name: "bazarr-credentials", Key: "provider-opensubtitlescom-password"},
 		}},
 		{Name: "use_hash", Value: text("true")},

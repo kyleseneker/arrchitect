@@ -10,7 +10,7 @@ import (
 type SonarrDownloadClientSpec struct {
 	// sonarrRef names the Sonarr this download client belongs to, in the same namespace.
 	// +required
-	SonarrRef commonv1alpha1.LocalObjectReference `json:"sonarrRef"`
+	SonarrRef commonv1alpha1.LocalObjectReference `json:"sonarrRef,omitempty"`
 
 	// deletionPolicy controls what deleting this resource does in Sonarr:
 	// "delete" removes the download client, "orphan" leaves it. One that existed before
@@ -24,6 +24,7 @@ type SonarrDownloadClientSpec struct {
 }
 
 // SonarrDownloadClientStatus is the observed state of a SonarrDownloadClient.
+// +kubebuilder:validation:MinProperties=1
 type SonarrDownloadClientStatus struct {
 	// conditions represent the current state of the download client.
 	// +listType=map
@@ -33,6 +34,7 @@ type SonarrDownloadClientStatus struct {
 
 	// observedGeneration is the most recent generation observed.
 	// +optional
+	// +kubebuilder:validation:Minimum=1
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 
 	// lastSyncTime is the timestamp of the last successful reconciliation.
@@ -41,6 +43,7 @@ type SonarrDownloadClientStatus struct {
 
 	// id is the download client's ID in Sonarr.
 	// +optional
+	// +kubebuilder:validation:Minimum=1
 	ID int32 `json:"id,omitempty"`
 
 	// managedResources records what the operator created for this resource,
@@ -69,7 +72,7 @@ type SonarrDownloadClient struct {
 
 	// spec is the desired state of the SonarrDownloadClient.
 	// +required
-	Spec SonarrDownloadClientSpec `json:"spec"`
+	Spec SonarrDownloadClientSpec `json:"spec,omitzero"`
 
 	// status is the observed state of the SonarrDownloadClient.
 	// +optional
@@ -99,5 +102,5 @@ func (c *SonarrDownloadClient) SetManagedResources(m map[string][]string) {
 // GetReconcileConfig carries only the deletion policy: the interval and drift
 // policy come from the Sonarr the download client belongs to.
 func (c *SonarrDownloadClient) GetReconcileConfig() *commonv1alpha1.ReconcileConfig {
-	return &commonv1alpha1.ReconcileConfig{DeletionPolicy: &c.Spec.DeletionPolicy}
+	return &commonv1alpha1.ReconcileConfig{DeletionPolicy: c.Spec.DeletionPolicy}
 }

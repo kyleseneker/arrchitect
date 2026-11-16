@@ -393,16 +393,6 @@ func (in *AutobrrFilterAction) DeepCopyInto(out *AutobrrFilterAction) {
 		*out = new(bool)
 		**out = **in
 	}
-	if in.ReannounceInterval != nil {
-		in, out := &in.ReannounceInterval, &out.ReannounceInterval
-		*out = new(int32)
-		**out = **in
-	}
-	if in.ReannounceMaxAttempts != nil {
-		in, out := &in.ReannounceMaxAttempts, &out.ReannounceMaxAttempts
-		*out = new(int32)
-		**out = **in
-	}
 	if in.WebhookHeaders != nil {
 		in, out := &in.WebhookHeaders, &out.WebhookHeaders
 		*out = make([]string, len(*in))

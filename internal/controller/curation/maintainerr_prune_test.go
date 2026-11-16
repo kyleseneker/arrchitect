@@ -53,7 +53,7 @@ func TestMaintainerrDeletionPolicyRemovesRuleGroupsBeforeServers(t *testing.T) {
 	app := newFakeMaintainerr()
 	spec := jellyfinSpec(app.serve(t))
 	policy := ctrlcommon.DeletionPolicyDelete
-	spec.Reconcile = &commonv1alpha1.ReconcileConfig{DeletionPolicy: &policy}
+	spec.Reconcile = &commonv1alpha1.ReconcileConfig{DeletionPolicy: policy}
 	run := newMaintainerrRun(t, spec)
 	run.reconcile(t)
 	app.servers["radarr"] = append(app.servers["radarr"], map[string]any{"id": 60, "serverName": "hand-made"})
@@ -79,7 +79,7 @@ func TestMaintainerrObserveReportsWhatPruneWouldDelete(t *testing.T) {
 	cfg.SetManagedResources(managed)
 	require.NoError(t, run.c.Status().Update(context.Background(), cfg))
 	observe := "observe"
-	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{Prune: new(true), DriftPolicy: &observe}
+	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{Prune: new(true), DriftPolicy: observe}
 	require.NoError(t, run.c.Update(context.Background(), cfg))
 	observed := metrics.DriftObservedTotal.WithLabelValues(maintainerrApp, ruleGroupsKind, "Observed old")
 	before := testutil.ToFloat64(observed)

@@ -98,14 +98,14 @@ func (r *SeerrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 
 	var syncErrors []string
 
-	if config.Spec.JellyfinAuth != nil {
-		if err := reconcileSeerrJellyfin(ctx, sc, writes, config.Spec.JellyfinAuth); err != nil {
+	if config.Spec.JellyfinAuth != (requestsv1alpha1.SeerrJellyfinAuth{}) {
+		if err := reconcileSeerrJellyfin(ctx, sc, writes, &config.Spec.JellyfinAuth); err != nil {
 			logger.Error(err, "failed to reconcile Jellyfin server")
 			syncErrors = append(syncErrors, fmt.Sprintf("jellyfin: %v", err))
 		}
 	}
-	if config.Spec.PlexAuth != nil {
-		if err := reconcileSeerrPlex(ctx, sc, writes, config.Spec.PlexAuth); err != nil {
+	if config.Spec.PlexAuth != (requestsv1alpha1.SeerrPlexAuth{}) {
+		if err := reconcileSeerrPlex(ctx, sc, writes, &config.Spec.PlexAuth); err != nil {
 			logger.Error(err, "failed to reconcile Plex server")
 			syncErrors = append(syncErrors, fmt.Sprintf("plex: %v", err))
 		}
@@ -250,14 +250,14 @@ func (r *SeerrReconciler) setup(
 	var initErrors []string
 
 	// Sync media server libraries
-	if config.Spec.JellyfinAuth != nil {
-		if err := syncJellyfinLibraries(ctx, sc, writes, config.Spec.JellyfinAuth); err != nil {
+	if config.Spec.JellyfinAuth != (requestsv1alpha1.SeerrJellyfinAuth{}) {
+		if err := syncJellyfinLibraries(ctx, sc, writes, &config.Spec.JellyfinAuth); err != nil {
 			logger.Error(err, "failed to configure Jellyfin libraries")
 			initErrors = append(initErrors, err.Error())
 		}
 	}
-	if config.Spec.PlexAuth != nil {
-		if err := syncPlexLibraries(ctx, sc, writes, config.Spec.PlexAuth); err != nil {
+	if config.Spec.PlexAuth != (requestsv1alpha1.SeerrPlexAuth{}) {
+		if err := syncPlexLibraries(ctx, sc, writes, &config.Spec.PlexAuth); err != nil {
 			logger.Error(err, "failed to configure Plex libraries")
 			initErrors = append(initErrors, err.Error())
 		}
@@ -643,14 +643,14 @@ func (r *SeerrReconciler) establishSession(ctx context.Context, sc *seerrclient.
 }
 
 func (r *SeerrReconciler) authenticate(ctx context.Context, sc *seerrclient.Client, config *requestsv1alpha1.Seerr) error {
-	if config.Spec.PlexAuth != nil {
+	if config.Spec.PlexAuth != (requestsv1alpha1.SeerrPlexAuth{}) {
 		plexToken, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, config.Spec.PlexAuth.TokenSecretRef)
 		if err != nil {
 			return fmt.Errorf("resolving plex token: %w", err)
 		}
 		return sc.AuthenticatePlex(ctx, plexToken)
 	}
-	if config.Spec.JellyfinAuth != nil {
+	if config.Spec.JellyfinAuth != (requestsv1alpha1.SeerrJellyfinAuth{}) {
 		jfUsername, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, config.Spec.JellyfinAuth.UsernameSecretRef)
 		if err != nil {
 			return fmt.Errorf("resolving jellyfin username: %w", err)

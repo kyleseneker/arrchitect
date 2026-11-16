@@ -71,9 +71,11 @@ spec:
                         properties:
                           key:
                             description: key is the key within the Secret.
+                            minLength: 1
                             type: string
                           name:
                             description: name is the name of the Secret.
+                            minLength: 1
                             type: string
                         required:
                         - key
@@ -93,9 +95,11 @@ spec:
                     properties:
                       key:
                         description: key is the key within the Secret.
+                        minLength: 1
                         type: string
                       name:
                         description: name is the name of the Secret.
+                        minLength: 1
                         type: string
                     required:
                     - key
@@ -103,6 +107,7 @@ spec:
                     type: object
                   url:
                     description: url is the base URL of the Plex server (e.g., http://plex:32400).
+                    minLength: 1
                     pattern: ^https?://
                     type: string
                 required:
@@ -120,12 +125,15 @@ spec:
                   properties:
                     agent:
                       description: agent is the metadata agent to use.
+                      minLength: 1
                       type: string
                     language:
                       description: language is the library language (ISO 639-1).
+                      minLength: 1
                       type: string
                     name:
                       description: name is the display name of the library.
+                      minLength: 1
                       type: string
                     paths:
                       description: paths is the list of media folder paths.
@@ -135,6 +143,7 @@ spec:
                       x-kubernetes-list-type: set
                     scanner:
                       description: scanner is the scanner type.
+                      minLength: 1
                       type: string
                     type:
                       description: type is the library type.
@@ -159,10 +168,12 @@ spec:
                   allowedNetworks:
                     description: allowedNetworks is a comma-separated list of networks
                       allowed without auth.
+                    minLength: 1
                     type: string
                   customServerAccessUrls:
                     description: customServerAccessUrls is a comma-separated list
                       of custom access URLs.
+                    minLength: 1
                     type: string
                   enableIPv6:
                     description: enableIPv6 enables IPv6 support.
@@ -266,6 +277,7 @@ spec:
                   butlerDatabaseBackupPath:
                     description: butlerDatabaseBackupPath is where database backups
                       go.
+                    minLength: 1
                     type: string
                   butlerEndHour:
                     description: butlerEndHour is the hour scheduled maintenance tasks
@@ -326,6 +338,7 @@ spec:
                     type: boolean
                   friendlyName:
                     description: friendlyName is the server's display name.
+                    minLength: 1
                     type: string
                   generateChapterThumbnails:
                     description: generateChapterThumbnails is when Plex makes chapter
@@ -408,10 +421,12 @@ spec:
                   downloadsTempDirectory:
                     description: downloadsTempDirectory is where transcodes for downloads
                       are kept.
+                    minLength: 1
                     type: string
                   hardwareAccelerationType:
                     description: hardwareAccelerationType sets the HW acceleration
                       type.
+                    minLength: 1
                     type: string
                   maxSimultaneousVideoTranscodes:
                     description: maxSimultaneousVideoTranscodes limits concurrent
@@ -456,6 +471,7 @@ spec:
                   transcoderTempDirectory:
                     description: transcoderTempDirectory sets the transcoder temporary
                       directory.
+                    minLength: 1
                     type: string
                   transcoderThrottleBuffer:
                     description: |-
@@ -476,6 +492,7 @@ spec:
                 self.reconcile.deletionPolicy != ''delete'''
           status:
             description: status is the observed state of the Plex.
+            minProperties: 1
             properties:
               conditions:
                 description: conditions represent the current state of the Plex resource.
@@ -572,6 +589,7 @@ spec:
               observedGeneration:
                 description: observedGeneration is the most recent generation observed.
                 format: int64
+                minimum: 1
                 type: integer
             type: object
         required:

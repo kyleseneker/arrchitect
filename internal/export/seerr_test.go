@@ -44,7 +44,7 @@ func TestSeerrExportsSettingsServicesAndNotifications(t *testing.T) {
 	assert.Equal(t, "Requests", cfg.Spec.Main.ApplicationTitle)
 	assert.Equal(t, int32(32), *cfg.Spec.Main.DefaultPermissions)
 
-	require.NotNil(t, cfg.Spec.JellyfinAuth)
+	require.NotZero(t, cfg.Spec.JellyfinAuth)
 	assert.Equal(t, "jellyfin", cfg.Spec.JellyfinAuth.Hostname)
 	assert.Equal(t, int32(8096), *cfg.Spec.JellyfinAuth.Port)
 	assert.ElementsMatch(t, []string{"jellyfin-username", "jellyfin-password"}, res.Unfilled)
@@ -71,7 +71,7 @@ func TestSeerrExportsSettingsServicesAndNotifications(t *testing.T) {
 	require.Len(t, discord.Options, 2)
 	assert.Equal(t, true, fieldNamed(t, discord.Options, "enableMentions").Value.ToInterface(), "a boolean option stays a boolean")
 	webhook := fieldNamed(t, discord.Options, "webhookUrl")
-	require.NotNil(t, webhook.ValueFrom)
+	require.NotZero(t, webhook.ValueFrom)
 	assert.Equal(t, "https://hook", res.Secret.StringData[webhook.ValueFrom.SecretKeyRef.Key])
 }
 

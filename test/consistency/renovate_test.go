@@ -48,17 +48,18 @@ func TestRenovateTracksEveryMakefileToolVersion(t *testing.T) {
 	}
 }
 
-// make lint and CI must run the same golangci-lint; Renovate bumps both in one PR.
-func TestGolangciLintVersionMatchesCI(t *testing.T) {
+// The custom golangci-lint with kube-api-linter builds on the version make
+// lint installs; Renovate bumps both in one PR.
+func TestCustomGolangciLintMatchesTheMakefile(t *testing.T) {
 	makefile, err := os.ReadFile("../../Makefile")
 	require.NoError(t, err)
-	ci, err := os.ReadFile("../../.github/workflows/ci.yml")
+	custom, err := os.ReadFile("../../.custom-gcl.yml")
 	require.NoError(t, err)
 
 	local := regexp.MustCompile(`(?m)^GOLANGCI_LINT_VERSION \?= (\S+)$`).FindSubmatch(makefile)
 	require.NotNil(t, local, "GOLANGCI_LINT_VERSION not found in Makefile")
-	remote := regexp.MustCompile(`golangci-lint-action@[^\n]*\n\s+with:\s+version: (\S+)`).FindSubmatch(ci)
-	require.NotNil(t, remote, "golangci-lint-action version not found in ci.yml")
+	built := regexp.MustCompile(`(?m)^version: (\S+)$`).FindSubmatch(custom)
+	require.NotNil(t, built, "version not found in .custom-gcl.yml")
 
-	assert.Equal(t, string(local[1]), string(remote[1]))
+	assert.Equal(t, string(local[1]), string(built[1]))
 }

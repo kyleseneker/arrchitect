@@ -336,7 +336,7 @@ func buildRule(rule curationv1alpha1.MaintainerrRule, section int, operator any,
 	}
 	needsValue := rule.Action != "EXISTS" && rule.Action != "NOT_EXISTS"
 	switch {
-	case rule.LastValue != "" && rule.CustomValue != nil:
+	case rule.LastValue != "" && rule.CustomValue != (curationv1alpha1.MaintainerrCustomValue{}):
 		return nil, nil, fmt.Errorf("set lastValue or customValue, not both")
 	case rule.LastValue != "":
 		last, err := env.resolve(rule.LastValue)
@@ -344,8 +344,8 @@ func buildRule(rule curationv1alpha1.MaintainerrRule, section int, operator any,
 			return nil, nil, err
 		}
 		send["lastVal"], compare["lastVal"] = last, last
-	case rule.CustomValue != nil:
-		custom, err := customValue(rule.CustomValue)
+	case rule.CustomValue != (curationv1alpha1.MaintainerrCustomValue{}):
+		custom, err := customValue(&rule.CustomValue)
 		if err != nil {
 			return nil, nil, err
 		}

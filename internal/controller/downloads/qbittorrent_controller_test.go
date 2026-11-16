@@ -37,14 +37,14 @@ func TestQBPreferencePayloadUsesAPIKeyNames(t *testing.T) {
 		DHT:                   new(false),
 		PEX:                   new(false),
 		LSD:                   new(false),
-		Encryption:            new("require"),
+		Encryption:            "require",
 		MaxConnec:             new(int32(200)),
 		MaxConnecPerTorrent:   new(int32(50)),
 		MaxUploads:            new(int32(20)),
 		MaxUploadsPerTorrent:  new(int32(5)),
 		MaxRatioEnabled:       new(true),
 		MaxRatio:              new("2.0"),
-		MaxRatioAction:        new("stop"),
+		MaxRatioAction:        "stop",
 		MaxSeedingTimeEnabled: new(true),
 		MaxSeedingTime:        new(int32(10080)),
 		PreallocateAll:        new(true),
@@ -87,8 +87,8 @@ func TestQBPreferencePayloadCoversEverySpecField(t *testing.T) {
 		},
 		func(p *downloadsv1alpha1.QBittorrentPreferences) {
 			p.MaxRatio = new("1.0")
-			p.MaxRatioAction = new("stop")
-			p.Encryption = new("require")
+			p.MaxRatioAction = "stop"
+			p.Encryption = "require"
 			p.MaxRatioEnabled = new(true)
 			p.MaxSeedingTimeEnabled = new(true)
 			p.MaxInactiveSeedingTimeEnabled = new(true)
@@ -100,7 +100,7 @@ func TestQBPreferencePayloadCoversEverySpecField(t *testing.T) {
 func TestQBPreferencePayloadRejectsBadValues(t *testing.T) {
 	_, err := qbPreferencePayload(&downloadsv1alpha1.QBittorrentPreferences{MaxRatio: new("abc")})
 	assert.Error(t, err, "expected error for unparseable maxRatio")
-	_, err = qbPreferencePayload(&downloadsv1alpha1.QBittorrentPreferences{MaxRatioAction: new("nope")})
+	_, err = qbPreferencePayload(&downloadsv1alpha1.QBittorrentPreferences{MaxRatioAction: "nope"})
 	assert.Error(t, err, "expected error for unknown maxRatioAction")
 	_, err = qbPreferencePayload(&downloadsv1alpha1.QBittorrentPreferences{SchedulerDays: "someday"})
 	assert.Error(t, err, "expected error for unknown schedulerDays")
@@ -130,7 +130,7 @@ func TestQBPreferencePayloadConvertsWhatQBittorrentStoresDifferently(t *testing.
 }
 
 func TestQBPreferencePayloadOmitsUnsetFields(t *testing.T) {
-	got, err := qbPreferencePayload(&downloadsv1alpha1.QBittorrentPreferences{MaxRatioAction: new("removeWithContent")})
+	got, err := qbPreferencePayload(&downloadsv1alpha1.QBittorrentPreferences{MaxRatioAction: "removeWithContent"})
 	require.NoError(t, err, "qbPreferencePayload")
 	assert.Equal(t, map[string]any{"max_ratio_act": 3}, got, "expected only max_ratio_act=3")
 }
@@ -184,7 +184,7 @@ func TestQBObserveReadsWithoutChangingPreferencesOrCategories(t *testing.T) {
 			cfg := &downloadsv1alpha1.QBittorrent{Name: "qbit", Namespace: "media"}
 			cfg.Spec.Connection = downloadsv1alpha1.QBittorrentConnection{URL: srv.URL,
 				UsernameSecretRef: commonv1alpha1.SecretKeyRef{Name: "creds", Key: "user"}, PasswordSecretRef: commonv1alpha1.SecretKeyRef{Name: "creds", Key: "password"}}
-			cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{DriftPolicy: &policy}
+			cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{DriftPolicy: policy}
 			cfg.Spec.Preferences = &downloadsv1alpha1.QBittorrentPreferences{SavePath: tt.path}
 			cfg.Spec.Categories = []downloadsv1alpha1.QBittorrentCategory{{Name: "tv", SavePath: tt.path}}
 			switch tt.name {
@@ -383,7 +383,7 @@ func TestQBLeavesAnUndeclaredCategorySavePathAlone(t *testing.T) {
 	runQB(t, cfg)
 	assert.Empty(t, app.writes)
 
-	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{DriftPolicy: new("observe")}
+	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{DriftPolicy: "observe"}
 	got := runQB(t, cfg)
 	synced := meta.FindStatusCondition(got.Status.Conditions, "Synced")
 	require.NotNil(t, synced)
@@ -394,7 +394,7 @@ func TestQBObserveReportsACategoryPruneWouldDelete(t *testing.T) {
 	app := &fakeQB{categories: qbCategories("tv", "old")}
 	cfg := qbConfig(app.serve(t), "tv")
 	observe := "observe"
-	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{Prune: new(true), DriftPolicy: &observe}
+	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{Prune: new(true), DriftPolicy: observe}
 	cfg.SetManagedResources(map[string][]string{"categories": {"old"}})
 
 	got := runQB(t, cfg)
@@ -410,7 +410,7 @@ func TestQBDeletionPolicyRemovesWhatItCreated(t *testing.T) {
 	app := &fakeQB{categories: qbCategories("tv", "hand-made")}
 	cfg := qbConfig(app.serve(t), "tv")
 	policy := ctrlcommon.DeletionPolicyDelete
-	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{DeletionPolicy: &policy}
+	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{DeletionPolicy: policy}
 	cfg.SetManagedResources(map[string][]string{"categories": {"tv"}})
 	now := metav1.NewTime(time.Now())
 	cfg.DeletionTimestamp = &now

@@ -313,7 +313,7 @@ func TestJellyfinObserveNeverRunsSetupOrWritesConfiguration(t *testing.T) {
 				cfg.Spec.Encoding = &mediaserversv1alpha1.JellyfinEncoding{}
 			}
 			policy := "observe"
-			cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{DriftPolicy: &policy}
+			cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{DriftPolicy: policy}
 			c := runJellyfin(t, adminSecret(), cfg)
 			require.NoError(t, c.Get(context.Background(), types.NamespacedName{Name: cfg.Name, Namespace: cfg.Namespace}, cfg))
 			app.mu.Lock()

@@ -77,9 +77,11 @@ spec:
                         properties:
                           key:
                             description: key is the key within the Secret.
+                            minLength: 1
                             type: string
                           name:
                             description: name is the name of the Secret.
+                            minLength: 1
                             type: string
                         required:
                         - key
@@ -96,6 +98,7 @@ spec:
                   url:
                     description: url is the base URL of the FlareSolverr instance
                       (e.g., http://flaresolverr:8191).
+                    minLength: 1
                     pattern: ^https?://
                     type: string
                 required:
@@ -162,6 +165,7 @@ spec:
                         name is the session identifier. Must be unique across sessions. A client
                         reuses the session by sending this name with its requests; Prowlarr's
                         FlareSolverr proxy doesn't.
+                      minLength: 1
                       type: string
                   required:
                   - name
@@ -175,11 +179,13 @@ spec:
             type: object
           status:
             description: status is the observed state of the FlareSolverr.
+            minProperties: 1
             properties:
               activeSessions:
                 description: activeSessions is the number of active sessions managed
                   by this resource.
                 format: int32
+                minimum: 1
                 type: integer
               conditions:
                 description: conditions represent the current state of the FlareSolverr
@@ -277,6 +283,7 @@ spec:
               observedGeneration:
                 description: observedGeneration is the most recent generation observed.
                 format: int64
+                minimum: 1
                 type: integer
             type: object
         required:

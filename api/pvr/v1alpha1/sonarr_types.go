@@ -10,7 +10,7 @@ import (
 type SonarrSpec struct {
 	// connection defines how to connect to the Sonarr instance.
 	// +required
-	Connection commonv1alpha1.AppConnection `json:"connection"`
+	Connection commonv1alpha1.AppConnection `json:"connection,omitempty"`
 
 	// reconcile configures reconciliation behavior (e.g., sync interval).
 	// +optional
@@ -114,6 +114,7 @@ type SonarrMediaManagement struct {
 
 	// extraFileExtensions is a comma-separated list of extra file extensions to import.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	ExtraFileExtensions string `json:"extraFileExtensions,omitempty"`
 
 	// downloadPropersAndRepacks controls how proper/repack releases are handled.
@@ -185,26 +186,32 @@ type SonarrNaming struct {
 
 	// standardEpisodeFormat is the naming format for standard episodes.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	StandardEpisodeFormat string `json:"standardEpisodeFormat,omitempty"`
 
 	// dailyEpisodeFormat is the naming format for daily episodes.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	DailyEpisodeFormat string `json:"dailyEpisodeFormat,omitempty"`
 
 	// animeEpisodeFormat is the naming format for anime episodes.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	AnimeEpisodeFormat string `json:"animeEpisodeFormat,omitempty"`
 
 	// seriesFolderFormat is the naming format for series folders.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	SeriesFolderFormat string `json:"seriesFolderFormat,omitempty"`
 
 	// seasonFolderFormat is the naming format for season folders.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	SeasonFolderFormat string `json:"seasonFolderFormat,omitempty"`
 
 	// specialsFolderFormat is the naming format for specials folders.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	SpecialsFolderFormat string `json:"specialsFolderFormat,omitempty"`
 }
 
@@ -252,14 +259,17 @@ type SonarrUI struct {
 
 	// shortDateFormat is the short date display format.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	ShortDateFormat string `json:"shortDateFormat,omitempty"`
 
 	// longDateFormat is the long date display format.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	LongDateFormat string `json:"longDateFormat,omitempty"`
 
 	// timeFormat is the time display format.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	TimeFormat string `json:"timeFormat,omitempty"`
 
 	// showRelativeDates shows relative dates (today, yesterday).
@@ -281,6 +291,7 @@ type SonarrUI struct {
 }
 
 // SonarrStatus defines the observed state of Sonarr.
+// +kubebuilder:validation:MinProperties=1
 type SonarrStatus struct {
 	// conditions represent the current state of the Sonarr resource.
 	// +listType=map
@@ -290,6 +301,7 @@ type SonarrStatus struct {
 
 	// observedGeneration is the most recent generation observed.
 	// +optional
+	// +kubebuilder:validation:Minimum=1
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 
 	// lastSyncTime is the timestamp of the last successful reconciliation.
@@ -323,7 +335,7 @@ type Sonarr struct {
 
 	// spec is the desired state of the Sonarr.
 	// +required
-	Spec SonarrSpec `json:"spec"`
+	Spec SonarrSpec `json:"spec,omitzero"`
 
 	// status is the observed state of the Sonarr.
 	// +optional

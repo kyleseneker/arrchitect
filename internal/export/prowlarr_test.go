@@ -67,7 +67,7 @@ func TestProwlarrIndexerFieldsKeepTheirTypes(t *testing.T) {
 			values[f.Name] = f.Value.ToInterface()
 		}
 		if f.Name == "apiKey" {
-			apiKey = f.ValueFrom
+			apiKey = &f.ValueFrom
 		}
 	}
 	assert.Equal(t, map[string]any{

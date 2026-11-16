@@ -45,7 +45,7 @@ func TestQBittorrentExportsPreferencesCategoriesAndLogin(t *testing.T) {
 	assert.False(t, *prefs.DHT)
 	assert.Equal(t, int32(400), *prefs.MaxConnec)
 	assert.Equal(t, "2.5", *prefs.MaxRatio)
-	assert.Equal(t, "removeWithContent", *prefs.MaxRatioAction)
+	assert.Equal(t, "removeWithContent", prefs.MaxRatioAction)
 	assert.Equal(t, []downloadsv1alpha1.QBittorrentCategory{{Name: "movies"}, {Name: "tv", SavePath: "/downloads/tv"}}, cfg.Spec.Categories)
 	assert.Equal(t, "/downloads/incomplete", prefs.TempPath)
 	assert.Equal(t, int32(10), *prefs.DlLimit, "qBittorrent stores bytes per second, the config takes KiB/s")

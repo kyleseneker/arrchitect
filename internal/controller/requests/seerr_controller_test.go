@@ -38,7 +38,7 @@ import (
 
 func observeSeerr(t *testing.T, cfg *requestsv1alpha1.Seerr) metav1.Condition {
 	t.Helper()
-	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{DriftPolicy: new("observe")}
+	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{DriftPolicy: "observe"}
 	scheme := runtime.NewScheme()
 	require.NoError(t, clientgoscheme.AddToScheme(scheme))
 	require.NoError(t, requestsv1alpha1.AddToScheme(scheme))
@@ -71,7 +71,7 @@ func (f *fakeSeerr) writes() []string {
 func TestSeerrObserveReportsMissingSetupWithoutLoggingIn(t *testing.T) {
 	app := &fakeSeerr{}
 	cfg := seerrConfig(app.serve(t))
-	cfg.Spec.JellyfinAuth = &requestsv1alpha1.SeerrJellyfinAuth{
+	cfg.Spec.JellyfinAuth = requestsv1alpha1.SeerrJellyfinAuth{
 		Hostname:          "jellyfin",
 		UsernameSecretRef: commonv1alpha1.SecretKeyRef{Name: "seerr-secrets", Key: "username"},
 		PasswordSecretRef: commonv1alpha1.SecretKeyRef{Name: "seerr-secrets", Key: "password"},
@@ -428,7 +428,7 @@ func TestSeerrWithoutAPIKeyLogsInAndFetchesKey(t *testing.T) {
 
 	port := int32(8096)
 	cfg := seerrConfig(addr)
-	cfg.Spec.JellyfinAuth = &requestsv1alpha1.SeerrJellyfinAuth{
+	cfg.Spec.JellyfinAuth = requestsv1alpha1.SeerrJellyfinAuth{
 		Hostname:          "jellyfin",
 		Port:              &port,
 		UrlBase:           "/jf",
@@ -450,7 +450,7 @@ func TestSeerrJellyfinLoginCarriesServerTypeAndURLBase(t *testing.T) {
 
 	port := int32(8096)
 	cfg := seerrConfig(addr)
-	cfg.Spec.JellyfinAuth = &requestsv1alpha1.SeerrJellyfinAuth{
+	cfg.Spec.JellyfinAuth = requestsv1alpha1.SeerrJellyfinAuth{
 		Hostname:          "jellyfin",
 		Port:              &port,
 		UrlBase:           "/jf",
@@ -471,7 +471,7 @@ func TestSeerrPlexLoginSendsToken(t *testing.T) {
 	addr := app.serve(t)
 
 	cfg := seerrConfig(addr)
-	cfg.Spec.PlexAuth = &requestsv1alpha1.SeerrPlexAuth{
+	cfg.Spec.PlexAuth = requestsv1alpha1.SeerrPlexAuth{
 		Hostname:       "plex",
 		TokenSecretRef: commonv1alpha1.SecretKeyRef{Name: "seerr-secrets", Key: "token"},
 	}
@@ -486,7 +486,7 @@ func firstRunJellyfinConfig(addr string) *requestsv1alpha1.Seerr {
 	port := int32(8096)
 	cfg := seerrConfig(addr)
 	cfg.Spec.Connection.APIKeySecretRef = &commonv1alpha1.SecretKeyRef{Name: "seerr-secrets", Key: "api-key"}
-	cfg.Spec.JellyfinAuth = &requestsv1alpha1.SeerrJellyfinAuth{
+	cfg.Spec.JellyfinAuth = requestsv1alpha1.SeerrJellyfinAuth{
 		Hostname:          "jellyfin",
 		Port:              &port,
 		UsernameSecretRef: commonv1alpha1.SecretKeyRef{Name: "seerr-secrets", Key: "username"},
@@ -755,7 +755,7 @@ func TestSeerrDeletionPolicyRemovesTheConnectionsItCreated(t *testing.T) {
 	}}
 	cfg := seerrWithAPIKey(app.serve(t))
 	policy := ctrlcommon.DeletionPolicyDelete
-	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{DeletionPolicy: &policy}
+	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{DeletionPolicy: policy}
 	cfg.SetManagedResources(map[string][]string{"sonarr": {"Sonarr"}})
 	now := metav1.NewTime(time.Now())
 	cfg.DeletionTimestamp = &now
@@ -777,7 +777,7 @@ func TestSeerrObserveReportsAConnectionPruneWouldDelete(t *testing.T) {
 		APIKeySecretRef: commonv1alpha1.SecretKeyRef{Name: "seerr-secrets", Key: "api-key"},
 	}}
 	observe := "observe"
-	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{Prune: new(true), DriftPolicy: &observe}
+	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{Prune: new(true), DriftPolicy: observe}
 	cfg.SetManagedResources(map[string][]string{"sonarr": {"ObserveOld"}})
 	observed := metrics.DriftObservedTotal.WithLabelValues("seerr", "sonarr", "ObserveOld")
 	before := testutil.ToFloat64(observed)
@@ -793,7 +793,7 @@ func plexServerConfig(addr string, initialized bool) *requestsv1alpha1.Seerr {
 	if initialized {
 		cfg.Spec.Connection.APIKeySecretRef = &commonv1alpha1.SecretKeyRef{Name: "seerr-secrets", Key: "api-key"}
 	}
-	cfg.Spec.PlexAuth = &requestsv1alpha1.SeerrPlexAuth{
+	cfg.Spec.PlexAuth = requestsv1alpha1.SeerrPlexAuth{
 		Hostname: "plex", TokenSecretRef: commonv1alpha1.SecretKeyRef{Name: "seerr-secrets", Key: "token"},
 	}
 	return cfg
@@ -867,7 +867,7 @@ func TestSeerrNotificationOptionsKeepTheirTypeAndReadSecrets(t *testing.T) {
 		Options: []commonv1alpha1.ConfigField{
 			{Name: "botUsername", Value: &commonv1alpha1.FieldValue{Raw: []byte(`"Seerr"`)}},
 			{Name: "enableMentions", Value: &commonv1alpha1.FieldValue{Raw: []byte(`false`)}},
-			{Name: "webhookUrl", ValueFrom: &commonv1alpha1.ValueSource{SecretKeyRef: commonv1alpha1.SecretKeyRef{Name: "seerr-secrets", Key: "token"}}},
+			{Name: "webhookUrl", ValueFrom: commonv1alpha1.ValueSource{SecretKeyRef: commonv1alpha1.SecretKeyRef{Name: "seerr-secrets", Key: "token"}}},
 		},
 	}}
 

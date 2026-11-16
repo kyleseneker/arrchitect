@@ -193,7 +193,7 @@ func TestBazarrSubstitutesResolvedAPIKeyIntoForm(t *testing.T) {
 
 	cfg := bazarrConfig(addr)
 	port := int32(8989)
-	cfg.Spec.SonarrConnection = &subtitlesv1alpha1.BazarrAppConnection{
+	cfg.Spec.SonarrConnection = subtitlesv1alpha1.BazarrAppConnection{
 		Host:            "sonarr",
 		Port:            &port,
 		APIKeySecretRef: commonv1alpha1.SecretKeyRef{Name: "bazarr-secrets", Key: "sonarr-api-key"},
@@ -248,7 +248,7 @@ func TestBazarrObserveReportsDriftWithoutWriting(t *testing.T) {
 	cfg := bazarrConfig(app.serve(t))
 	cfg.Spec.General = &subtitlesv1alpha1.BazarrGeneral{UseSonarr: new(true)}
 	policy := "observe"
-	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{DriftPolicy: &policy}
+	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{DriftPolicy: policy}
 	c := runBazarr(t, cfg, bazarrSecrets())
 
 	assert.True(t, app.sawPath("/api/system/settings"), "observe must read the settings")
@@ -354,7 +354,7 @@ func TestBazarrProviderSecretSettingsReadFromASecret(t *testing.T) {
 	form, err := r.bazarrProviderForm(context.Background(), "media", []subtitlesv1alpha1.BazarrProvider{{
 		Name: "opensubtitlescom", Settings: []commonv1alpha1.ConfigField{
 			{Name: "username", Value: &commonv1alpha1.FieldValue{Raw: []byte(`"me"`)}},
-			{Name: "password", ValueFrom: &commonv1alpha1.ValueSource{SecretKeyRef: ref}},
+			{Name: "password", ValueFrom: commonv1alpha1.ValueSource{SecretKeyRef: ref}},
 		},
 	}})
 	require.NoError(t, err)

@@ -27,6 +27,18 @@
     },
     {
       "customType": "regex",
+      "description": "golangci-lint version the custom build with kube-api-linter starts from; the same dependency as the Makefile's, so one PR bumps both",
+      "managerFilePatterns": [
+        "/^\\.custom-gcl\\.yml$/"
+      ],
+      "matchStrings": [
+        "(?:^|\\n)version: (?<currentValue>\\S+)"
+      ],
+      "datasourceTemplate": "github-releases",
+      "depNameTemplate": "golangci/golangci-lint"
+    },
+    {
+      "customType": "regex",
       "description": "Application images the compat suite runs against",
       "managerFilePatterns": [
         "/^test/compat/images_test\\.go$/"

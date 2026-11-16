@@ -69,7 +69,7 @@ func secretRef(key string) commonv1alpha1.SecretKeyRef {
 
 func orphan() *commonv1alpha1.ReconcileConfig {
 	p := "orphan"
-	return &commonv1alpha1.ReconcileConfig{DeletionPolicy: &p}
+	return &commonv1alpha1.ReconcileConfig{DeletionPolicy: p}
 }
 
 func meta(name string) metav1.ObjectMeta {
@@ -209,7 +209,10 @@ func controllerCases() []controllerCase {
 					ObjectMeta: meta("jellyfin"),
 					Spec: mediaserversv1alpha1.JellyfinSpec{
 						Connection: mediaserversv1alpha1.JellyfinConnection{URL: url},
-						Reconcile:  orphan(),
+						AdminUser: mediaserversv1alpha1.JellyfinAdminUser{
+							UsernameSecretRef: secretRef("username"), PasswordSecretRef: secretRef("password"),
+						},
+						Reconcile: orphan(),
 					},
 				}
 			},
@@ -542,7 +545,7 @@ func TestSecretChangeReconcilesTheConfigReferringToIt(t *testing.T) {
 	t.Cleanup(app.Close)
 	cr := &indexersv1alpha1.FlareSolverr{ObjectMeta: meta("watched"), Spec: indexersv1alpha1.FlareSolverrSpec{
 		Connection: indexersv1alpha1.FlareSolverrConnection{URL: app.URL, TLS: &commonv1alpha1.TLSConfig{
-			CASecretRef: &commonv1alpha1.SecretKeyRef{Name: "private-ca", Key: "ca.crt"},
+			CASecretRef: commonv1alpha1.SecretKeyRef{Name: "private-ca", Key: "ca.crt"},
 		}},
 	}}
 	require.NoError(t, c.Create(ctx, cr))
@@ -586,7 +589,7 @@ func TestDeletePolicyReleasesTheObject(t *testing.T) {
 		ObjectMeta: meta("tdarr"),
 		Spec: transcodev1alpha1.TdarrSpec{
 			Connection: appConn(fakeAppServer(t)),
-			Reconcile:  &commonv1alpha1.ReconcileConfig{DeletionPolicy: &deletePolicy},
+			Reconcile:  &commonv1alpha1.ReconcileConfig{DeletionPolicy: deletePolicy},
 		},
 	}
 	require.NoError(t, c.Create(ctx, cr))

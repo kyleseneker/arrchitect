@@ -64,7 +64,7 @@ func baseSpec(o buildOpts) (commonv1alpha1.AppConnection, []commonv1alpha1.RootF
 	if o.notification {
 		url := commonv1alpha1.ConfigField{Name: "url", Value: &commonv1alpha1.FieldValue{Raw: []byte(`"http://hook"`)}}
 		if o.missingSecret {
-			url = commonv1alpha1.ConfigField{Name: "url", ValueFrom: &commonv1alpha1.ValueSource{
+			url = commonv1alpha1.ConfigField{Name: "url", ValueFrom: commonv1alpha1.ValueSource{
 				SecretKeyRef: commonv1alpha1.SecretKeyRef{Name: "missing", Key: "url"},
 			}}
 		}
@@ -448,7 +448,7 @@ func TestDeletePolicyCleansOwnedResourcesAcrossPVRControllers(t *testing.T) {
 			fa, url := newFakeArr(t, app.apiVer, map[string][]map[string]any{"notification": {{"id": float64(7), "name": "owned"}, {"id": float64(8), "name": "manual"}}})
 			cfg := app.build(url, buildOpts{prune: true, managed: map[string][]string{"notifications": {"owned"}, "tags": {"shared"}, "rootFolders": {"/media"}}})
 			policy := "delete"
-			cfg.GetReconcileConfig().DeletionPolicy = &policy
+			cfg.GetReconcileConfig().DeletionPolicy = policy
 			cfg.SetFinalizers([]string{ctrlcommon.Finalizer})
 			now := metav1.Now()
 			cfg.SetDeletionTimestamp(&now)

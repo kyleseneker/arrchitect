@@ -64,9 +64,11 @@ spec:
                     properties:
                       key:
                         description: key is the key within the Secret.
+                        minLength: 1
                         type: string
                       name:
                         description: name is the name of the Secret.
+                        minLength: 1
                         type: string
                     required:
                     - key
@@ -85,9 +87,11 @@ spec:
                         properties:
                           key:
                             description: key is the key within the Secret.
+                            minLength: 1
                             type: string
                           name:
                             description: name is the name of the Secret.
+                            minLength: 1
                             type: string
                         required:
                         - key
@@ -103,6 +107,7 @@ spec:
                     type: object
                   url:
                     description: url is the base URL of the app (e.g., http://arr-sonarr.arr.svc.cluster.local:8989).
+                    minLength: 1
                     pattern: ^https?://
                     type: string
                 required:
@@ -123,9 +128,11 @@ spec:
                       properties:
                         key:
                           description: key is the key within the Secret.
+                          minLength: 1
                           type: string
                         name:
                           description: name is the name of the Secret.
+                          minLength: 1
                           type: string
                       required:
                       - key
@@ -138,9 +145,11 @@ spec:
                       type: boolean
                     host:
                       description: host is the hostname or URL of the download client.
+                      minLength: 1
                       type: string
                     name:
                       description: name is the display name of the download client.
+                      minLength: 1
                       type: string
                     passwordSecretRef:
                       description: passwordSecretRef references a Secret containing
@@ -148,9 +157,11 @@ spec:
                       properties:
                         key:
                           description: key is the key within the Secret.
+                          minLength: 1
                           type: string
                         name:
                           description: name is the name of the Secret.
+                          minLength: 1
                           type: string
                       required:
                       - key
@@ -184,9 +195,11 @@ spec:
                       properties:
                         key:
                           description: key is the key within the Secret.
+                          minLength: 1
                           type: string
                         name:
                           description: name is the name of the Secret.
+                          minLength: 1
                           type: string
                       required:
                       - key
@@ -212,9 +225,11 @@ spec:
                       properties:
                         key:
                           description: key is the key within the Secret.
+                          minLength: 1
                           type: string
                         name:
                           description: name is the name of the Secret.
+                          minLength: 1
                           type: string
                       required:
                       - key
@@ -229,6 +244,7 @@ spec:
                       description: |-
                         indexerRef is the name of the indexer this feed belongs to: a torznab,
                         newznab or rss indexer declared under indexers.
+                      minLength: 1
                       type: string
                     interval:
                       description: |-
@@ -238,6 +254,7 @@ spec:
                       type: integer
                     name:
                       description: name is the display name of the feed.
+                      minLength: 1
                       type: string
                     type:
                       description: type is the feed type.
@@ -248,6 +265,7 @@ spec:
                       type: string
                     url:
                       description: url is the feed URL.
+                      minLength: 1
                       type: string
                   required:
                   - indexerRef
@@ -276,10 +294,12 @@ spec:
                           category:
                             description: category overrides the download client's
                               default category.
+                            minLength: 1
                             type: string
                           clientRef:
                             description: clientRef is the name of the download client
                               to use (must match a downloadClients entry).
+                            minLength: 1
                             type: string
                           contentLayout:
                             description: contentLayout decides whether the torrent's
@@ -292,6 +312,7 @@ spec:
                           downloadPath:
                             description: downloadPath is where the download client
                               keeps the torrent while it downloads.
+                            minLength: 1
                             type: string
                           enable:
                             description: |-
@@ -300,15 +321,18 @@ spec:
                             type: boolean
                           execArgs:
                             description: execArgs is the arguments for the exec command.
+                            minLength: 1
                             type: string
                           execCommand:
                             description: execCommand is the command to execute (for
                               Exec action type).
+                            minLength: 1
                             type: string
                           externalDownloadClient:
                             description: |-
                               externalDownloadClient is the download client, by name in Sonarr, Radarr, Lidarr or Readarr,
                               that the app sends the release to.
+                            minLength: 1
                             type: string
                           firstLastPiecePrio:
                             description: firstLastPiecePrio downloads the first and
@@ -321,6 +345,7 @@ spec:
                           label:
                             description: label is the label the download client gives
                               the torrent.
+                            minLength: 1
                             type: string
                           limitDownloadSpeed:
                             description: limitDownloadSpeed caps the torrent's download
@@ -347,6 +372,7 @@ spec:
                             type: integer
                           name:
                             description: name is the display name of the action.
+                            minLength: 1
                             type: string
                           paused:
                             description: paused adds the torrent paused.
@@ -384,6 +410,7 @@ spec:
                           savePath:
                             description: savePath overrides the download client's
                               default save path.
+                            minLength: 1
                             type: string
                           skipHashCheck:
                             description: skipHashCheck adds the torrent without checking
@@ -392,6 +419,7 @@ spec:
                           tags:
                             description: tags is a comma-separated list of tags the
                               download client gives the torrent.
+                            minLength: 1
                             type: string
                           type:
                             description: type is the action type. Deluge means Deluge
@@ -414,10 +442,12 @@ spec:
                           watchFolder:
                             description: watchFolder is the folder path (for WatchFolder
                               action type).
+                            minLength: 1
                             type: string
                           webhookData:
                             description: webhookData is the body the webhook sends;
                               Autobrr fills in its macros.
+                            minLength: 1
                             type: string
                           webhookHeaders:
                             description: webhookHeaders are headers the webhook sends,
@@ -439,10 +469,12 @@ spec:
                           webhookType:
                             description: webhookType is the content type the webhook
                               sends, such as JSON.
+                            minLength: 1
                             type: string
                           webhookURL:
                             description: webhookURL is the webhook URL (for Webhook
                               action type).
+                            minLength: 1
                             type: string
                         required:
                         - name
@@ -454,6 +486,7 @@ spec:
                       x-kubernetes-list-type: map
                     albums:
                       description: albums is a comma-separated list of albums to match.
+                      minLength: 1
                       type: string
                     announceTypes:
                       description: announceTypes is a list of announce types to match,
@@ -465,6 +498,7 @@ spec:
                     artists:
                       description: artists is a comma-separated list of artists to
                         match.
+                      minLength: 1
                       type: string
                     codecs:
                       description: codecs is a list of acceptable codecs (e.g., "x264",
@@ -485,6 +519,7 @@ spec:
                       type: boolean
                     days:
                       description: days is a comma-separated list of days to match.
+                      minLength: 1
                       type: string
                     delay:
                       description: delay is the delay in seconds before grabbing a
@@ -499,14 +534,17 @@ spec:
                     episodes:
                       description: episodes is a comma-separated list of episodes
                         or ranges to match.
+                      minLength: 1
                       type: string
                     exceptCategories:
                       description: exceptCategories is a comma-separated list of categories
                         to skip.
+                      minLength: 1
                       type: string
                     exceptDescription:
                       description: exceptDescription is a comma-separated list of
                         description patterns to skip.
+                      minLength: 1
                       type: string
                     exceptHdr:
                       description: exceptHdr is a list of HDR formats to skip.
@@ -536,18 +574,22 @@ spec:
                     exceptReleaseGroups:
                       description: exceptReleaseGroups is a comma-separated list of
                         release groups to skip.
+                      minLength: 1
                       type: string
                     exceptReleaseTags:
                       description: exceptReleaseTags is a comma-separated list of
                         release tags to skip.
+                      minLength: 1
                       type: string
                     exceptReleaseTypes:
                       description: exceptReleaseTypes is a comma-separated list of
                         music release types to skip.
+                      minLength: 1
                       type: string
                     exceptReleases:
                       description: exceptReleases is a comma-separated list of release
                         name patterns to exclude.
+                      minLength: 1
                       type: string
                     exceptTags:
                       description: exceptTags is a list of tags to skip.
@@ -565,6 +607,7 @@ spec:
                     exceptUploaders:
                       description: exceptUploaders is a comma-separated list of uploaders
                         to skip.
+                      minLength: 1
                       type: string
                     formats:
                       description: formats is a list of audio formats to match, such
@@ -579,6 +622,7 @@ spec:
                     freeleechPercent:
                       description: freeleechPercent is the freeleech percentages to
                         match, such as 50%,75%-100%.
+                      minLength: 1
                       type: string
                     indexers:
                       description: |-
@@ -600,10 +644,12 @@ spec:
                     matchCategories:
                       description: matchCategories is a comma-separated list of categories
                         to match.
+                      minLength: 1
                       type: string
                     matchDescription:
                       description: matchDescription is a comma-separated list of description
                         patterns to match.
+                      minLength: 1
                       type: string
                     matchHdr:
                       description: matchHdr is a list of HDR formats to match, such
@@ -628,10 +674,12 @@ spec:
                     matchReleaseGroups:
                       description: matchReleaseGroups is a comma-separated list of
                         release groups to match.
+                      minLength: 1
                       type: string
                     matchReleaseTags:
                       description: matchReleaseTags is a comma-separated list of release
                         tags to match.
+                      minLength: 1
                       type: string
                     matchReleaseTypes:
                       description: matchReleaseTypes is a list of music release types
@@ -643,10 +691,12 @@ spec:
                     matchReleases:
                       description: matchReleases is a comma-separated list of release
                         name patterns to match (supports wildcards).
+                      minLength: 1
                       type: string
                     matchUploaders:
                       description: matchUploaders is a comma-separated list of uploaders
                         to match.
+                      minLength: 1
                       type: string
                     maxDownloads:
                       description: maxDownloads caps how many releases the filter
@@ -678,6 +728,7 @@ spec:
                       type: integer
                     maxSize:
                       description: maxSize is the maximum release size (e.g., "50GB").
+                      minLength: 1
                       type: string
                     media:
                       description: media is a list of music media to match, such as
@@ -701,12 +752,15 @@ spec:
                     minSize:
                       description: minSize is the minimum release size (e.g., "100MB",
                         "1GB").
+                      minLength: 1
                       type: string
                     months:
                       description: months is a comma-separated list of months to match.
+                      minLength: 1
                       type: string
                     name:
                       description: name is the display name of the filter.
+                      minLength: 1
                       type: string
                     origins:
                       description: origins is a list of origins to match, such as
@@ -740,9 +794,11 @@ spec:
                     seasons:
                       description: seasons is a comma-separated list of seasons or
                         ranges to match, such as 1,3-5.
+                      minLength: 1
                       type: string
                     shows:
                       description: shows is a comma-separated list of shows to match.
+                      minLength: 1
                       type: string
                     smartEpisode:
                       description: smartEpisode skips episodes older than ones already
@@ -782,6 +838,7 @@ spec:
                     years:
                       description: years is a comma-separated list of years or ranges
                         to match, such as 2018-2024.
+                      minLength: 1
                       type: string
                   required:
                   - name
@@ -799,6 +856,7 @@ spec:
                     baseURL:
                       description: baseURL is the tracker's site URL. It defaults
                         to the definition's first URL.
+                      minLength: 1
                       type: string
                     enable:
                       description: |-
@@ -809,9 +867,11 @@ spec:
                       description: |-
                         identifier is the Autobrr indexer definition, such as "ipt" or "btn", or
                         "torznab", "newznab" or "rss" for an indexer that a feed reads from.
+                      minLength: 1
                       type: string
                     name:
                       description: name is the display name of the indexer.
+                      minLength: 1
                       type: string
                     settings:
                       description: settings are the definition's settings, such as
@@ -824,6 +884,7 @@ spec:
                         properties:
                           name:
                             description: name is the field name.
+                            minLength: 1
                             type: string
                           value:
                             description: 'value is the field value: a string, number,
@@ -838,9 +899,11 @@ spec:
                                 properties:
                                   key:
                                     description: key is the key within the Secret.
+                                    minLength: 1
                                     type: string
                                   name:
                                     description: name is the name of the Secret.
+                                    minLength: 1
                                     type: string
                                 required:
                                 - key
@@ -877,9 +940,11 @@ spec:
                       properties:
                         key:
                           description: key is the key within the Secret.
+                          minLength: 1
                           type: string
                         name:
                           description: name is the name of the Secret.
+                          minLength: 1
                           type: string
                       required:
                       - key
@@ -900,9 +965,11 @@ spec:
                       properties:
                         key:
                           description: key is the key within the Secret.
+                          minLength: 1
                           type: string
                         name:
                           description: name is the name of the Secret.
+                          minLength: 1
                           type: string
                       required:
                       - key
@@ -915,6 +982,7 @@ spec:
                         properties:
                           name:
                             description: name is the channel name (e.g., "#announce").
+                            minLength: 1
                             type: string
                           passwordSecretRef:
                             description: passwordSecretRef references a Secret containing
@@ -922,9 +990,11 @@ spec:
                             properties:
                               key:
                                 description: key is the key within the Secret.
+                                minLength: 1
                                 type: string
                               name:
                                 description: name is the name of the Secret.
+                                minLength: 1
                                 type: string
                             required:
                             - key
@@ -945,19 +1015,25 @@ spec:
                     inviteCommand:
                       description: inviteCommand is the IRC command to send to request
                         channel invites.
+                      minLength: 1
                       type: string
                     name:
                       description: name is the display name of the IRC network.
+                      minLength: 1
                       type: string
                     nick:
                       description: nick is the IRC nickname to use.
+                      minLength: 1
                       type: string
                     port:
                       description: port is the IRC server port.
                       format: int32
+                      maximum: 65535
+                      minimum: 1
                       type: integer
                     server:
                       description: server is the IRC server address (e.g., "irc.example.com").
+                      minLength: 1
                       type: string
                     tls:
                       description: tls enables TLS for the IRC connection.
@@ -1024,6 +1100,7 @@ spec:
             type: object
           status:
             description: status is the observed state of the Autobrr.
+            minProperties: 1
             properties:
               conditions:
                 description: conditions represent the current state of the Autobrr
@@ -1121,6 +1198,7 @@ spec:
               observedGeneration:
                 description: observedGeneration is the most recent generation observed.
                 format: int64
+                minimum: 1
                 type: integer
             type: object
         required:

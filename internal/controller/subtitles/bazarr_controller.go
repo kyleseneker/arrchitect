@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"maps"
 	"net/url"
+	"reflect"
 	"slices"
 	"strconv"
 	"strings"
@@ -169,9 +170,9 @@ func (r *BazarrReconciler) bazarrDesired(ctx context.Context, config *subtitlesv
 	}
 	for _, c := range []struct {
 		section string
-		conn    *subtitlesv1alpha1.BazarrAppConnection
+		conn    subtitlesv1alpha1.BazarrAppConnection
 	}{{"sonarr", spec.SonarrConnection}, {"radarr", spec.RadarrConnection}} {
-		if c.conn == nil {
+		if reflect.ValueOf(c.conn).IsZero() {
 			continue
 		}
 		key, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, c.conn.APIKeySecretRef)

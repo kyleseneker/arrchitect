@@ -14,7 +14,7 @@ type ReconcileConfig struct {
 	// Defaults to 300, and is at least 30.
 	// +optional
 	// +kubebuilder:validation:Minimum=30
-	IntervalSeconds *int32 `json:"intervalSeconds,omitempty"`
+	IntervalSeconds int32 `json:"intervalSeconds,omitempty"`
 
 	// prune deletes resources the operator created, tracked in
 	// status.managedResources, once they are removed from this spec. Resources
@@ -33,7 +33,7 @@ type ReconcileConfig struct {
 	// Default: enforce.
 	// +kubebuilder:validation:Enum=enforce;observe
 	// +optional
-	DriftPolicy *string `json:"driftPolicy,omitempty"`
+	DriftPolicy string `json:"driftPolicy,omitempty"`
 
 	// deletionPolicy controls what happens to resources in the app when this CR
 	// is deleted. "orphan" leaves them in place, "delete" removes the resources
@@ -41,18 +41,20 @@ type ReconcileConfig struct {
 	// Default: orphan.
 	// +kubebuilder:validation:Enum=orphan;delete
 	// +optional
-	DeletionPolicy *string `json:"deletionPolicy,omitempty"`
+	DeletionPolicy string `json:"deletionPolicy,omitempty"`
 }
 
 // SecretKeyRef references a key within a Kubernetes Secret.
 type SecretKeyRef struct {
 	// name is the name of the Secret.
 	// +required
-	Name string `json:"name"`
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name,omitempty"`
 
 	// key is the key within the Secret.
 	// +required
-	Key string `json:"key"`
+	// +kubebuilder:validation:MinLength=1
+	Key string `json:"key,omitempty"`
 }
 
 // TLSConfig configures TLS for connections to an app's API.
@@ -63,13 +65,13 @@ type TLSConfig struct {
 	// Only use for testing or when the target app uses a self-signed certificate and
 	// providing a CA is not practical.
 	// +optional
-	InsecureSkipVerify bool `json:"insecureSkipVerify,omitempty"`
+	InsecureSkipVerify *bool `json:"insecureSkipVerify,omitempty"`
 
 	// caSecretRef references a Secret containing a PEM-encoded CA certificate bundle
 	// used to verify the target app's TLS certificate.
 	// The Secret must contain the CA certificate under the specified key.
 	// +optional
-	CASecretRef *SecretKeyRef `json:"caSecretRef,omitempty"`
+	CASecretRef SecretKeyRef `json:"caSecretRef,omitzero"`
 }
 
 // AppConnection defines how the operator connects to an app's API.
@@ -77,11 +79,12 @@ type AppConnection struct {
 	// url is the base URL of the app (e.g., http://arr-sonarr.arr.svc.cluster.local:8989).
 	// +required
 	// +kubebuilder:validation:Pattern=`^https?://`
-	URL string `json:"url"`
+	// +kubebuilder:validation:MinLength=1
+	URL string `json:"url,omitempty"`
 
 	// apiKeySecretRef references a Secret containing the API key.
 	// +required
-	APIKeySecretRef SecretKeyRef `json:"apiKeySecretRef"`
+	APIKeySecretRef SecretKeyRef `json:"apiKeySecretRef,omitzero"`
 
 	// tls configures TLS settings for the connection.
 	// Only needed when the app uses HTTPS with self-signed or private CA certificates.
@@ -95,7 +98,8 @@ type AppConnection struct {
 type ConfigField struct {
 	// name is the field name.
 	// +required
-	Name string `json:"name"`
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name,omitempty"`
 
 	// value is the field value: a string, number, boolean or list.
 	// +optional
@@ -103,14 +107,14 @@ type ConfigField struct {
 
 	// valueFrom reads the field value from a source.
 	// +optional
-	ValueFrom *ValueSource `json:"valueFrom,omitempty"`
+	ValueFrom ValueSource `json:"valueFrom,omitzero"`
 }
 
 // ValueSource names where a value is read from.
 type ValueSource struct {
 	// secretKeyRef reads the value from a key of a Secret in the resource's namespace.
 	// +required
-	SecretKeyRef SecretKeyRef `json:"secretKeyRef"`
+	SecretKeyRef SecretKeyRef `json:"secretKeyRef,omitzero"`
 }
 
 // FieldValue wraps a value that can be a string, int, or bool.
@@ -154,23 +158,27 @@ func (v FieldValue) ToInterface() any {
 type RootFolder struct {
 	// path is the filesystem path for the root folder inside the container.
 	// +required
-	Path string `json:"path"`
+	// +kubebuilder:validation:MinLength=1
+	Path string `json:"path,omitempty"`
 
 	// name labels the root folder (Lidarr, Readarr). Defaults to the last
 	// element of path.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name,omitempty"`
 
 	// defaultQualityProfileName is the quality profile for content added to
 	// this folder (Lidarr, Readarr; required there). Resolved to an ID at
 	// reconciliation time, after declared quality profiles are applied.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	DefaultQualityProfileName string `json:"defaultQualityProfileName,omitempty"`
 
 	// defaultMetadataProfileName is the metadata profile for content added to
 	// this folder (Lidarr, Readarr; required there). Resolved to an ID at
 	// reconciliation time.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	DefaultMetadataProfileName string `json:"defaultMetadataProfileName,omitempty"`
 }
 
@@ -178,7 +186,8 @@ type RootFolder struct {
 type DownloadClient struct {
 	// name is the display name of the download client.
 	// +required
-	Name string `json:"name"`
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name,omitempty"`
 
 	// enable controls whether this download client is active. A new download
 	// client is enabled unless this is false.
@@ -188,24 +197,29 @@ type DownloadClient struct {
 	// protocol is the download protocol.
 	// +required
 	// +kubebuilder:validation:Enum=torrent;usenet
-	Protocol string `json:"protocol"`
+	Protocol string `json:"protocol,omitempty"`
 
 	// implementation is the download client type (e.g., QBittorrent, Sabnzbd, NzbGet, Transmission, Deluge).
 	// +required
-	Implementation string `json:"implementation"`
+	// +kubebuilder:validation:MinLength=1
+	Implementation string `json:"implementation,omitempty"`
 
 	// configContract overrides the default config contract name.
 	// Defaults to "<implementation>Settings" if not set.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	ConfigContract string `json:"configContract,omitempty"`
 
 	// host is the hostname or IP of the download client.
 	// +required
-	Host string `json:"host"`
+	// +kubebuilder:validation:MinLength=1
+	Host string `json:"host,omitempty"`
 
 	// port is the port of the download client.
 	// +required
-	Port int32 `json:"port"`
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=65535
+	Port int32 `json:"port,omitempty"`
 
 	// useSsl enables SSL/TLS for the download client connection.
 	// +optional
@@ -213,10 +227,12 @@ type DownloadClient struct {
 
 	// urlBase is the base URL path for the download client (e.g., "/qbittorrent").
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	UrlBase string `json:"urlBase,omitempty"`
 
 	// category is the download category to use.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	Category string `json:"category,omitempty"`
 
 	// priority is the download client priority. Lower values are higher priority.
@@ -224,7 +240,7 @@ type DownloadClient struct {
 	// +optional
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=50
-	Priority *int32 `json:"priority,omitempty"`
+	Priority int32 `json:"priority,omitempty"`
 
 	// removeCompletedDownloads controls whether completed downloads are removed.
 	// A new download client removes them unless this is false.
@@ -238,15 +254,15 @@ type DownloadClient struct {
 
 	// usernameSecretRef references a Secret containing the username for authentication.
 	// +optional
-	UsernameSecretRef *SecretKeyRef `json:"usernameSecretRef,omitempty"`
+	UsernameSecretRef SecretKeyRef `json:"usernameSecretRef,omitzero"`
 
 	// passwordSecretRef references a Secret containing the password for authentication.
 	// +optional
-	PasswordSecretRef *SecretKeyRef `json:"passwordSecretRef,omitempty"`
+	PasswordSecretRef SecretKeyRef `json:"passwordSecretRef,omitzero"`
 
 	// apiKeySecretRef references a Secret containing the API key (for Usenet clients like SABnzbd/NzbGet).
 	// +optional
-	APIKeySecretRef *SecretKeyRef `json:"apiKeySecretRef,omitempty"`
+	APIKeySecretRef SecretKeyRef `json:"apiKeySecretRef,omitzero"`
 
 	// tagLabels references tags by label, resolved against the app on each
 	// reconciliation. A missing or ambiguous label blocks writes, and an empty
@@ -268,7 +284,8 @@ type DownloadClient struct {
 type QualityProfile struct {
 	// name is the display name of the quality profile.
 	// +required
-	Name string `json:"name"`
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name,omitempty"`
 
 	// upgradeAllowed controls whether upgrades to better qualities are allowed.
 	// +optional
@@ -277,6 +294,7 @@ type QualityProfile struct {
 	// cutoff is the quality or group name at which quality upgrades stop.
 	// Must match a quality name or group name in the items list.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	Cutoff string `json:"cutoff,omitempty"`
 
 	// minFormatScore is the minimum custom format score required to grab a release.
@@ -312,12 +330,13 @@ type QualityProfile struct {
 type QualityProfileItem struct {
 	// name is the group name. Set only for quality groups, not individual qualities.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name,omitempty"`
 
 	// quality identifies a specific quality level.
 	// Set for individual qualities, omit for groups.
 	// +optional
-	Quality *QualityReference `json:"quality,omitempty"`
+	Quality QualityReference `json:"quality,omitzero"`
 
 	// allowed controls whether this quality or group is enabled in the profile.
 	// +optional
@@ -334,7 +353,7 @@ type QualityProfileItem struct {
 type QualityProfileGroupItem struct {
 	// quality identifies the quality level.
 	// +required
-	Quality QualityReference `json:"quality"`
+	Quality QualityReference `json:"quality,omitzero"`
 
 	// allowed controls whether this quality is enabled.
 	// +optional
@@ -347,17 +366,20 @@ type LocalObjectReference struct {
 	// name is the referenced resource's name.
 	// +required
 	// +kubebuilder:validation:MinLength=1
-	Name string `json:"name"`
+	Name string `json:"name,omitempty"`
 }
 
 // QualityReference identifies a specific quality level by ID and name.
 type QualityReference struct {
-	// id is the quality ID (e.g., 7 for Bluray-1080p). IDs are app-specific.
+	// id is the quality ID (e.g., 7 for Bluray-1080p). IDs are app-specific,
+	// and 0 is Unknown.
 	// +required
-	ID int32 `json:"id"`
+	// +kubebuilder:validation:Minimum=0
+	ID *int32 `json:"id,omitempty"`
 
 	// name is the quality display name (e.g., "Bluray-1080p").
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name,omitempty"`
 }
 
@@ -365,11 +387,12 @@ type QualityReference struct {
 type QualityProfileFormatItem struct {
 	// name is the custom format name. Must match an existing custom format.
 	// +required
-	Name string `json:"name"`
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name,omitempty"`
 
 	// score is the score to assign. Positive values prefer, negative values penalize.
 	// +required
-	Score int32 `json:"score"`
+	Score *int32 `json:"score,omitempty"`
 }
 
 // QualityDefinition sets the size limits of one of the app's qualities. Sizes
@@ -379,10 +402,11 @@ type QualityDefinition struct {
 	// quality is the quality's name in the app, such as WEBDL-1080p.
 	// +required
 	// +kubebuilder:validation:MinLength=1
-	Quality string `json:"quality"`
+	Quality string `json:"quality,omitempty"`
 
 	// title is the name the app shows for the quality.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	Title string `json:"title,omitempty"`
 
 	// minSize is the smallest release the app grabs at this quality.
@@ -473,7 +497,8 @@ type DelayProfile struct {
 type CustomFormat struct {
 	// name is the display name of the custom format.
 	// +required
-	Name string `json:"name"`
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name,omitempty"`
 
 	// includeCustomFormatWhenRenaming includes this format's name in renamed filenames
 	// via the {Custom Formats} naming token.
@@ -492,7 +517,8 @@ type CustomFormat struct {
 type CustomFormatSpecification struct {
 	// name is a human-readable label for this condition.
 	// +required
-	Name string `json:"name"`
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name,omitempty"`
 
 	// implementation is the specification type.
 	// Common values: ReleaseTitleSpecification, SourceSpecification, ResolutionSpecification,
@@ -500,7 +526,8 @@ type CustomFormatSpecification struct {
 	// EditionSpecification (Radarr), ReleaseTypeSpecification (Sonarr), SizeSpecification,
 	// IndexerFlagSpecification.
 	// +required
-	Implementation string `json:"implementation"`
+	// +kubebuilder:validation:MinLength=1
+	Implementation string `json:"implementation,omitempty"`
 
 	// negate inverts the match logic. If true, the spec matches when the condition is NOT met.
 	// +optional
@@ -525,14 +552,16 @@ type CustomFormatSpecification struct {
 type Tag struct {
 	// label is the tag name.
 	// +required
-	Label string `json:"label"`
+	// +kubebuilder:validation:MinLength=1
+	Label string `json:"label,omitempty"`
 }
 
 // Indexer defines an indexer in Sonarr, Radarr, Lidarr or Readarr.
 type Indexer struct {
 	// name is the display name of the indexer.
 	// +required
-	Name string `json:"name"`
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name,omitempty"`
 
 	// enable controls whether this indexer is active. False turns off RSS,
 	// automatic and interactive search; true turns on those not set below.
@@ -542,21 +571,23 @@ type Indexer struct {
 	// protocol is the indexer protocol.
 	// +required
 	// +kubebuilder:validation:Enum=torrent;usenet
-	Protocol string `json:"protocol"`
+	Protocol string `json:"protocol,omitempty"`
 
 	// implementation is the indexer type (e.g., Newznab, Torznab).
 	// +required
-	Implementation string `json:"implementation"`
+	// +kubebuilder:validation:MinLength=1
+	Implementation string `json:"implementation,omitempty"`
 
 	// configContract is the configuration contract name for the implementation.
 	// Defaults to "<implementation>Settings" if not set.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	ConfigContract string `json:"configContract,omitempty"`
 
 	// priority is the indexer priority. Lower values are higher priority.
 	// +optional
 	// +kubebuilder:validation:Minimum=1
-	Priority *int32 `json:"priority,omitempty"`
+	Priority int32 `json:"priority,omitempty"`
 
 	// enableRss enables RSS feed polling for this indexer. A new indexer
 	// polls unless this or enable is false.
@@ -591,15 +622,18 @@ type Indexer struct {
 type Notification struct {
 	// name is the display name of the notification.
 	// +required
-	Name string `json:"name"`
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name,omitempty"`
 
 	// implementation is the notification type (e.g., Discord, Slack, Webhook, Email).
 	// +required
-	Implementation string `json:"implementation"`
+	// +kubebuilder:validation:MinLength=1
+	Implementation string `json:"implementation,omitempty"`
 
 	// configContract is the configuration contract name for the implementation.
 	// Defaults to "<implementation>Settings" if not set.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	ConfigContract string `json:"configContract,omitempty"`
 
 	// tagLabels references tags by label, resolved against the app on each
@@ -752,7 +786,8 @@ type Notification struct {
 type ImportList struct {
 	// name is the display name of the import list.
 	// +required
-	Name string `json:"name"`
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name,omitempty"`
 
 	// enable controls whether this import list is active. A new import list is
 	// enabled unless this is false.
@@ -765,11 +800,13 @@ type ImportList struct {
 
 	// implementation is the import list type (e.g., TraktListImport, IMDbListImport, SonarrImport).
 	// +required
-	Implementation string `json:"implementation"`
+	// +kubebuilder:validation:MinLength=1
+	Implementation string `json:"implementation,omitempty"`
 
 	// configContract is the configuration contract name for the implementation.
 	// Defaults to "<implementation>Settings" if not set.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	ConfigContract string `json:"configContract,omitempty"`
 
 	// monitor controls how imported items are monitored.
@@ -777,24 +814,29 @@ type ImportList struct {
 	// pilot, recent, monitorSpecials, unmonitorSpecials, none; Radarr: movieOnly, movieAndCollection, none;
 	// Lidarr: entireArtist, specificAlbum, none; Readarr: entireAuthor, specificBook, none).
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	Monitor string `json:"monitor,omitempty"`
 
 	// qualityProfileName is the name of the quality profile to assign to imported items.
 	// Must match an existing quality profile. Resolved to an ID at reconciliation time.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	QualityProfileName string `json:"qualityProfileName,omitempty"`
 
 	// metadataProfileName is the metadata profile for imported items (Lidarr,
 	// Readarr). Resolved to an ID at reconciliation time.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	MetadataProfileName string `json:"metadataProfileName,omitempty"`
 
 	// rootFolderPath is the root folder path for imported items.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	RootFolderPath string `json:"rootFolderPath,omitempty"`
 
 	// seriesType is the series type for imported items (Sonarr: standard, daily, anime).
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	SeriesType string `json:"seriesType,omitempty"`
 
 	// seasonFolder enables season folders for imported items (Sonarr).
@@ -803,6 +845,7 @@ type ImportList struct {
 
 	// minimumAvailability controls when imported movies are considered available (Radarr: announced, inCinemas, released).
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	MinimumAvailability string `json:"minimumAvailability,omitempty"`
 
 	// searchOnAdd searches for items immediately after adding (Radarr).
@@ -833,17 +876,17 @@ type RemotePathMapping struct {
 	// host must match the download client's configured hostname.
 	// +required
 	// +kubebuilder:validation:MinLength=1
-	Host string `json:"host"`
+	Host string `json:"host,omitempty"`
 
 	// remotePath is the directory reported by the download client.
 	// +required
 	// +kubebuilder:validation:MinLength=1
-	RemotePath string `json:"remotePath"`
+	RemotePath string `json:"remotePath,omitempty"`
 
 	// localPath is the existing directory as seen by the app.
 	// +required
 	// +kubebuilder:validation:MinLength=1
-	LocalPath string `json:"localPath"`
+	LocalPath string `json:"localPath,omitempty"`
 }
 
 // ManagedResource lists the items of one type the operator created.
@@ -851,12 +894,12 @@ type ManagedResource struct {
 	// type is the kind of item, such as downloadClients.
 	// +required
 	// +kubebuilder:validation:MinLength=1
-	Type string `json:"type"`
+	Type string `json:"type,omitempty"`
 
 	// names are the items of that type the operator created.
 	// +required
 	// +listType=set
-	Names []string `json:"names"`
+	Names []string `json:"names,omitempty"`
 }
 
 // ManagedMap returns managed resources keyed by type.

@@ -64,9 +64,11 @@ spec:
                   properties:
                     name:
                       description: name is the category name.
+                      minLength: 1
                       type: string
                     savePath:
                       description: savePath is the save path for this category.
+                      minLength: 1
                       type: string
                   required:
                   - name
@@ -85,9 +87,11 @@ spec:
                     properties:
                       key:
                         description: key is the key within the Secret.
+                        minLength: 1
                         type: string
                       name:
                         description: name is the name of the Secret.
+                        minLength: 1
                         type: string
                     required:
                     - key
@@ -106,9 +110,11 @@ spec:
                         properties:
                           key:
                             description: key is the key within the Secret.
+                            minLength: 1
                             type: string
                           name:
                             description: name is the name of the Secret.
+                            minLength: 1
                             type: string
                         required:
                         - key
@@ -125,6 +131,7 @@ spec:
                   url:
                     description: url is the base URL of the qBittorrent Web UI (e.g.,
                       http://qbittorrent.media.svc.cluster.local:8080).
+                    minLength: 1
                     pattern: ^https?://
                     type: string
                   usernameSecretRef:
@@ -133,9 +140,11 @@ spec:
                     properties:
                       key:
                         description: key is the key within the Secret.
+                        minLength: 1
                         type: string
                       name:
                         description: name is the name of the Secret.
+                        minLength: 1
                         type: string
                     required:
                     - key
@@ -179,6 +188,7 @@ spec:
                     description: |-
                       bypassAuthSubnetWhitelist is the comma-separated list of subnets allowed to
                       skip the WebUI login.
+                    minLength: 1
                     type: string
                   bypassAuthSubnetWhitelistEnabled:
                     description: |-
@@ -246,6 +256,7 @@ spec:
                     type: integer
                   locale:
                     description: locale is the UI locale (e.g., "en").
+                    minLength: 1
                     type: string
                   lsd:
                     description: lsd enables Local Service Discovery.
@@ -352,6 +363,7 @@ spec:
                     type: boolean
                   savePath:
                     description: savePath is the default save path for downloads.
+                    minLength: 1
                     type: string
                   savePathChangedTmmEnabled:
                     description: |-
@@ -428,6 +440,7 @@ spec:
                   tempPath:
                     description: tempPath is where incomplete downloads go while tempPathEnabled
                       is on.
+                    minLength: 1
                     type: string
                   tempPathEnabled:
                     description: tempPathEnabled enables using a temporary path for
@@ -522,6 +535,7 @@ spec:
             type: object
           status:
             description: status is the observed state of the QBittorrent.
+            minProperties: 1
             properties:
               conditions:
                 description: conditions represent the current state of the QBittorrent
@@ -619,6 +633,7 @@ spec:
               observedGeneration:
                 description: observedGeneration is the most recent generation observed.
                 format: int64
+                minimum: 1
                 type: integer
             type: object
         required:

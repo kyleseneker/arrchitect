@@ -103,9 +103,11 @@ spec:
                       properties:
                         key:
                           description: key is the key within the Secret.
+                          minLength: 1
                           type: string
                         name:
                           description: name is the name of the Secret.
+                          minLength: 1
                           type: string
                       required:
                       - key
@@ -113,21 +115,26 @@ spec:
                       type: object
                     baseUrl:
                       description: baseUrl is the base URL of the application.
+                      minLength: 1
                       type: string
                     configContract:
                       description: configContract is the configuration contract name
                         for the implementation.
+                      minLength: 1
                       type: string
                     implementation:
                       description: implementation is the application type (e.g., Sonarr,
                         Radarr).
+                      minLength: 1
                       type: string
                     name:
                       description: name is the display name of the application.
+                      minLength: 1
                       type: string
                     prowlarrUrl:
                       description: prowlarrUrl is the URL Prowlarr uses to reach itself
                         (for callbacks).
+                      minLength: 1
                       type: string
                     syncCategories:
                       description: syncCategories is the list of category IDs to sync
@@ -174,9 +181,11 @@ spec:
                     properties:
                       key:
                         description: key is the key within the Secret.
+                        minLength: 1
                         type: string
                       name:
                         description: name is the name of the Secret.
+                        minLength: 1
                         type: string
                     required:
                     - key
@@ -195,9 +204,11 @@ spec:
                         properties:
                           key:
                             description: key is the key within the Secret.
+                            minLength: 1
                             type: string
                           name:
                             description: name is the name of the Secret.
+                            minLength: 1
                             type: string
                         required:
                         - key
@@ -213,6 +224,7 @@ spec:
                     type: object
                   url:
                     description: url is the base URL of the app (e.g., http://arr-sonarr.arr.svc.cluster.local:8989).
+                    minLength: 1
                     pattern: ^https?://
                     type: string
                 required:
@@ -244,6 +256,7 @@ spec:
                           clientCategory:
                             description: clientCategory is the category name in the
                               download client.
+                            minLength: 1
                             type: string
                         required:
                         - clientCategory
@@ -256,6 +269,7 @@ spec:
                       description: |-
                         configContract is the configuration contract name.
                         Defaults to "<implementation>Settings" if not set.
+                      minLength: 1
                       type: string
                     enable:
                       description: |-
@@ -273,6 +287,7 @@ spec:
                         properties:
                           name:
                             description: name is the field name.
+                            minLength: 1
                             type: string
                           value:
                             description: 'value is the field value: a string, number,
@@ -287,9 +302,11 @@ spec:
                                 properties:
                                   key:
                                     description: key is the key within the Secret.
+                                    minLength: 1
                                     type: string
                                   name:
                                     description: name is the name of the Secret.
+                                    minLength: 1
                                     type: string
                                 required:
                                 - key
@@ -308,9 +325,11 @@ spec:
                     implementation:
                       description: implementation is the download client type (e.g.,
                         QBittorrent, Sabnzbd).
+                      minLength: 1
                       type: string
                     name:
                       description: name is the display name of the download client.
+                      minLength: 1
                       type: string
                     priority:
                       description: priority is the download client priority. Lower
@@ -356,10 +375,13 @@ spec:
                       description: |-
                         appProfileName resolves the current sync profile ID by name on each reconciliation.
                         Takes precedence over appProfileId. Missing or ambiguous names block indexer writes.
+                      minLength: 1
                       type: string
                     configContract:
-                      description: configContract is the configuration contract name
-                        for the implementation.
+                      description: |-
+                        configContract is the configuration contract name.
+                        Defaults to "<implementation>Settings" if not set.
+                      minLength: 1
                       type: string
                     enable:
                       description: |-
@@ -376,6 +398,7 @@ spec:
                         properties:
                           name:
                             description: name is the field name.
+                            minLength: 1
                             type: string
                           value:
                             description: 'value is the field value: a string, number,
@@ -390,9 +413,11 @@ spec:
                                 properties:
                                   key:
                                     description: key is the key within the Secret.
+                                    minLength: 1
                                     type: string
                                   name:
                                     description: name is the name of the Secret.
+                                    minLength: 1
                                     type: string
                                 required:
                                 - key
@@ -411,9 +436,11 @@ spec:
                     implementation:
                       description: implementation is the indexer type (e.g., Newznab,
                         Torznab).
+                      minLength: 1
                       type: string
                     name:
                       description: name is the display name of the indexer.
+                      minLength: 1
                       type: string
                     priority:
                       description: priority is the indexer priority. Lower values
@@ -430,7 +457,6 @@ spec:
                       type: array
                       x-kubernetes-list-type: set
                   required:
-                  - configContract
                   - implementation
                   - name
                   type: object
@@ -448,6 +474,7 @@ spec:
                       description: |-
                         configContract is the configuration contract name for the implementation.
                         Defaults to "<implementation>Settings" if not set.
+                      minLength: 1
                       type: string
                     fields:
                       description: fields defines the notification's configuration
@@ -460,6 +487,7 @@ spec:
                         properties:
                           name:
                             description: name is the field name.
+                            minLength: 1
                             type: string
                           value:
                             description: 'value is the field value: a string, number,
@@ -474,9 +502,11 @@ spec:
                                 properties:
                                   key:
                                     description: key is the key within the Secret.
+                                    minLength: 1
                                     type: string
                                   name:
                                     description: name is the name of the Secret.
+                                    minLength: 1
                                     type: string
                                 required:
                                 - key
@@ -495,6 +525,7 @@ spec:
                     implementation:
                       description: implementation is the notification type (e.g.,
                         Discord, Slack, Webhook, Email).
+                      minLength: 1
                       type: string
                     includeHealthWarnings:
                       description: includeHealthWarnings includes health warnings
@@ -502,6 +533,7 @@ spec:
                       type: boolean
                     name:
                       description: name is the display name of the notification.
+                      minLength: 1
                       type: string
                     onAlbumDelete:
                       description: onAlbumDelete fires when an album is deleted (Lidarr).
@@ -636,16 +668,20 @@ spec:
                     configContract:
                       description: configContract is the configuration contract name
                         for the implementation.
+                      minLength: 1
                       type: string
                     host:
                       description: host is the hostname or IP of the proxy.
+                      minLength: 1
                       type: string
                     implementation:
                       description: implementation is the proxy type (e.g., Http, Socks4,
                         Socks5).
+                      minLength: 1
                       type: string
                     name:
                       description: name is the display name of the proxy.
+                      minLength: 1
                       type: string
                     requestTimeout:
                       description: requestTimeout is the request timeout in seconds.
@@ -726,6 +762,7 @@ spec:
                   properties:
                     label:
                       description: label is the tag name.
+                      minLength: 1
                       type: string
                   required:
                   - label
@@ -739,6 +776,7 @@ spec:
             type: object
           status:
             description: status is the observed state of the Prowlarr.
+            minProperties: 1
             properties:
               conditions:
                 description: conditions represent the current state of the Prowlarr
@@ -836,6 +874,7 @@ spec:
               observedGeneration:
                 description: observedGeneration is the most recent generation observed.
                 format: int64
+                minimum: 1
                 type: integer
             type: object
         required:

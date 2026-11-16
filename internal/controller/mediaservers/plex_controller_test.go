@@ -195,7 +195,7 @@ func TestPlexMissingTokenDoesNotContactApp(t *testing.T) {
 
 func observePlex(t *testing.T, cfg *mediaserversv1alpha1.Plex) metav1.Condition {
 	t.Helper()
-	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{DriftPolicy: new("observe")}
+	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{DriftPolicy: "observe"}
 	scheme := runtime.NewScheme()
 	require.NoError(t, clientgoscheme.AddToScheme(scheme))
 	require.NoError(t, mediaserversv1alpha1.AddToScheme(scheme))

@@ -212,11 +212,14 @@ func sabnzbdServerValues(srv downloadsv1alpha1.SabnzbdServer) map[string]string 
 		}
 	}
 	for key, value := range map[string]*int32{
-		"connections": srv.Connections, "priority": srv.Priority, "retention": srv.Retention, "timeout": srv.Timeout,
+		"connections": srv.Connections, "priority": srv.Priority, "retention": srv.Retention,
 	} {
 		if value != nil {
 			vals[key] = strconv.Itoa(int(*value))
 		}
+	}
+	if srv.Timeout != 0 {
+		vals["timeout"] = strconv.Itoa(int(srv.Timeout))
 	}
 	if srv.SSLVerify != "" {
 		vals["ssl_verify"] = sabnzbdclient.SSLVerify[srv.SSLVerify]

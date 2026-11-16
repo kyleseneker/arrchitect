@@ -26,7 +26,7 @@ type FlareSolverrSpec struct {
 	// connection defines how to connect to the FlareSolverr instance.
 	// FlareSolverr does not require authentication by default.
 	// +required
-	Connection FlareSolverrConnection `json:"connection"`
+	Connection FlareSolverrConnection `json:"connection,omitzero"`
 
 	// reconcile configures reconciliation behavior (e.g., sync interval).
 	// +optional
@@ -47,7 +47,8 @@ type FlareSolverrConnection struct {
 	// url is the base URL of the FlareSolverr instance (e.g., http://flaresolverr:8191).
 	// +required
 	// +kubebuilder:validation:Pattern=`^https?://`
-	URL string `json:"url"`
+	// +kubebuilder:validation:MinLength=1
+	URL string `json:"url,omitempty"`
 
 	// tls configures TLS settings for the connection.
 	// Only needed when FlareSolverr uses HTTPS with self-signed or private CA certificates.
@@ -61,10 +62,12 @@ type FlareSolverrSession struct {
 	// reuses the session by sending this name with its requests; Prowlarr's
 	// FlareSolverr proxy doesn't.
 	// +required
-	Name string `json:"name"`
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name,omitempty"`
 }
 
 // FlareSolverrStatus defines the observed state of FlareSolverr.
+// +kubebuilder:validation:MinProperties=1
 type FlareSolverrStatus struct {
 	// conditions represent the current state of the FlareSolverr resource.
 	// +listType=map
@@ -74,6 +77,7 @@ type FlareSolverrStatus struct {
 
 	// observedGeneration is the most recent generation observed.
 	// +optional
+	// +kubebuilder:validation:Minimum=1
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 
 	// lastSyncTime is the timestamp of the last successful reconciliation.
@@ -82,6 +86,7 @@ type FlareSolverrStatus struct {
 
 	// activeSessions is the number of active sessions managed by this resource.
 	// +optional
+	// +kubebuilder:validation:Minimum=1
 	ActiveSessions int32 `json:"activeSessions,omitempty"`
 
 	// managedResources records the resources this operator created, keyed by
@@ -112,7 +117,7 @@ type FlareSolverr struct {
 
 	// spec is the desired state of the FlareSolverr.
 	// +required
-	Spec FlareSolverrSpec `json:"spec"`
+	Spec FlareSolverrSpec `json:"spec,omitzero"`
 
 	// status is the observed state of the FlareSolverr.
 	// +optional

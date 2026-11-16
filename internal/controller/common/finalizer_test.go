@@ -26,7 +26,7 @@ func newConfig(policy string, deletedAgo time.Duration) *pvrv1alpha1.Sonarr {
 	}
 	c.SetManagedResources(map[string][]string{"indexers": {"created"}})
 	if policy != "" {
-		c.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{DeletionPolicy: &policy}
+		c.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{DeletionPolicy: policy}
 	}
 	if deletedAgo > 0 {
 		ts := metav1.NewTime(time.Now().Add(-deletedAgo))
@@ -133,7 +133,7 @@ func TestUnsupportedOrObserveDeletionDoesNotSilentlySucceed(t *testing.T) {
 			obj := newConfig(DeletionPolicyDelete, time.Minute)
 			policy := DriftPolicyObserve
 			if observe {
-				obj.Spec.Reconcile.DriftPolicy = &policy
+				obj.Spec.Reconcile.DriftPolicy = policy
 			}
 			c := testClient(obj).Build()
 			called := false
@@ -154,7 +154,7 @@ func TestLifecycleRejectsInvalidDeletionPolicies(t *testing.T) {
 		obj := newConfig(DeletionPolicyDelete, 0)
 		policy := DriftPolicyObserve
 		if observe {
-			obj.Spec.Reconcile.DriftPolicy = &policy
+			obj.Spec.Reconcile.DriftPolicy = policy
 		}
 		c := testClient(obj).WithStatusSubresource(obj).Build()
 		var remove func(context.Context) error
@@ -195,7 +195,7 @@ func TestOnlyASupportedDeletePolicyHoldsTheFinalizer(t *testing.T) {
 					obj.Finalizers = nil
 				}
 				if tc.observe {
-					obj.Spec.Reconcile.DriftPolicy = &observe
+					obj.Spec.Reconcile.DriftPolicy = observe
 				}
 				c := testClient(obj).WithStatusSubresource(obj).Build()
 

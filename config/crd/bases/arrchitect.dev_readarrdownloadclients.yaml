@@ -60,9 +60,11 @@ spec:
                 properties:
                   key:
                     description: key is the key within the Secret.
+                    minLength: 1
                     type: string
                   name:
                     description: name is the name of the Secret.
+                    minLength: 1
                     type: string
                 required:
                 - key
@@ -70,11 +72,13 @@ spec:
                 type: object
               category:
                 description: category is the download category to use.
+                minLength: 1
                 type: string
               configContract:
                 description: |-
                   configContract overrides the default config contract name.
                   Defaults to "<implementation>Settings" if not set.
+                minLength: 1
                 type: string
               deletionPolicy:
                 default: delete
@@ -103,6 +107,7 @@ spec:
                   properties:
                     name:
                       description: name is the field name.
+                      minLength: 1
                       type: string
                     value:
                       description: 'value is the field value: a string, number, boolean
@@ -117,9 +122,11 @@ spec:
                           properties:
                             key:
                               description: key is the key within the Secret.
+                              minLength: 1
                               type: string
                             name:
                               description: name is the name of the Secret.
+                              minLength: 1
                               type: string
                           required:
                           - key
@@ -137,13 +144,16 @@ spec:
                 x-kubernetes-list-type: map
               host:
                 description: host is the hostname or IP of the download client.
+                minLength: 1
                 type: string
               implementation:
                 description: implementation is the download client type (e.g., QBittorrent,
                   Sabnzbd, NzbGet, Transmission, Deluge).
+                minLength: 1
                 type: string
               name:
                 description: name is the display name of the download client.
+                minLength: 1
                 type: string
               passwordSecretRef:
                 description: passwordSecretRef references a Secret containing the
@@ -151,9 +161,11 @@ spec:
                 properties:
                   key:
                     description: key is the key within the Secret.
+                    minLength: 1
                     type: string
                   name:
                     description: name is the name of the Secret.
+                    minLength: 1
                     type: string
                 required:
                 - key
@@ -162,6 +174,8 @@ spec:
               port:
                 description: port is the port of the download client.
                 format: int32
+                maximum: 65535
+                minimum: 1
                 type: integer
               priority:
                 description: |-
@@ -210,6 +224,7 @@ spec:
               urlBase:
                 description: urlBase is the base URL path for the download client
                   (e.g., "/qbittorrent").
+                minLength: 1
                 type: string
               useSsl:
                 description: useSsl enables SSL/TLS for the download client connection.
@@ -220,9 +235,11 @@ spec:
                 properties:
                   key:
                     description: key is the key within the Secret.
+                    minLength: 1
                     type: string
                   name:
                     description: name is the name of the Secret.
+                    minLength: 1
                     type: string
                 required:
                 - key
@@ -238,6 +255,7 @@ spec:
             type: object
           status:
             description: status is the observed state of the ReadarrDownloadClient.
+            minProperties: 1
             properties:
               conditions:
                 description: conditions represent the current state of the download
@@ -303,6 +321,7 @@ spec:
               id:
                 description: id is the download client's ID in Readarr.
                 format: int32
+                minimum: 1
                 type: integer
               lastSyncTime:
                 description: lastSyncTime is the timestamp of the last successful
@@ -338,6 +357,7 @@ spec:
               observedGeneration:
                 description: observedGeneration is the most recent generation observed.
                 format: int64
+                minimum: 1
                 type: integer
             type: object
         required:

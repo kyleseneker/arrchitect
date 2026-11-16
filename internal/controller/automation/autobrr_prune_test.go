@@ -68,7 +68,7 @@ func TestAutobrrDeletionPolicyRemovesWhatItCreated(t *testing.T) {
 	}}
 	cfg := autobrrConfig(app.serve(t))
 	policy := ctrlcommon.DeletionPolicyDelete
-	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{DeletionPolicy: &policy}
+	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{DeletionPolicy: policy}
 	cfg.SetManagedResources(map[string][]string{"filters": {"TV"}, "actions": {"TV/send"}, "downloadClients": {"qBit"}})
 	now := metav1.NewTime(time.Now())
 	cfg.DeletionTimestamp = &now
@@ -88,7 +88,7 @@ func TestAutobrrObserveReportsWhatPruneWouldDelete(t *testing.T) {
 	}}}
 	cfg := autobrrConfig(app.serve(t))
 	observe := "observe"
-	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{Prune: new(true), DriftPolicy: &observe}
+	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{Prune: new(true), DriftPolicy: observe}
 	cfg.Spec.Feeds = []automationv1alpha1.AutobrrFeed{{Name: "kept", Type: "RSS", URL: "http://feed", IndexerRef: "Generic"}}
 	cfg.SetManagedResources(map[string][]string{"feeds": {"observe-old", "kept"}})
 	observed := metrics.DriftObservedTotal.WithLabelValues("autobrr", "feeds", "observe-old")

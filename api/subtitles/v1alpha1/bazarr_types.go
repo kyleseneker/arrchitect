@@ -25,7 +25,7 @@ import (
 type BazarrSpec struct {
 	// connection defines how to connect to the Bazarr instance.
 	// +required
-	Connection commonv1alpha1.AppConnection `json:"connection"`
+	Connection commonv1alpha1.AppConnection `json:"connection,omitempty"`
 
 	// reconcile configures reconciliation behavior (e.g., sync interval).
 	// +optional
@@ -37,11 +37,11 @@ type BazarrSpec struct {
 
 	// sonarrConnection configures the connection to a Sonarr instance.
 	// +optional
-	SonarrConnection *BazarrAppConnection `json:"sonarrConnection,omitempty"`
+	SonarrConnection BazarrAppConnection `json:"sonarrConnection,omitzero"`
 
 	// radarrConnection configures the connection to a Radarr instance.
 	// +optional
-	RadarrConnection *BazarrAppConnection `json:"radarrConnection,omitempty"`
+	RadarrConnection BazarrAppConnection `json:"radarrConnection,omitzero"`
 
 	// subSync configures subtitle synchronization settings.
 	// +optional
@@ -126,10 +126,12 @@ type BazarrGeneral struct {
 
 	// embeddedSubtitlesParser is the parser used for embedded subtitles.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	EmbeddedSubtitlesParser string `json:"embeddedSubtitlesParser,omitempty"`
 
 	// hiExtension is the file extension used for hearing-impaired subtitle files.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	HiExtension string `json:"hiExtension,omitempty"`
 
 	// pathMappings translate Sonarr's paths into the paths Bazarr sees the same
@@ -149,11 +151,13 @@ type BazarrGeneral struct {
 	// seriesDefaultProfile is the language profile, by name, that new series
 	// get. Setting it turns the default on.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	SeriesDefaultProfile string `json:"seriesDefaultProfile,omitempty"`
 
 	// movieDefaultProfile is the language profile, by name, that new movies
 	// get. Setting it turns the default on.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	MovieDefaultProfile string `json:"movieDefaultProfile,omitempty"`
 
 	// useEmbeddedSubs counts subtitles embedded in the media file as present.
@@ -168,16 +172,19 @@ type BazarrGeneral struct {
 
 	// subfolderCustom is the folder subfolder relative or absolute saves to.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	SubfolderCustom string `json:"subfolderCustom,omitempty"`
 
 	// chmod is the octal permissions chmodEnabled sets on subtitle files, such as 0640.
 	// +optional
 	// +kubebuilder:validation:Pattern=`^0?[0-7]{3}$`
+	// +kubebuilder:validation:MinLength=1
 	Chmod string `json:"chmod,omitempty"`
 
 	// postprocessingCmd is the command usePostprocessing runs after a subtitle
 	// is downloaded.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	PostprocessingCmd string `json:"postprocessingCmd,omitempty"`
 
 	// usePostprocessingThreshold runs postprocessingCmd for an episode subtitle
@@ -211,19 +218,22 @@ type BazarrPathMapping struct {
 	// remotePath is the path as Sonarr or Radarr reports it.
 	// +required
 	// +kubebuilder:validation:Pattern=`^[^,]+$`
-	RemotePath string `json:"remotePath"`
+	// +kubebuilder:validation:MinLength=1
+	RemotePath string `json:"remotePath,omitempty"`
 
 	// localPath is the path inside the Bazarr container.
 	// +required
 	// +kubebuilder:validation:Pattern=`^[^,]+$`
-	LocalPath string `json:"localPath"`
+	// +kubebuilder:validation:MinLength=1
+	LocalPath string `json:"localPath,omitempty"`
 }
 
 // BazarrAppConnection defines a connection to a Sonarr or Radarr instance from Bazarr.
 type BazarrAppConnection struct {
 	// host is the hostname or IP of the application.
 	// +required
-	Host string `json:"host"`
+	// +kubebuilder:validation:MinLength=1
+	Host string `json:"host,omitempty"`
 
 	// port is the port of the application.
 	// +required
@@ -231,6 +241,7 @@ type BazarrAppConnection struct {
 
 	// basePath is the URL base path of the application.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	BasePath string `json:"basePath,omitempty"`
 
 	// ssl enables HTTPS connections to the application.
@@ -239,7 +250,7 @@ type BazarrAppConnection struct {
 
 	// apiKeySecretRef references a Secret containing the application's API key.
 	// +required
-	APIKeySecretRef commonv1alpha1.SecretKeyRef `json:"apiKeySecretRef"`
+	APIKeySecretRef commonv1alpha1.SecretKeyRef `json:"apiKeySecretRef,omitempty"`
 
 	// httpTimeout is the HTTP request timeout in seconds.
 	// +optional
@@ -303,7 +314,8 @@ type BazarrSubSync struct {
 type BazarrProvider struct {
 	// name is the provider key (e.g., opensubtitlescom, addic7ed).
 	// +required
-	Name string `json:"name"`
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name,omitempty"`
 
 	// enabled controls whether this provider is active.
 	// +optional
@@ -339,7 +351,8 @@ type BazarrLanguageProfile struct {
 
 	// name is the display name of the language profile.
 	// +required
-	Name string `json:"name"`
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name,omitempty"`
 
 	// items defines the language items in this profile.
 	// +optional
@@ -351,7 +364,8 @@ type BazarrLanguageProfile struct {
 type BazarrLanguageItem struct {
 	// language is the ISO 639-1 language code.
 	// +required
-	Language string `json:"language"`
+	// +kubebuilder:validation:MinLength=1
+	Language string `json:"language,omitempty"`
 
 	// hi indicates whether hearing-impaired subtitles are preferred.
 	// +optional
@@ -367,6 +381,7 @@ type BazarrLanguageItem struct {
 }
 
 // BazarrStatus defines the observed state of Bazarr.
+// +kubebuilder:validation:MinProperties=1
 type BazarrStatus struct {
 	// conditions represent the current state of the Bazarr resource.
 	// +listType=map
@@ -376,6 +391,7 @@ type BazarrStatus struct {
 
 	// observedGeneration is the most recent generation observed.
 	// +optional
+	// +kubebuilder:validation:Minimum=1
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 
 	// lastSyncTime is the timestamp of the last successful reconciliation.
@@ -409,7 +425,7 @@ type Bazarr struct {
 
 	// spec is the desired state of the Bazarr.
 	// +required
-	Spec BazarrSpec `json:"spec"`
+	Spec BazarrSpec `json:"spec,omitzero"`
 
 	// status is the observed state of the Bazarr.
 	// +optional

@@ -10,7 +10,7 @@ import (
 type RadarrIndexerSpec struct {
 	// radarrRef names the Radarr this indexer belongs to, in the same namespace.
 	// +required
-	RadarrRef commonv1alpha1.LocalObjectReference `json:"radarrRef"`
+	RadarrRef commonv1alpha1.LocalObjectReference `json:"radarrRef,omitempty"`
 
 	// deletionPolicy controls what deleting this resource does in Radarr:
 	// "delete" removes the indexer, "orphan" leaves it. One that existed before
@@ -24,6 +24,7 @@ type RadarrIndexerSpec struct {
 }
 
 // RadarrIndexerStatus is the observed state of a RadarrIndexer.
+// +kubebuilder:validation:MinProperties=1
 type RadarrIndexerStatus struct {
 	// conditions represent the current state of the indexer.
 	// +listType=map
@@ -33,6 +34,7 @@ type RadarrIndexerStatus struct {
 
 	// observedGeneration is the most recent generation observed.
 	// +optional
+	// +kubebuilder:validation:Minimum=1
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 
 	// lastSyncTime is the timestamp of the last successful reconciliation.
@@ -41,6 +43,7 @@ type RadarrIndexerStatus struct {
 
 	// id is the indexer's ID in Radarr.
 	// +optional
+	// +kubebuilder:validation:Minimum=1
 	ID int32 `json:"id,omitempty"`
 
 	// managedResources records what the operator created for this resource,
@@ -69,7 +72,7 @@ type RadarrIndexer struct {
 
 	// spec is the desired state of the RadarrIndexer.
 	// +required
-	Spec RadarrIndexerSpec `json:"spec"`
+	Spec RadarrIndexerSpec `json:"spec,omitzero"`
 
 	// status is the observed state of the RadarrIndexer.
 	// +optional
@@ -99,5 +102,5 @@ func (c *RadarrIndexer) SetManagedResources(m map[string][]string) {
 // GetReconcileConfig carries only the deletion policy: the interval and drift
 // policy come from the Radarr the indexer belongs to.
 func (c *RadarrIndexer) GetReconcileConfig() *commonv1alpha1.ReconcileConfig {
-	return &commonv1alpha1.ReconcileConfig{DeletionPolicy: &c.Spec.DeletionPolicy}
+	return &commonv1alpha1.ReconcileConfig{DeletionPolicy: c.Spec.DeletionPolicy}
 }

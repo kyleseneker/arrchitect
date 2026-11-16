@@ -11,7 +11,7 @@ import (
 type PlexSpec struct {
 	// connection defines how to connect to the Plex instance.
 	// +required
-	Connection PlexConnection `json:"connection"`
+	Connection PlexConnection `json:"connection,omitzero"`
 
 	// reconcile configures reconciliation behavior (e.g., sync interval).
 	// +optional
@@ -44,11 +44,12 @@ type PlexConnection struct {
 	// url is the base URL of the Plex server (e.g., http://plex:32400).
 	// +required
 	// +kubebuilder:validation:Pattern=`^https?://`
-	URL string `json:"url"`
+	// +kubebuilder:validation:MinLength=1
+	URL string `json:"url,omitempty"`
 
 	// tokenSecretRef references a Secret containing the X-Plex-Token.
 	// +required
-	TokenSecretRef commonv1alpha1.SecretKeyRef `json:"tokenSecretRef"`
+	TokenSecretRef commonv1alpha1.SecretKeyRef `json:"tokenSecretRef,omitempty"`
 
 	// tls configures TLS settings for the connection.
 	// Only needed when Plex uses HTTPS with self-signed or private CA certificates.
@@ -60,6 +61,7 @@ type PlexConnection struct {
 type PlexServer struct {
 	// friendlyName is the server's display name.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	FriendlyName string `json:"friendlyName,omitempty"`
 
 	// enableRemoteAccess allows access from outside the local network.
@@ -139,6 +141,7 @@ type PlexServer struct {
 
 	// butlerDatabaseBackupPath is where database backups go.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	ButlerDatabaseBackupPath string `json:"butlerDatabaseBackupPath,omitempty"`
 
 	// butlerTaskOptimizeDatabase optimizes the database every week.
@@ -194,6 +197,7 @@ type PlexTranscoder struct {
 
 	// hardwareAccelerationType sets the HW acceleration type.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	HardwareAccelerationType string `json:"hardwareAccelerationType,omitempty"`
 
 	// maxSimultaneousVideoTranscodes limits concurrent transcodes. 0 = unlimited.
@@ -206,6 +210,7 @@ type PlexTranscoder struct {
 
 	// transcoderTempDirectory sets the transcoder temporary directory.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	TranscoderTempDirectory string `json:"transcoderTempDirectory,omitempty"`
 
 	// transcoderQuality trades encoding speed for quality. maximumQuality is
@@ -232,6 +237,7 @@ type PlexTranscoder struct {
 
 	// downloadsTempDirectory is where transcodes for downloads are kept.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	DownloadsTempDirectory string `json:"downloadsTempDirectory,omitempty"`
 }
 
@@ -239,28 +245,32 @@ type PlexTranscoder struct {
 type PlexLibrary struct {
 	// name is the display name of the library.
 	// +required
-	Name string `json:"name"`
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name,omitempty"`
 
 	// type is the library type.
 	// +required
 	// +kubebuilder:validation:Enum=movie;show;artist;photo
-	Type string `json:"type"`
+	Type string `json:"type,omitempty"`
 
 	// paths is the list of media folder paths.
 	// +required
 	// +listType=set
-	Paths []string `json:"paths"`
+	Paths []string `json:"paths,omitempty"`
 
 	// language is the library language (ISO 639-1).
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	Language string `json:"language,omitempty"`
 
 	// scanner is the scanner type.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	Scanner string `json:"scanner,omitempty"`
 
 	// agent is the metadata agent to use.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	Agent string `json:"agent,omitempty"`
 }
 
@@ -274,10 +284,12 @@ type PlexNetwork struct {
 
 	// customServerAccessUrls is a comma-separated list of custom access URLs.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	CustomServerAccessUrls string `json:"customServerAccessUrls,omitempty"`
 
 	// allowedNetworks is a comma-separated list of networks allowed without auth.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	AllowedNetworks string `json:"allowedNetworks,omitempty"`
 
 	// enableIPv6 enables IPv6 support.
@@ -293,7 +305,7 @@ type PlexNetwork struct {
 	// +optional
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=65535
-	ManualPortMappingPort *int32 `json:"manualPortMappingPort,omitempty"`
+	ManualPortMappingPort int32 `json:"manualPortMappingPort,omitempty"`
 
 	// relayEnabled lets clients that can't connect directly go through Plex's relay.
 	// +optional
@@ -314,6 +326,7 @@ type PlexNetwork struct {
 }
 
 // PlexStatus defines the observed state of Plex.
+// +kubebuilder:validation:MinProperties=1
 type PlexStatus struct {
 	// conditions represent the current state of the Plex resource.
 	// +listType=map
@@ -323,6 +336,7 @@ type PlexStatus struct {
 
 	// observedGeneration is the most recent generation observed.
 	// +optional
+	// +kubebuilder:validation:Minimum=1
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 
 	// lastSyncTime is the timestamp of the last successful reconciliation.
@@ -356,7 +370,7 @@ type Plex struct {
 
 	// spec is the desired state of the Plex.
 	// +required
-	Spec PlexSpec `json:"spec"`
+	Spec PlexSpec `json:"spec,omitzero"`
 
 	// status is the observed state of the Plex.
 	// +optional

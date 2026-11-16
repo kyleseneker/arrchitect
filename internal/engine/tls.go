@@ -23,12 +23,12 @@ func ResolveTLSConfig(ctx context.Context, c client.Reader, namespace string, tl
 		MinVersion: tls.VersionTLS12,
 	}
 
-	if tlsCfg.InsecureSkipVerify {
+	if tlsCfg.InsecureSkipVerify != nil && *tlsCfg.InsecureSkipVerify {
 		cfg.InsecureSkipVerify = true
 	}
 
-	if tlsCfg.CASecretRef != nil {
-		caPEM, err := reconciler.ResolveSecretKeyRef(ctx, c, namespace, *tlsCfg.CASecretRef)
+	if tlsCfg.CASecretRef != (commonv1alpha1.SecretKeyRef{}) {
+		caPEM, err := reconciler.ResolveSecretKeyRef(ctx, c, namespace, tlsCfg.CASecretRef)
 		if err != nil {
 			return nil, fmt.Errorf("resolving CA certificate secret: %w", err)
 		}

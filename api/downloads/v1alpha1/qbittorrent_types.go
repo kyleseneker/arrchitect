@@ -25,7 +25,7 @@ import (
 type QBittorrentSpec struct {
 	// connection defines how to connect to the qBittorrent instance.
 	// +required
-	Connection QBittorrentConnection `json:"connection"`
+	Connection QBittorrentConnection `json:"connection,omitzero"`
 
 	// reconcile configures reconciliation behavior (e.g., sync interval).
 	// +optional
@@ -48,15 +48,16 @@ type QBittorrentConnection struct {
 	// url is the base URL of the qBittorrent Web UI (e.g., http://qbittorrent.media.svc.cluster.local:8080).
 	// +required
 	// +kubebuilder:validation:Pattern=`^https?://`
-	URL string `json:"url"`
+	// +kubebuilder:validation:MinLength=1
+	URL string `json:"url,omitempty"`
 
 	// usernameSecretRef references a Secret containing the username.
 	// +required
-	UsernameSecretRef commonv1alpha1.SecretKeyRef `json:"usernameSecretRef"`
+	UsernameSecretRef commonv1alpha1.SecretKeyRef `json:"usernameSecretRef,omitempty"`
 
 	// passwordSecretRef references a Secret containing the password.
 	// +required
-	PasswordSecretRef commonv1alpha1.SecretKeyRef `json:"passwordSecretRef"`
+	PasswordSecretRef commonv1alpha1.SecretKeyRef `json:"passwordSecretRef,omitempty"`
 
 	// tls configures TLS settings for the connection.
 	// Only needed when qBittorrent uses HTTPS with self-signed or private CA certificates.
@@ -68,6 +69,7 @@ type QBittorrentConnection struct {
 type QBittorrentPreferences struct {
 	// savePath is the default save path for downloads.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	SavePath string `json:"savePath,omitempty"`
 
 	// tempPathEnabled enables using a temporary path for incomplete downloads.
@@ -89,7 +91,7 @@ type QBittorrentPreferences struct {
 	// encryption controls whether peers may, must or must not encrypt connections.
 	// +optional
 	// +kubebuilder:validation:Enum=allow;require;disable
-	Encryption *string `json:"encryption,omitempty"`
+	Encryption string `json:"encryption,omitempty"`
 
 	// maxConnec is the global maximum number of connections. -1 means unlimited.
 	// +optional
@@ -120,7 +122,7 @@ type QBittorrentPreferences struct {
 	// maxRatioAction is what qBittorrent does when a share limit is reached.
 	// +optional
 	// +kubebuilder:validation:Enum=stop;remove;enableSuperSeeding;removeWithContent
-	MaxRatioAction *string `json:"maxRatioAction,omitempty"`
+	MaxRatioAction string `json:"maxRatioAction,omitempty"`
 
 	// maxSeedingTimeEnabled enables the global seeding time limit.
 	// +optional
@@ -137,6 +139,7 @@ type QBittorrentPreferences struct {
 
 	// locale is the UI locale (e.g., "en").
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	Locale string `json:"locale,omitempty"`
 
 	// webUiPort is the Web UI listening port.
@@ -151,10 +154,12 @@ type QBittorrentPreferences struct {
 	// bypassAuthSubnetWhitelist is the comma-separated list of subnets allowed to
 	// skip the WebUI login.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	BypassAuthSubnetWhitelist string `json:"bypassAuthSubnetWhitelist,omitempty"`
 
 	// tempPath is where incomplete downloads go while tempPathEnabled is on.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	TempPath string `json:"tempPath,omitempty"`
 
 	// incompleteFilesExt adds .!qB to the names of files still downloading.
@@ -315,7 +320,7 @@ type QBittorrentPreferences struct {
 	// +optional
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=65535
-	ListenPort *int32 `json:"listenPort,omitempty"`
+	ListenPort int32 `json:"listenPort,omitempty"`
 
 	// randomPort picks a different listening port on each start.
 	// +optional
@@ -355,14 +360,17 @@ type QBittorrentPreferences struct {
 type QBittorrentCategory struct {
 	// name is the category name.
 	// +required
-	Name string `json:"name"`
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name,omitempty"`
 
 	// savePath is the save path for this category.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	SavePath string `json:"savePath,omitempty"`
 }
 
 // QBittorrentStatus defines the observed state of QBittorrent.
+// +kubebuilder:validation:MinProperties=1
 type QBittorrentStatus struct {
 	// conditions represent the current state of the QBittorrent resource.
 	// +listType=map
@@ -372,6 +380,7 @@ type QBittorrentStatus struct {
 
 	// observedGeneration is the most recent generation observed.
 	// +optional
+	// +kubebuilder:validation:Minimum=1
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 
 	// lastSyncTime is the timestamp of the last successful reconciliation.
@@ -405,7 +414,7 @@ type QBittorrent struct {
 
 	// spec is the desired state of the QBittorrent.
 	// +required
-	Spec QBittorrentSpec `json:"spec"`
+	Spec QBittorrentSpec `json:"spec,omitzero"`
 
 	// status is the observed state of the QBittorrent.
 	// +optional

@@ -27,7 +27,7 @@ import (
 type MaintainerrSpec struct {
 	// connection defines how to connect to the Maintainerr instance.
 	// +required
-	Connection MaintainerrConnection `json:"connection"`
+	Connection MaintainerrConnection `json:"connection,omitzero"`
 
 	// reconcile configures reconciliation behavior (e.g., sync interval).
 	// +optional
@@ -55,12 +55,12 @@ type MaintainerrSpec struct {
 	// seerr connects Maintainerr to Seerr (or Overseerr or Jellyseerr), which
 	// rules can read and which Maintainerr clears requests in.
 	// +optional
-	Seerr *MaintainerrServiceConnection `json:"seerr,omitempty"`
+	Seerr MaintainerrServiceConnection `json:"seerr,omitzero"`
 
 	// tautulli connects Maintainerr to Tautulli. Rules can read it only when
 	// Plex is the media server.
 	// +optional
-	Tautulli *MaintainerrServiceConnection `json:"tautulli,omitempty"`
+	Tautulli MaintainerrServiceConnection `json:"tautulli,omitzero"`
 
 	// jobs sets when Maintainerr runs its rules and acts on its collections.
 	// +optional
@@ -86,12 +86,12 @@ type MaintainerrNotification struct {
 	// name identifies the notification.
 	// +required
 	// +kubebuilder:validation:MinLength=1
-	Name string `json:"name"`
+	Name string `json:"name,omitempty"`
 
 	// agent is the service notifications go to.
 	// +required
 	// +kubebuilder:validation:Enum=discord;email;gotify;ntfy;pushbullet;pushover;slack;telegram;webhook;lunasea
-	Agent string `json:"agent"`
+	Agent string `json:"agent,omitempty"`
 
 	// enabled turns the notification on. A new one is on unless this says otherwise.
 	// +optional
@@ -107,7 +107,7 @@ type MaintainerrNotification struct {
 	// is sent.
 	// +optional
 	// +kubebuilder:validation:Minimum=1
-	AboutScale *int32 `json:"aboutScale,omitempty"`
+	AboutScale int32 `json:"aboutScale,omitempty"`
 
 	// options are the agent's settings, such as botUsername or jsonPayload,
 	// each a value or read from a Secret, such as webhookUrl or authPass.
@@ -125,7 +125,8 @@ type MaintainerrConnection struct {
 	// (e.g., http://maintainerr:6246).
 	// +required
 	// +kubebuilder:validation:Pattern=`^https?://`
-	URL string `json:"url"`
+	// +kubebuilder:validation:MinLength=1
+	URL string `json:"url,omitempty"`
 
 	// tls configures TLS settings for the connection.
 	// Only needed when Maintainerr uses HTTPS with self-signed or private CA certificates.
@@ -138,12 +139,12 @@ type MaintainerrConnection struct {
 type MaintainerrMediaServer struct {
 	// plex connects Maintainerr to a Plex server.
 	// +optional
-	Plex *MaintainerrPlex `json:"plex,omitempty"`
+	Plex MaintainerrPlex `json:"plex,omitzero"`
 
 	// jellyfin connects Maintainerr to a Jellyfin server. Maintainerr tests the
 	// connection before saving it, so Jellyfin must be reachable from Maintainerr.
 	// +optional
-	Jellyfin *MaintainerrJellyfin `json:"jellyfin,omitempty"`
+	Jellyfin MaintainerrJellyfin `json:"jellyfin,omitzero"`
 }
 
 // MaintainerrPlex connects Maintainerr to a Plex server. The operator turns on
@@ -154,7 +155,7 @@ type MaintainerrPlex struct {
 	// (e.g., plex.media.svc.cluster.local).
 	// +required
 	// +kubebuilder:validation:MinLength=1
-	Hostname string `json:"hostname"`
+	Hostname string `json:"hostname,omitempty"`
 
 	// port is the Plex port.
 	// +optional
@@ -170,7 +171,7 @@ type MaintainerrPlex struct {
 	// tokenSecretRef references a Secret containing a Plex token for an account
 	// with access to the server.
 	// +required
-	TokenSecretRef commonv1alpha1.SecretKeyRef `json:"tokenSecretRef"`
+	TokenSecretRef commonv1alpha1.SecretKeyRef `json:"tokenSecretRef,omitempty"`
 }
 
 // MaintainerrJellyfin connects Maintainerr to a Jellyfin server.
@@ -178,15 +179,17 @@ type MaintainerrJellyfin struct {
 	// url is the Jellyfin URL as Maintainerr reaches it (e.g., http://jellyfin:8096).
 	// +required
 	// +kubebuilder:validation:Pattern=`^https?://`
-	URL string `json:"url"`
+	// +kubebuilder:validation:MinLength=1
+	URL string `json:"url,omitempty"`
 
 	// apiKeySecretRef references a Secret containing a Jellyfin API key.
 	// +required
-	APIKeySecretRef commonv1alpha1.SecretKeyRef `json:"apiKeySecretRef"`
+	APIKeySecretRef commonv1alpha1.SecretKeyRef `json:"apiKeySecretRef,omitempty"`
 
 	// userId is the Jellyfin administrator Maintainerr acts as. Maintainerr
 	// picks the first administrator when it is unset.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	UserID string `json:"userId,omitempty"`
 }
 
@@ -196,16 +199,17 @@ type MaintainerrArrServer struct {
 	// ruleGroups[].radarrServer. It is the server name Maintainerr shows.
 	// +required
 	// +kubebuilder:validation:MinLength=1
-	Name string `json:"name"`
+	Name string `json:"name,omitempty"`
 
 	// url is the server URL as Maintainerr reaches it (e.g., http://radarr:7878).
 	// +required
 	// +kubebuilder:validation:Pattern=`^https?://`
-	URL string `json:"url"`
+	// +kubebuilder:validation:MinLength=1
+	URL string `json:"url,omitempty"`
 
 	// apiKeySecretRef references a Secret containing the server's API key.
 	// +required
-	APIKeySecretRef commonv1alpha1.SecretKeyRef `json:"apiKeySecretRef"`
+	APIKeySecretRef commonv1alpha1.SecretKeyRef `json:"apiKeySecretRef,omitempty"`
 
 	// tagExclusions excludes media carrying exclusionTag in this server from
 	// every rule group.
@@ -216,6 +220,7 @@ type MaintainerrArrServer struct {
 	// when it is unset.
 	// +optional
 	// +kubebuilder:validation:Pattern=`^[a-z0-9-]+$`
+	// +kubebuilder:validation:MinLength=1
 	ExclusionTag string `json:"exclusionTag,omitempty"`
 
 	// untagOnUnexclude removes exclusionTag from media when it is no longer
@@ -229,22 +234,25 @@ type MaintainerrServiceConnection struct {
 	// url is the service URL as Maintainerr reaches it.
 	// +required
 	// +kubebuilder:validation:Pattern=`^https?://`
-	URL string `json:"url"`
+	// +kubebuilder:validation:MinLength=1
+	URL string `json:"url,omitempty"`
 
 	// apiKeySecretRef references a Secret containing the service's API key.
 	// +required
-	APIKeySecretRef commonv1alpha1.SecretKeyRef `json:"apiKeySecretRef"`
+	APIKeySecretRef commonv1alpha1.SecretKeyRef `json:"apiKeySecretRef,omitempty"`
 }
 
 // MaintainerrJobs sets Maintainerr's job schedules as cron expressions.
 type MaintainerrJobs struct {
 	// rules is when Maintainerr evaluates rule groups (e.g., "0 0-23/8 * * *").
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	Rules string `json:"rules,omitempty"`
 
 	// collections is when Maintainerr acts on media whose time in a collection
 	// has run out (e.g., "0 0-23/12 * * *").
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	Collections string `json:"collections,omitempty"`
 }
 
@@ -254,16 +262,17 @@ type MaintainerrRuleGroup struct {
 	// name identifies the rule group and names its collection.
 	// +required
 	// +kubebuilder:validation:MinLength=1
-	Name string `json:"name"`
+	Name string `json:"name,omitempty"`
 
 	// description is shown on the collection.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	Description string `json:"description,omitempty"`
 
 	// library is the title of the media server library the rules run against.
 	// +required
 	// +kubebuilder:validation:MinLength=1
-	Library string `json:"library"`
+	Library string `json:"library,omitempty"`
 
 	// dataType is what a show library's rules match: whole shows, seasons or
 	// episodes. Movie libraries always match movies. Changing it empties the
@@ -282,7 +291,7 @@ type MaintainerrRuleGroup struct {
 	// the media server. changeQualityProfile needs qualityProfile.
 	// +required
 	// +kubebuilder:validation:Enum=delete;unmonitorDeleteAll;unmonitorDeleteExisting;unmonitor;doNothing;deleteShowIfEmpty;unmonitorShowIfEmpty;changeQualityProfile
-	ArrAction string `json:"arrAction"`
+	ArrAction string `json:"arrAction,omitempty"`
 
 	// actionAfterDays is how long media stays in the collection before arrAction
 	// runs. A new group without it fills its collection but never acts. Removing
@@ -295,16 +304,19 @@ type MaintainerrRuleGroup struct {
 	// radarrServer names the spec.radarr server to act through. Required when a
 	// rule reads Radarr.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	RadarrServer string `json:"radarrServer,omitempty"`
 
 	// sonarrServer names the spec.sonarr server to act through. Required when a
 	// rule reads Sonarr.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	SonarrServer string `json:"sonarrServer,omitempty"`
 
 	// qualityProfile is the name of the Sonarr or Radarr quality profile that
 	// changeQualityProfile switches media to.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	QualityProfile string `json:"qualityProfile,omitempty"`
 
 	// listExclusions adds deleted media to the Sonarr or Radarr import list
@@ -344,6 +356,7 @@ type MaintainerrRuleGroup struct {
 	// schedule is a cron expression for this group's rule runs. Unset, the group
 	// runs on spec.jobs.rules.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	Schedule string `json:"schedule,omitempty"`
 
 	// notifications names the spec.notifications, or notifications made in
@@ -359,7 +372,7 @@ type MaintainerrRuleGroup struct {
 	// +required
 	// +kubebuilder:validation:MinItems=1
 	// +listType=atomic
-	Sections []MaintainerrRuleSection `json:"sections"`
+	Sections []MaintainerrRuleSection `json:"sections,omitempty"`
 }
 
 // MaintainerrRuleSection is a group of rules evaluated together.
@@ -374,7 +387,7 @@ type MaintainerrRuleSection struct {
 	// +required
 	// +kubebuilder:validation:MinItems=1
 	// +listType=atomic
-	Rules []MaintainerrRule `json:"rules"`
+	Rules []MaintainerrRule `json:"rules,omitempty"`
 }
 
 // MaintainerrRule compares a property of the media with a value or with another
@@ -392,31 +405,35 @@ type MaintainerrRule struct {
 	// lists twice resolves to the one not marked deprecated.
 	// +required
 	// +kubebuilder:validation:Pattern=`^[A-Za-z]+\.[A-Za-z0-9_]+$`
-	FirstValue string `json:"firstValue"`
+	// +kubebuilder:validation:MinLength=1
+	FirstValue string `json:"firstValue,omitempty"`
 
 	// action is the comparison.
 	// +required
 	// +kubebuilder:validation:Enum=BIGGER;SMALLER;EQUALS;NOT_EQUALS;CONTAINS;BEFORE;AFTER;IN_LAST;IN_NEXT;NOT_CONTAINS;CONTAINS_PARTIAL;NOT_CONTAINS_PARTIAL;CONTAINS_ALL;NOT_CONTAINS_ALL;COUNT_EQUALS;COUNT_NOT_EQUALS;COUNT_BIGGER;COUNT_SMALLER;EXISTS;NOT_EXISTS
-	Action string `json:"action"`
+	Action string `json:"action,omitempty"`
 
 	// lastValue is a second property to compare against, as Application.property.
 	// Set lastValue or customValue, not both.
 	// +optional
 	// +kubebuilder:validation:Pattern=`^[A-Za-z]+\.[A-Za-z0-9_]+$`
+	// +kubebuilder:validation:MinLength=1
 	LastValue string `json:"lastValue,omitempty"`
 
 	// customValue is a literal value to compare against.
 	// +optional
-	CustomValue *MaintainerrCustomValue `json:"customValue,omitempty"`
+	CustomValue MaintainerrCustomValue `json:"customValue,omitzero"`
 
 	// arrDiskPath limits disk-space properties to one Sonarr or Radarr root folder.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	ArrDiskPath string `json:"arrDiskPath,omitempty"`
 
 	// username is the media server user that per-user properties (viewCountByUser,
 	// watchTimeByUser, lastViewedAtByUser) are read for. Required by those
 	// properties and not allowed on others.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	Username string `json:"username,omitempty"`
 }
 
@@ -427,14 +444,15 @@ type MaintainerrCustomValue struct {
 	// "true" or "false". text_list takes a JSON array or a single value.
 	// +required
 	// +kubebuilder:validation:Enum=number;custom_days;date;text;text_list;boolean
-	Type string `json:"type"`
+	Type string `json:"type,omitempty"`
 
 	// value is the literal. Quote booleans: value: "true".
 	// +required
-	Value intstr.IntOrString `json:"value"`
+	Value *intstr.IntOrString `json:"value,omitempty"`
 }
 
 // MaintainerrStatus defines the observed state of Maintainerr.
+// +kubebuilder:validation:MinProperties=1
 type MaintainerrStatus struct {
 	// conditions represent the current state of the Maintainerr resource.
 	// +listType=map
@@ -444,6 +462,7 @@ type MaintainerrStatus struct {
 
 	// observedGeneration is the most recent generation observed.
 	// +optional
+	// +kubebuilder:validation:Minimum=1
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 
 	// lastSyncTime is the timestamp of the last successful reconciliation.
@@ -477,7 +496,7 @@ type Maintainerr struct {
 
 	// spec is the desired state of the Maintainerr.
 	// +required
-	Spec MaintainerrSpec `json:"spec"`
+	Spec MaintainerrSpec `json:"spec,omitzero"`
 
 	// status is the observed state of the Maintainerr.
 	// +optional

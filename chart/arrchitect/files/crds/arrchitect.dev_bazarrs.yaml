@@ -64,9 +64,11 @@ spec:
                     properties:
                       key:
                         description: key is the key within the Secret.
+                        minLength: 1
                         type: string
                       name:
                         description: name is the name of the Secret.
+                        minLength: 1
                         type: string
                     required:
                     - key
@@ -85,9 +87,11 @@ spec:
                         properties:
                           key:
                             description: key is the key within the Secret.
+                            minLength: 1
                             type: string
                           name:
                             description: name is the name of the Secret.
+                            minLength: 1
                             type: string
                         required:
                         - key
@@ -103,6 +107,7 @@ spec:
                     type: object
                   url:
                     description: url is the base URL of the app (e.g., http://arr-sonarr.arr.svc.cluster.local:8989).
+                    minLength: 1
                     pattern: ^https?://
                     type: string
                 required:
@@ -119,6 +124,7 @@ spec:
                   chmod:
                     description: chmod is the octal permissions chmodEnabled sets
                       on subtitle files, such as 0640.
+                    minLength: 1
                     pattern: ^0?[0-7]{3}$
                     type: string
                   chmodEnabled:
@@ -128,10 +134,12 @@ spec:
                   embeddedSubtitlesParser:
                     description: embeddedSubtitlesParser is the parser used for embedded
                       subtitles.
+                    minLength: 1
                     type: string
                   hiExtension:
                     description: hiExtension is the file extension used for hearing-impaired
                       subtitle files.
+                    minLength: 1
                     type: string
                   ignoreAssSubs:
                     description: ignoreAssSubs ignores ASS/SSA subtitles.
@@ -156,6 +164,7 @@ spec:
                     description: |-
                       movieDefaultProfile is the language profile, by name, that new movies
                       get. Setting it turns the default on.
+                    minLength: 1
                     type: string
                   multithreading:
                     description: multithreading enables multithreaded subtitle downloading.
@@ -171,11 +180,13 @@ spec:
                       properties:
                         localPath:
                           description: localPath is the path inside the Bazarr container.
+                          minLength: 1
                           pattern: ^[^,]+$
                           type: string
                         remotePath:
                           description: remotePath is the path as Sonarr or Radarr
                             reports it.
+                          minLength: 1
                           pattern: ^[^,]+$
                           type: string
                       required:
@@ -197,11 +208,13 @@ spec:
                       properties:
                         localPath:
                           description: localPath is the path inside the Bazarr container.
+                          minLength: 1
                           pattern: ^[^,]+$
                           type: string
                         remotePath:
                           description: remotePath is the path as Sonarr or Radarr
                             reports it.
+                          minLength: 1
                           pattern: ^[^,]+$
                           type: string
                       required:
@@ -216,6 +229,7 @@ spec:
                     description: |-
                       postprocessingCmd is the command usePostprocessing runs after a subtitle
                       is downloaded.
+                    minLength: 1
                     type: string
                   postprocessingThreshold:
                     description: |-
@@ -237,6 +251,7 @@ spec:
                     description: |-
                       seriesDefaultProfile is the language profile, by name, that new series
                       get. Setting it turns the default on.
+                    minLength: 1
                     type: string
                   subfolder:
                     description: |-
@@ -250,6 +265,7 @@ spec:
                   subfolderCustom:
                     description: subfolderCustom is the folder subfolder relative
                       or absolute saves to.
+                    minLength: 1
                     type: string
                   upgradeFrequency:
                     description: upgradeFrequency is the frequency in hours to check
@@ -332,6 +348,7 @@ spec:
                                 type: boolean
                               language:
                                 description: language is the ISO 639-1 language code.
+                                minLength: 1
                                 type: string
                             required:
                             - language
@@ -340,6 +357,7 @@ spec:
                           x-kubernetes-list-type: atomic
                         name:
                           description: name is the display name of the language profile.
+                          minLength: 1
                           type: string
                         profileId:
                           description: profileId is the unique identifier for this
@@ -366,6 +384,7 @@ spec:
                     name:
                       description: name is the provider key (e.g., opensubtitlescom,
                         addic7ed).
+                      minLength: 1
                       type: string
                     settings:
                       description: |-
@@ -379,6 +398,7 @@ spec:
                         properties:
                           name:
                             description: name is the field name.
+                            minLength: 1
                             type: string
                           value:
                             description: 'value is the field value: a string, number,
@@ -393,9 +413,11 @@ spec:
                                 properties:
                                   key:
                                     description: key is the key within the Secret.
+                                    minLength: 1
                                     type: string
                                   name:
                                     description: name is the name of the Secret.
+                                    minLength: 1
                                     type: string
                                 required:
                                 - key
@@ -428,9 +450,11 @@ spec:
                     properties:
                       key:
                         description: key is the key within the Secret.
+                        minLength: 1
                         type: string
                       name:
                         description: name is the name of the Secret.
+                        minLength: 1
                         type: string
                     required:
                     - key
@@ -438,6 +462,7 @@ spec:
                     type: object
                   basePath:
                     description: basePath is the URL base path of the application.
+                    minLength: 1
                     type: string
                   excludeSeasonZero:
                     description: excludeSeasonZero leaves out specials. Only applicable
@@ -471,6 +496,7 @@ spec:
                     type: string
                   host:
                     description: host is the hostname or IP of the application.
+                    minLength: 1
                     type: string
                   httpTimeout:
                     description: httpTimeout is the HTTP request timeout in seconds.
@@ -562,9 +588,11 @@ spec:
                     properties:
                       key:
                         description: key is the key within the Secret.
+                        minLength: 1
                         type: string
                       name:
                         description: name is the name of the Secret.
+                        minLength: 1
                         type: string
                     required:
                     - key
@@ -572,6 +600,7 @@ spec:
                     type: object
                   basePath:
                     description: basePath is the URL base path of the application.
+                    minLength: 1
                     type: string
                   excludeSeasonZero:
                     description: excludeSeasonZero leaves out specials. Only applicable
@@ -605,6 +634,7 @@ spec:
                     type: string
                   host:
                     description: host is the hostname or IP of the application.
+                    minLength: 1
                     type: string
                   httpTimeout:
                     description: httpTimeout is the HTTP request timeout in seconds.
@@ -669,6 +699,7 @@ spec:
             type: object
           status:
             description: status is the observed state of the Bazarr.
+            minProperties: 1
             properties:
               conditions:
                 description: conditions represent the current state of the Bazarr
@@ -766,6 +797,7 @@ spec:
               observedGeneration:
                 description: observedGeneration is the most recent generation observed.
                 format: int64
+                minimum: 1
                 type: integer
             type: object
         required:

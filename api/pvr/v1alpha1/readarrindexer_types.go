@@ -10,7 +10,7 @@ import (
 type ReadarrIndexerSpec struct {
 	// readarrRef names the Readarr this indexer belongs to, in the same namespace.
 	// +required
-	ReadarrRef commonv1alpha1.LocalObjectReference `json:"readarrRef"`
+	ReadarrRef commonv1alpha1.LocalObjectReference `json:"readarrRef,omitempty"`
 
 	// deletionPolicy controls what deleting this resource does in Readarr:
 	// "delete" removes the indexer, "orphan" leaves it. One that existed before
@@ -24,6 +24,7 @@ type ReadarrIndexerSpec struct {
 }
 
 // ReadarrIndexerStatus is the observed state of a ReadarrIndexer.
+// +kubebuilder:validation:MinProperties=1
 type ReadarrIndexerStatus struct {
 	// conditions represent the current state of the indexer.
 	// +listType=map
@@ -33,6 +34,7 @@ type ReadarrIndexerStatus struct {
 
 	// observedGeneration is the most recent generation observed.
 	// +optional
+	// +kubebuilder:validation:Minimum=1
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 
 	// lastSyncTime is the timestamp of the last successful reconciliation.
@@ -41,6 +43,7 @@ type ReadarrIndexerStatus struct {
 
 	// id is the indexer's ID in Readarr.
 	// +optional
+	// +kubebuilder:validation:Minimum=1
 	ID int32 `json:"id,omitempty"`
 
 	// managedResources records what the operator created for this resource,
@@ -69,7 +72,7 @@ type ReadarrIndexer struct {
 
 	// spec is the desired state of the ReadarrIndexer.
 	// +required
-	Spec ReadarrIndexerSpec `json:"spec"`
+	Spec ReadarrIndexerSpec `json:"spec,omitzero"`
 
 	// status is the observed state of the ReadarrIndexer.
 	// +optional
@@ -99,5 +102,5 @@ func (c *ReadarrIndexer) SetManagedResources(m map[string][]string) {
 // GetReconcileConfig carries only the deletion policy: the interval and drift
 // policy come from the Readarr the indexer belongs to.
 func (c *ReadarrIndexer) GetReconcileConfig() *commonv1alpha1.ReconcileConfig {
-	return &commonv1alpha1.ReconcileConfig{DeletionPolicy: &c.Spec.DeletionPolicy}
+	return &commonv1alpha1.ReconcileConfig{DeletionPolicy: c.Spec.DeletionPolicy}
 }

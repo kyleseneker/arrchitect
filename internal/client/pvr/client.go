@@ -445,8 +445,8 @@ func BuildDownloadClientPayload(
 	SetOptionalBool(payload, "enable", dc.Enable)
 	SetOptionalBool(payload, "removeCompletedDownloads", dc.RemoveCompletedDownloads)
 	SetOptionalBool(payload, "removeFailedDownloads", dc.RemoveFailedDownloads)
-	if dc.Priority != nil {
-		payload["priority"] = *dc.Priority
+	if dc.Priority != 0 {
+		payload["priority"] = dc.Priority
 	}
 	if tags != nil {
 		payload["tags"] = BuildTagsPayload(tags)
@@ -492,8 +492,8 @@ func BuildIndexerPayload(idx commonv1alpha1.Indexer, tags []int) map[string]any 
 	if tags != nil {
 		payload["tags"] = BuildTagsPayload(tags)
 	}
-	if idx.Priority != nil {
-		payload["priority"] = *idx.Priority
+	if idx.Priority != 0 {
+		payload["priority"] = idx.Priority
 	}
 
 	return payload
@@ -731,7 +731,7 @@ func BuildQualityProfilePayload(qp commonv1alpha1.QualityProfile, cfIDs map[stri
 				formatItems = append(formatItems, map[string]any{
 					"format": id,
 					"name":   fi.Name,
-					"score":  fi.Score,
+					"score":  scoreOf(fi.Score),
 				})
 			}
 		}
@@ -747,10 +747,10 @@ func BuildQualityItems(items []commonv1alpha1.QualityProfileItem) []map[string]a
 	for i, item := range items {
 		m := map[string]any{}
 
-		if item.Quality != nil {
+		if item.Quality != (commonv1alpha1.QualityReference{}) {
 			// Individual quality
 			m["quality"] = map[string]any{
-				"id":   int(item.Quality.ID),
+				"id":   qualityID(item.Quality.ID),
 				"name": item.Quality.Name,
 			}
 			m["items"] = []any{}
@@ -765,7 +765,7 @@ func BuildQualityItems(items []commonv1alpha1.QualityProfileItem) []map[string]a
 				childAllowed := child.Allowed == nil || *child.Allowed
 				children[j] = map[string]any{
 					"quality": map[string]any{
-						"id":   int(child.Quality.ID),
+						"id":   qualityID(child.Quality.ID),
 						"name": child.Quality.Name,
 					},
 					"items":   []any{},
@@ -791,10 +791,10 @@ func BuildQualityItems(items []commonv1alpha1.QualityProfileItem) []map[string]a
 // (the IDs these apps give quality groups).
 func FindCutoffID(items []commonv1alpha1.QualityProfileItem, cutoffName string) (int, bool) {
 	for i, item := range items {
-		if item.Quality != nil && item.Quality.Name == cutoffName {
-			return int(item.Quality.ID), true
+		if item.Quality != (commonv1alpha1.QualityReference{}) && item.Quality.Name == cutoffName {
+			return qualityID(item.Quality.ID), true
 		}
-		if item.Quality == nil && item.Name == cutoffName {
+		if item.Quality == (commonv1alpha1.QualityReference{}) && item.Name == cutoffName {
 			// Group — use 1000+index as the group ID (how these apps number groups)
 			return 1000 + i, true
 		}
@@ -1175,11 +1175,11 @@ func CompleteQualityItems(items []map[string]any, declared []commonv1alpha1.Qual
 
 	mentioned := map[int]bool{}
 	for _, item := range declared {
-		if item.Quality != nil {
-			mentioned[int(item.Quality.ID)] = true
+		if item.Quality != (commonv1alpha1.QualityReference{}) {
+			mentioned[qualityID(item.Quality.ID)] = true
 		}
 		for _, child := range item.Items {
-			mentioned[int(child.Quality.ID)] = true
+			mentioned[qualityID(child.Quality.ID)] = true
 		}
 	}
 	var missing []map[string]any
@@ -1756,4 +1756,20 @@ func same(a, b map[string]any) bool {
 	x, errX := json.Marshal(a)
 	y, errY := json.Marshal(b)
 	return errX == nil && errY == nil && bytes.Equal(x, y)
+}
+
+// qualityID is a declared quality's ID; the API server requires one.
+func qualityID(id *int32) int {
+	if id == nil {
+		return 0
+	}
+	return int(*id)
+}
+
+// scoreOf is a declared format score; the API server requires one.
+func scoreOf(score *int32) int32 {
+	if score == nil {
+		return 0
+	}
+	return *score
 }

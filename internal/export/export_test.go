@@ -49,7 +49,7 @@ func TestRunLeavesTheCredentialsTheAppHidesOutOfTheSecret(t *testing.T) {
 	assert.Contains(t, res.Unfilled, "download-client-qbit-password")
 	assert.NotContains(t, res.Secret.StringData, "download-client-qbit-password")
 	require.NotNil(t, cfg.Spec.Reconcile)
-	assert.Equal(t, "observe", *cfg.Spec.Reconcile.DriftPolicy, "a first apply must not write to the app")
+	assert.Equal(t, "observe", cfg.Spec.Reconcile.DriftPolicy, "a first apply must not write to the app")
 
 	cfg, _ = exportSonarr(t, Options{Enforce: true})
 	assert.Nil(t, cfg.Spec.Reconcile)

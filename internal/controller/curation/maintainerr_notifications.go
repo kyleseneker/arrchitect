@@ -90,8 +90,8 @@ func notificationBody(n *curationv1alpha1.MaintainerrNotification, values map[st
 	if n.Enabled != nil {
 		body["enabled"] = *n.Enabled
 	}
-	if n.AboutScale != nil {
-		body["aboutScale"] = *n.AboutScale
+	if n.AboutScale != 0 {
+		body["aboutScale"] = n.AboutScale
 	}
 	if n.Types != nil {
 		types := make([]int, 0, len(n.Types))

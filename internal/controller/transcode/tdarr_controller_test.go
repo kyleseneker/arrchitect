@@ -487,7 +487,7 @@ func TestTdarrDeletionPolicyRemovesTheVariablesItCreated(t *testing.T) {
 	}}
 	cfg := tdarrConfig(app.serve(t))
 	policy := ctrlcommon.DeletionPolicyDelete
-	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{DeletionPolicy: &policy}
+	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{DeletionPolicy: policy}
 	cfg.SetManagedResources(map[string][]string{variablesResource: {"movies/created", "tv/created"}})
 	now := metav1.NewTime(time.Now())
 	cfg.DeletionTimestamp = &now
@@ -540,7 +540,7 @@ func TestLibraryDocHealthCheckMode(t *testing.T) {
 
 func observedTdarr(url string, lib transcodev1alpha1.TdarrLibrary) *transcodev1alpha1.Tdarr {
 	cfg := tdarrConfig(url)
-	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{DriftPolicy: new("observe")}
+	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{DriftPolicy: "observe"}
 	cfg.Spec.Libraries = []transcodev1alpha1.TdarrLibrary{lib}
 	return cfg
 }
@@ -638,7 +638,7 @@ func fullyPopulatedLibrary() transcodev1alpha1.TdarrLibrary {
 		Variables:   map[string]string{"k": "v"},
 
 		FoldersToIgnoreCaseInsensitive: new(true), FilterResolutionsSkip: "480p", FilterCodecsSkip: "hevc",
-		FilterContainersSkip: "mkv", FilterHardlinked: new(true), UseFsEvents: new(false), FolderWatchScanInterval: new(int32(30)),
+		FilterContainersSkip: "mkv", FilterHardlinked: new(true), UseFsEvents: new(false), FolderWatchScanInterval: int32(30),
 	}
 }
 
@@ -712,7 +712,7 @@ func TestLibraryVariablesObserveReportsWhatPruneWouldDelete(t *testing.T) {
 	}}
 	cfg := tdarrConfig(app.serve(t))
 	observe := "observe"
-	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{Prune: new(true), DriftPolicy: &observe}
+	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{Prune: new(true), DriftPolicy: observe}
 	cfg.Spec.Libraries = []transcodev1alpha1.TdarrLibrary{{
 		ID: "movies", Name: "Movies", Folder: "/data/media/movies",
 		Variables: map[string]string{"bitrate_1080p": "2500"},

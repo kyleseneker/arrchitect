@@ -31,7 +31,7 @@ func testRuleEnv(mediaServer string) ruleEnv {
 func rule(operator, first, action string) curationv1alpha1.MaintainerrRule {
 	return curationv1alpha1.MaintainerrRule{
 		Operator: operator, FirstValue: first, Action: action,
-		CustomValue: &curationv1alpha1.MaintainerrCustomValue{Type: "number", Value: intstr.FromInt32(0)},
+		CustomValue: curationv1alpha1.MaintainerrCustomValue{Type: "number", Value: new(intstr.FromInt32(0))},
 	}
 }
 
@@ -82,13 +82,13 @@ func TestCustomValueMatchesMaintainerrsYAMLImport(t *testing.T) {
 		{"boolean", intstr.FromString("false"), map[string]any{"ruleTypeId": 3, "value": "0"}},
 		{"text_list", intstr.FromString(`["a","b"]`), map[string]any{"ruleTypeId": 4, "value": `["a","b"]`}},
 	} {
-		got, err := customValue(&curationv1alpha1.MaintainerrCustomValue{Type: tc.typ, Value: tc.value})
+		got, err := customValue(&curationv1alpha1.MaintainerrCustomValue{Type: tc.typ, Value: new(tc.value)})
 		require.NoError(t, err, tc.typ)
 		assert.Equal(t, tc.want, got, tc.typ)
 	}
-	_, err := customValue(&curationv1alpha1.MaintainerrCustomValue{Type: "boolean", Value: intstr.FromString("yes")})
+	_, err := customValue(&curationv1alpha1.MaintainerrCustomValue{Type: "boolean", Value: new(intstr.FromString("yes"))})
 	assert.Error(t, err)
-	_, err = customValue(&curationv1alpha1.MaintainerrCustomValue{Type: "custom_days", Value: intstr.FromString("soon")})
+	_, err = customValue(&curationv1alpha1.MaintainerrCustomValue{Type: "custom_days", Value: new(intstr.FromString("soon"))})
 	assert.Error(t, err)
 }
 

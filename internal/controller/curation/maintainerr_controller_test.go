@@ -317,22 +317,22 @@ func secretRef(key string) commonv1alpha1.SecretKeyRef {
 func jellyfinSpec(url string) curationv1alpha1.MaintainerrSpec {
 	return curationv1alpha1.MaintainerrSpec{
 		Connection: curationv1alpha1.MaintainerrConnection{URL: url},
-		MediaServer: &curationv1alpha1.MaintainerrMediaServer{Jellyfin: &curationv1alpha1.MaintainerrJellyfin{
+		MediaServer: &curationv1alpha1.MaintainerrMediaServer{Jellyfin: curationv1alpha1.MaintainerrJellyfin{
 			URL: "http://jellyfin:8096/", APIKeySecretRef: secretRef("jellyfin-api-key"),
 		}},
 		Radarr: []curationv1alpha1.MaintainerrArrServer{{
 			Name: "Radarr", URL: "http://Radarr:7878", APIKeySecretRef: secretRef("radarr-api-key"),
 		}},
-		Seerr: &curationv1alpha1.MaintainerrServiceConnection{URL: "http://seerr:5055", APIKeySecretRef: secretRef("seerr-api-key")},
+		Seerr: curationv1alpha1.MaintainerrServiceConnection{URL: "http://seerr:5055", APIKeySecretRef: secretRef("seerr-api-key")},
 		Jobs:  &curationv1alpha1.MaintainerrJobs{Rules: "0 0-23/8 * * *"},
 		RuleGroups: []curationv1alpha1.MaintainerrRuleGroup{{
 			Name: "Stale movies", Library: "Movies", ArrAction: "delete", RadarrServer: "Radarr",
 			ActionAfterDays: new(int32(30)),
 			Sections: []curationv1alpha1.MaintainerrRuleSection{{Rules: []curationv1alpha1.MaintainerrRule{
 				{FirstValue: "Jellyfin.addDate", Action: "BEFORE",
-					CustomValue: &curationv1alpha1.MaintainerrCustomValue{Type: "custom_days", Value: intstr.FromInt32(180)}},
+					CustomValue: curationv1alpha1.MaintainerrCustomValue{Type: "custom_days", Value: new(intstr.FromInt32(180))}},
 				{Operator: "AND", FirstValue: "Jellyfin.viewCount", Action: "EQUALS",
-					CustomValue: &curationv1alpha1.MaintainerrCustomValue{Type: "number", Value: intstr.FromInt32(0)}},
+					CustomValue: curationv1alpha1.MaintainerrCustomValue{Type: "number", Value: new(intstr.FromInt32(0))}},
 			}}},
 		}},
 	}
@@ -439,7 +439,7 @@ func TestMaintainerrSetsUpPlexInOrderAndComparesTheMaskedToken(t *testing.T) {
 	app := newFakeMaintainerr()
 	spec := curationv1alpha1.MaintainerrSpec{
 		Connection: curationv1alpha1.MaintainerrConnection{URL: app.serve(t)},
-		MediaServer: &curationv1alpha1.MaintainerrMediaServer{Plex: &curationv1alpha1.MaintainerrPlex{
+		MediaServer: &curationv1alpha1.MaintainerrMediaServer{Plex: curationv1alpha1.MaintainerrPlex{
 			Hostname: "https://Plex.media.svc", Port: 32400, TokenSecretRef: secretRef("plex-token"),
 		}},
 	}
@@ -519,7 +519,7 @@ func TestMaintainerrMarksUnhealthyAppNotReady(t *testing.T) {
 }
 
 func observeSpec(spec curationv1alpha1.MaintainerrSpec) curationv1alpha1.MaintainerrSpec {
-	spec.Reconcile = &commonv1alpha1.ReconcileConfig{DriftPolicy: new("observe")}
+	spec.Reconcile = &commonv1alpha1.ReconcileConfig{DriftPolicy: "observe"}
 	return spec
 }
 

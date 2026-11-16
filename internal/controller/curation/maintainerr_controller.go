@@ -163,12 +163,12 @@ func (s *maintainerrSync) run(ctx context.Context, spec *curationv1alpha1.Mainta
 
 	for _, svc := range []struct {
 		name maintainerrclient.Service
-		conn *curationv1alpha1.MaintainerrServiceConnection
+		conn curationv1alpha1.MaintainerrServiceConnection
 	}{{maintainerrclient.Seerr, spec.Seerr}, {maintainerrclient.Tautulli, spec.Tautulli}} {
-		if svc.conn == nil {
+		if svc.conn == (curationv1alpha1.MaintainerrServiceConnection{}) {
 			continue
 		}
-		if err := s.service(ctx, svc.name, svc.conn); err != nil {
+		if err := s.service(ctx, svc.name, &svc.conn); err != nil {
 			fail(string(svc.name), err)
 		}
 	}
@@ -205,7 +205,7 @@ func (s *maintainerrSync) run(ctx context.Context, spec *curationv1alpha1.Mainta
 // Maintainerr deletes every collection when it switches.
 func (s *maintainerrSync) mediaServer(ctx context.Context, ms *curationv1alpha1.MaintainerrMediaServer, settings map[string]any) error {
 	want := mediaPlex
-	if ms.Jellyfin != nil {
+	if ms.Jellyfin != (curationv1alpha1.MaintainerrJellyfin{}) {
 		want = mediaJellyfin
 	}
 	current, _ := settings["media_server_type"].(string)
@@ -213,10 +213,10 @@ func (s *maintainerrSync) mediaServer(ctx context.Context, ms *curationv1alpha1.
 		return fmt.Errorf("maintainerr uses %s; switching it to %s deletes every collection, "+
 			"so the operator leaves that to Maintainerr's settings page", current, want)
 	}
-	if ms.Jellyfin != nil {
-		return s.jellyfin(ctx, ms.Jellyfin)
+	if ms.Jellyfin != (curationv1alpha1.MaintainerrJellyfin{}) {
+		return s.jellyfin(ctx, &ms.Jellyfin)
 	}
-	return s.plex(ctx, ms.Plex, settings, current == "")
+	return s.plex(ctx, &ms.Plex, settings, current == "")
 }
 
 func (s *maintainerrSync) jellyfin(ctx context.Context, jf *curationv1alpha1.MaintainerrJellyfin) error {

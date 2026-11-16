@@ -62,7 +62,7 @@ func TestTdarrExportsLibrariesFlowsAndWorkers(t *testing.T) {
 	assert.Equal(t, map[string]string{"fromDoc": "a", "shared": "db"}, movies.Variables, "variable documents win over the library copy")
 	assert.Equal(t, "hevc", movies.FilterCodecsSkip)
 	assert.True(t, *movies.FilterHardlinked)
-	assert.Equal(t, int32(30), *movies.FolderWatchScanInterval)
+	assert.Equal(t, int32(30), movies.FolderWatchScanInterval)
 
 	settings := cfg.Spec.Settings
 	require.NotNil(t, settings)

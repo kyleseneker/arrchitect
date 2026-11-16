@@ -64,9 +64,11 @@ spec:
                     properties:
                       key:
                         description: key is the key within the Secret.
+                        minLength: 1
                         type: string
                       name:
                         description: name is the name of the Secret.
+                        minLength: 1
                         type: string
                     required:
                     - key
@@ -85,9 +87,11 @@ spec:
                         properties:
                           key:
                             description: key is the key within the Secret.
+                            minLength: 1
                             type: string
                           name:
                             description: name is the name of the Secret.
+                            minLength: 1
                             type: string
                         required:
                         - key
@@ -103,6 +107,7 @@ spec:
                     type: object
                   url:
                     description: url is the base URL of the app (e.g., http://arr-sonarr.arr.svc.cluster.local:8989).
+                    minLength: 1
                     pattern: ^https?://
                     type: string
                 required:
@@ -125,6 +130,7 @@ spec:
                       type: boolean
                     name:
                       description: name is the display name of the custom format.
+                      minLength: 1
                       type: string
                     specifications:
                       description: |-
@@ -147,6 +153,7 @@ spec:
                               properties:
                                 name:
                                   description: name is the field name.
+                                  minLength: 1
                                   type: string
                                 value:
                                   description: 'value is the field value: a string,
@@ -162,9 +169,11 @@ spec:
                                       properties:
                                         key:
                                           description: key is the key within the Secret.
+                                          minLength: 1
                                           type: string
                                         name:
                                           description: name is the name of the Secret.
+                                          minLength: 1
                                           type: string
                                       required:
                                       - key
@@ -187,9 +196,11 @@ spec:
                               QualityModifierSpecification, LanguageSpecification, ReleaseGroupSpecification,
                               EditionSpecification (Radarr), ReleaseTypeSpecification (Sonarr), SizeSpecification,
                               IndexerFlagSpecification.
+                            minLength: 1
                             type: string
                           name:
                             description: name is a human-readable label for this condition.
+                            minLength: 1
                             type: string
                           negate:
                             description: negate inverts the match logic. If true,
@@ -310,6 +321,7 @@ spec:
                       description: |-
                         configContract is the configuration contract name for the implementation.
                         Defaults to "<implementation>Settings" if not set.
+                      minLength: 1
                       type: string
                     enable:
                       description: |-
@@ -331,6 +343,7 @@ spec:
                         properties:
                           name:
                             description: name is the field name.
+                            minLength: 1
                             type: string
                           value:
                             description: 'value is the field value: a string, number,
@@ -345,9 +358,11 @@ spec:
                                 properties:
                                   key:
                                     description: key is the key within the Secret.
+                                    minLength: 1
                                     type: string
                                   name:
                                     description: name is the name of the Secret.
+                                    minLength: 1
                                     type: string
                                 required:
                                 - key
@@ -366,6 +381,7 @@ spec:
                     implementation:
                       description: implementation is the import list type (e.g., TraktListImport,
                         IMDbListImport, SonarrImport).
+                      minLength: 1
                       type: string
                     listOrder:
                       description: listOrder controls the display order of this list.
@@ -375,10 +391,12 @@ spec:
                       description: |-
                         metadataProfileName is the metadata profile for imported items (Lidarr,
                         Readarr). Resolved to an ID at reconciliation time.
+                      minLength: 1
                       type: string
                     minimumAvailability:
                       description: 'minimumAvailability controls when imported movies
                         are considered available (Radarr: announced, inCinemas, released).'
+                      minLength: 1
                       type: string
                     monitor:
                       description: |-
@@ -386,18 +404,22 @@ spec:
                         Values vary by app (Sonarr: all, future, missing, existing, firstSeason, lastSeason, latestSeason,
                         pilot, recent, monitorSpecials, unmonitorSpecials, none; Radarr: movieOnly, movieAndCollection, none;
                         Lidarr: entireArtist, specificAlbum, none; Readarr: entireAuthor, specificBook, none).
+                      minLength: 1
                       type: string
                     name:
                       description: name is the display name of the import list.
+                      minLength: 1
                       type: string
                     qualityProfileName:
                       description: |-
                         qualityProfileName is the name of the quality profile to assign to imported items.
                         Must match an existing quality profile. Resolved to an ID at reconciliation time.
+                      minLength: 1
                       type: string
                     rootFolderPath:
                       description: rootFolderPath is the root folder path for imported
                         items.
+                      minLength: 1
                       type: string
                     searchOnAdd:
                       description: searchOnAdd searches for items immediately after
@@ -410,6 +432,7 @@ spec:
                     seriesType:
                       description: 'seriesType is the series type for imported items
                         (Sonarr: standard, daily, anime).'
+                      minLength: 1
                       type: string
                     tagLabels:
                       description: |-
@@ -488,6 +511,7 @@ spec:
                   extraFileExtensions:
                     description: extraFileExtensions is a comma-separated list of
                       extra file extensions to import.
+                    minLength: 1
                     type: string
                   importExtraFiles:
                     description: importExtraFiles imports additional files (subtitles,
@@ -531,6 +555,7 @@ spec:
                   animeEpisodeFormat:
                     description: animeEpisodeFormat is the naming format for anime
                       episodes.
+                    minLength: 1
                     type: string
                   colonReplacementFormat:
                     description: colonReplacementFormat defines how colons are replaced
@@ -545,6 +570,7 @@ spec:
                   dailyEpisodeFormat:
                     description: dailyEpisodeFormat is the naming format for daily
                       episodes.
+                    minLength: 1
                     type: string
                   multiEpisodeStyle:
                     description: |-
@@ -569,18 +595,22 @@ spec:
                   seasonFolderFormat:
                     description: seasonFolderFormat is the naming format for season
                       folders.
+                    minLength: 1
                     type: string
                   seriesFolderFormat:
                     description: seriesFolderFormat is the naming format for series
                       folders.
+                    minLength: 1
                     type: string
                   specialsFolderFormat:
                     description: specialsFolderFormat is the naming format for specials
                       folders.
+                    minLength: 1
                     type: string
                   standardEpisodeFormat:
                     description: standardEpisodeFormat is the naming format for standard
                       episodes.
+                    minLength: 1
                     type: string
                 type: object
               notifications:
@@ -593,6 +623,7 @@ spec:
                       description: |-
                         configContract is the configuration contract name for the implementation.
                         Defaults to "<implementation>Settings" if not set.
+                      minLength: 1
                       type: string
                     fields:
                       description: fields defines the notification's configuration
@@ -605,6 +636,7 @@ spec:
                         properties:
                           name:
                             description: name is the field name.
+                            minLength: 1
                             type: string
                           value:
                             description: 'value is the field value: a string, number,
@@ -619,9 +651,11 @@ spec:
                                 properties:
                                   key:
                                     description: key is the key within the Secret.
+                                    minLength: 1
                                     type: string
                                   name:
                                     description: name is the name of the Secret.
+                                    minLength: 1
                                     type: string
                                 required:
                                 - key
@@ -640,6 +674,7 @@ spec:
                     implementation:
                       description: implementation is the notification type (e.g.,
                         Discord, Slack, Webhook, Email).
+                      minLength: 1
                       type: string
                     includeHealthWarnings:
                       description: includeHealthWarnings includes health warnings
@@ -647,6 +682,7 @@ spec:
                       type: boolean
                     name:
                       description: name is the display name of the notification.
+                      minLength: 1
                       type: string
                     onAlbumDelete:
                       description: onAlbumDelete fires when an album is deleted (Lidarr).
@@ -807,6 +843,7 @@ spec:
                       type: string
                     title:
                       description: title is the name the app shows for the quality.
+                      minLength: 1
                       type: string
                   required:
                   - quality
@@ -827,6 +864,7 @@ spec:
                       description: |-
                         cutoff is the quality or group name at which quality upgrades stop.
                         Must match a quality name or group name in the items list.
+                      minLength: 1
                       type: string
                     cutoffFormatScore:
                       description: cutoffFormatScore is the custom format score at
@@ -844,6 +882,7 @@ spec:
                           name:
                             description: name is the custom format name. Must match
                               an existing custom format.
+                            minLength: 1
                             type: string
                           score:
                             description: score is the score to assign. Positive values
@@ -888,13 +927,16 @@ spec:
                                   description: quality identifies the quality level.
                                   properties:
                                     id:
-                                      description: id is the quality ID (e.g., 7 for
-                                        Bluray-1080p). IDs are app-specific.
+                                      description: |-
+                                        id is the quality ID (e.g., 7 for Bluray-1080p). IDs are app-specific,
+                                        and 0 is Unknown.
                                       format: int32
+                                      minimum: 0
                                       type: integer
                                     name:
                                       description: name is the quality display name
                                         (e.g., "Bluray-1080p").
+                                      minLength: 1
                                       type: string
                                   required:
                                   - id
@@ -907,6 +949,7 @@ spec:
                           name:
                             description: name is the group name. Set only for quality
                               groups, not individual qualities.
+                            minLength: 1
                             type: string
                           quality:
                             description: |-
@@ -914,13 +957,16 @@ spec:
                               Set for individual qualities, omit for groups.
                             properties:
                               id:
-                                description: id is the quality ID (e.g., 7 for Bluray-1080p).
-                                  IDs are app-specific.
+                                description: |-
+                                  id is the quality ID (e.g., 7 for Bluray-1080p). IDs are app-specific,
+                                  and 0 is Unknown.
                                 format: int32
+                                minimum: 0
                                 type: integer
                               name:
                                 description: name is the quality display name (e.g.,
                                   "Bluray-1080p").
+                                minLength: 1
                                 type: string
                             required:
                             - id
@@ -944,6 +990,7 @@ spec:
                       type: integer
                     name:
                       description: name is the display name of the quality profile.
+                      minLength: 1
                       type: string
                     upgradeAllowed:
                       description: upgradeAllowed controls whether upgrades to better
@@ -1047,21 +1094,25 @@ spec:
                         defaultMetadataProfileName is the metadata profile for content added to
                         this folder (Lidarr, Readarr; required there). Resolved to an ID at
                         reconciliation time.
+                      minLength: 1
                       type: string
                     defaultQualityProfileName:
                       description: |-
                         defaultQualityProfileName is the quality profile for content added to
                         this folder (Lidarr, Readarr; required there). Resolved to an ID at
                         reconciliation time, after declared quality profiles are applied.
+                      minLength: 1
                       type: string
                     name:
                       description: |-
                         name labels the root folder (Lidarr, Readarr). Defaults to the last
                         element of path.
+                      minLength: 1
                       type: string
                     path:
                       description: path is the filesystem path for the root folder
                         inside the container.
+                      minLength: 1
                       type: string
                   required:
                   - path
@@ -1079,6 +1130,7 @@ spec:
                   properties:
                     label:
                       description: label is the tag name.
+                      minLength: 1
                       type: string
                   required:
                   - label
@@ -1103,9 +1155,11 @@ spec:
                     type: integer
                   longDateFormat:
                     description: longDateFormat is the long date display format.
+                    minLength: 1
                     type: string
                   shortDateFormat:
                     description: shortDateFormat is the short date display format.
+                    minLength: 1
                     type: string
                   showRelativeDates:
                     description: showRelativeDates shows relative dates (today, yesterday).
@@ -1119,6 +1173,7 @@ spec:
                     type: string
                   timeFormat:
                     description: timeFormat is the time display format.
+                    minLength: 1
                     type: string
                   uiLanguage:
                     description: uiLanguage is the UI language ID. 1=English.
@@ -1130,6 +1185,7 @@ spec:
             type: object
           status:
             description: status is the observed state of the Sonarr.
+            minProperties: 1
             properties:
               conditions:
                 description: conditions represent the current state of the Sonarr
@@ -1227,6 +1283,7 @@ spec:
               observedGeneration:
                 description: observedGeneration is the most recent generation observed.
                 format: int64
+                minimum: 1
                 type: integer
             type: object
         required:

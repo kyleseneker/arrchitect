@@ -114,7 +114,7 @@ func qbPreferencePayload(prefs *downloadsv1alpha1.QBittorrentPreferences) (map[s
 		key, plain := qbclient.Preferences[name]
 		bytes, speed := qbclient.SpeedLimits[name]
 		switch {
-		case field.Kind() == reflect.Pointer && field.IsNil(), field.Kind() == reflect.String && field.String() == "":
+		case field.IsZero():
 		case plain:
 			out[key] = reflect.Indirect(field).Interface()
 		case speed:
@@ -145,17 +145,17 @@ func qbPreferencePayload(prefs *downloadsv1alpha1.QBittorrentPreferences) (map[s
 		}
 		out["max_ratio"] = ratio
 	}
-	if prefs.Encryption != nil {
-		mode, ok := qbclient.Encryptions[*prefs.Encryption]
+	if prefs.Encryption != "" {
+		mode, ok := qbclient.Encryptions[prefs.Encryption]
 		if !ok {
-			return nil, fmt.Errorf("unknown encryption %q", *prefs.Encryption)
+			return nil, fmt.Errorf("unknown encryption %q", prefs.Encryption)
 		}
 		out["encryption"] = mode
 	}
-	if prefs.MaxRatioAction != nil {
-		act, ok := qbclient.MaxRatioActions[*prefs.MaxRatioAction]
+	if prefs.MaxRatioAction != "" {
+		act, ok := qbclient.MaxRatioActions[prefs.MaxRatioAction]
 		if !ok {
-			return nil, fmt.Errorf("unknown maxRatioAction %q", *prefs.MaxRatioAction)
+			return nil, fmt.Errorf("unknown maxRatioAction %q", prefs.MaxRatioAction)
 		}
 		out["max_ratio_act"] = act
 	}

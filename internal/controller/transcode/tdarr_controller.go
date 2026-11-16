@@ -391,8 +391,8 @@ func buildTdarrLibraryDoc(lib transcodev1alpha1.TdarrLibrary) map[string]any {
 			obj[key] = *value
 		}
 	}
-	if lib.FolderWatchScanInterval != nil {
-		obj["folderWatchScanInterval"] = *lib.FolderWatchScanInterval
+	if lib.FolderWatchScanInterval != 0 {
+		obj["folderWatchScanInterval"] = lib.FolderWatchScanInterval
 	}
 	if lib.ProcessLibrary != nil {
 		obj["processLibrary"] = *lib.ProcessLibrary
