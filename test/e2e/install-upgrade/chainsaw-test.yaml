@@ -106,10 +106,18 @@ spec:
               [ "$(can create view-user)" = no ]
               [ "$(can create edit-user)" = yes ]
               [ "$(can delete edit-user)" = yes ]
-    - name: uninstall, keeping the CRDs and resources
+    - name: delete an object while the operator runs
       description: >-
-        The download client deletes what it created by default, so it keeps its finalizer with no
-        operator left to remove it, as it would for anyone uninstalling first.
+        The download client deletes what it created by default, so it holds the operator's
+        finalizer until the operator has cleaned up after it.
+      try:
+        - delete:
+            ref:
+              apiVersion: arrchitect.dev/v1alpha1
+              kind: SonarrDownloadClient
+              name: sonarr-qbittorrent
+      catch: *diagnostics
+    - name: uninstall, keeping the CRDs and resources
       try:
         - script:
             content: helm uninstall arrchitect --namespace arrchitect --wait
@@ -125,16 +133,3 @@ spec:
               kind: Sonarr
               metadata:
                 name: sonarr
-        - assert:
-            resource:
-              apiVersion: arrchitect.dev/v1alpha1
-              kind: SonarrDownloadClient
-              metadata:
-                name: sonarr-qbittorrent
-                finalizers:
-                  - arrchitect.dev/finalizer
-      cleanup:
-        - script:
-            content: |
-              kubectl -n "$NAMESPACE" patch sonarrdownloadclient sonarr-qbittorrent --type=merge \
-                -p '{"metadata":{"finalizers":null}}'
