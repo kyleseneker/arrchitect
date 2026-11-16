@@ -50,7 +50,7 @@ type pvrObject struct {
 	// options returns the object as the engine applies it, with its Secrets
 	// resolved.
 	options func(context.Context) (pvrclient.Options, error)
-	setID   func(int)
+	setID   func(int32)
 }
 
 func reconcilePVRObject(ctx context.Context, c client.Client, recorder events.EventRecorder, o pvrObject) (ctrl.Result, error) {
@@ -156,7 +156,7 @@ func older(a, b client.Object) bool {
 }
 
 // idOf finds the ID the app gave the object with this name.
-func idOf(ctx context.Context, hc *engine.HTTPClient, path, name string) (int, bool) {
+func idOf(ctx context.Context, hc *engine.HTTPClient, path, name string) (int32, bool) {
 	items, err := hc.GetJSONList(ctx, path)
 	if err != nil {
 		return 0, false
@@ -164,7 +164,7 @@ func idOf(ctx context.Context, hc *engine.HTTPClient, path, name string) (int, b
 	for _, item := range items {
 		if item["name"] == name {
 			if id, ok := item["id"].(float64); ok {
-				return int(id), true
+				return int32(id), true
 			}
 		}
 	}

@@ -161,11 +161,13 @@ spec:
                 type: object
               port:
                 description: port is the port of the download client.
+                format: int32
                 type: integer
               priority:
                 description: |-
                   priority is the download client priority. Lower values are higher priority.
                   A new download client gets 1.
+                format: int32
                 maximum: 50
                 minimum: 1
                 type: integer
@@ -300,6 +302,7 @@ spec:
                 x-kubernetes-list-type: map
               id:
                 description: id is the download client's ID in Radarr.
+                format: int32
                 type: integer
               lastSyncTime:
                 description: lastSyncTime is the timestamp of the last successful

@@ -82,7 +82,7 @@ type FlareSolverrStatus struct {
 
 	// activeSessions is the number of active sessions managed by this resource.
 	// +optional
-	ActiveSessions int `json:"activeSessions,omitempty"`
+	ActiveSessions int32 `json:"activeSessions,omitempty"`
 
 	// managedResources records the resources this operator created, keyed by
 	// resource type. Prune only removes entries listed here, so resources

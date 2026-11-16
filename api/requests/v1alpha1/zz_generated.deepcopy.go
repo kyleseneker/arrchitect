@@ -83,7 +83,7 @@ func (in *SeerrJellyfinAuth) DeepCopyInto(out *SeerrJellyfinAuth) {
 	*out = *in
 	if in.Port != nil {
 		in, out := &in.Port, &out.Port
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.UseSsl != nil {
@@ -157,7 +157,7 @@ func (in *SeerrMain) DeepCopyInto(out *SeerrMain) {
 	}
 	if in.DefaultPermissions != nil {
 		in, out := &in.DefaultPermissions, &out.DefaultPermissions
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.PartialRequestsEnabled != nil {
@@ -221,7 +221,7 @@ func (in *SeerrPlexAuth) DeepCopyInto(out *SeerrPlexAuth) {
 	*out = *in
 	if in.Port != nil {
 		in, out := &in.Port, &out.Port
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.UseSsl != nil {
@@ -247,7 +247,7 @@ func (in *SeerrServiceConnection) DeepCopyInto(out *SeerrServiceConnection) {
 	*out = *in
 	if in.Port != nil {
 		in, out := &in.Port, &out.Port
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	out.APIKeySecretRef = in.APIKeySecretRef
@@ -258,7 +258,7 @@ func (in *SeerrServiceConnection) DeepCopyInto(out *SeerrServiceConnection) {
 	}
 	if in.ActiveProfileId != nil {
 		in, out := &in.ActiveProfileId, &out.ActiveProfileId
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.Is4k != nil {

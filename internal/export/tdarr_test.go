@@ -62,12 +62,12 @@ func TestTdarrExportsLibrariesFlowsAndWorkers(t *testing.T) {
 	assert.Equal(t, map[string]string{"fromDoc": "a", "shared": "db"}, movies.Variables, "variable documents win over the library copy")
 	assert.Equal(t, "hevc", movies.FilterCodecsSkip)
 	assert.True(t, *movies.FilterHardlinked)
-	assert.Equal(t, 30, *movies.FolderWatchScanInterval)
+	assert.Equal(t, int32(30), *movies.FolderWatchScanInterval)
 
 	settings := cfg.Spec.Settings
 	require.NotNil(t, settings)
 	assert.True(t, *settings.AutoAcceptTranscodes)
-	assert.Equal(t, 50, *settings.StagedFileLimit)
+	assert.Equal(t, int32(50), *settings.StagedFileLimit)
 	assert.Empty(t, settings.NotificationsCustomText)
 	require.NotNil(t, settings.NotificationsDiscordWebhookSecretRef)
 	assert.Equal(t, "https://discord.example/hook", res.Secret.StringData[settings.NotificationsDiscordWebhookSecretRef.Key])
@@ -84,8 +84,8 @@ func TestTdarrExportsLibrariesFlowsAndWorkers(t *testing.T) {
 	require.Len(t, cfg.Spec.Workers, 2, "every node's workers are exported")
 	internal := cfg.Spec.Workers[0]
 	assert.Equal(t, "InternalNode", internal.NodeName)
-	assert.Equal(t, 2, *internal.TranscodeCPU)
-	assert.Equal(t, 1, *internal.HealthcheckGPU)
+	assert.Equal(t, int32(2), *internal.TranscodeCPU)
+	assert.Equal(t, int32(1), *internal.HealthcheckGPU)
 	assert.Nil(t, internal.TranscodeGPU)
 	assert.Equal(t, "Zeta", cfg.Spec.Workers[1].NodeName)
 }

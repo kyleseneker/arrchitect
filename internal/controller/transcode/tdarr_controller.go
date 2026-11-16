@@ -537,7 +537,7 @@ func (s *tdarrSync) nodeWorkers(ctx context.Context, nodes map[string]any, worke
 
 	workerLimits := []struct {
 		workerType string
-		limit      *int
+		limit      *int32
 	}{
 		{"transcodegpu", workers.TranscodeGPU},
 		{"transcodecpu", workers.TranscodeCPU},
@@ -550,7 +550,7 @@ func (s *tdarrSync) nodeWorkers(ctx context.Context, nodes map[string]any, worke
 		if wl.limit == nil {
 			continue
 		}
-		if err := s.convergeWorkerLimit(ctx, nodeID, wl.workerType, current[wl.workerType], *wl.limit); err != nil {
+		if err := s.convergeWorkerLimit(ctx, nodeID, wl.workerType, current[wl.workerType], int(*wl.limit)); err != nil {
 			return fmt.Errorf("setting %s limit: %w", wl.workerType, err)
 		}
 	}

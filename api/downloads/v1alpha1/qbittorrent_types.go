@@ -93,19 +93,19 @@ type QBittorrentPreferences struct {
 
 	// maxConnec is the global maximum number of connections. -1 means unlimited.
 	// +optional
-	MaxConnec *int `json:"maxConnec,omitempty"`
+	MaxConnec *int32 `json:"maxConnec,omitempty"`
 
 	// maxConnecPerTorrent is the maximum connections per torrent. -1 means unlimited.
 	// +optional
-	MaxConnecPerTorrent *int `json:"maxConnecPerTorrent,omitempty"`
+	MaxConnecPerTorrent *int32 `json:"maxConnecPerTorrent,omitempty"`
 
 	// maxUploads is the global maximum number of upload slots. -1 means unlimited.
 	// +optional
-	MaxUploads *int `json:"maxUploads,omitempty"`
+	MaxUploads *int32 `json:"maxUploads,omitempty"`
 
 	// maxUploadsPerTorrent is the maximum upload slots per torrent. -1 means unlimited.
 	// +optional
-	MaxUploadsPerTorrent *int `json:"maxUploadsPerTorrent,omitempty"`
+	MaxUploadsPerTorrent *int32 `json:"maxUploadsPerTorrent,omitempty"`
 
 	// maxRatioEnabled enables the global share ratio limit.
 	// +optional
@@ -129,7 +129,7 @@ type QBittorrentPreferences struct {
 	// maxSeedingTime is the global seeding time limit in minutes. It applies
 	// while maxSeedingTimeEnabled is true, here or in qBittorrent.
 	// +optional
-	MaxSeedingTime *int `json:"maxSeedingTime,omitempty"`
+	MaxSeedingTime *int32 `json:"maxSeedingTime,omitempty"`
 
 	// preallocateAll enables disk space pre-allocation for all files.
 	// +optional
@@ -141,7 +141,7 @@ type QBittorrentPreferences struct {
 
 	// webUiPort is the Web UI listening port.
 	// +optional
-	WebUIPort *int `json:"webUiPort,omitempty"`
+	WebUIPort *int32 `json:"webUiPort,omitempty"`
 
 	// bypassAuthSubnetWhitelistEnabled lets clients in the whitelisted subnets skip
 	// the WebUI login, so an authenticating proxy does not produce a second prompt.
@@ -209,24 +209,24 @@ type QBittorrentPreferences struct {
 	// dlLimit is the global download speed limit in KiB/s. 0 means unlimited.
 	// +optional
 	// +kubebuilder:validation:Minimum=0
-	DlLimit *int `json:"dlLimit,omitempty"`
+	DlLimit *int32 `json:"dlLimit,omitempty"`
 
 	// upLimit is the global upload speed limit in KiB/s. 0 means unlimited.
 	// +optional
 	// +kubebuilder:validation:Minimum=0
-	UpLimit *int `json:"upLimit,omitempty"`
+	UpLimit *int32 `json:"upLimit,omitempty"`
 
 	// altDlLimit is the download speed limit in KiB/s while the alternative
 	// limits are on. 0 means unlimited.
 	// +optional
 	// +kubebuilder:validation:Minimum=0
-	AltDlLimit *int `json:"altDlLimit,omitempty"`
+	AltDlLimit *int32 `json:"altDlLimit,omitempty"`
 
 	// altUpLimit is the upload speed limit in KiB/s while the alternative limits
 	// are on. 0 means unlimited.
 	// +optional
 	// +kubebuilder:validation:Minimum=0
-	AltUpLimit *int `json:"altUpLimit,omitempty"`
+	AltUpLimit *int32 `json:"altUpLimit,omitempty"`
 
 	// schedulerEnabled turns the alternative limits on and off on a schedule.
 	// +optional
@@ -236,25 +236,25 @@ type QBittorrentPreferences struct {
 	// +optional
 	// +kubebuilder:validation:Minimum=0
 	// +kubebuilder:validation:Maximum=23
-	ScheduleFromHour *int `json:"scheduleFromHour,omitempty"`
+	ScheduleFromHour *int32 `json:"scheduleFromHour,omitempty"`
 
 	// scheduleFromMin is the minute the alternative limits start.
 	// +optional
 	// +kubebuilder:validation:Minimum=0
 	// +kubebuilder:validation:Maximum=59
-	ScheduleFromMin *int `json:"scheduleFromMin,omitempty"`
+	ScheduleFromMin *int32 `json:"scheduleFromMin,omitempty"`
 
 	// scheduleToHour is the hour the alternative limits end.
 	// +optional
 	// +kubebuilder:validation:Minimum=0
 	// +kubebuilder:validation:Maximum=23
-	ScheduleToHour *int `json:"scheduleToHour,omitempty"`
+	ScheduleToHour *int32 `json:"scheduleToHour,omitempty"`
 
 	// scheduleToMin is the minute the alternative limits end.
 	// +optional
 	// +kubebuilder:validation:Minimum=0
 	// +kubebuilder:validation:Maximum=59
-	ScheduleToMin *int `json:"scheduleToMin,omitempty"`
+	ScheduleToMin *int32 `json:"scheduleToMin,omitempty"`
 
 	// schedulerDays is the days the schedule runs.
 	// +optional
@@ -279,15 +279,15 @@ type QBittorrentPreferences struct {
 
 	// maxActiveDownloads is how many torrents can download at once. -1 means unlimited.
 	// +optional
-	MaxActiveDownloads *int `json:"maxActiveDownloads,omitempty"`
+	MaxActiveDownloads *int32 `json:"maxActiveDownloads,omitempty"`
 
 	// maxActiveUploads is how many torrents can seed at once. -1 means unlimited.
 	// +optional
-	MaxActiveUploads *int `json:"maxActiveUploads,omitempty"`
+	MaxActiveUploads *int32 `json:"maxActiveUploads,omitempty"`
 
 	// maxActiveTorrents is how many torrents can be active at once. -1 means unlimited.
 	// +optional
-	MaxActiveTorrents *int `json:"maxActiveTorrents,omitempty"`
+	MaxActiveTorrents *int32 `json:"maxActiveTorrents,omitempty"`
 
 	// dontCountSlowTorrents leaves slow torrents out of the active limits.
 	// +optional
@@ -297,25 +297,25 @@ type QBittorrentPreferences struct {
 	// torrent counts as slow.
 	// +optional
 	// +kubebuilder:validation:Minimum=0
-	SlowTorrentDlRateThreshold *int `json:"slowTorrentDlRateThreshold,omitempty"`
+	SlowTorrentDlRateThreshold *int32 `json:"slowTorrentDlRateThreshold,omitempty"`
 
 	// slowTorrentUlRateThreshold is the upload speed in KiB/s below which a
 	// torrent counts as slow.
 	// +optional
 	// +kubebuilder:validation:Minimum=0
-	SlowTorrentUlRateThreshold *int `json:"slowTorrentUlRateThreshold,omitempty"`
+	SlowTorrentUlRateThreshold *int32 `json:"slowTorrentUlRateThreshold,omitempty"`
 
 	// slowTorrentInactiveTimer is how many seconds a torrent stays under the
 	// thresholds before it counts as slow.
 	// +optional
 	// +kubebuilder:validation:Minimum=0
-	SlowTorrentInactiveTimer *int `json:"slowTorrentInactiveTimer,omitempty"`
+	SlowTorrentInactiveTimer *int32 `json:"slowTorrentInactiveTimer,omitempty"`
 
 	// listenPort is the port for incoming connections.
 	// +optional
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=65535
-	ListenPort *int `json:"listenPort,omitempty"`
+	ListenPort *int32 `json:"listenPort,omitempty"`
 
 	// randomPort picks a different listening port on each start.
 	// +optional
@@ -348,7 +348,7 @@ type QBittorrentPreferences struct {
 	// minutes. It applies while maxInactiveSeedingTimeEnabled is true, here or
 	// in qBittorrent.
 	// +optional
-	MaxInactiveSeedingTime *int `json:"maxInactiveSeedingTime,omitempty"`
+	MaxInactiveSeedingTime *int32 `json:"maxInactiveSeedingTime,omitempty"`
 }
 
 // QBittorrentCategory defines a download category with its save path.

@@ -52,7 +52,7 @@ func exportPlex(r *reader) (map[string]any, error) {
 				switch field.Type.Elem().Kind() {
 				case reflect.Bool:
 					out[name] = value == "1"
-				case reflect.Int:
+				case reflect.Int, reflect.Int32, reflect.Int64:
 					if n, err := strconv.Atoi(value); err == nil {
 						out[name] = n
 					}

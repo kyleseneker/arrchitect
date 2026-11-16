@@ -66,7 +66,7 @@ type TdarrSettings struct {
 	// stagedFileLimit is how many files can wait in staging for review.
 	// +optional
 	// +kubebuilder:validation:Minimum=0
-	StagedFileLimit *int `json:"stagedFileLimit,omitempty"`
+	StagedFileLimit *int32 `json:"stagedFileLimit,omitempty"`
 
 	// autoPauseIfCacheFull pauses every node when a library cache has less
 	// free space than autoPauseIfCacheFullThreshold.
@@ -77,7 +77,7 @@ type TdarrSettings struct {
 	// autoPauseIfCacheFull pauses the nodes.
 	// +optional
 	// +kubebuilder:validation:Minimum=0
-	AutoPauseIfCacheFullThreshold *int `json:"autoPauseIfCacheFullThreshold,omitempty"`
+	AutoPauseIfCacheFullThreshold *int32 `json:"autoPauseIfCacheFullThreshold,omitempty"`
 
 	// workerStallDetector cancels workers that stall.
 	// +optional
@@ -87,7 +87,7 @@ type TdarrSettings struct {
 	// for stalls.
 	// +optional
 	// +kubebuilder:validation:Minimum=1
-	WorkerStallDetectorInterval *int `json:"workerStallDetectorInterval,omitempty"`
+	WorkerStallDetectorInterval *int32 `json:"workerStallDetectorInterval,omitempty"`
 
 	// ignoreSchedules runs workers outside their libraries' schedules.
 	// +optional
@@ -120,12 +120,12 @@ type TdarrSettings struct {
 	// jobHistorySizeLimitGB caps the job history, in GB.
 	// +optional
 	// +kubebuilder:validation:Minimum=0
-	JobHistorySizeLimitGB *int `json:"jobHistorySizeLimitGB,omitempty"`
+	JobHistorySizeLimitGB *int32 `json:"jobHistorySizeLimitGB,omitempty"`
 
 	// backupLimit is how many server backups are kept.
 	// +optional
 	// +kubebuilder:validation:Minimum=0
-	BackupLimit *int `json:"backupLimit,omitempty"`
+	BackupLimit *int32 `json:"backupLimit,omitempty"`
 
 	// logFullCliOutput logs the whole FFmpeg and HandBrake output of each job.
 	// +optional
@@ -242,7 +242,7 @@ type TdarrLibrary struct {
 	// folderWatchScanInterval is how often, in seconds, folder watching polls.
 	// +optional
 	// +kubebuilder:validation:Minimum=1
-	FolderWatchScanInterval *int `json:"folderWatchScanInterval,omitempty"`
+	FolderWatchScanInterval *int32 `json:"folderWatchScanInterval,omitempty"`
 
 	// folderWatching enables watching the folder for new files.
 	// +optional
@@ -281,7 +281,7 @@ type TdarrLibrary struct {
 
 	// scannerThreadCount is the number of threads used for scanning.
 	// +optional
-	ScannerThreadCount *int `json:"scannerThreadCount,omitempty"`
+	ScannerThreadCount *int32 `json:"scannerThreadCount,omitempty"`
 
 	// ffmpeg enables using FFmpeg (true) vs HandBrake (false) for transcoding.
 	// +optional
@@ -289,7 +289,7 @@ type TdarrLibrary struct {
 
 	// priority is the processing priority for this library. Lower values are higher priority.
 	// +optional
-	Priority *int `json:"priority,omitempty"`
+	Priority *int32 `json:"priority,omitempty"`
 
 	// flowId is the Tdarr flow this library processes files with. Flows are the
 	// current mechanism; classic plugin stacks are the older alternative.
@@ -349,19 +349,19 @@ type TdarrWorkers struct {
 
 	// transcodeGPU is the number of GPU transcode workers.
 	// +optional
-	TranscodeGPU *int `json:"transcodeGPU,omitempty"`
+	TranscodeGPU *int32 `json:"transcodeGPU,omitempty"`
 
 	// transcodeCPU is the number of CPU transcode workers.
 	// +optional
-	TranscodeCPU *int `json:"transcodeCPU,omitempty"`
+	TranscodeCPU *int32 `json:"transcodeCPU,omitempty"`
 
 	// healthcheckGPU is the number of GPU health check workers.
 	// +optional
-	HealthcheckGPU *int `json:"healthcheckGPU,omitempty"`
+	HealthcheckGPU *int32 `json:"healthcheckGPU,omitempty"`
 
 	// healthcheckCPU is the number of CPU health check workers.
 	// +optional
-	HealthcheckCPU *int `json:"healthcheckCPU,omitempty"`
+	HealthcheckCPU *int32 `json:"healthcheckCPU,omitempty"`
 }
 
 // TdarrStatus defines the observed state of Tdarr.

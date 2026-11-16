@@ -288,7 +288,7 @@ func TestSabnzbdValuesUseSABnzbdsForms(t *testing.T) {
 		UnwantedExtensionsMode:   "blocklist",
 		UnwantedExtensionsAction: "pause",
 		HistoryRetention:         "days-delete",
-		HistoryRetentionNumber:   new(30),
+		HistoryRetentionNumber:   new(int32(30)),
 		Permissions:              "775",
 	})
 	assert.Equal(t, map[string]string{
@@ -303,7 +303,7 @@ func TestSabnzbdValuesUseSABnzbdsForms(t *testing.T) {
 	}, got)
 
 	server := sabnzbdServerValues(downloadsv1alpha1.SabnzbdServer{
-		Host: "news.example.com", Port: 563, SSLVerify: "medium", Optional: new(true), Required: new(false), Timeout: new(30),
+		Host: "news.example.com", Port: 563, SSLVerify: "medium", Optional: new(true), Required: new(false), Timeout: new(int32(30)),
 	})
 	assert.Equal(t, map[string]string{
 		"host": "news.example.com", "port": "563", "ssl_verify": "2", "optional": "1", "required": "0", "timeout": "30",

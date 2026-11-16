@@ -50,7 +50,7 @@ func (r *RadarrDownloadClientReconciler) Reconcile(ctx context.Context, req ctrl
 			secrets, err := ctrlcommon.ResolveDownloadClientSecrets(ctx, r.Client, obj.Namespace, dcs)
 			return pvrclient.Options{DownloadClients: dcs, DCSecrets: secrets}, err
 		},
-		setID: func(id int) { obj.Status.ID = id },
+		setID: func(id int32) { obj.Status.ID = id },
 	})
 }
 

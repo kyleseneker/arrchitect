@@ -41,20 +41,20 @@ func TestJellyfinExportsSettingsLibrariesAndTheAdminUser(t *testing.T) {
 	cfg, ok := res.Config.(*mediaserversv1alpha1.Jellyfin)
 	require.True(t, ok)
 	assert.Equal(t, "home", cfg.Spec.Server.ServerName)
-	assert.Equal(t, 3, *cfg.Spec.Server.LogFileRetentionDays)
+	assert.Equal(t, int32(3), *cfg.Spec.Server.LogFileRetentionDays)
 	assert.Equal(t, "vaapi", cfg.Spec.Encoding.HardwareAccelerationType)
 	assert.Equal(t, []string{"h264", "hevc"}, cfg.Spec.Encoding.HardwareDecodingCodecs)
 	assert.Equal(t, "100", string(*cfg.Spec.Encoding.TonemappingPeak))
 	assert.Equal(t, "2.5", string(*cfg.Spec.Encoding.DownMixAudioBoost))
 	assert.True(t, *cfg.Spec.Server.EnableMetrics)
-	assert.Equal(t, &mediaserversv1alpha1.JellyfinTrickplay{EnableHwAcceleration: new(true), Interval: new(10000), WidthResolutions: []int{320}},
+	assert.Equal(t, &mediaserversv1alpha1.JellyfinTrickplay{EnableHwAcceleration: new(true), Interval: new(int32(10000)), WidthResolutions: []int32{320}},
 		cfg.Spec.Server.TrickplayOptions)
 	assert.Equal(t, &mediaserversv1alpha1.JellyfinNetwork{KnownProxies: []string{"10.0.0.1"}, EnableRemoteAccess: new(true)},
 		cfg.Spec.Network, "the base URL and ports aren't in the config")
 	require.Len(t, cfg.Spec.Libraries, 2)
 	assert.Equal(t, []string{"/media/movies"}, cfg.Spec.Libraries[0].Paths)
 	assert.True(t, *cfg.Spec.Libraries[0].EnableRealtimeMonitor)
-	assert.Equal(t, 30, *cfg.Spec.Libraries[0].AutomaticRefreshIntervalDays)
+	assert.Equal(t, int32(30), *cfg.Spec.Libraries[0].AutomaticRefreshIntervalDays)
 	assert.Equal(t, "mixed", cfg.Spec.Libraries[1].CollectionType)
 	assert.Equal(t, "username", cfg.Spec.AdminUser.UsernameSecretRef.Key)
 	assert.Equal(t, map[string]string{"username": "admin", "password": "pw"}, res.Secret.StringData)

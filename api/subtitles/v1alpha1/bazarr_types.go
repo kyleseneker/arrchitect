@@ -70,11 +70,11 @@ type BazarrGeneral struct {
 
 	// minimumScore is the minimum subtitle match score for series.
 	// +optional
-	MinimumScore *int `json:"minimumScore,omitempty"`
+	MinimumScore *int32 `json:"minimumScore,omitempty"`
 
 	// minimumScoreMovie is the minimum subtitle match score for movies.
 	// +optional
-	MinimumScoreMovie *int `json:"minimumScoreMovie,omitempty"`
+	MinimumScoreMovie *int32 `json:"minimumScoreMovie,omitempty"`
 
 	// useScenename uses scene names for subtitle searching.
 	// +optional
@@ -102,11 +102,11 @@ type BazarrGeneral struct {
 
 	// upgradeFrequency is the frequency in hours to check for subtitle upgrades.
 	// +optional
-	UpgradeFrequency *int `json:"upgradeFrequency,omitempty"`
+	UpgradeFrequency *int32 `json:"upgradeFrequency,omitempty"`
 
 	// wantedSearchFrequency is the frequency in hours to search for wanted subtitles.
 	// +optional
-	WantedSearchFrequency *int `json:"wantedSearchFrequency,omitempty"`
+	WantedSearchFrequency *int32 `json:"wantedSearchFrequency,omitempty"`
 
 	// utf8Encode encodes subtitles to UTF-8.
 	// +optional
@@ -190,7 +190,7 @@ type BazarrGeneral struct {
 	// +optional
 	// +kubebuilder:validation:Minimum=0
 	// +kubebuilder:validation:Maximum=100
-	PostprocessingThreshold *int `json:"postprocessingThreshold,omitempty"`
+	PostprocessingThreshold *int32 `json:"postprocessingThreshold,omitempty"`
 
 	// usePostprocessingThresholdMovie runs postprocessingCmd for a movie
 	// subtitle only when its score is below postprocessingThresholdMovie.
@@ -202,7 +202,7 @@ type BazarrGeneral struct {
 	// +optional
 	// +kubebuilder:validation:Minimum=0
 	// +kubebuilder:validation:Maximum=100
-	PostprocessingThresholdMovie *int `json:"postprocessingThresholdMovie,omitempty"`
+	PostprocessingThresholdMovie *int32 `json:"postprocessingThresholdMovie,omitempty"`
 }
 
 // BazarrPathMapping translates a path Sonarr or Radarr reports into the path
@@ -227,7 +227,7 @@ type BazarrAppConnection struct {
 
 	// port is the port of the application.
 	// +required
-	Port *int `json:"port,omitempty"`
+	Port *int32 `json:"port,omitempty"`
 
 	// basePath is the URL base path of the application.
 	// +optional
@@ -243,7 +243,7 @@ type BazarrAppConnection struct {
 
 	// httpTimeout is the HTTP request timeout in seconds.
 	// +optional
-	HttpTimeout *int `json:"httpTimeout,omitempty"`
+	HttpTimeout *int32 `json:"httpTimeout,omitempty"`
 
 	// fullUpdate controls how often a full library sync is performed.
 	// +optional
@@ -257,7 +257,7 @@ type BazarrAppConnection struct {
 	// syncInterval is how often, in minutes, Bazarr syncs the library.
 	// +optional
 	// +kubebuilder:validation:Enum=15;60;180;360;720;1440;10080
-	SyncInterval *int `json:"syncInterval,omitempty"`
+	SyncInterval *int32 `json:"syncInterval,omitempty"`
 
 	// excludedTags leaves out items with any of these tags.
 	// +optional
@@ -288,7 +288,7 @@ type BazarrSubSync struct {
 
 	// subsyncThreshold is the minimum score threshold for series subtitle sync.
 	// +optional
-	SubsyncThreshold *int `json:"subsyncThreshold,omitempty"`
+	SubsyncThreshold *int32 `json:"subsyncThreshold,omitempty"`
 
 	// useSubsyncMovieThreshold enables a score threshold for movie subtitle sync.
 	// +optional
@@ -296,7 +296,7 @@ type BazarrSubSync struct {
 
 	// subsyncMovieThreshold is the minimum score threshold for movie subtitle sync.
 	// +optional
-	SubsyncMovieThreshold *int `json:"subsyncMovieThreshold,omitempty"`
+	SubsyncMovieThreshold *int32 `json:"subsyncMovieThreshold,omitempty"`
 }
 
 // BazarrProvider defines a subtitle provider configuration.
@@ -338,7 +338,7 @@ type BazarrLanguages struct {
 type BazarrLanguageProfile struct {
 	// profileId is the unique identifier for this profile.
 	// +required
-	ProfileId *int `json:"profileId,omitempty"`
+	ProfileId *int32 `json:"profileId,omitempty"`
 
 	// name is the display name of the language profile.
 	// +required

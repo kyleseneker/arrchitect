@@ -204,18 +204,18 @@ func sabnzbdHostAllowed(connection string, whitelist []string) error {
 func sabnzbdServerValues(srv downloadsv1alpha1.SabnzbdServer) map[string]string {
 	vals := map[string]string{
 		"host": srv.Host,
-		"port": strconv.Itoa(srv.Port),
+		"port": strconv.Itoa(int(srv.Port)),
 	}
 	for key, value := range map[string]*bool{"ssl": srv.SSL, "enable": srv.Enable, "optional": srv.Optional, "required": srv.Required} {
 		if value != nil {
 			vals[key] = ctrlcommon.BoolTo01(*value)
 		}
 	}
-	for key, value := range map[string]*int{
+	for key, value := range map[string]*int32{
 		"connections": srv.Connections, "priority": srv.Priority, "retention": srv.Retention, "timeout": srv.Timeout,
 	} {
 		if value != nil {
-			vals[key] = strconv.Itoa(*value)
+			vals[key] = strconv.Itoa(int(*value))
 		}
 	}
 	if srv.SSLVerify != "" {

@@ -471,7 +471,7 @@ func TestAutobrrFilterAndActionSendTheirCriteriaUnderAutobrrKeys(t *testing.T) {
 	cfg := autobrrConfig(app.serve(t))
 	ratio := commonv1alpha1.Decimal("1.5")
 	cfg.Spec.Filters = []automationv1alpha1.AutobrrFilter{{
-		Name: "UHD", MatchHdr: []string{"DV", "HDR10+"}, ExceptReleaseGroups: "BAD", MaxDownloads: new(5),
+		Name: "UHD", MatchHdr: []string{"DV", "HDR10+"}, ExceptReleaseGroups: "BAD", MaxDownloads: new(int32(5)),
 		MaxDownloadsUnit: "DAY", Freeleech: new(true), ExceptTags: []string{"cam", "ts"}, TagsMatchLogic: "ALL",
 		Actions: []automationv1alpha1.AutobrrFilterAction{{
 			Name: "Hook", Type: "Webhook", WebhookURL: "http://hook", WebhookMethod: "POST",

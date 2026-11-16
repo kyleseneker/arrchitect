@@ -244,6 +244,7 @@ spec:
                     minimumCustomFormatScore:
                       description: minimumCustomFormatScore is the score bypassIfAboveCustomFormatScore
                         needs.
+                      format: int32
                       type: integer
                     preferredProtocol:
                       description: preferredProtocol is the protocol the app picks
@@ -263,11 +264,13 @@ spec:
                     torrentDelay:
                       description: torrentDelay is how many minutes the app waits
                         before grabbing a torrent release.
+                      format: int32
                       minimum: 0
                       type: integer
                     usenetDelay:
                       description: usenetDelay is how many minutes the app waits before
                         grabbing a Usenet release.
+                      format: int32
                       minimum: 0
                       type: integer
                   type: object
@@ -361,6 +364,7 @@ spec:
                       type: string
                     listOrder:
                       description: listOrder controls the display order of this list.
+                      format: int32
                       type: integer
                     metadataProfileName:
                       description: |-
@@ -424,15 +428,19 @@ spec:
                 properties:
                   maximumSize:
                     description: maximumSize is the maximum release size in MB.
+                    format: int32
                     type: integer
                   minimumAge:
                     description: minimumAge is the minimum age in minutes before downloading.
+                    format: int32
                     type: integer
                   retention:
                     description: retention is the usenet retention in days.
+                    format: int32
                     type: integer
                   rssSyncInterval:
                     description: rssSyncInterval is the RSS sync interval in minutes.
+                    format: int32
                     type: integer
                 type: object
               mediaManagement:
@@ -469,6 +477,7 @@ spec:
                   minimumFreeSpaceWhenImporting:
                     description: minimumFreeSpaceWhenImporting is the minimum free
                       space in MB required.
+                    format: int32
                     type: integer
                   recycleBin:
                     description: |-
@@ -478,6 +487,7 @@ spec:
                   recycleBinCleanupDays:
                     description: recycleBinCleanupDays is how many days files stay
                       in the recycling bin.
+                    format: int32
                     type: integer
                   rescanAfterRefresh:
                     description: rescanAfterRefresh controls when to rescan author
@@ -759,6 +769,7 @@ spec:
                     cutoffFormatScore:
                       description: cutoffFormatScore is the custom format score at
                         which upgrades stop.
+                      format: int32
                       type: integer
                     formatItems:
                       description: |-
@@ -775,6 +786,7 @@ spec:
                           score:
                             description: score is the score to assign. Positive values
                               prefer, negative values penalize.
+                            format: int32
                             type: integer
                         required:
                         - name
@@ -816,6 +828,7 @@ spec:
                                     id:
                                       description: id is the quality ID (e.g., 7 for
                                         Bluray-1080p). IDs are app-specific.
+                                      format: int32
                                       type: integer
                                     name:
                                       description: name is the quality display name
@@ -841,6 +854,7 @@ spec:
                               id:
                                 description: id is the quality ID (e.g., 7 for Bluray-1080p).
                                   IDs are app-specific.
+                                format: int32
                                 type: integer
                               name:
                                 description: name is the quality display name (e.g.,
@@ -859,10 +873,12 @@ spec:
                     minFormatScore:
                       description: minFormatScore is the minimum custom format score
                         required to grab a release.
+                      format: int32
                       type: integer
                     minUpgradeFormatScore:
                       description: minUpgradeFormatScore is the minimum score improvement
                         required for a format-based upgrade.
+                      format: int32
                       type: integer
                     name:
                       description: name is the display name of the quality profile.
@@ -1019,6 +1035,7 @@ spec:
                   firstDayOfWeek:
                     description: firstDayOfWeek is the first day of the week. 0=Sunday,
                       1=Monday.
+                    format: int32
                     type: integer
                   longDateFormat:
                     description: longDateFormat is the long date display format.
@@ -1038,6 +1055,7 @@ spec:
                     type: string
                   uiLanguage:
                     description: uiLanguage is the UI language ID.
+                    format: int32
                     type: integer
                 type: object
             required:

@@ -158,7 +158,7 @@ func TestBuildDownloadClientPayload(t *testing.T) {
 				}
 				assert.Equal(t, []map[string]any{
 					{"name": "host", "value": "qbit"},
-					{"name": "port", "value": 8080},
+					{"name": "port", "value": int32(8080)},
 				}, p["fields"], "useSsl and the category stay as the app has them")
 			},
 		},
@@ -178,7 +178,7 @@ func TestBuildDownloadClientPayload(t *testing.T) {
 			dc: commonv1alpha1.DownloadClient{
 				Name: "qBit", Protocol: "torrent", Implementation: "QBittorrent",
 				Host: "qbit", Port: 8080, Category: "movies",
-				Enable: new(false), Priority: new(5),
+				Enable: new(false), Priority: new(int32(5)),
 				RemoveCompletedDownloads: new(false),
 				RemoveFailedDownloads:    new(false),
 				UseSsl:                   new(true),
@@ -189,7 +189,7 @@ func TestBuildDownloadClientPayload(t *testing.T) {
 			categoryField: "movieCategory",
 			check: func(t *testing.T, p map[string]any) {
 				assert.Equal(t, false, p["enable"])
-				assert.Equal(t, 5, p["priority"])
+				assert.Equal(t, int32(5), p["priority"])
 				assert.Equal(t, false, p["removeCompletedDownloads"])
 				assert.Equal(t, false, p["removeFailedDownloads"])
 				assert.Equal(t, "CustomContract", p["configContract"])
@@ -303,7 +303,7 @@ func TestBuildIndexerPayload(t *testing.T) {
 				Name: "NZBgeek", Protocol: "usenet", Implementation: "Newznab",
 				Enable: new(false), EnableRss: new(false),
 				EnableAutomaticSearch: new(false), EnableInteractiveSearch: new(false),
-				ConfigContract: "CustomContract", Priority: new(10),
+				ConfigContract: "CustomContract", Priority: new(int32(10)),
 				Fields: []commonv1alpha1.ConfigField{
 					{Name: "baseUrl", Value: fieldValue(`"http://nzbgeek.info"`)},
 				},
@@ -312,7 +312,7 @@ func TestBuildIndexerPayload(t *testing.T) {
 			check: func(t *testing.T, p map[string]any) {
 				assert.Equal(t, false, p["enableRss"])
 				assert.Equal(t, "CustomContract", p["configContract"])
-				assert.Equal(t, 10, p["priority"])
+				assert.Equal(t, int32(10), p["priority"])
 				tags := p["tags"].([]any)
 				assert.Len(t, tags, 1)
 			},
@@ -432,7 +432,7 @@ func TestBuildImportListPayload(t *testing.T) {
 			il: commonv1alpha1.ImportList{
 				Name: "Trakt", Implementation: "TraktListImport",
 				QualityProfileName: "HD-1080p", RootFolderPath: "/tv",
-				Monitor: "all", ListOrder: new(1),
+				Monitor: "all", ListOrder: new(int32(1)),
 			},
 			qpIDs:   map[string]int{"HD-1080p": 5},
 			monitor: sonarr,
@@ -441,7 +441,7 @@ func TestBuildImportListPayload(t *testing.T) {
 				assert.Equal(t, "/tv", p["rootFolderPath"])
 				assert.Equal(t, "all", p["shouldMonitor"], "Sonarr reads the monitor enum from shouldMonitor")
 				assert.NotContains(t, p, "monitor")
-				assert.Equal(t, 1, p["listOrder"])
+				assert.Equal(t, int32(1), p["listOrder"])
 			},
 		},
 		{
@@ -545,15 +545,15 @@ func TestBuildQualityProfilePayload(t *testing.T) {
 			name: "with all optional fields",
 			qp: commonv1alpha1.QualityProfile{
 				Name: "HD", UpgradeAllowed: new(true),
-				MinFormatScore: new(10), CutoffFormatScore: new(100),
-				MinUpgradeFormatScore: new(5),
+				MinFormatScore: new(int32(10)), CutoffFormatScore: new(int32(100)),
+				MinUpgradeFormatScore: new(int32(5)),
 			},
 			cfIDs: map[string]int{},
 			check: func(t *testing.T, p map[string]any) {
 				assert.Equal(t, true, p["upgradeAllowed"])
-				assert.Equal(t, 10, p["minFormatScore"])
-				assert.Equal(t, 100, p["cutoffFormatScore"])
-				assert.Equal(t, 5, p["minUpgradeFormatScore"])
+				assert.Equal(t, int32(10), p["minFormatScore"])
+				assert.Equal(t, int32(100), p["cutoffFormatScore"])
+				assert.Equal(t, int32(5), p["minUpgradeFormatScore"])
 			},
 		},
 		{
@@ -571,7 +571,7 @@ func TestBuildQualityProfilePayload(t *testing.T) {
 				items := p["formatItems"].([]map[string]any)
 				assert.Len(t, items, 2)
 				assert.Equal(t, 1, items[0]["format"])
-				assert.Equal(t, 100, items[0]["score"])
+				assert.Equal(t, int32(100), items[0]["score"])
 			},
 		},
 		{
@@ -1134,7 +1134,7 @@ func TestExistingItemsKeepWhatTheResourceLeavesOut(t *testing.T) {
 	opts := Options{
 		CategoryField:   "tvCategory",
 		DownloadClients: []commonv1alpha1.DownloadClient{{Name: "qBit", Protocol: "torrent", Implementation: "QBittorrent", Host: "qbit", Port: 8080}},
-		Indexers:        []commonv1alpha1.Indexer{{Name: "Geek", Protocol: "usenet", Implementation: "Newznab", Priority: new(10)}},
+		Indexers:        []commonv1alpha1.Indexer{{Name: "Geek", Protocol: "usenet", Implementation: "Newznab", Priority: new(int32(10))}},
 		Notifications:   []commonv1alpha1.Notification{{Name: "Discord", Implementation: "Discord", OnDownload: new(true)}},
 	}
 
@@ -1643,8 +1643,8 @@ func TestDelayProfilesCreateUpdateTheDefaultAndConverge(t *testing.T) {
 	app := newDelayAPI(false, "anime", "kids")
 	hc := app.client(t)
 	declared := []commonv1alpha1.DelayProfile{
-		{TagLabels: []string{"kids", "anime"}, PreferredProtocol: "torrent", UsenetDelay: new(60)},
-		{TorrentDelay: new(30), BypassIfHighestQuality: new(false)},
+		{TagLabels: []string{"kids", "anime"}, PreferredProtocol: "torrent", UsenetDelay: new(int32(60))},
+		{TorrentDelay: new(int32(30)), BypassIfHighestQuality: new(false)},
 	}
 
 	result := app.reconcile(t, hc, declared, engine.SyncPolicy{}, nil)
@@ -1673,7 +1673,7 @@ func TestDelayProfilesAdoptTheProfileHoldingADeclaredTag(t *testing.T) {
 	handMade := app.add([]any{float64(2), float64(1)}, nil)
 	hc := app.client(t)
 
-	result := app.reconcile(t, hc, []commonv1alpha1.DelayProfile{{TagLabels: []string{"anime", "kids"}, TorrentDelay: new(5)}}, engine.SyncPolicy{Prune: true}, nil)
+	result := app.reconcile(t, hc, []commonv1alpha1.DelayProfile{{TagLabels: []string{"anime", "kids"}, TorrentDelay: new(int32(5))}}, engine.SyncPolicy{Prune: true}, nil)
 	require.Empty(t, result.Errors)
 	assert.Equal(t, []string{"PUT delayprofile/" + strconv.Itoa(int(handMade))}, app.writes)
 	assert.Equal(t, []any{float64(2), float64(1)}, app.profile(handMade)["tags"], "the same tags in another order are left alone")
@@ -1724,7 +1724,7 @@ func TestDelayProfilesPruneFreesTagsForANewProfile(t *testing.T) {
 	app2 := newDelayAPI(false, "anime")
 	owned2 := app2.add([]any{float64(1)}, nil)
 	hc2 := app2.client(t)
-	moved := app2.reconcile(t, hc2, []commonv1alpha1.DelayProfile{{TagLabels: []string{"anime"}, UsenetDelay: new(10)}}, engine.SyncPolicy{Prune: true},
+	moved := app2.reconcile(t, hc2, []commonv1alpha1.DelayProfile{{TagLabels: []string{"anime"}, UsenetDelay: new(int32(10))}}, engine.SyncPolicy{Prune: true},
 		map[string][]string{delayProfilesKind: {strconv.Itoa(int(owned2))}})
 	require.Empty(t, moved.Errors)
 	assert.Equal(t, owned2, app2.byTags(1)["id"], "a profile still declared by its tags is kept")
@@ -1740,8 +1740,8 @@ func TestDelayProfilesObserveWritesNothing(t *testing.T) {
 
 	result := app.reconcile(t, hc, []commonv1alpha1.DelayProfile{
 		{TagLabels: []string{"anime"}},
-		{TagLabels: []string{"kids"}, TorrentDelay: new(20)},
-		{UsenetDelay: new(5)},
+		{TagLabels: []string{"kids"}, TorrentDelay: new(int32(20))},
+		{UsenetDelay: new(int32(5))},
 	}, engine.SyncPolicy{Prune: true, Observe: true}, managed)
 	require.Empty(t, result.Errors)
 	assert.Empty(t, app.writes)
@@ -1778,9 +1778,9 @@ func TestDelayProfilesWithProtocolItems(t *testing.T) {
 	live := app.add([]any{float64(2)}, nil)
 	hc := app.client(t)
 	declared := []commonv1alpha1.DelayProfile{
-		{TagLabels: []string{"favorites"}, PreferredProtocol: "torrent", EnableUsenet: new(false), TorrentDelay: new(15)},
+		{TagLabels: []string{"favorites"}, PreferredProtocol: "torrent", EnableUsenet: new(false), TorrentDelay: new(int32(15))},
 		{TagLabels: []string{"live"}},
-		{UsenetDelay: new(30)},
+		{UsenetDelay: new(int32(30))},
 	}
 
 	result := app.reconcile(t, hc, declared, engine.SyncPolicy{}, nil)

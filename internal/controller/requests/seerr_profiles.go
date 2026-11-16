@@ -26,7 +26,7 @@ func resolvedServicePayload(ctx context.Context, svc *requestsv1alpha1.SeerrServ
 	if svc.UseSsl != nil && *svc.UseSsl {
 		scheme = "https"
 	}
-	endpoint := url.URL{Scheme: scheme, Host: net.JoinHostPort(svc.Hostname, strconv.Itoa(*svc.Port)), Path: "/" + strings.Trim(svc.BaseUrl, "/")}
+	endpoint := url.URL{Scheme: scheme, Host: net.JoinHostPort(svc.Hostname, strconv.Itoa(int(*svc.Port))), Path: "/" + strings.Trim(svc.BaseUrl, "/")}
 	hc, err := engine.NewHTTPClient(endpoint.String(), engine.AuthAPIKey, engine.WithAPIKey(apiKey))
 	if err != nil {
 		return nil, err

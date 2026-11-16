@@ -128,11 +128,11 @@ type SonarrMediaManagement struct {
 
 	// recycleBinCleanupDays is how many days files stay in the recycling bin.
 	// +optional
-	RecycleBinCleanupDays *int `json:"recycleBinCleanupDays,omitempty"`
+	RecycleBinCleanupDays *int32 `json:"recycleBinCleanupDays,omitempty"`
 
 	// minimumFreeSpaceWhenImporting is the minimum free space in MB required to import.
 	// +optional
-	MinimumFreeSpaceWhenImporting *int `json:"minimumFreeSpaceWhenImporting,omitempty"`
+	MinimumFreeSpaceWhenImporting *int32 `json:"minimumFreeSpaceWhenImporting,omitempty"`
 
 	// enableMediaInfo enables media info scanning.
 	// +optional
@@ -212,19 +212,19 @@ type SonarrNaming struct {
 type SonarrIndexerConfig struct {
 	// minimumAge is the minimum age in minutes before downloading.
 	// +optional
-	MinimumAge *int `json:"minimumAge,omitempty"`
+	MinimumAge *int32 `json:"minimumAge,omitempty"`
 
 	// retention is the usenet retention in days. 0 means unlimited.
 	// +optional
-	Retention *int `json:"retention,omitempty"`
+	Retention *int32 `json:"retention,omitempty"`
 
 	// maximumSize is the maximum release size in MB. 0 means unlimited.
 	// +optional
-	MaximumSize *int `json:"maximumSize,omitempty"`
+	MaximumSize *int32 `json:"maximumSize,omitempty"`
 
 	// rssSyncInterval is the RSS sync interval in minutes. 0 disables RSS.
 	// +optional
-	RssSyncInterval *int `json:"rssSyncInterval,omitempty"`
+	RssSyncInterval *int32 `json:"rssSyncInterval,omitempty"`
 }
 
 // SonarrDownloadClientConfig configures global download client behavior.
@@ -248,7 +248,7 @@ type SonarrUI struct {
 	// +optional
 	// +kubebuilder:validation:Minimum=0
 	// +kubebuilder:validation:Maximum=1
-	FirstDayOfWeek *int `json:"firstDayOfWeek,omitempty"`
+	FirstDayOfWeek *int32 `json:"firstDayOfWeek,omitempty"`
 
 	// shortDateFormat is the short date display format.
 	// +optional
@@ -277,7 +277,7 @@ type SonarrUI struct {
 
 	// uiLanguage is the UI language ID. 1=English.
 	// +optional
-	UILanguage *int `json:"uiLanguage,omitempty"`
+	UILanguage *int32 `json:"uiLanguage,omitempty"`
 }
 
 // SonarrStatus defines the observed state of Sonarr.

@@ -134,7 +134,7 @@ type SabnzbdGeneral struct {
 	// historyRetentionNumber is the number of jobs or days historyRetention keeps.
 	// +optional
 	// +kubebuilder:validation:Minimum=0
-	HistoryRetentionNumber *int `json:"historyRetentionNumber,omitempty"`
+	HistoryRetentionNumber *int32 `json:"historyRetentionNumber,omitempty"`
 
 	// permissions are the octal permissions set on completed downloads, such as 775.
 	// +optional
@@ -158,7 +158,7 @@ type SabnzbdGeneral struct {
 	// propagationDelay holds back jobs posted less than this many minutes ago.
 	// +optional
 	// +kubebuilder:validation:Minimum=0
-	PropagationDelay *int `json:"propagationDelay,omitempty"`
+	PropagationDelay *int32 `json:"propagationDelay,omitempty"`
 
 	// hostWhitelist lists the host names SABnzbd answers on besides IP
 	// addresses, localhost and names ending in .local, which cover
@@ -181,7 +181,7 @@ type SabnzbdServer struct {
 
 	// port is the port number.
 	// +required
-	Port int `json:"port"`
+	Port int32 `json:"port"`
 
 	// ssl enables SSL/TLS connection.
 	// +optional
@@ -197,15 +197,15 @@ type SabnzbdServer struct {
 
 	// connections is the number of simultaneous connections.
 	// +optional
-	Connections *int `json:"connections,omitempty"`
+	Connections *int32 `json:"connections,omitempty"`
 
 	// priority is the server priority. 0 = highest.
 	// +optional
-	Priority *int `json:"priority,omitempty"`
+	Priority *int32 `json:"priority,omitempty"`
 
 	// retention is the server retention in days. 0 = unlimited.
 	// +optional
-	Retention *int `json:"retention,omitempty"`
+	Retention *int32 `json:"retention,omitempty"`
 
 	// enable controls whether this server is active. A new server is enabled
 	// unless this is false.
@@ -229,7 +229,7 @@ type SabnzbdServer struct {
 	// timeout is how many seconds SABnzbd waits for the server to answer.
 	// +optional
 	// +kubebuilder:validation:Minimum=1
-	Timeout *int `json:"timeout,omitempty"`
+	Timeout *int32 `json:"timeout,omitempty"`
 }
 
 // SabnzbdCategory defines a download category.

@@ -175,7 +175,7 @@ func TestFlareSolverrObserveDoesNotCreatePruneOrClaimSessions(t *testing.T) {
 	cfg.Spec.Reconcile.DriftPolicy = &policy
 	c := runFlare(t, cfg)
 	require.NoError(t, c.Get(context.Background(), types.NamespacedName{Name: cfg.Name, Namespace: cfg.Namespace}, cfg))
-	require.Equal(t, 2, cfg.Status.ActiveSessions, "active sessions")
+	require.Equal(t, int32(2), cfg.Status.ActiveSessions, "active sessions")
 	require.Equal(t, []string{"owned"}, cfg.Status.ManagedResources["sessions"], "ownership changed")
 	app.mu.Lock()
 	defer app.mu.Unlock()

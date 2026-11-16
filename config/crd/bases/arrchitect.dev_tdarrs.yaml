@@ -213,6 +213,7 @@ spec:
                     folderWatchScanInterval:
                       description: folderWatchScanInterval is how often, in seconds,
                         folder watching polls.
+                      format: int32
                       minimum: 1
                       type: integer
                     folderWatching:
@@ -252,6 +253,7 @@ spec:
                     priority:
                       description: priority is the processing priority for this library.
                         Lower values are higher priority.
+                      format: int32
                       type: integer
                     processHealthChecks:
                       description: processHealthChecks enables health check jobs for
@@ -272,6 +274,7 @@ spec:
                     scannerThreadCount:
                       description: scannerThreadCount is the number of threads used
                         for scanning.
+                      format: int32
                       type: integer
                     scheduledScanFindNew:
                       description: scheduledScanFindNew enables scheduled scans for
@@ -370,10 +373,12 @@ spec:
                     description: |-
                       autoPauseIfCacheFullThreshold is the free cache space, in GB, below which
                       autoPauseIfCacheFull pauses the nodes.
+                    format: int32
                     minimum: 0
                     type: integer
                   backupLimit:
                     description: backupLimit is how many server backups are kept.
+                    format: int32
                     minimum: 0
                     type: integer
                   ignoreSchedules:
@@ -382,6 +387,7 @@ spec:
                     type: boolean
                   jobHistorySizeLimitGB:
                     description: jobHistorySizeLimitGB caps the job history, in GB.
+                    format: int32
                     minimum: 0
                     type: integer
                   logFullCliOutput:
@@ -465,6 +471,7 @@ spec:
                   stagedFileLimit:
                     description: stagedFileLimit is how many files can wait in staging
                       for review.
+                    format: int32
                     minimum: 0
                     type: integer
                   verboseLogs:
@@ -477,6 +484,7 @@ spec:
                     description: |-
                       workerStallDetectorInterval is how often, in seconds, workers are checked
                       for stalls.
+                    format: int32
                     minimum: 1
                     type: integer
                 type: object
@@ -490,10 +498,12 @@ spec:
                     healthcheckCPU:
                       description: healthcheckCPU is the number of CPU health check
                         workers.
+                      format: int32
                       type: integer
                     healthcheckGPU:
                       description: healthcheckGPU is the number of GPU health check
                         workers.
+                      format: int32
                       type: integer
                     nodeName:
                       description: nodeName is the name of the Tdarr node these limits
@@ -502,9 +512,11 @@ spec:
                       type: string
                     transcodeCPU:
                       description: transcodeCPU is the number of CPU transcode workers.
+                      format: int32
                       type: integer
                     transcodeGPU:
                       description: transcodeGPU is the number of GPU transcode workers.
+                      format: int32
                       type: integer
                   required:
                   - nodeName

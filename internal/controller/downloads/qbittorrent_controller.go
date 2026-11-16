@@ -118,7 +118,7 @@ func qbPreferencePayload(prefs *downloadsv1alpha1.QBittorrentPreferences) (map[s
 		case plain:
 			out[key] = reflect.Indirect(field).Interface()
 		case speed:
-			out[bytes] = field.Elem().Interface().(int) * 1024
+			out[bytes] = field.Elem().Int() * 1024
 		}
 	}
 

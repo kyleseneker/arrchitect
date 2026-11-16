@@ -49,8 +49,9 @@ func TestResolveServiceProfileByName(t *testing.T) {
 			server.Start()
 			defer server.Close()
 			endpoint, _ := url.Parse(server.URL)
-			port, _ := strconv.Atoi(endpoint.Port())
-			oldID := 7
+			n, _ := strconv.Atoi(endpoint.Port())
+			port := int32(n)
+			oldID := int32(7)
 			svc := &requestsv1alpha1.SeerrServiceConnection{Hostname: endpoint.Hostname(), Port: &port, BaseUrl: "/sonarr/", ActiveProfileId: &oldID, ActiveProfileName: "WEB-1080p"}
 			payload, err := resolvedServicePayload(context.Background(), svc, "lab-key")
 			if tc.wantError {
@@ -66,7 +67,7 @@ func TestResolveServiceProfileByName(t *testing.T) {
 }
 
 func TestResolveServiceProfileIDOnly(t *testing.T) {
-	id := 7
+	id := int32(7)
 	// Invalid hostname proves ID-only configurations do not need an API lookup.
 	svc := &requestsv1alpha1.SeerrServiceConnection{Hostname: "", ActiveProfileId: &id}
 	payload, err := resolvedServicePayload(context.Background(), svc, "lab-key")

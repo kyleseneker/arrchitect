@@ -179,6 +179,7 @@ spec:
               activeSessions:
                 description: activeSessions is the number of active sessions managed
                   by this resource.
+                format: int32
                 type: integer
               conditions:
                 description: conditions represent the current state of the FlareSolverr

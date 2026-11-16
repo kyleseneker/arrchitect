@@ -76,6 +76,7 @@ spec:
                     minimumSeeders:
                       description: minimumSeeders is the minimum number of seeders
                         for torrent results.
+                      format: int32
                       minimum: 0
                       type: integer
                     name:
@@ -132,6 +133,7 @@ spec:
                       description: syncCategories is the list of category IDs to sync
                         to this application.
                       items:
+                        format: int32
                         type: integer
                       type: array
                       x-kubernetes-list-type: set
@@ -235,6 +237,7 @@ spec:
                             description: categories is the list of Prowlarr category
                               IDs to map.
                             items:
+                              format: int32
                               type: integer
                             type: array
                             x-kubernetes-list-type: set
@@ -312,6 +315,7 @@ spec:
                     priority:
                       description: priority is the download client priority. Lower
                         values are higher priority.
+                      format: int32
                       type: integer
                     protocol:
                       description: protocol is the download protocol.
@@ -346,6 +350,7 @@ spec:
                     appProfileId:
                       description: appProfileId is the application profile ID for
                         this indexer.
+                      format: int32
                       type: integer
                     appProfileName:
                       description: |-
@@ -413,6 +418,7 @@ spec:
                     priority:
                       description: priority is the indexer priority. Lower values
                         are higher priority.
+                      format: int32
                       type: integer
                     tagLabels:
                       description: |-
@@ -643,6 +649,7 @@ spec:
                       type: string
                     requestTimeout:
                       description: requestTimeout is the request timeout in seconds.
+                      format: int32
                       type: integer
                     tagLabels:
                       description: |-

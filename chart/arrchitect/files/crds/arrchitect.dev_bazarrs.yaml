@@ -145,10 +145,12 @@ spec:
                   minimumScore:
                     description: minimumScore is the minimum subtitle match score
                       for series.
+                    format: int32
                     type: integer
                   minimumScoreMovie:
                     description: minimumScoreMovie is the minimum subtitle match score
                       for movies.
+                    format: int32
                     type: integer
                   movieDefaultProfile:
                     description: |-
@@ -219,6 +221,7 @@ spec:
                     description: |-
                       postprocessingThreshold is the episode subtitle score, in percent, below
                       which postprocessingCmd runs.
+                    format: int32
                     maximum: 100
                     minimum: 0
                     type: integer
@@ -226,6 +229,7 @@ spec:
                     description: |-
                       postprocessingThresholdMovie is the movie subtitle score, in percent,
                       below which postprocessingCmd runs.
+                    format: int32
                     maximum: 100
                     minimum: 0
                     type: integer
@@ -250,6 +254,7 @@ spec:
                   upgradeFrequency:
                     description: upgradeFrequency is the frequency in hours to check
                       for subtitle upgrades.
+                    format: int32
                     type: integer
                   upgradeSubs:
                     description: upgradeSubs enables automatic subtitle upgrades when
@@ -288,6 +293,7 @@ spec:
                   wantedSearchFrequency:
                     description: wantedSearchFrequency is the frequency in hours to
                       search for wanted subtitles.
+                    format: int32
                     type: integer
                 type: object
               languages:
@@ -338,6 +344,7 @@ spec:
                         profileId:
                           description: profileId is the unique identifier for this
                             profile.
+                          format: int32
                           type: integer
                       required:
                       - name
@@ -448,6 +455,7 @@ spec:
                     type: string
                   httpTimeout:
                     description: httpTimeout is the HTTP request timeout in seconds.
+                    format: int32
                     type: integer
                   onlyMonitored:
                     description: onlyMonitored limits subtitle searches to monitored
@@ -455,6 +463,7 @@ spec:
                     type: boolean
                   port:
                     description: port is the port of the application.
+                    format: int32
                     type: integer
                   ssl:
                     description: ssl enables HTTPS connections to the application.
@@ -470,6 +479,7 @@ spec:
                     - 720
                     - 1440
                     - 10080
+                    format: int32
                     type: integer
                 required:
                 - apiKeySecretRef
@@ -579,6 +589,7 @@ spec:
                     type: string
                   httpTimeout:
                     description: httpTimeout is the HTTP request timeout in seconds.
+                    format: int32
                     type: integer
                   onlyMonitored:
                     description: onlyMonitored limits subtitle searches to monitored
@@ -586,6 +597,7 @@ spec:
                     type: boolean
                   port:
                     description: port is the port of the application.
+                    format: int32
                     type: integer
                   ssl:
                     description: ssl enables HTTPS connections to the application.
@@ -601,6 +613,7 @@ spec:
                     - 720
                     - 1440
                     - 10080
+                    format: int32
                     type: integer
                 required:
                 - apiKeySecretRef
@@ -613,10 +626,12 @@ spec:
                   subsyncMovieThreshold:
                     description: subsyncMovieThreshold is the minimum score threshold
                       for movie subtitle sync.
+                    format: int32
                     type: integer
                   subsyncThreshold:
                     description: subsyncThreshold is the minimum score threshold for
                       series subtitle sync.
+                    format: int32
                     type: integer
                   useSubsync:
                     description: useSubsync enables automatic subtitle synchronization.

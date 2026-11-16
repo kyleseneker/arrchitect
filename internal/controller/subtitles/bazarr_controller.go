@@ -233,7 +233,7 @@ func resolveBazarrDefaultProfiles(ctx context.Context, bc *bazarrclient.Client, 
 	if spec.Languages != nil {
 		for _, p := range spec.Languages.Profiles {
 			if p.ProfileId != nil {
-				declared[p.Name] = append(declared[p.Name], *p.ProfileId)
+				declared[p.Name] = append(declared[p.Name], int(*p.ProfileId))
 			}
 		}
 	}

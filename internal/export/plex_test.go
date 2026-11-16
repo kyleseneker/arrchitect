@@ -40,7 +40,7 @@ func TestPlexExportsListedPreferencesAndLibraries(t *testing.T) {
 	assert.Equal(t, "home", cfg.Spec.Server.FriendlyName)
 	assert.False(t, *cfg.Spec.Server.LogDebug)
 	assert.True(t, *cfg.Spec.Server.ScanMyLibraryAutomatically)
-	assert.Equal(t, 4, *cfg.Spec.Transcoder.MaxSimultaneousVideoTranscodes)
+	assert.Equal(t, int32(4), *cfg.Spec.Transcoder.MaxSimultaneousVideoTranscodes)
 	assert.Nil(t, cfg.Spec.Network, "every network preference is empty or unlisted")
 	assert.Equal(t, []mediaserversv1alpha1.PlexLibrary{{
 		Name: "Movies", Type: "movie", Paths: []string{"/media/movies"},

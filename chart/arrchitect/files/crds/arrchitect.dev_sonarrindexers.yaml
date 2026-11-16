@@ -142,6 +142,7 @@ spec:
               priority:
                 description: priority is the indexer priority. Lower values are higher
                   priority.
+                format: int32
                 minimum: 1
                 type: integer
               protocol:
@@ -241,6 +242,7 @@ spec:
                 x-kubernetes-list-type: map
               id:
                 description: id is the indexer's ID in Sonarr.
+                format: int32
                 type: integer
               lastSyncTime:
                 description: lastSyncTime is the timestamp of the last successful

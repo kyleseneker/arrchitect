@@ -147,12 +147,12 @@ func (in *DelayProfile) DeepCopyInto(out *DelayProfile) {
 	}
 	if in.UsenetDelay != nil {
 		in, out := &in.UsenetDelay, &out.UsenetDelay
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.TorrentDelay != nil {
 		in, out := &in.TorrentDelay, &out.TorrentDelay
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.BypassIfHighestQuality != nil {
@@ -167,7 +167,7 @@ func (in *DelayProfile) DeepCopyInto(out *DelayProfile) {
 	}
 	if in.MinimumCustomFormatScore != nil {
 		in, out := &in.MinimumCustomFormatScore, &out.MinimumCustomFormatScore
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 }
@@ -197,7 +197,7 @@ func (in *DownloadClient) DeepCopyInto(out *DownloadClient) {
 	}
 	if in.Priority != nil {
 		in, out := &in.Priority, &out.Priority
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.RemoveCompletedDownloads != nil {
@@ -294,7 +294,7 @@ func (in *ImportList) DeepCopyInto(out *ImportList) {
 	}
 	if in.ListOrder != nil {
 		in, out := &in.ListOrder, &out.ListOrder
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.TagLabels != nil {
@@ -331,7 +331,7 @@ func (in *Indexer) DeepCopyInto(out *Indexer) {
 	}
 	if in.Priority != nil {
 		in, out := &in.Priority, &out.Priority
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.EnableRss != nil {
@@ -610,17 +610,17 @@ func (in *QualityProfile) DeepCopyInto(out *QualityProfile) {
 	}
 	if in.MinFormatScore != nil {
 		in, out := &in.MinFormatScore, &out.MinFormatScore
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.CutoffFormatScore != nil {
 		in, out := &in.CutoffFormatScore, &out.CutoffFormatScore
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.MinUpgradeFormatScore != nil {
 		in, out := &in.MinUpgradeFormatScore, &out.MinUpgradeFormatScore
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.Items != nil {

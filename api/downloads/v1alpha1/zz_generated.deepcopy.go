@@ -152,22 +152,22 @@ func (in *QBittorrentPreferences) DeepCopyInto(out *QBittorrentPreferences) {
 	}
 	if in.MaxConnec != nil {
 		in, out := &in.MaxConnec, &out.MaxConnec
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.MaxConnecPerTorrent != nil {
 		in, out := &in.MaxConnecPerTorrent, &out.MaxConnecPerTorrent
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.MaxUploads != nil {
 		in, out := &in.MaxUploads, &out.MaxUploads
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.MaxUploadsPerTorrent != nil {
 		in, out := &in.MaxUploadsPerTorrent, &out.MaxUploadsPerTorrent
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.MaxRatioEnabled != nil {
@@ -192,7 +192,7 @@ func (in *QBittorrentPreferences) DeepCopyInto(out *QBittorrentPreferences) {
 	}
 	if in.MaxSeedingTime != nil {
 		in, out := &in.MaxSeedingTime, &out.MaxSeedingTime
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.PreallocateAll != nil {
@@ -202,7 +202,7 @@ func (in *QBittorrentPreferences) DeepCopyInto(out *QBittorrentPreferences) {
 	}
 	if in.WebUIPort != nil {
 		in, out := &in.WebUIPort, &out.WebUIPort
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.BypassAuthSubnetWhitelistEnabled != nil {
@@ -252,22 +252,22 @@ func (in *QBittorrentPreferences) DeepCopyInto(out *QBittorrentPreferences) {
 	}
 	if in.DlLimit != nil {
 		in, out := &in.DlLimit, &out.DlLimit
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.UpLimit != nil {
 		in, out := &in.UpLimit, &out.UpLimit
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.AltDlLimit != nil {
 		in, out := &in.AltDlLimit, &out.AltDlLimit
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.AltUpLimit != nil {
 		in, out := &in.AltUpLimit, &out.AltUpLimit
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.SchedulerEnabled != nil {
@@ -277,22 +277,22 @@ func (in *QBittorrentPreferences) DeepCopyInto(out *QBittorrentPreferences) {
 	}
 	if in.ScheduleFromHour != nil {
 		in, out := &in.ScheduleFromHour, &out.ScheduleFromHour
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.ScheduleFromMin != nil {
 		in, out := &in.ScheduleFromMin, &out.ScheduleFromMin
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.ScheduleToHour != nil {
 		in, out := &in.ScheduleToHour, &out.ScheduleToHour
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.ScheduleToMin != nil {
 		in, out := &in.ScheduleToMin, &out.ScheduleToMin
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.LimitUTPRate != nil {
@@ -317,17 +317,17 @@ func (in *QBittorrentPreferences) DeepCopyInto(out *QBittorrentPreferences) {
 	}
 	if in.MaxActiveDownloads != nil {
 		in, out := &in.MaxActiveDownloads, &out.MaxActiveDownloads
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.MaxActiveUploads != nil {
 		in, out := &in.MaxActiveUploads, &out.MaxActiveUploads
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.MaxActiveTorrents != nil {
 		in, out := &in.MaxActiveTorrents, &out.MaxActiveTorrents
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.DontCountSlowTorrents != nil {
@@ -337,22 +337,22 @@ func (in *QBittorrentPreferences) DeepCopyInto(out *QBittorrentPreferences) {
 	}
 	if in.SlowTorrentDlRateThreshold != nil {
 		in, out := &in.SlowTorrentDlRateThreshold, &out.SlowTorrentDlRateThreshold
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.SlowTorrentUlRateThreshold != nil {
 		in, out := &in.SlowTorrentUlRateThreshold, &out.SlowTorrentUlRateThreshold
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.SlowTorrentInactiveTimer != nil {
 		in, out := &in.SlowTorrentInactiveTimer, &out.SlowTorrentInactiveTimer
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.ListenPort != nil {
 		in, out := &in.ListenPort, &out.ListenPort
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.RandomPort != nil {
@@ -387,7 +387,7 @@ func (in *QBittorrentPreferences) DeepCopyInto(out *QBittorrentPreferences) {
 	}
 	if in.MaxInactiveSeedingTime != nil {
 		in, out := &in.MaxInactiveSeedingTime, &out.MaxInactiveSeedingTime
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 }
@@ -617,12 +617,12 @@ func (in *SabnzbdGeneral) DeepCopyInto(out *SabnzbdGeneral) {
 	}
 	if in.HistoryRetentionNumber != nil {
 		in, out := &in.HistoryRetentionNumber, &out.HistoryRetentionNumber
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.PropagationDelay != nil {
 		in, out := &in.PropagationDelay, &out.PropagationDelay
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.HostWhitelist != nil {
@@ -694,17 +694,17 @@ func (in *SabnzbdServer) DeepCopyInto(out *SabnzbdServer) {
 	}
 	if in.Connections != nil {
 		in, out := &in.Connections, &out.Connections
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.Priority != nil {
 		in, out := &in.Priority, &out.Priority
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.Retention != nil {
 		in, out := &in.Retention, &out.Retention
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.Enable != nil {
@@ -724,7 +724,7 @@ func (in *SabnzbdServer) DeepCopyInto(out *SabnzbdServer) {
 	}
 	if in.Timeout != nil {
 		in, out := &in.Timeout, &out.Timeout
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 }

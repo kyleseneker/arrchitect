@@ -259,7 +259,7 @@ func TestPlexPreferenceChangesSkipsMatchesAndSeparatesUnlisted(t *testing.T) {
 func TestPlexPreferencesUseCurrentPlexNames(t *testing.T) {
 	prefs := buildPlexPreferences(mediaserversv1alpha1.PlexSpec{
 		Server:     &mediaserversv1alpha1.PlexServer{ScanMyLibraryAutomatically: new(true), ScanMyLibraryPeriodically: new(true)},
-		Transcoder: &mediaserversv1alpha1.PlexTranscoder{MaxSimultaneousVideoTranscodes: new(2)},
+		Transcoder: &mediaserversv1alpha1.PlexTranscoder{MaxSimultaneousVideoTranscodes: new(int32(2))},
 	})
 	assert.Equal(t, map[string]string{
 		"FSEventLibraryUpdatesEnabled": "1", "ScheduledLibraryUpdatesEnabled": "1", "TranscodeCountLimit": "2",

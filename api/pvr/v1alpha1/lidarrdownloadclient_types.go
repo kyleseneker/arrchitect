@@ -41,7 +41,7 @@ type LidarrDownloadClientStatus struct {
 
 	// id is the download client's ID in Lidarr.
 	// +optional
-	ID int `json:"id,omitempty"`
+	ID int32 `json:"id,omitempty"`
 
 	// managedResources records what the operator created for this resource,
 	// so deletion only removes what it created.

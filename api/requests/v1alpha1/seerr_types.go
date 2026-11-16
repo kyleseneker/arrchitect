@@ -126,7 +126,7 @@ type SeerrPlexAuth struct {
 	// port is the Plex server port.
 	// +optional
 	// +kubebuilder:default=32400
-	Port *int `json:"port,omitempty"`
+	Port *int32 `json:"port,omitempty"`
 
 	// useSsl enables SSL for the Plex connection.
 	// +optional
@@ -145,7 +145,7 @@ type SeerrJellyfinAuth struct {
 
 	// port is the Jellyfin server port.
 	// +required
-	Port *int `json:"port"`
+	Port *int32 `json:"port"`
 
 	// useSsl enables SSL for the Jellyfin connection.
 	// +optional
@@ -188,7 +188,7 @@ type SeerrMain struct {
 
 	// defaultPermissions is the default permission bitmask for new users.
 	// +optional
-	DefaultPermissions *int `json:"defaultPermissions,omitempty"`
+	DefaultPermissions *int32 `json:"defaultPermissions,omitempty"`
 
 	// partialRequestsEnabled enables partial season/episode requests.
 	// +optional
@@ -211,7 +211,7 @@ type SeerrServiceConnection struct {
 
 	// port is the service port.
 	// +required
-	Port *int `json:"port"`
+	Port *int32 `json:"port"`
 
 	// apiKeySecretRef references a Secret containing the service API key.
 	// +required
@@ -227,7 +227,7 @@ type SeerrServiceConnection struct {
 
 	// activeProfileId is used when activeProfileName is omitted.
 	// +optional
-	ActiveProfileId *int `json:"activeProfileId,omitempty"`
+	ActiveProfileId *int32 `json:"activeProfileId,omitempty"`
 
 	// activeProfileName is resolved against the service on each reconciliation.
 	// When set, it takes precedence over activeProfileId; exactly one match is required.

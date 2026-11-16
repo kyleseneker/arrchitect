@@ -90,7 +90,7 @@ type PlexServer struct {
 	// libraryScanInterval is how often, in seconds, scanMyLibraryPeriodically scans.
 	// +optional
 	// +kubebuilder:validation:Enum=900;1800;3600;7200;21600;43200;86400
-	LibraryScanInterval *int `json:"libraryScanInterval,omitempty"`
+	LibraryScanInterval *int32 `json:"libraryScanInterval,omitempty"`
 
 	// scannerLowPriority runs scans at a lower priority.
 	// +optional
@@ -103,7 +103,7 @@ type PlexServer struct {
 	// videoPlayedThreshold is how far, in percent, a video must play to count as watched.
 	// +optional
 	// +kubebuilder:validation:Enum=70;75;80;85;90;95
-	VideoPlayedThreshold *int `json:"videoPlayedThreshold,omitempty"`
+	VideoPlayedThreshold *int32 `json:"videoPlayedThreshold,omitempty"`
 
 	// generateVideoPreviewThumbnails is when Plex makes the thumbnails shown
 	// while seeking: never, as a scheduled task, or also as media is added.
@@ -125,13 +125,13 @@ type PlexServer struct {
 	// +optional
 	// +kubebuilder:validation:Minimum=0
 	// +kubebuilder:validation:Maximum=23
-	ButlerStartHour *int `json:"butlerStartHour,omitempty"`
+	ButlerStartHour *int32 `json:"butlerStartHour,omitempty"`
 
 	// butlerEndHour is the hour scheduled maintenance tasks must stop.
 	// +optional
 	// +kubebuilder:validation:Minimum=0
 	// +kubebuilder:validation:Maximum=23
-	ButlerEndHour *int `json:"butlerEndHour,omitempty"`
+	ButlerEndHour *int32 `json:"butlerEndHour,omitempty"`
 
 	// butlerTaskBackupDatabase backs up the database every three days.
 	// +optional
@@ -198,7 +198,7 @@ type PlexTranscoder struct {
 
 	// maxSimultaneousVideoTranscodes limits concurrent transcodes. 0 = unlimited.
 	// +optional
-	MaxSimultaneousVideoTranscodes *int `json:"maxSimultaneousVideoTranscodes,omitempty"`
+	MaxSimultaneousVideoTranscodes *int32 `json:"maxSimultaneousVideoTranscodes,omitempty"`
 
 	// transcodeHwEncodingEnabled enables hardware encoding.
 	// +optional
@@ -218,7 +218,7 @@ type PlexTranscoder struct {
 	// transcoder works before slowing down.
 	// +optional
 	// +kubebuilder:validation:Minimum=0
-	TranscoderThrottleBuffer *int `json:"transcoderThrottleBuffer,omitempty"`
+	TranscoderThrottleBuffer *int32 `json:"transcoderThrottleBuffer,omitempty"`
 
 	// transcoderH264BackgroundPreset is the encoder preset for background
 	// transcodes such as optimizing and downloads.
@@ -293,7 +293,7 @@ type PlexNetwork struct {
 	// +optional
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=65535
-	ManualPortMappingPort *int `json:"manualPortMappingPort,omitempty"`
+	ManualPortMappingPort *int32 `json:"manualPortMappingPort,omitempty"`
 
 	// relayEnabled lets clients that can't connect directly go through Plex's relay.
 	// +optional
