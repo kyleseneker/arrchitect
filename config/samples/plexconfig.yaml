@@ -2,7 +2,6 @@ apiVersion: arrchitect.dev/v1alpha1
 kind: PlexConfig
 metadata:
   name: plex
-  namespace: media
 spec:
   connection:
     url: http://plex.media.svc.cluster.local:32400

@@ -2,7 +2,6 @@ apiVersion: arrchitect.dev/v1alpha1
 kind: SonarrConfig
 metadata:
   name: sonarr
-  namespace: arr
 spec:
   connection:
     url: http://arr-sonarr.arr.svc.cluster.local:8989

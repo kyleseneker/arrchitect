@@ -2,7 +2,6 @@ apiVersion: arrchitect.dev/v1alpha1
 kind: SabnzbdConfig
 metadata:
   name: sabnzbd
-  namespace: media
 spec:
   connection:
     url: http://sabnzbd.media.svc.cluster.local:8080

@@ -2,7 +2,6 @@ apiVersion: arrchitect.dev/v1alpha1
 kind: QBittorrentConfig
 metadata:
   name: qbittorrent
-  namespace: arr
 spec:
   connection:
     url: http://arr-vpn-downloads.arr.svc.cluster.local:8080

@@ -2,7 +2,6 @@ apiVersion: arrchitect.dev/v1alpha1
 kind: SeerrConfig
 metadata:
   name: seerr
-  namespace: arr
 spec:
   connection:
     url: http://arr-seerr.arr.svc.cluster.local:80

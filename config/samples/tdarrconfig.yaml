@@ -2,7 +2,6 @@ apiVersion: arrchitect.dev/v1alpha1
 kind: TdarrConfig
 metadata:
   name: tdarr
-  namespace: arr
 spec:
   connection:
     url: http://arr-tdarr.arr.svc.cluster.local:8266

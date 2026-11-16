@@ -2,7 +2,6 @@ apiVersion: arrchitect.dev/v1alpha1
 kind: JellyfinConfig
 metadata:
   name: jellyfin
-  namespace: arr
 spec:
   connection:
     url: http://arr-jellyfin.arr.svc.cluster.local:8096

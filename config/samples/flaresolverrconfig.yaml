@@ -2,7 +2,6 @@ apiVersion: arrchitect.dev/v1alpha1
 kind: FlareSolverrConfig
 metadata:
   name: flaresolverr
-  namespace: media
   labels:
     app.kubernetes.io/name: arrchitect
     app.kubernetes.io/managed-by: kustomize

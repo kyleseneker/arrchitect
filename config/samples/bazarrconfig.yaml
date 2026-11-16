@@ -2,7 +2,6 @@ apiVersion: arrchitect.dev/v1alpha1
 kind: BazarrConfig
 metadata:
   name: bazarr
-  namespace: arr
 spec:
   connection:
     url: http://arr-bazarr.arr.svc.cluster.local:6767
