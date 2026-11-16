@@ -72,6 +72,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: helm/chart-testing-action@720270857a28afd41e2426521a7801db09e9b510 # v2.9.0
       - run: ct lint --config ct.yaml --all
+      - run: make test-chart
 
   e2e:
     runs-on: ubuntu-latest

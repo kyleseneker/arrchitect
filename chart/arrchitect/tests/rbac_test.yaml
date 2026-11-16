@@ -1,0 +1,72 @@
+suite: RBAC
+templates:
+  - templates/clusterrole.yaml
+  - templates/role.yaml
+release:
+  name: arrchitect
+  namespace: arrchitect
+tests:
+  - it: reads Secrets in every namespace when it watches every namespace
+    template: templates/clusterrole.yaml
+    asserts:
+      - contains:
+          path: rules
+          content:
+            apiGroups:
+              - ""
+            resources:
+              - secrets
+            verbs:
+              - get
+              - list
+              - watch
+  - it: reads Secrets only in the namespaces it watches
+    set:
+      watchNamespace: media, arr
+    asserts:
+      - template: templates/clusterrole.yaml
+        notContains:
+          path: rules
+          content:
+            apiGroups:
+              - ""
+            resources:
+              - secrets
+            verbs:
+              - get
+              - list
+              - watch
+      - template: templates/role.yaml
+        hasDocuments:
+          count: 3
+      - template: templates/role.yaml
+        documentIndex: 1
+        equal:
+          path: metadata.namespace
+          value: media
+      - template: templates/role.yaml
+        documentIndex: 2
+        equal:
+          path: metadata.namespace
+          value: arr
+  - it: keeps the leader election lease in the release namespace
+    template: templates/role.yaml
+    documentIndex: 0
+    asserts:
+      - equal:
+          path: metadata.namespace
+          value: arrchitect
+      - contains:
+          path: rules[0].resources
+          content: leases
+  - it: grants nothing for a turned-off app
+    template: templates/clusterrole.yaml
+    set:
+      apps.tdarr: false
+    asserts:
+      - notContains:
+          path: rules[0].resources
+          content: tdarrconfigs
+      - contains:
+          path: rules[0].resources
+          content: sonarrconfigs

@@ -1,0 +1,87 @@
+suite: deployment
+templates:
+  - templates/deployment.yaml
+tests:
+  - it: runs the controllers of the enabled apps
+    set:
+      apps.plex: false
+      apps.tdarr: false
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].args
+          content: --enable-controllers=autobrr,bazarr,flaresolverr,jellyfin,lidarr,maintainerr,prowlarr,qbittorrent,radarr,readarr,sabnzbd,seerr,sonarr
+  - it: watches only the listed namespaces
+    set:
+      watchNamespace: media
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].args
+          content: --watch-namespace=media
+  - it: watches every namespace with every app on by default
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].args
+          value:
+            - --leader-elect
+            - --enable-controllers=autobrr,bazarr,flaresolverr,jellyfin,lidarr,maintainerr,plex,prowlarr,qbittorrent,radarr,readarr,sabnzbd,seerr,sonarr,tdarr
+  - it: turns metrics off
+    set:
+      metrics.enabled: false
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].args
+          content: --metrics-bind-address=0
+      - isNullOrEmpty:
+          path: spec.template.spec.containers[0].ports
+  - it: appends extraArgs
+    set:
+      extraArgs:
+        - --zap-devel
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].args
+          content: --zap-devel
+  - it: meets the restricted Pod Security level
+    asserts:
+      - equal:
+          path: spec.template.spec.securityContext.runAsNonRoot
+          value: true
+      - equal:
+          path: spec.template.spec.securityContext.seccompProfile.type
+          value: RuntimeDefault
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.allowPrivilegeEscalation
+          value: false
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.readOnlyRootFilesystem
+          value: true
+      - contains:
+          path: spec.template.spec.containers[0].securityContext.capabilities.drop
+          content: ALL
+  - it: refuses an app it doesn't know
+    set:
+      apps.notanapp: true
+    asserts:
+      - failedTemplate:
+          errorPattern: apps.notanapp is not an app
+  - it: refuses to run with every app off
+    set:
+      apps:
+        sonarr: false
+        radarr: false
+        lidarr: false
+        readarr: false
+        prowlarr: false
+        flaresolverr: false
+        bazarr: false
+        qbittorrent: false
+        sabnzbd: false
+        jellyfin: false
+        plex: false
+        seerr: false
+        maintainerr: false
+        tdarr: false
+        autobrr: false
+    asserts:
+      - failedTemplate:
+          errorPattern: turn on at least one app

@@ -28,6 +28,7 @@ make lint
 | Command | What it runs |
 | --- | --- |
 | `make test` | Unit tests |
+| `make test-chart` | The chart's helm-unittest suites in `chart/arrchitect/tests` |
 | `make test-envtest` | Every sample and admission rule against a real kube-apiserver, and the controllers' Kubernetes side |
 | `make verify-crd-compat` | crdify's report of CRD changes since the last release that existing resources could break on |
 | `make test-compat` | Each app in a container, reconciled from its fixture. `COMPAT_VERSIONS=previous` runs the previous versions; `CONTAINER_TOOL=podman` uses podman |

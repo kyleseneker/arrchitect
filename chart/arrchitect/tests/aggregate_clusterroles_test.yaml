@@ -1,0 +1,57 @@
+suite: aggregated ClusterRoles
+templates:
+  - templates/aggregate-clusterroles.yaml
+release:
+  name: arrchitect
+tests:
+  - it: folds read access into view, edit and admin
+    documentIndex: 0
+    asserts:
+      - equal:
+          path: metadata.name
+          value: arrchitect-view
+      - equal:
+          path: metadata.labels["rbac.authorization.k8s.io/aggregate-to-view"]
+          value: "true"
+      - equal:
+          path: metadata.labels["rbac.authorization.k8s.io/aggregate-to-edit"]
+          value: "true"
+      - equal:
+          path: metadata.labels["rbac.authorization.k8s.io/aggregate-to-admin"]
+          value: "true"
+      - equal:
+          path: rules[0].verbs
+          value:
+            - get
+            - list
+            - watch
+  - it: folds write access into edit and admin, not view
+    documentIndex: 1
+    asserts:
+      - equal:
+          path: metadata.name
+          value: arrchitect-edit
+      - notExists:
+          path: metadata.labels["rbac.authorization.k8s.io/aggregate-to-view"]
+      - equal:
+          path: metadata.labels["rbac.authorization.k8s.io/aggregate-to-edit"]
+          value: "true"
+      - equal:
+          path: metadata.labels["rbac.authorization.k8s.io/aggregate-to-admin"]
+          value: "true"
+      - notContains:
+          path: rules[0].resources
+          content: sonarrconfigs/status
+  - it: covers only the enabled apps
+    set:
+      apps.tdarr: false
+    asserts:
+      - notContains:
+          path: rules[0].resources
+          content: tdarrconfigs
+  - it: can be turned off
+    set:
+      rbac.aggregateClusterRoles: false
+    asserts:
+      - hasDocuments:
+          count: 0

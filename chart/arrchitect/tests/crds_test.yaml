@@ -1,0 +1,26 @@
+suite: CRDs
+templates:
+  - templates/crds.yaml
+tests:
+  - it: installs one CRD per app, kept on uninstall
+    asserts:
+      - hasDocuments:
+          count: 15
+      - equal:
+          path: metadata.annotations["helm.sh/resource-policy"]
+          value: keep
+  - it: leaves out a turned-off app's CRD
+    set:
+      apps.tdarr: false
+    asserts:
+      - hasDocuments:
+          count: 14
+      - notEqual:
+          path: metadata.name
+          value: tdarrconfigs.arrchitect.dev
+  - it: installs none with crds.enabled false
+    set:
+      crds.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0

@@ -85,6 +85,10 @@ test-envtest: manifests generate setup-envtest ## Apply every sample to a real k
 	KUBEBUILDER_ASSETS="$$('$(ENVTEST)' use $(ENVTEST_K8S_VERSION) --bin-dir '$(LOCALBIN)' -p path)" \
 		go test ./test/envtest/... -count=1
 
+.PHONY: test-chart
+test-chart: helm-unittest ## Run the chart's helm-unittest suites.
+	HELM_PLUGINS="$(HELM_PLUGINS)" helm unittest chart/arrchitect
+
 .PHONY: verify-crd-compat
 verify-crd-compat: manifests crdify ## Report CRD changes since the last release that existing resources could break on. PREVIOUS_REF= picks another release.
 	@prev="$${PREVIOUS_REF:-$$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null)}"; \
@@ -155,6 +159,7 @@ $(LOCALBIN):
 ## Tool Binaries
 KIND ?= $(LOCALBIN)/kind
 CRDIFY ?= $(LOCALBIN)/crdify
+HELM_PLUGINS ?= $(LOCALBIN)/helm-plugins
 CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen
 ENVTEST ?= $(LOCALBIN)/setup-envtest
 GOLANGCI_LINT = $(LOCALBIN)/golangci-lint
@@ -164,6 +169,8 @@ GOLANGCI_LINT = $(LOCALBIN)/golangci-lint
 KIND_VERSION ?= v0.33.0
 # renovate: datasource=go depName=sigs.k8s.io/crdify
 CRDIFY_VERSION ?= v0.6.0
+# renovate: datasource=github-releases depName=helm-unittest/helm-unittest
+HELM_UNITTEST_VERSION ?= v1.2.1
 # renovate: datasource=go depName=sigs.k8s.io/controller-tools
 CONTROLLER_TOOLS_VERSION ?= v0.23.0
 
@@ -179,6 +186,13 @@ ENVTEST_K8S_VERSION ?= $(shell v='$(call gomodver,k8s.io/api)'; \
 
 # renovate: datasource=github-releases depName=golangci/golangci-lint
 GOLANGCI_LINT_VERSION ?= v2.15.0
+.PHONY: helm-unittest
+helm-unittest: ## Install the helm-unittest plugin into bin if necessary.
+	@HELM_PLUGINS="$(HELM_PLUGINS)" helm plugin list 2>/dev/null | grep -Eq "^unittest[[:space:]]+$(HELM_UNITTEST_VERSION:v%=%)[[:space:]]" || { \
+		HELM_PLUGINS="$(HELM_PLUGINS)" helm plugin uninstall unittest >/dev/null 2>&1 || true; \
+		HELM_PLUGINS="$(HELM_PLUGINS)" helm plugin install https://github.com/helm-unittest/helm-unittest.git \
+			--version $(HELM_UNITTEST_VERSION) $$(helm version --short | grep -q '^v4' && echo --verify=false); }
+
 .PHONY: crdify
 crdify: $(CRDIFY) ## Download crdify locally if necessary.
 $(CRDIFY): $(LOCALBIN)
