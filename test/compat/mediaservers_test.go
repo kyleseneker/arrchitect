@@ -54,9 +54,9 @@ func TestJellyfin(t *testing.T) {
 		export:  "jellyfin",
 		vars:    map[string]string{"URL": proxy.url()},
 		secrets: map[string]string{"username": jellyfinAdmin, "password": password},
-		newObj:  func() ctrlcommon.ConfigResource { return &mediaserversv1alpha1.JellyfinConfig{} },
+		newObj:  func() ctrlcommon.ConfigResource { return &mediaserversv1alpha1.Jellyfin{} },
 		reconciler: func(c client.Client) reconcile.Reconciler {
-			return &mediaservers.JellyfinConfigReconciler{Client: c, Scheme: c.Scheme(), Recorder: events.NewFakeRecorder(100)}
+			return &mediaservers.JellyfinReconciler{Client: c, Scheme: c.Scheme(), Recorder: events.NewFakeRecorder(100)}
 		},
 		proxy: proxy,
 		// Signing in is a POST that changes nothing.
@@ -140,9 +140,9 @@ func TestPlex(t *testing.T) {
 		export:  "plex",
 		vars:    map[string]string{"URL": proxy.url(), "ALLOWED_NETWORKS": plexAllowedNetworks},
 		secrets: map[string]string{"token": "unclaimed"},
-		newObj:  func() ctrlcommon.ConfigResource { return &mediaserversv1alpha1.PlexConfig{} },
+		newObj:  func() ctrlcommon.ConfigResource { return &mediaserversv1alpha1.Plex{} },
 		reconciler: func(c client.Client) reconcile.Reconciler {
-			return &mediaservers.PlexConfigReconciler{Client: c, Scheme: c.Scheme(), Recorder: events.NewFakeRecorder(100)}
+			return &mediaservers.PlexReconciler{Client: c, Scheme: c.Scheme(), Recorder: events.NewFakeRecorder(100)}
 		},
 		proxy:   proxy,
 		observe: true,

@@ -38,7 +38,7 @@ func TestQBittorrentExportsPreferencesCategoriesAndLogin(t *testing.T) {
 
 	res, err := Run(context.Background(), Options{App: "qbittorrent", URL: srv.URL, Username: "admin", Password: "secret"})
 	require.NoError(t, err)
-	cfg, ok := res.Config.(*downloadsv1alpha1.QBittorrentConfig)
+	cfg, ok := res.Config.(*downloadsv1alpha1.QBittorrent)
 	require.True(t, ok)
 	prefs := cfg.Spec.Preferences
 	assert.Equal(t, "/downloads/", prefs.SavePath)

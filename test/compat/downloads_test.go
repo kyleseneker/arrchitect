@@ -50,9 +50,9 @@ func TestSabnzbd(t *testing.T) {
 		export:  "sabnzbd",
 		vars:    map[string]string{"URL": proxy.url()},
 		secrets: map[string]string{"api-key": key, "usenet-username": "compat", "usenet-password": "usenet-secret"},
-		newObj:  func() ctrlcommon.ConfigResource { return &downloadsv1alpha1.SabnzbdConfig{} },
+		newObj:  func() ctrlcommon.ConfigResource { return &downloadsv1alpha1.Sabnzbd{} },
 		reconciler: func(c client.Client) reconcile.Reconciler {
-			return &downloads.SabnzbdConfigReconciler{Client: c, Scheme: c.Scheme(), Recorder: events.NewFakeRecorder(100)}
+			return &downloads.SabnzbdReconciler{Client: c, Scheme: c.Scheme(), Recorder: events.NewFakeRecorder(100)}
 		},
 		proxy: proxy,
 		// Every call is a form POST to /api; the mode says whether it writes.
@@ -141,9 +141,9 @@ func TestQBittorrent(t *testing.T) {
 		export:  "qbittorrent",
 		vars:    map[string]string{"URL": proxy.url()},
 		secrets: map[string]string{"username": qbittorrentUser, "password": password},
-		newObj:  func() ctrlcommon.ConfigResource { return &downloadsv1alpha1.QBittorrentConfig{} },
+		newObj:  func() ctrlcommon.ConfigResource { return &downloadsv1alpha1.QBittorrent{} },
 		reconciler: func(c client.Client) reconcile.Reconciler {
-			return &downloads.QBittorrentConfigReconciler{Client: c, Scheme: c.Scheme(), Recorder: events.NewFakeRecorder(100)}
+			return &downloads.QBittorrentReconciler{Client: c, Scheme: c.Scheme(), Recorder: events.NewFakeRecorder(100)}
 		},
 		proxy: proxy,
 		// The WebUI authenticates with a POST; it changes no settings.

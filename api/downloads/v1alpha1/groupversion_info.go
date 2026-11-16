@@ -34,8 +34,8 @@ var (
 
 func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(SchemeGroupVersion,
-		&QBittorrentConfig{}, &QBittorrentConfigList{},
-		&SabnzbdConfig{}, &SabnzbdConfigList{},
+		&QBittorrent{}, &QBittorrentList{},
+		&Sabnzbd{}, &SabnzbdList{},
 	)
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
 	return nil

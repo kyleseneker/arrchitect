@@ -13,8 +13,8 @@ import (
 // In observe mode, tags and sync profiles the spec declares resolve even when
 // Prowlarr lacks them; see engine.PlannedID.
 func ResolveReferences(
-	ctx context.Context, client *engine.HTTPClient, spec indexersv1alpha1.ProwlarrConfigSpec, observe bool,
-) (indexersv1alpha1.ProwlarrConfigSpec, map[string]int, error) {
+	ctx context.Context, client *engine.HTTPClient, spec indexersv1alpha1.ProwlarrSpec, observe bool,
+) (indexersv1alpha1.ProwlarrSpec, map[string]int, error) {
 	resolved := spec.DeepCopy()
 	tags, err := engine.FetchNamedIDs(ctx, client, "/api/v1/tag", "label")
 	if err != nil {

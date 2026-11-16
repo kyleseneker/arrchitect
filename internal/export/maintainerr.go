@@ -213,7 +213,7 @@ func (e *maintainerrExport) exportNotifications(spec map[string]any) error {
 				}
 			}
 			if !found {
-				e.warn("notification %q: MaintainerrConfig can't express notification type %v, so it isn't exported", name, t)
+				e.warn("notification %q: the config can't express notification type %v, so it isn't exported", name, t)
 			}
 		}
 		if len(types) > 0 {

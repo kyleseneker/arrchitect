@@ -32,7 +32,7 @@ const fakeBazarrProfiles = `[
 		"items": [{"id": 3, "language": "es", "hi": "False", "forced": "False", "audio_exclude": "False"}]}
 ]`
 
-func exportBazarrFrom(t *testing.T) (*subtitlesv1alpha1.BazarrConfig, Result) {
+func exportBazarrFrom(t *testing.T) (*subtitlesv1alpha1.Bazarr, Result) {
 	t.Helper()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("X-API-KEY") != "k" {
@@ -53,7 +53,7 @@ func exportBazarrFrom(t *testing.T) (*subtitlesv1alpha1.BazarrConfig, Result) {
 	t.Cleanup(srv.Close)
 	res, err := Run(context.Background(), Options{App: "bazarr", URL: srv.URL, APIKey: "k"})
 	require.NoError(t, err)
-	cfg, ok := res.Config.(*subtitlesv1alpha1.BazarrConfig)
+	cfg, ok := res.Config.(*subtitlesv1alpha1.Bazarr)
 	require.True(t, ok)
 	return cfg, res
 }
@@ -91,7 +91,7 @@ func TestBazarrProviderSecretsMoveToTheSecret(t *testing.T) {
 		"password": {Name: "bazarr-credentials", Key: "provider-opensubtitlescom-password"},
 	}, os.SecretSettings)
 	assert.Equal(t, "hunter2", res.Secret.StringData["provider-opensubtitlescom-password"])
-	assert.Contains(t, res.Warnings, `provider "opensubtitlescom": BazarrConfig provider settings hold text, so extra stays as set in Bazarr`)
+	assert.Contains(t, res.Warnings, `provider "opensubtitlescom": the config's provider settings hold text, so extra stays as set in Bazarr`)
 	assert.Empty(t, cfg.Spec.Providers[1].Settings)
 }
 
@@ -102,8 +102,8 @@ func TestBazarrProfilesWarnAboutWhatTheConfigWouldClear(t *testing.T) {
 	assert.Equal(t, 1, *english.ProfileId)
 	assert.True(t, *english.Items[0].Forced)
 	assert.False(t, *english.Items[0].HI)
-	assert.Contains(t, res.Warnings, `language profile "Picky": BazarrConfig can't express its cutoff, must-contain, `+
+	assert.Contains(t, res.Warnings, `language profile "Picky": the config can't express its cutoff, must-contain, `+
 		`must-not-contain or original-format setting, and applying the config would clear it`)
-	assert.Contains(t, res.Warnings, `language profile "Picky": Bazarr numbers its items differently than BazarrConfig, `+
+	assert.Contains(t, res.Warnings, `language profile "Picky": Bazarr numbers its items differently than the config, `+
 		`so applying the config would renumber them`)
 }

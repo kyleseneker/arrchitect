@@ -39,7 +39,7 @@ func TestSeerrExportsSettingsServicesAndNotifications(t *testing.T) {
 
 	res, err := Run(context.Background(), Options{App: "seerr", URL: srv.URL, APIKey: "seerr-key"})
 	require.NoError(t, err)
-	cfg, ok := res.Config.(*requestsv1alpha1.SeerrConfig)
+	cfg, ok := res.Config.(*requestsv1alpha1.Seerr)
 	require.True(t, ok)
 	assert.Equal(t, "Requests", cfg.Spec.Main.ApplicationTitle)
 	assert.Equal(t, 32, *cfg.Spec.Main.DefaultPermissions)
@@ -67,7 +67,7 @@ func TestSeerrExportsSettingsServicesAndNotifications(t *testing.T) {
 		"issueComment", "issueCreated", "issueReopened", "issueResolved", "mediaApproved", "mediaAutoApproved",
 		"mediaAvailable", "mediaDeclined", "mediaFailed", "mediaPending",
 	}, discord.Types)
-	assert.Contains(t, res.Warnings, `notification "discord": SeerrConfig can't express type bits 32, and applying the config would clear them`)
+	assert.Contains(t, res.Warnings, `notification "discord": the config can't express type bits 32, and applying it would clear them`)
 	require.Len(t, discord.Options, 1)
 	assert.Equal(t, true, discord.Options["enableMentions"].ToInterface(), "a boolean option stays a boolean")
 	require.Contains(t, discord.SecretOptions, "webhookUrl")

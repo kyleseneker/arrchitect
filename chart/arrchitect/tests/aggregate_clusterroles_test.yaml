@@ -48,7 +48,7 @@ tests:
     asserts:
       - notContains:
           path: rules[0].resources
-          content: tdarrconfigs
+          content: tdarrs
   - it: can be turned off
     set:
       rbac.aggregateClusterRoles: false

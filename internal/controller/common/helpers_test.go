@@ -323,14 +323,14 @@ func TestReferencesSecretFindsEveryReference(t *testing.T) {
 		"a download client password": pvrv1alpha1.SonarrDownloadClientSpec{
 			DownloadClient: commonv1alpha1.DownloadClient{Name: "q", PasswordSecretRef: &ref},
 		},
-		"a field read from a Secret": indexersv1alpha1.ProwlarrConfigSpec{
+		"a field read from a Secret": indexersv1alpha1.ProwlarrSpec{
 			Indexers: []indexersv1alpha1.ProwlarrIndexer{{Name: "x", Fields: []commonv1alpha1.ConfigField{{Name: "apiKey", ValueFrom: &commonv1alpha1.ValueSource{SecretKeyRef: ref}}}}},
 		},
-		"a Usenet server password": downloadsv1alpha1.SabnzbdConfigSpec{
+		"a Usenet server password": downloadsv1alpha1.SabnzbdSpec{
 			Servers: []downloadsv1alpha1.SabnzbdServer{{Name: "s", PasswordSecretRef: &ref}},
 		},
 		"a map value": map[string]commonv1alpha1.SecretKeyRef{"x": ref},
-		"a Bazarr provider setting": subtitlesv1alpha1.BazarrConfigSpec{
+		"a Bazarr provider setting": subtitlesv1alpha1.BazarrSpec{
 			Providers: []subtitlesv1alpha1.BazarrProvider{{Name: "opensubtitlescom", SecretSettings: map[string]commonv1alpha1.SecretKeyRef{"password": ref}}},
 		},
 	} {

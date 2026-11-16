@@ -81,37 +81,37 @@ func main() {
 			}
 		}},
 		operator.Controller{Name: "prowlarr", New: func(d operator.Deps) operator.Reconciler {
-			return &indexers.ProwlarrConfigReconciler{Client: d.Client, Scheme: d.Scheme, Recorder: d.Recorder}
+			return &indexers.ProwlarrReconciler{Client: d.Client, Scheme: d.Scheme, Recorder: d.Recorder}
 		}},
 		operator.Controller{Name: "flaresolverr", New: func(d operator.Deps) operator.Reconciler {
-			return &indexers.FlareSolverrConfigReconciler{Client: d.Client, Scheme: d.Scheme, Recorder: d.Recorder}
+			return &indexers.FlareSolverrReconciler{Client: d.Client, Scheme: d.Scheme, Recorder: d.Recorder}
 		}},
 		operator.Controller{Name: "bazarr", New: func(d operator.Deps) operator.Reconciler {
-			return &subtitles.BazarrConfigReconciler{Client: d.Client, Scheme: d.Scheme, Recorder: d.Recorder}
+			return &subtitles.BazarrReconciler{Client: d.Client, Scheme: d.Scheme, Recorder: d.Recorder}
 		}},
 		operator.Controller{Name: "qbittorrent", New: func(d operator.Deps) operator.Reconciler {
-			return &downloads.QBittorrentConfigReconciler{Client: d.Client, Scheme: d.Scheme, Recorder: d.Recorder}
+			return &downloads.QBittorrentReconciler{Client: d.Client, Scheme: d.Scheme, Recorder: d.Recorder}
 		}},
 		operator.Controller{Name: "sabnzbd", New: func(d operator.Deps) operator.Reconciler {
-			return &downloads.SabnzbdConfigReconciler{Client: d.Client, Scheme: d.Scheme, Recorder: d.Recorder}
+			return &downloads.SabnzbdReconciler{Client: d.Client, Scheme: d.Scheme, Recorder: d.Recorder}
 		}},
 		operator.Controller{Name: "jellyfin", New: func(d operator.Deps) operator.Reconciler {
-			return &mediaservers.JellyfinConfigReconciler{Client: d.Client, Scheme: d.Scheme, Recorder: d.Recorder}
+			return &mediaservers.JellyfinReconciler{Client: d.Client, Scheme: d.Scheme, Recorder: d.Recorder}
 		}},
 		operator.Controller{Name: "plex", New: func(d operator.Deps) operator.Reconciler {
-			return &mediaservers.PlexConfigReconciler{Client: d.Client, Scheme: d.Scheme, Recorder: d.Recorder}
+			return &mediaservers.PlexReconciler{Client: d.Client, Scheme: d.Scheme, Recorder: d.Recorder}
 		}},
 		operator.Controller{Name: "seerr", New: func(d operator.Deps) operator.Reconciler {
-			return &requests.SeerrConfigReconciler{Client: d.Client, Scheme: d.Scheme, Recorder: d.Recorder}
+			return &requests.SeerrReconciler{Client: d.Client, Scheme: d.Scheme, Recorder: d.Recorder}
 		}},
 		operator.Controller{Name: "maintainerr", New: func(d operator.Deps) operator.Reconciler {
-			return &curation.MaintainerrConfigReconciler{Client: d.Client, Scheme: d.Scheme, Recorder: d.Recorder}
+			return &curation.MaintainerrReconciler{Client: d.Client, Scheme: d.Scheme, Recorder: d.Recorder}
 		}},
 		operator.Controller{Name: "tdarr", New: func(d operator.Deps) operator.Reconciler {
-			return &transcode.TdarrConfigReconciler{Client: d.Client, Scheme: d.Scheme, Recorder: d.Recorder}
+			return &transcode.TdarrReconciler{Client: d.Client, Scheme: d.Scheme, Recorder: d.Recorder}
 		}},
 		operator.Controller{Name: "autobrr", New: func(d operator.Deps) operator.Reconciler {
-			return &automation.AutobrrConfigReconciler{Client: d.Client, Scheme: d.Scheme, Recorder: d.Recorder}
+			return &automation.AutobrrReconciler{Client: d.Client, Scheme: d.Scheme, Recorder: d.Recorder}
 		}},
 	)
 }

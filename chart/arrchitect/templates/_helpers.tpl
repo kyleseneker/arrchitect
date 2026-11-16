@@ -46,12 +46,12 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 
 {{- define "arrchitect.resources" -}}
 {{- $pvr := list "sonarr" "radarr" "lidarr" "readarr" }}
+{{- $plurals := dict "plex" "plexes" }}
 {{- $resources := list }}
 {{- range $app := splitList "," (include "arrchitect.enabledApps" .) }}
+{{- $resources = append $resources (get $plurals $app | default (printf "%ss" $app)) }}
 {{- if has $app $pvr }}
-{{- $resources = concat $resources (list (printf "%ss" $app) (printf "%sindexers" $app) (printf "%sdownloadclients" $app)) }}
-{{- else }}
-{{- $resources = append $resources (printf "%sconfigs" $app) }}
+{{- $resources = concat $resources (list (printf "%sindexers" $app) (printf "%sdownloadclients" $app)) }}
 {{- end }}
 {{- end }}
 {{- join "," $resources }}

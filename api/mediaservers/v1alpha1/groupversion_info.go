@@ -34,8 +34,8 @@ var (
 
 func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(SchemeGroupVersion,
-		&JellyfinConfig{}, &JellyfinConfigList{},
-		&PlexConfig{}, &PlexConfigList{},
+		&Jellyfin{}, &JellyfinList{},
+		&Plex{}, &PlexList{},
 	)
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
 	return nil

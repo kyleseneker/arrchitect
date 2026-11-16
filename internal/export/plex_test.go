@@ -35,7 +35,7 @@ func TestPlexExportsListedPreferencesAndLibraries(t *testing.T) {
 
 	res, err := Run(context.Background(), Options{App: "plex", URL: srv.URL, Token: "plex-token"})
 	require.NoError(t, err)
-	cfg, ok := res.Config.(*mediaserversv1alpha1.PlexConfig)
+	cfg, ok := res.Config.(*mediaserversv1alpha1.Plex)
 	require.True(t, ok)
 	assert.Equal(t, "home", cfg.Spec.Server.FriendlyName)
 	assert.False(t, *cfg.Spec.Server.LogDebug)

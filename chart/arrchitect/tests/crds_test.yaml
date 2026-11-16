@@ -17,7 +17,7 @@ tests:
           count: 22
       - notEqual:
           path: metadata.name
-          value: tdarrconfigs.arrchitect.dev
+          value: tdarrs.arrchitect.dev
   - it: installs an app's object kinds with its instance kind
     set:
       apps:

@@ -34,7 +34,7 @@ func TestSabnzbdExportsMiscServersAndCategories(t *testing.T) {
 
 	res, err := Run(context.Background(), Options{App: "sabnzbd", URL: srv.URL, APIKey: "k"})
 	require.NoError(t, err)
-	cfg, ok := res.Config.(*downloadsv1alpha1.SabnzbdConfig)
+	cfg, ok := res.Config.(*downloadsv1alpha1.Sabnzbd)
 	require.True(t, ok)
 	assert.Equal(t, &downloadsv1alpha1.SabnzbdFolders{CompleteDir: "/done", IncompleteDir: "/incomplete", ScriptDir: "/scripts"}, cfg.Spec.Folders)
 	assert.Equal(t, "50M", cfg.Spec.General.DownloadSpeedLimit)
@@ -46,7 +46,7 @@ func TestSabnzbdExportsMiscServersAndCategories(t *testing.T) {
 	assert.Equal(t, "fail", general.EncryptedRarAction)
 	assert.Equal(t, "blocklist", general.UnwantedExtensionsMode)
 	assert.Empty(t, general.UnwantedExtensionsAction)
-	assert.Contains(t, res.Warnings, "SabnzbdConfig can't express action_on_unwanted_extensions 7; unwantedExtensionsAction is left out")
+	assert.Contains(t, res.Warnings, "the config can't express action_on_unwanted_extensions 7; unwantedExtensionsAction is left out")
 	assert.Equal(t, []string{"exe", "lnk"}, general.UnwantedExtensions)
 	assert.Empty(t, general.CleanupList)
 	assert.Equal(t, []string{"sabnzbd.media"}, general.HostWhitelist)

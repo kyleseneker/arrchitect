@@ -52,7 +52,7 @@ func TestAutobrrExportsEachResourceWithSecretsInTheSecret(t *testing.T) {
 
 	res, err := Run(context.Background(), Options{App: "autobrr", URL: srv.URL, APIKey: "k"})
 	require.NoError(t, err)
-	cfg, ok := res.Config.(*automationv1alpha1.AutobrrConfig)
+	cfg, ok := res.Config.(*automationv1alpha1.Autobrr)
 	require.True(t, ok)
 
 	require.Len(t, cfg.Spec.DownloadClients, 2)

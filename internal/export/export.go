@@ -129,51 +129,51 @@ var apps = map[string]app{
 		}),
 	"prowlarr": {
 		auth: engine.AuthAPIKey, apiKey: true, export: exportProwlarr,
-		newObj: func() client.Object { return &indexersv1alpha1.ProwlarrConfig{} },
+		newObj: func() client.Object { return &indexersv1alpha1.Prowlarr{} },
 	},
 	"flaresolverr": {
 		auth: engine.AuthNone, export: exportFlareSolverr,
-		newObj: func() client.Object { return &indexersv1alpha1.FlareSolverrConfig{} },
+		newObj: func() client.Object { return &indexersv1alpha1.FlareSolverr{} },
 	},
 	"qbittorrent": {
 		auth: engine.AuthCookie, login: true, export: exportQBittorrent,
 		options: []engine.HTTPClientOption{engine.WithDisableRedirect()},
-		newObj:  func() client.Object { return &downloadsv1alpha1.QBittorrentConfig{} },
+		newObj:  func() client.Object { return &downloadsv1alpha1.QBittorrent{} },
 	},
 	"sabnzbd": {
 		auth: engine.AuthNone, apiKey: true, export: exportSabnzbd,
-		newObj: func() client.Object { return &downloadsv1alpha1.SabnzbdConfig{} },
+		newObj: func() client.Object { return &downloadsv1alpha1.Sabnzbd{} },
 	},
 	"jellyfin": {
 		auth: engine.AuthMediaBrowser, login: true, export: exportJellyfin,
-		newObj: func() client.Object { return &mediaserversv1alpha1.JellyfinConfig{} },
+		newObj: func() client.Object { return &mediaserversv1alpha1.Jellyfin{} },
 	},
 	"plex": {
 		auth: engine.AuthPlexToken, token: true, export: exportPlex,
-		newObj: func() client.Object { return &mediaserversv1alpha1.PlexConfig{} },
+		newObj: func() client.Object { return &mediaserversv1alpha1.Plex{} },
 	},
 	"seerr": {
 		auth: engine.AuthSession, apiKey: true, export: exportSeerr,
-		newObj: func() client.Object { return &requestsv1alpha1.SeerrConfig{} },
+		newObj: func() client.Object { return &requestsv1alpha1.Seerr{} },
 	},
 	"tdarr": {
 		auth: engine.AuthAPIKey, apiKey: true, export: exportTdarr,
 		options: []engine.HTTPClientOption{engine.WithAPIKeyHeader("x-api-key")},
-		newObj:  func() client.Object { return &transcodev1alpha1.TdarrConfig{} },
+		newObj:  func() client.Object { return &transcodev1alpha1.Tdarr{} },
 	},
 	"autobrr": {
 		auth: engine.AuthAPIKey, apiKey: true, export: exportAutobrr,
 		options: []engine.HTTPClientOption{engine.WithAPIKeyHeader("X-API-Token")},
-		newObj:  func() client.Object { return &automationv1alpha1.AutobrrConfig{} },
+		newObj:  func() client.Object { return &automationv1alpha1.Autobrr{} },
 	},
 	"maintainerr": {
 		auth: engine.AuthNone, export: exportMaintainerr,
-		newObj: func() client.Object { return &curationv1alpha1.MaintainerrConfig{} },
+		newObj: func() client.Object { return &curationv1alpha1.Maintainerr{} },
 	},
 	"bazarr": {
 		auth: engine.AuthFormEncoded, apiKey: true, export: exportBazarr,
 		options: []engine.HTTPClientOption{engine.WithAPIKeyHeader("X-API-KEY")},
-		newObj:  func() client.Object { return &subtitlesv1alpha1.BazarrConfig{} },
+		newObj:  func() client.Object { return &subtitlesv1alpha1.Bazarr{} },
 	},
 }
 

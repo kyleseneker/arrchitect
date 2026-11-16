@@ -1,0 +1,473 @@
+package downloads
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"maps"
+	"net"
+	"net/url"
+	"reflect"
+	"slices"
+	"strconv"
+	"strings"
+	"time"
+
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/tools/events"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
+
+	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
+	downloadsv1alpha1 "github.com/kyleseneker/arrchitect/api/downloads/v1alpha1"
+	sabnzbdclient "github.com/kyleseneker/arrchitect/internal/client/sabnzbd"
+	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
+	"github.com/kyleseneker/arrchitect/internal/engine"
+	"github.com/kyleseneker/arrchitect/internal/metrics"
+	"github.com/kyleseneker/arrchitect/internal/reconciler"
+)
+
+type SabnzbdReconciler struct {
+	client.Client
+	Scheme   *runtime.Scheme
+	Recorder events.EventRecorder
+}
+
+// +kubebuilder:rbac:groups=arrchitect.dev,resources=sabnzbds,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=arrchitect.dev,resources=sabnzbds/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=arrchitect.dev,resources=sabnzbds/finalizers,verbs=update
+// +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
+
+func (r *SabnzbdReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	logger := log.FromContext(ctx)
+
+	var config downloadsv1alpha1.Sabnzbd
+	if err := r.Get(ctx, req.NamespacedName, &config); err != nil {
+		return ctrl.Result{}, ctrlcommon.IgnoreDeleted(&config, req.NamespacedName, err)
+	}
+
+	lifecycle := ctrlcommon.Lifecycle{Remove: func(ctx context.Context) error { return r.cleanup(ctx, &config) }, Prune: true}
+	if done, after := ctrlcommon.HandleLifecycle(ctx, r.Client, r.Recorder, &config, lifecycle); done {
+		return ctrl.Result{RequeueAfter: after}, nil
+	}
+
+	sc, reason, err := r.sabnzbdClient(ctx, &config)
+	if err != nil {
+		logger.Error(err, "failed to build the SABnzbd client")
+		ctrlcommon.UpdateStatusUnreachable(ctx, r.Client, &config, reason, err.Error())
+		if reason == engine.ReasonInvalidConfig {
+			return ctrl.Result{}, nil
+		}
+		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
+	}
+
+	if err := sc.Ping(ctx); err != nil {
+		logger.Error(err, "SABnzbd unreachable")
+		ctrlcommon.UpdateStatusUnreachable(ctx, r.Client, &config, engine.ReasonAppUnreachable, err.Error())
+		return ctrl.Result{RequeueAfter: 60 * time.Second}, nil
+	}
+
+	current, err := sc.GetConfig(ctx)
+	if err != nil {
+		ctrlcommon.UpdateStatus(ctx, r.Client, &config, false, engine.ReasonSyncFailed, fmt.Sprintf("reading config: %v", err))
+		return ctrl.Result{RequeueAfter: ctrlcommon.ReconcileInterval(config.Spec.Reconcile)}, nil
+	}
+	if config.Spec.General != nil {
+		if err := sabnzbdHostAllowed(config.Spec.Connection.URL, config.Spec.General.HostWhitelist); err != nil {
+			ctrlcommon.UpdateStatus(ctx, r.Client, &config, false, engine.ReasonInvalidConfig, err.Error())
+			return ctrl.Result{}, nil
+		}
+	}
+	servers, syncErrors := r.resolveSabnzbdServers(ctx, &config)
+	writes := planSabnzbd(current, config.Spec, servers, string(config.UID))
+
+	owned := engine.NewOwnership("sabnzbd", config.Status.ManagedResources)
+	prune := ctrlcommon.PruneEnabled(config.Spec.Reconcile)
+	if ctrlcommon.ObserveOnly(config.Spec.Reconcile) {
+		observed := &engine.Writes{App: "sabnzbd", Observe: true}
+		for _, w := range writes {
+			observed.RecordDrift(w.resourceType, w.name)
+		}
+		if prune {
+			syncErrors = append(syncErrors, pruneSabnzbd(ctx, sc, current, config.Spec, owned, observed)...)
+		}
+		ctrlcommon.UpdateSyncStatus(ctx, r.Client, &config, true, observed.Drift(), syncErrors)
+		return ctrl.Result{RequeueAfter: ctrlcommon.ReconcileInterval(config.Spec.Reconcile)}, nil
+	}
+
+	syncErrors = append(syncErrors, applySabnzbd(ctx, sc, writes, owned)...)
+	// A fresh SABnzbd creates its default categories on the first category
+	// write and discards that write, so check once more after writing.
+	if len(writes) > 0 && len(syncErrors) == 0 {
+		if current, err = sc.GetConfig(ctx); err != nil {
+			syncErrors = append(syncErrors, fmt.Sprintf("re-reading config: %v", err))
+		} else {
+			syncErrors = append(syncErrors, applySabnzbd(ctx, sc, planSabnzbd(current, config.Spec, servers, string(config.UID)), owned)...)
+		}
+	}
+	if prune && len(syncErrors) == 0 {
+		if current, err = sc.GetConfig(ctx); err != nil {
+			syncErrors = append(syncErrors, fmt.Sprintf("reading config to prune: %v", err))
+		} else {
+			syncErrors = append(syncErrors, pruneSabnzbd(ctx, sc, current, config.Spec, owned, &engine.Writes{App: "sabnzbd"})...)
+		}
+	}
+
+	ctrlcommon.UpdateStatusManaged(&config, owned.Managed())
+	ctrlcommon.EmitPruneEvents(r.Recorder, &config, owned.Pruned())
+	ctrlcommon.UpdateSyncStatus(ctx, r.Client, &config, false, nil, syncErrors)
+	return ctrl.Result{RequeueAfter: ctrlcommon.ReconcileInterval(config.Spec.Reconcile)}, nil
+}
+
+func (r *SabnzbdReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	return ctrl.NewControllerManagedBy(mgr).
+		For(&downloadsv1alpha1.Sabnzbd{}, builder.WithPredicates(ctrlcommon.ConfigChangedPredicate())).
+		WatchesMetadata(&corev1.Secret{}, ctrlcommon.EnqueueForSecret(r.Client, &downloadsv1alpha1.SabnzbdList{})).
+		Named("sabnzbd").
+		Complete(r)
+}
+
+func buildSabnzbdFolderValues(f *downloadsv1alpha1.SabnzbdFolders) map[string]string {
+	return sabnzbdValues(f)
+}
+
+// sabnzbdAgeSort is the queue order SABnzbd 4 and later use for the old
+// auto_sort on setting; auto_sort now holds a field and a direction.
+const sabnzbdAgeSort = "avg_age asc"
+
+func buildSabnzbdGeneralValues(g *downloadsv1alpha1.SabnzbdGeneral) map[string]string {
+	vals := sabnzbdValues(g)
+	if g.AutoSort != nil {
+		vals["auto_sort"] = ""
+		if *g.AutoSort {
+			vals["auto_sort"] = sabnzbdAgeSort
+		}
+	}
+	return vals
+}
+
+// sabnzbdValues reads the settings in sabnzbdclient's tables from a spec
+// section, as the text set_config takes.
+func sabnzbdValues(section any) map[string]string {
+	vals := map[string]string{}
+	v := reflect.ValueOf(section).Elem()
+	for i := range v.NumField() {
+		name, _, _ := strings.Cut(v.Type().Field(i).Tag.Get("json"), ",")
+		field := v.Field(i)
+		if field.IsZero() {
+			continue
+		}
+		if key, ok := sabnzbdclient.Folders[name]; ok {
+			vals[key] = field.String()
+		}
+		if key, ok := sabnzbdclient.Switches[name]; ok {
+			vals[key] = ctrlcommon.BoolTo01(field.Elem().Bool())
+		}
+		if key, ok := sabnzbdclient.Texts[name]; ok {
+			vals[key] = field.String()
+		}
+		if key, ok := sabnzbdclient.Numbers[name]; ok {
+			vals[key] = strconv.FormatInt(field.Elem().Int(), 10)
+		}
+		if key, ok := sabnzbdclient.Lists[name]; ok {
+			vals[key] = strings.Join(field.Interface().([]string), ",")
+		}
+		if choice, ok := sabnzbdclient.Choices[name]; ok {
+			vals[choice.Key] = choice.Values[field.String()]
+		}
+	}
+	return vals
+}
+
+// sabnzbdHostAllowed checks that hostWhitelist keeps the host the operator
+// connects to. SABnzbd refuses any other host name, so leaving it out would
+// lock the operator out.
+func sabnzbdHostAllowed(connection string, whitelist []string) error {
+	if len(whitelist) == 0 {
+		return nil
+	}
+	u, err := url.Parse(connection)
+	if err != nil {
+		return err
+	}
+	host := strings.ToLower(u.Hostname())
+	if host == "localhost" || net.ParseIP(host) != nil || strings.HasSuffix(strings.TrimSuffix(host, "."), ".local") ||
+		slices.Contains(whitelist, host) {
+		return nil
+	}
+	return fmt.Errorf("general.hostWhitelist must include %s, the host in connection.url; SABnzbd refuses host names it doesn't list", host)
+}
+
+func sabnzbdServerValues(srv downloadsv1alpha1.SabnzbdServer) map[string]string {
+	vals := map[string]string{
+		"host": srv.Host,
+		"port": strconv.Itoa(srv.Port),
+	}
+	for key, value := range map[string]*bool{"ssl": srv.SSL, "enable": srv.Enable, "optional": srv.Optional, "required": srv.Required} {
+		if value != nil {
+			vals[key] = ctrlcommon.BoolTo01(*value)
+		}
+	}
+	for key, value := range map[string]*int{
+		"connections": srv.Connections, "priority": srv.Priority, "retention": srv.Retention, "timeout": srv.Timeout,
+	} {
+		if value != nil {
+			vals[key] = strconv.Itoa(*value)
+		}
+	}
+	if srv.SSLVerify != "" {
+		vals["ssl_verify"] = sabnzbdclient.SSLVerify[srv.SSLVerify]
+	}
+	return vals
+}
+
+// applySabnzbd performs the planned writes and returns the failures.
+func applySabnzbd(ctx context.Context, sc *sabnzbdclient.Client, writes []sabWrite, owned *engine.Ownership) []string {
+	var problems []string
+	for _, w := range writes {
+		metrics.DriftCorrectedTotal.WithLabelValues("sabnzbd", w.resourceType, w.name).Inc()
+		var err error
+		if w.section == "misc" {
+			err = sc.SetConfig(ctx, w.section, w.name, w.values["value"])
+		} else {
+			err = sc.SetNamed(ctx, w.section, w.name, w.values)
+		}
+		if err != nil {
+			log.FromContext(ctx).Error(err, "failed to write sabnzbd config", "section", w.section, "name", w.name)
+			problems = append(problems, fmt.Sprintf("%s(%s): %v", w.resourceType, w.name, err))
+			continue
+		}
+		reconciler.RecordSecrets(w.secretKey, w.secretDigest)
+		if w.create {
+			owned.Created(w.section, w.name)
+		}
+	}
+	return problems
+}
+
+// sabnzbdClient builds the client for a config, or returns the status reason it
+// can't.
+func (r *SabnzbdReconciler) sabnzbdClient(ctx context.Context, config *downloadsv1alpha1.Sabnzbd) (*sabnzbdclient.Client, string, error) {
+	apiKey, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, config.Spec.Connection.APIKeySecretRef)
+	if err != nil {
+		return nil, engine.ReasonSecretNotFound, err
+	}
+	tlsCfg, err := engine.ResolveTLSConfig(ctx, r.Client, config.Namespace, config.Spec.Connection.TLS)
+	if err != nil {
+		return nil, engine.ReasonSecretNotFound, err
+	}
+	hc, err := engine.NewHTTPClient(config.Spec.Connection.URL, engine.AuthNone, engine.WithTLSConfig(tlsCfg), engine.WithAppLabel("sabnzbd"))
+	if err != nil {
+		return nil, engine.ReasonInvalidConfig, err
+	}
+	return sabnzbdclient.NewClient(hc, apiKey), "", nil
+}
+
+// pruneSabnzbd deletes the servers and categories the operator created that the
+// spec no longer declares.
+func pruneSabnzbd(
+	ctx context.Context, sc *sabnzbdclient.Client, current map[string]any, spec downloadsv1alpha1.SabnzbdSpec,
+	owned *engine.Ownership, w *engine.Writes,
+) []string {
+	declared := map[string][]string{}
+	for _, s := range spec.Servers {
+		declared["servers"] = append(declared["servers"], s.Name)
+	}
+	for _, c := range spec.Categories {
+		declared["categories"] = append(declared["categories"], c.Name)
+	}
+	var problems []string
+	for _, section := range []string{"servers", "categories"} {
+		err := w.Prune(owned, section, declared[section], sabnzbdNames(current, section), func(name string) error {
+			return sc.DeleteNamed(ctx, section, name)
+		})
+		if err != nil {
+			problems = append(problems, fmt.Sprintf("%s(prune): %v", section, err))
+		}
+	}
+	return problems
+}
+
+// cleanup deletes the servers and categories the operator created, for
+// deletionPolicy delete.
+func (r *SabnzbdReconciler) cleanup(ctx context.Context, config *downloadsv1alpha1.Sabnzbd) error {
+	sc, _, err := r.sabnzbdClient(ctx, config)
+	if err != nil {
+		return err
+	}
+	current, err := sc.GetConfig(ctx)
+	if err != nil {
+		return err
+	}
+	owned := engine.NewOwnership("sabnzbd", config.Status.ManagedResources)
+	var errs []error
+	for _, section := range []string{"servers", "categories"} {
+		errs = append(errs, owned.Cleanup(section, sabnzbdNames(current, section), func(name string) error {
+			return sc.DeleteNamed(ctx, section, name)
+		}))
+	}
+	return errors.Join(errs...)
+}
+
+func sabnzbdNames(current map[string]any, section string) []string {
+	entries, _ := current[section].([]any)
+	names := make([]string, 0, len(entries))
+	for _, e := range entries {
+		entry, _ := e.(map[string]any)
+		if name, _ := entry["name"].(string); name != "" {
+			names = append(names, name)
+		}
+	}
+	return names
+}
+
+// sabWrite is one set_config call the reconcile needs.
+type sabWrite struct {
+	section      string // misc, servers or categories
+	name         string // the misc keyword, or the server or category name
+	create       bool
+	values       map[string]string
+	resourceType string
+	secretKey    string
+	secretDigest string
+}
+
+// resolveSabnzbdServers reads each server's credentials. A server whose Secret
+// cannot be read is skipped and reported, so the rest still reconcile.
+func (r *SabnzbdReconciler) resolveSabnzbdServers(
+	ctx context.Context, config *downloadsv1alpha1.Sabnzbd,
+) (map[string]map[string]string, []string) {
+	servers := map[string]map[string]string{}
+	var problems []string
+	for _, srv := range config.Spec.Servers {
+		vals := sabnzbdServerValues(srv)
+		ok := true
+		for field, ref := range map[string]*commonv1alpha1.SecretKeyRef{"username": srv.UsernameSecretRef, "password": srv.PasswordSecretRef} {
+			if ref == nil {
+				continue
+			}
+			value, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, *ref)
+			if err != nil {
+				problems = append(problems, fmt.Sprintf("server(%s).%s: %v", srv.Name, field, err))
+				ok = false
+				continue
+			}
+			vals[field] = value
+		}
+		if ok {
+			servers[srv.Name] = vals
+		}
+	}
+	return servers, problems
+}
+
+// planSabnzbd compares the declared settings with get_config and returns only
+// the writes needed. Writing every setting on every pass made each reconcile a
+// burst of set_config calls and hid which settings actually drifted.
+func planSabnzbd(
+	current map[string]any, spec downloadsv1alpha1.SabnzbdSpec, servers map[string]map[string]string, owner string,
+) []sabWrite {
+	var writes []sabWrite
+	observe := ctrlcommon.ObserveOnly(spec.Reconcile)
+
+	misc := map[string]string{}
+	if spec.General != nil {
+		maps.Copy(misc, buildSabnzbdGeneralValues(spec.General))
+	}
+	if spec.Folders != nil {
+		maps.Copy(misc, buildSabnzbdFolderValues(spec.Folders))
+	}
+	currentMisc, _ := current["misc"].(map[string]any)
+	for _, key := range slices.Sorted(maps.Keys(misc)) {
+		// A switch reads back as 0/1 until written and as true/false after, and
+		// a list as an array of what was written comma-separated.
+		value := currentMisc[key]
+		switch v := value.(type) {
+		case bool:
+			value = ctrlcommon.BoolTo01(v)
+		case []any:
+			items := make([]string, 0, len(v))
+			for _, item := range v {
+				items = append(items, fmt.Sprint(item))
+			}
+			value = strings.Join(items, ",")
+		}
+		out, err := reconciler.MergeDesired(map[string]any{key: value}, map[string]any{key: misc[key]})
+		if err == nil && !out.Changed {
+			continue
+		}
+		writes = append(writes, sabWrite{section: "misc", name: key, values: map[string]string{"value": misc[key]}, resourceType: "settings"})
+	}
+
+	for _, srv := range spec.Servers {
+		vals, ok := servers[srv.Name]
+		if !ok {
+			continue
+		}
+		key := fmt.Sprintf("sabnzbd/%s/server/%q", owner, srv.Name)
+		if w, needed := planNamed(current, "servers", srv.Name, vals, key, observe); needed {
+			w.resourceType = "servers"
+			writes = append(writes, w)
+		}
+	}
+
+	for _, cat := range spec.Categories {
+		if w, needed := planNamed(current, "categories", cat.Name, sabnzbdCategoryValues(cat), "", observe); needed {
+			w.resourceType = "categories"
+			writes = append(writes, w)
+		}
+	}
+	return writes
+}
+
+// planNamed decides whether a server or category needs writing. Passwords read
+// back masked, so a change there is noticed through the remembered digest.
+func planNamed(current map[string]any, section, name string, vals map[string]string, secretKey string, observe bool) (sabWrite, bool) {
+	w := sabWrite{section: section, name: name, values: vals, secretKey: secretKey}
+	entries, _ := current[section].([]any)
+	for _, e := range entries {
+		entry, _ := e.(map[string]any)
+		if entry["name"] != name {
+			continue
+		}
+		desired := make(map[string]any, len(vals))
+		for k, v := range vals {
+			desired[k] = v
+		}
+		out, err := reconciler.MergeDesired(entry, desired)
+		if err != nil {
+			return w, true
+		}
+		w.secretDigest = out.SecretDigest
+		return w, out.Changed || reconciler.SecretsDiffer(secretKey, out.SecretDigest, observe)
+	}
+	w.create = true
+	// A new entry reads back with its password masked; remember what is
+	// written now, or the next pass rewrites it once.
+	if password, ok := vals["password"]; ok {
+		if out, err := reconciler.MergeDesired(map[string]any{"password": "**********"}, map[string]any{"password": password}); err == nil {
+			w.secretDigest = out.SecretDigest
+		}
+	}
+	return w, true
+}
+
+func sabnzbdCategoryValues(cat downloadsv1alpha1.SabnzbdCategory) map[string]string {
+	vals := map[string]string{}
+	if cat.Dir != "" {
+		vals["dir"] = cat.Dir
+	}
+	if cat.Script != "" {
+		vals["script"] = cat.Script
+	}
+	if cat.Priority != "" {
+		vals["priority"] = sabnzbdclient.Priorities[cat.Priority]
+	}
+	if cat.PostProcessing != "" {
+		vals["pp"] = sabnzbdclient.PostProcessing[cat.PostProcessing]
+	}
+	return vals
+}

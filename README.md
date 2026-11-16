@@ -28,17 +28,17 @@ release of the line before it.
 | Radarr | `Radarr`, `RadarrIndexer`, `RadarrDownloadClient` | 6.4.4, 6.3.0 |
 | Lidarr | `Lidarr`, `LidarrIndexer`, `LidarrDownloadClient` | 3.1.6, 3.0.1 |
 | Readarr | `Readarr`, `ReadarrIndexer`, `ReadarrDownloadClient` | 0.4.18, 0.4.17 |
-| Prowlarr | `ProwlarrConfig` | 2.7.0, 2.6.5 |
-| FlareSolverr | `FlareSolverrConfig` | 3.5.2, 3.4.6 |
-| Bazarr | `BazarrConfig` | 1.6.2, 1.5.6 |
-| qBittorrent | `QBittorrentConfig` | 5.3.0, 5.2.4 |
-| SABnzbd | `SabnzbdConfig` | 5.1.3, 5.0.4 |
-| Jellyfin | `JellyfinConfig` | 12.4, 12.3 |
-| Plex | `PlexConfig` | 1.43.5, 1.42.2 |
-| Seerr | `SeerrConfig` | 3.5.1, 3.5.0 |
-| Maintainerr | `MaintainerrConfig` | 3.32.0, 3.31.0 |
-| Tdarr | `TdarrConfig` | 3.06.00, 3.05.00 |
-| Autobrr | `AutobrrConfig` | 1.90.0, 1.89.0 |
+| Prowlarr | `Prowlarr` | 2.7.0, 2.6.5 |
+| FlareSolverr | `FlareSolverr` | 3.5.2, 3.4.6 |
+| Bazarr | `Bazarr` | 1.6.2, 1.5.6 |
+| qBittorrent | `QBittorrent` | 5.3.0, 5.2.4 |
+| SABnzbd | `Sabnzbd` | 5.1.3, 5.0.4 |
+| Jellyfin | `Jellyfin` | 12.4, 12.3 |
+| Plex | `Plex` | 1.43.5, 1.42.2 |
+| Seerr | `Seerr` | 3.5.1, 3.5.0 |
+| Maintainerr | `Maintainerr` | 3.32.0, 3.31.0 |
+| Tdarr | `Tdarr` | 3.06.00, 3.05.00 |
+| Autobrr | `Autobrr` | 1.90.0, 1.89.0 |
 
 ## Getting started
 

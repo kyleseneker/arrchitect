@@ -38,7 +38,7 @@ func TestJellyfinExportsSettingsLibrariesAndTheAdminUser(t *testing.T) {
 
 	res, err := Run(context.Background(), Options{App: "jellyfin", URL: srv.URL, Username: "admin", Password: "pw"})
 	require.NoError(t, err)
-	cfg, ok := res.Config.(*mediaserversv1alpha1.JellyfinConfig)
+	cfg, ok := res.Config.(*mediaserversv1alpha1.Jellyfin)
 	require.True(t, ok)
 	assert.Equal(t, "home", cfg.Spec.Server.ServerName)
 	assert.Equal(t, 3, *cfg.Spec.Server.LogFileRetentionDays)

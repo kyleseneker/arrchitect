@@ -23,21 +23,21 @@ rules:
 - apiGroups:
   - arrchitect.dev
   resources:
-  - autobrrconfigs
-  - bazarrconfigs
-  - flaresolverrconfigs
-  - jellyfinconfigs
+  - autobrrs
+  - bazarrs
+  - flaresolverrs
+  - jellyfins
   - lidarrs
-  - maintainerrconfigs
-  - plexconfigs
-  - prowlarrconfigs
-  - qbittorrentconfigs
+  - maintainerrs
+  - plexes
+  - prowlarrs
+  - qbittorrents
   - radarrs
   - readarrs
-  - sabnzbdconfigs
-  - seerrconfigs
+  - sabnzbds
+  - seerrs
   - sonarrs
-  - tdarrconfigs
+  - tdarrs
   verbs:
   - create
   - delete
@@ -49,57 +49,57 @@ rules:
 - apiGroups:
   - arrchitect.dev
   resources:
-  - autobrrconfigs/finalizers
-  - bazarrconfigs/finalizers
-  - flaresolverrconfigs/finalizers
-  - jellyfinconfigs/finalizers
+  - autobrrs/finalizers
+  - bazarrs/finalizers
+  - flaresolverrs/finalizers
+  - jellyfins/finalizers
   - lidarrdownloadclients/finalizers
   - lidarrindexers/finalizers
   - lidarrs/finalizers
-  - maintainerrconfigs/finalizers
-  - plexconfigs/finalizers
-  - prowlarrconfigs/finalizers
-  - qbittorrentconfigs/finalizers
+  - maintainerrs/finalizers
+  - plexes/finalizers
+  - prowlarrs/finalizers
+  - qbittorrents/finalizers
   - radarrdownloadclients/finalizers
   - radarrindexers/finalizers
   - radarrs/finalizers
   - readarrdownloadclients/finalizers
   - readarrindexers/finalizers
   - readarrs/finalizers
-  - sabnzbdconfigs/finalizers
-  - seerrconfigs/finalizers
+  - sabnzbds/finalizers
+  - seerrs/finalizers
   - sonarrdownloadclients/finalizers
   - sonarrindexers/finalizers
   - sonarrs/finalizers
-  - tdarrconfigs/finalizers
+  - tdarrs/finalizers
   verbs:
   - update
 - apiGroups:
   - arrchitect.dev
   resources:
-  - autobrrconfigs/status
-  - bazarrconfigs/status
-  - flaresolverrconfigs/status
-  - jellyfinconfigs/status
+  - autobrrs/status
+  - bazarrs/status
+  - flaresolverrs/status
+  - jellyfins/status
   - lidarrdownloadclients/status
   - lidarrindexers/status
   - lidarrs/status
-  - maintainerrconfigs/status
-  - plexconfigs/status
-  - prowlarrconfigs/status
-  - qbittorrentconfigs/status
+  - maintainerrs/status
+  - plexes/status
+  - prowlarrs/status
+  - qbittorrents/status
   - radarrdownloadclients/status
   - radarrindexers/status
   - radarrs/status
   - readarrdownloadclients/status
   - readarrindexers/status
   - readarrs/status
-  - sabnzbdconfigs/status
-  - seerrconfigs/status
+  - sabnzbds/status
+  - seerrs/status
   - sonarrdownloadclients/status
   - sonarrindexers/status
   - sonarrs/status
-  - tdarrconfigs/status
+  - tdarrs/status
   verbs:
   - get
   - patch

@@ -1,0 +1,50 @@
+apiVersion: arrchitect.dev/v1alpha1
+kind: Plex
+metadata:
+  name: plex
+spec:
+  connection:
+    url: http://plex.media.svc.cluster.local:32400
+    tokenSecretRef:
+      name: plex-secrets
+      key: PLEX_TOKEN
+  server:
+    friendlyName: Plex
+    scanMyLibraryAutomatically: true
+    scanMyLibraryPeriodically: true
+    scanMyLibraryPartially: true
+    autoEmptyTrash: true
+    generateVideoPreviewThumbnails: scheduled
+    butlerStartHour: 2
+    butlerEndHour: 6
+    dlnaEnabled: false
+  transcoder:
+    transcodeHwRequested: true
+    transcodeHwEncodingEnabled: true
+    maxSimultaneousVideoTranscodes: 0
+    transcoderTempDirectory: /transcode
+  network:
+    manualPortMappingMode: true
+    manualPortMappingPort: 32400
+  libraries:
+    - name: Movies
+      type: movie
+      paths:
+        - /data/movies
+      language: en
+      agent: tv.plex.agents.movie
+      scanner: Plex Movie
+    - name: TV Shows
+      type: show
+      paths:
+        - /data/tv
+      language: en
+      agent: tv.plex.agents.series
+      scanner: Plex TV Series
+    - name: Music
+      type: artist
+      paths:
+        - /data/music
+      language: en
+  network:
+    secureConnections: preferred
