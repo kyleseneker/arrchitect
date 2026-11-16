@@ -1,4 +1,4 @@
-package hack
+package consistency
 
 import (
 	"encoding/json"
@@ -20,7 +20,7 @@ func TestRenovateTracksEveryMakefileToolVersion(t *testing.T) {
 			MatchStrings        []string `json:"matchStrings"`
 		} `json:"customManagers"`
 	}
-	raw, err := os.ReadFile("../renovate.json")
+	raw, err := os.ReadFile("../../renovate.json")
 	require.NoError(t, err)
 	require.NoError(t, json.Unmarshal(raw, &config))
 
@@ -32,7 +32,7 @@ func TestRenovateTracksEveryMakefileToolVersion(t *testing.T) {
 	}
 	require.NotNil(t, manager, "renovate.json has no custom manager for the Makefile")
 
-	makefile, err := os.ReadFile("../Makefile")
+	makefile, err := os.ReadFile("../../Makefile")
 	require.NoError(t, err)
 
 	extracted := map[int]bool{} // offsets where Renovate reads a currentValue
@@ -50,9 +50,9 @@ func TestRenovateTracksEveryMakefileToolVersion(t *testing.T) {
 
 // make lint and CI must run the same golangci-lint; Renovate bumps both in one PR.
 func TestGolangciLintVersionMatchesCI(t *testing.T) {
-	makefile, err := os.ReadFile("../Makefile")
+	makefile, err := os.ReadFile("../../Makefile")
 	require.NoError(t, err)
-	ci, err := os.ReadFile("../.github/workflows/ci.yml")
+	ci, err := os.ReadFile("../../.github/workflows/ci.yml")
 	require.NoError(t, err)
 
 	local := regexp.MustCompile(`(?m)^GOLANGCI_LINT_VERSION \?= (\S+)$`).FindSubmatch(makefile)

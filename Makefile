@@ -60,7 +60,7 @@ vet: ## Run go vet against code.
 .PHONY: test
 test: manifests generate fmt vet setup-envtest ## Run the unit tests and the envtest tests against a real kube-apiserver.
 	KUBEBUILDER_ASSETS="$$('$(ENVTEST)' use $(ENVTEST_K8S_VERSION) --bin-dir '$(LOCALBIN)' -p path)" \
-		go test ./... -coverprofile cover.out
+		go test -race ./... -coverprofile cover.out
 
 .PHONY: test-chart
 test-chart: helm-unittest ## Run the chart's helm-unittest suites.

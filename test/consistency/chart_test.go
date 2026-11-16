@@ -1,6 +1,8 @@
-// Package hack checks that the chart agrees with the rest of the repository.
-// The chart's own behaviour is tested with helm-unittest in chart/arrchitect/tests.
-package hack
+// Package consistency checks that the repository's files agree with each other:
+// the chart with the controllers and their RBAC markers, and Renovate with the
+// Makefile and CI. The chart's own behaviour is tested with helm-unittest in
+// chart/arrchitect/tests.
+package consistency
 
 import (
 	"bytes"
@@ -15,7 +17,7 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-const chartDir = "../chart/arrchitect"
+const chartDir = "../../chart/arrchitect"
 
 type manifest struct {
 	Kind     string `json:"kind"`
@@ -66,7 +68,7 @@ func grants(manifests []manifest) map[string]bool {
 
 func controllerNames(t *testing.T) []string {
 	t.Helper()
-	main, err := os.ReadFile("../cmd/operator/main.go")
+	main, err := os.ReadFile("../../cmd/operator/main.go")
 	require.NoError(t, err)
 	matches := regexp.MustCompile(`operator\.Controller\{Name: "(\w+)"`).FindAllSubmatch(main, -1)
 	names := make([]string, 0, len(matches))
@@ -78,7 +80,7 @@ func controllerNames(t *testing.T) []string {
 }
 
 func TestChartGrantsWhatTheControllersNeed(t *testing.T) {
-	data, err := os.ReadFile("../config/rbac/role.yaml")
+	data, err := os.ReadFile("../../config/rbac/role.yaml")
 	require.NoError(t, err)
 	var generated manifest
 	require.NoError(t, yaml.Unmarshal(data, &generated))

@@ -5,12 +5,15 @@ import (
 	"encoding/pem"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/events"
@@ -29,6 +32,7 @@ import (
 	pvrv1alpha1 "github.com/kyleseneker/arrchitect/api/pvr/v1alpha1"
 	requestsv1alpha1 "github.com/kyleseneker/arrchitect/api/requests/v1alpha1"
 	subtitlesv1alpha1 "github.com/kyleseneker/arrchitect/api/subtitles/v1alpha1"
+	transcodev1alpha1 "github.com/kyleseneker/arrchitect/api/transcode/v1alpha1"
 	"github.com/kyleseneker/arrchitect/internal/controller/automation"
 	"github.com/kyleseneker/arrchitect/internal/controller/curation"
 	"github.com/kyleseneker/arrchitect/internal/controller/downloads"
@@ -37,6 +41,7 @@ import (
 	"github.com/kyleseneker/arrchitect/internal/controller/pvr"
 	"github.com/kyleseneker/arrchitect/internal/controller/requests"
 	"github.com/kyleseneker/arrchitect/internal/controller/subtitles"
+	"github.com/kyleseneker/arrchitect/internal/controller/transcode"
 	"github.com/kyleseneker/arrchitect/internal/engine"
 	"github.com/kyleseneker/arrchitect/internal/operator"
 )
@@ -215,6 +220,108 @@ func controllerCases() []controllerCase {
 				return &downloads.QBittorrentConfigReconciler{Client: c, Scheme: s, Recorder: events.NewFakeRecorder(50)}
 			},
 		},
+		{
+			name:        "RadarrConfig",
+			addToScheme: pvrv1alpha1.AddToScheme,
+			newObj:      func() client.Object { return &pvrv1alpha1.RadarrConfig{} },
+			newCR: func(url string) client.Object {
+				return &pvrv1alpha1.RadarrConfig{
+					ObjectMeta: meta("radarr"),
+					Spec: pvrv1alpha1.RadarrConfigSpec{
+						Connection: appConn(url),
+						Reconcile:  orphan(),
+					},
+				}
+			},
+			newRec: func(c client.Client, s *runtime.Scheme) reconcile.Reconciler {
+				return &pvr.RadarrConfigReconciler{Client: c, Scheme: s, Recorder: events.NewFakeRecorder(50)}
+			},
+		},
+		{
+			name:        "LidarrConfig",
+			addToScheme: pvrv1alpha1.AddToScheme,
+			newObj:      func() client.Object { return &pvrv1alpha1.LidarrConfig{} },
+			newCR: func(url string) client.Object {
+				return &pvrv1alpha1.LidarrConfig{
+					ObjectMeta: meta("lidarr"),
+					Spec: pvrv1alpha1.LidarrConfigSpec{
+						Connection: appConn(url),
+						Reconcile:  orphan(),
+					},
+				}
+			},
+			newRec: func(c client.Client, s *runtime.Scheme) reconcile.Reconciler {
+				return &pvr.LidarrConfigReconciler{Client: c, Scheme: s, Recorder: events.NewFakeRecorder(50)}
+			},
+		},
+		{
+			name:        "ReadarrConfig",
+			addToScheme: pvrv1alpha1.AddToScheme,
+			newObj:      func() client.Object { return &pvrv1alpha1.ReadarrConfig{} },
+			newCR: func(url string) client.Object {
+				return &pvrv1alpha1.ReadarrConfig{
+					ObjectMeta: meta("readarr"),
+					Spec: pvrv1alpha1.ReadarrConfigSpec{
+						Connection: appConn(url),
+						Reconcile:  orphan(),
+					},
+				}
+			},
+			newRec: func(c client.Client, s *runtime.Scheme) reconcile.Reconciler {
+				return &pvr.ReadarrConfigReconciler{Client: c, Scheme: s, Recorder: events.NewFakeRecorder(50)}
+			},
+		},
+		{
+			name:        "FlareSolverrConfig",
+			addToScheme: indexersv1alpha1.AddToScheme,
+			newObj:      func() client.Object { return &indexersv1alpha1.FlareSolverrConfig{} },
+			newCR: func(url string) client.Object {
+				return &indexersv1alpha1.FlareSolverrConfig{
+					ObjectMeta: meta("flaresolverr"),
+					Spec: indexersv1alpha1.FlareSolverrConfigSpec{
+						Connection: indexersv1alpha1.FlareSolverrConnection{URL: url},
+						Reconcile:  orphan(),
+					},
+				}
+			},
+			newRec: func(c client.Client, s *runtime.Scheme) reconcile.Reconciler {
+				return &indexers.FlareSolverrConfigReconciler{Client: c, Scheme: s, Recorder: events.NewFakeRecorder(50)}
+			},
+		},
+		{
+			name:        "PlexConfig",
+			addToScheme: mediaserversv1alpha1.AddToScheme,
+			newObj:      func() client.Object { return &mediaserversv1alpha1.PlexConfig{} },
+			newCR: func(url string) client.Object {
+				return &mediaserversv1alpha1.PlexConfig{
+					ObjectMeta: meta("plex"),
+					Spec: mediaserversv1alpha1.PlexConfigSpec{
+						Connection: mediaserversv1alpha1.PlexConnection{URL: url, TokenSecretRef: secretRef("token")},
+						Reconcile:  orphan(),
+					},
+				}
+			},
+			newRec: func(c client.Client, s *runtime.Scheme) reconcile.Reconciler {
+				return &mediaservers.PlexConfigReconciler{Client: c, Scheme: s, Recorder: events.NewFakeRecorder(50)}
+			},
+		},
+		{
+			name:        "TdarrConfig",
+			addToScheme: transcodev1alpha1.AddToScheme,
+			newObj:      func() client.Object { return &transcodev1alpha1.TdarrConfig{} },
+			newCR: func(url string) client.Object {
+				return &transcodev1alpha1.TdarrConfig{
+					ObjectMeta: meta("tdarr"),
+					Spec: transcodev1alpha1.TdarrConfigSpec{
+						Connection: appConn(url),
+						Reconcile:  orphan(),
+					},
+				}
+			},
+			newRec: func(c client.Client, s *runtime.Scheme) reconcile.Reconciler {
+				return &transcode.TdarrConfigReconciler{Client: c, Scheme: s, Recorder: events.NewFakeRecorder(50)}
+			},
+		},
 	}
 }
 
@@ -222,12 +329,15 @@ func controllerCases() []controllerCase {
 // policy, hold no finalizer. Both are API-server behaviours a fake client fakes away.
 func TestControllersPersistStatusAndReleaseOnDelete(t *testing.T) {
 	cases := controllerCases()
+	crds, err := filepath.Glob(filepath.Join("..", "..", "config", "crd", "bases", "*.yaml"))
+	require.NoError(t, err)
+	require.Len(t, cases, len(crds), "every kind needs a case here")
 	adders := make([]func(*runtime.Scheme) error, 0, len(cases))
 	for _, tc := range cases {
 		adders = append(adders, tc.addToScheme)
 	}
 	c := startAPIServerWith(t, adders...)
-	url := fakeTdarrServer(t)
+	url := fakeAppServer(t)
 	ctx := context.Background()
 
 	require.NoError(t, c.Create(ctx, &corev1.Secret{
@@ -252,6 +362,9 @@ func TestControllersPersistStatusAndReleaseOnDelete(t *testing.T) {
 
 			got := tc.newObj()
 			require.NoError(t, c.Get(ctx, key, got), "re-reading CR")
+			conditions := got.(interface{ GetConditions() *[]metav1.Condition }).GetConditions()
+			assert.NotNil(t, apimeta.FindStatusCondition(*conditions, engine.ConditionReady),
+				"no Ready condition persisted; the status subresource write did not land")
 			require.Empty(t, got.GetFinalizers(), "an orphan resource must not wait on the operator to be deleted")
 
 			require.NoError(t, c.Delete(ctx, got), "deleting CR")
@@ -313,4 +426,37 @@ func TestSecretChangeReconcilesTheConfigReferringToIt(t *testing.T) {
 		reason := syncedReason()
 		return reason != "" && reason != engine.ReasonSecretNotFound
 	}, 10*time.Second, 100*time.Millisecond, "creating the CA Secret did not re-reconcile the config")
+}
+
+// A finalizer genuinely blocks deletion here, so a delete policy that fails to
+// clear it would wedge `kubectl delete` rather than passing silently. The
+// finalizer handling is shared, so one kind covers it.
+func TestDeletePolicyReleasesTheObject(t *testing.T) {
+	c := startAPIServerWith(t, transcodev1alpha1.AddToScheme)
+	ctx := context.Background()
+	require.NoError(t, c.Create(ctx, &corev1.Secret{
+		ObjectMeta: meta("app-credentials"), Data: map[string][]byte{"api-key": []byte("k")},
+	}))
+	deletePolicy := "delete"
+	cr := &transcodev1alpha1.TdarrConfig{
+		ObjectMeta: meta("tdarr"),
+		Spec: transcodev1alpha1.TdarrConfigSpec{
+			Connection: appConn(fakeAppServer(t)),
+			Reconcile:  &commonv1alpha1.ReconcileConfig{DeletionPolicy: &deletePolicy},
+		},
+	}
+	require.NoError(t, c.Create(ctx, cr))
+	r := &transcode.TdarrConfigReconciler{Client: c, Scheme: c.Scheme(), Recorder: events.NewFakeRecorder(50)}
+	req := ctrl.Request{Name: cr.Name, Namespace: cr.Namespace}
+
+	_, err := r.Reconcile(ctx, req)
+	require.NoError(t, err, "first reconcile")
+	require.NoError(t, c.Get(ctx, req.NamespacedName, cr))
+	require.NotEmpty(t, cr.Finalizers, "no finalizer was set, so this test would pass without exercising deletion")
+	require.NoError(t, c.Delete(ctx, cr))
+
+	require.Eventually(t, func() bool {
+		_, _ = r.Reconcile(ctx, req)
+		return apierrors.IsNotFound(c.Get(ctx, req.NamespacedName, &transcodev1alpha1.TdarrConfig{}))
+	}, 30*time.Second, 200*time.Millisecond, "the resource is still present after deletion")
 }
