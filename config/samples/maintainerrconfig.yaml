@@ -2,7 +2,6 @@ apiVersion: arrchitect.dev/v1alpha1
 kind: MaintainerrConfig
 metadata:
   name: maintainerr
-  namespace: media
   labels:
     app.kubernetes.io/name: arrchitect
     app.kubernetes.io/managed-by: kustomize

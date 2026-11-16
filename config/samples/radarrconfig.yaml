@@ -2,7 +2,6 @@ apiVersion: arrchitect.dev/v1alpha1
 kind: RadarrConfig
 metadata:
   name: radarr
-  namespace: arr
 spec:
   connection:
     url: http://arr-radarr.arr.svc.cluster.local:7878

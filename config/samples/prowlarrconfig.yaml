@@ -2,7 +2,6 @@ apiVersion: arrchitect.dev/v1alpha1
 kind: ProwlarrConfig
 metadata:
   name: prowlarr
-  namespace: arr
 spec:
   connection:
     url: http://arr-prowlarr.arr.svc.cluster.local:9696

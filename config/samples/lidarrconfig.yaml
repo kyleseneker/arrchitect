@@ -2,7 +2,6 @@ apiVersion: arrchitect.dev/v1alpha1
 kind: LidarrConfig
 metadata:
   name: lidarr
-  namespace: media
 spec:
   connection:
     url: http://lidarr.media.svc.cluster.local:8686
