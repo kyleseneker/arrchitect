@@ -30,7 +30,7 @@ type JellyfinReconciler struct {
 	Recorder events.EventRecorder
 }
 
-// +kubebuilder:rbac:groups=arrchitect.dev,resources=jellyfins,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=arrchitect.dev,resources=jellyfins,verbs=get;list;watch;update;patch
 // +kubebuilder:rbac:groups=arrchitect.dev,resources=jellyfins/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=arrchitect.dev,resources=jellyfins/finalizers,verbs=update
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch

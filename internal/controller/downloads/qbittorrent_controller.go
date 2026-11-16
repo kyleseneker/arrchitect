@@ -32,7 +32,7 @@ type QBittorrentReconciler struct {
 	Recorder events.EventRecorder
 }
 
-// +kubebuilder:rbac:groups=arrchitect.dev,resources=qbittorrents,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=arrchitect.dev,resources=qbittorrents,verbs=get;list;watch;update;patch
 // +kubebuilder:rbac:groups=arrchitect.dev,resources=qbittorrents/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=arrchitect.dev,resources=qbittorrents/finalizers,verbs=update
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch

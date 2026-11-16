@@ -27,20 +27,26 @@ rules:
   - bazarrs
   - flaresolverrs
   - jellyfins
+  - lidarrdownloadclients
+  - lidarrindexers
   - lidarrs
   - maintainerrs
   - plexes
   - prowlarrs
   - qbittorrents
+  - radarrdownloadclients
+  - radarrindexers
   - radarrs
+  - readarrdownloadclients
+  - readarrindexers
   - readarrs
   - sabnzbds
   - seerrs
+  - sonarrdownloadclients
+  - sonarrindexers
   - sonarrs
   - tdarrs
   verbs:
-  - create
-  - delete
   - get
   - list
   - patch
@@ -104,20 +110,3 @@ rules:
   - get
   - patch
   - update
-- apiGroups:
-  - arrchitect.dev
-  resources:
-  - lidarrdownloadclients
-  - lidarrindexers
-  - radarrdownloadclients
-  - radarrindexers
-  - readarrdownloadclients
-  - readarrindexers
-  - sonarrdownloadclients
-  - sonarrindexers
-  verbs:
-  - get
-  - list
-  - patch
-  - update
-  - watch

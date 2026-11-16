@@ -94,8 +94,14 @@ func TestChartGrantsWhatTheControllersNeed(t *testing.T) {
 	require.Len(t, operator, 1, "the operator's ClusterRole is named after the release")
 	rendered := grants(operator)
 
-	for grant := range grants([]manifest{generated}) {
+	needed := grants([]manifest{generated})
+	for grant := range needed {
 		assert.True(t, rendered[grant], "the chart's ClusterRole is missing %q from config/rbac/role.yaml", grant)
+	}
+	for grant := range rendered {
+		if strings.HasPrefix(grant, "arrchitect.dev ") {
+			assert.True(t, needed[grant], "the chart's ClusterRole grants %q, which no controller asks for", grant)
+		}
 	}
 	assert.False(t, rendered["coordination.k8s.io leases delete"], "leases belong in a Role in the release namespace")
 }

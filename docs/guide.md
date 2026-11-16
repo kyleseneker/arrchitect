@@ -219,7 +219,9 @@ A name that matches nothing, or more than one item, fails the reconcile. See
 
 ## Access
 
-The chart adds two ClusterRoles for people who manage these resources.
+The operator reads its resources and the Secrets they name, and writes only
+their status and finalizers; it never creates or deletes them. The chart adds
+two ClusterRoles for people who manage these resources.
 `<release>-view` grants read access and is part of Kubernetes' built-in `view`,
 `edit` and `admin` roles; `<release>-edit` grants write access and is part of
 `edit` and `admin`. A namespace's existing role bindings therefore cover the
