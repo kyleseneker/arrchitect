@@ -49,7 +49,7 @@ func (r *AutobrrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		if err != nil {
 			return err
 		}
-		return (&autobrrSync{ac: ac, owned: engine.NewOwnership("autobrr", config.Status.ManagedResources)}).cleanup(ctx)
+		return (&autobrrSync{ac: ac, owned: engine.NewOwnership("autobrr", config.GetManagedResources())}).cleanup(ctx)
 	}
 	lifecycle := ctrlcommon.Lifecycle{Remove: cleanup, Prune: true}
 	if done, after := ctrlcommon.HandleLifecycle(ctx, r.Client, r.Recorder, &config, lifecycle); done {
@@ -76,7 +76,7 @@ func (r *AutobrrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	sync := &autobrrSync{
 		App: "autobrr", Observe: ctrlcommon.ObserveOnly(config.Spec.Reconcile),
 		c: r.Client, ac: ac, namespace: config.Namespace, owner: config.Namespace + "/" + config.Name,
-		prune: ctrlcommon.PruneEnabled(config.Spec.Reconcile), owned: engine.NewOwnership("autobrr", config.Status.ManagedResources),
+		prune: ctrlcommon.PruneEnabled(config.Spec.Reconcile), owned: engine.NewOwnership("autobrr", config.GetManagedResources()),
 	}
 	syncErrors := sync.run(ctx, &config.Spec)
 	ctrlcommon.UpdateStatusManaged(&config, sync.owned.Managed())

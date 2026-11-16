@@ -291,7 +291,7 @@ func checkCleanup(t *testing.T, tc compatCase, resources []resource) {
 	require.True(t, reconcileAll(t, resources, "reconcile with deletionPolicy: delete"))
 	owned := map[string][]string{}
 	for _, r := range resources {
-		for kind, names := range *r.newObjAt(t).GetManagedResources() {
+		for kind, names := range r.newObjAt(t).GetManagedResources() {
 			owned[kind] = append(owned[kind], names...)
 		}
 	}

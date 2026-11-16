@@ -74,7 +74,7 @@ func (r *QBittorrentReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{RequeueAfter: 60 * time.Second}, nil
 	}
 
-	owned := engine.NewOwnership("qbittorrent", config.Status.ManagedResources)
+	owned := engine.NewOwnership("qbittorrent", config.GetManagedResources())
 	prune := ctrlcommon.PruneEnabled(config.Spec.Reconcile)
 	if ctrlcommon.ObserveOnly(config.Spec.Reconcile) {
 		observed := &engine.Writes{App: "qbittorrent", Observe: true}
@@ -305,7 +305,7 @@ func (r *QBittorrentReconciler) cleanup(ctx context.Context, config *downloadsv1
 	if err != nil {
 		return err
 	}
-	owned := engine.NewOwnership("qbittorrent", config.Status.ManagedResources)
+	owned := engine.NewOwnership("qbittorrent", config.GetManagedResources())
 	return owned.Cleanup("categories", slices.Collect(maps.Keys(existing)), func(name string) error {
 		return qb.RemoveCategory(ctx, name)
 	})

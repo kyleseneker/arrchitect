@@ -46,7 +46,9 @@ type SonarrDownloadClientStatus struct {
 	// managedResources records what the operator created for this resource,
 	// so deletion only removes what it created.
 	// +optional
-	ManagedResources map[string][]string `json:"managedResources,omitempty"`
+	// +listType=map
+	// +listMapKey=type
+	ManagedResources []commonv1alpha1.ManagedResource `json:"managedResources,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -86,8 +88,12 @@ type SonarrDownloadClientList struct {
 func (c *SonarrDownloadClient) GetConditions() *[]metav1.Condition { return &c.Status.Conditions }
 func (c *SonarrDownloadClient) GetObservedGeneration() *int64      { return &c.Status.ObservedGeneration }
 func (c *SonarrDownloadClient) GetLastSyncTime() **metav1.Time     { return &c.Status.LastSyncTime }
-func (c *SonarrDownloadClient) GetManagedResources() *map[string][]string {
-	return &c.Status.ManagedResources
+func (c *SonarrDownloadClient) GetManagedResources() map[string][]string {
+	return commonv1alpha1.ManagedMap(c.Status.ManagedResources)
+}
+
+func (c *SonarrDownloadClient) SetManagedResources(m map[string][]string) {
+	c.Status.ManagedResources = commonv1alpha1.ManagedList(m)
 }
 
 // GetReconcileConfig carries only the deletion policy: the interval and drift

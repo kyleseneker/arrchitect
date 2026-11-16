@@ -114,7 +114,7 @@ func (r *BazarrReconciler) cleanup(ctx context.Context, config *subtitlesv1alpha
 		present = append(present, profileKey(e))
 	}
 	var drop []string
-	owned := engine.NewOwnership("bazarr", config.Status.ManagedResources)
+	owned := engine.NewOwnership("bazarr", config.GetManagedResources())
 	if err := owned.Cleanup(profilesKind, present, func(key string) error {
 		drop = append(drop, key)
 		return nil

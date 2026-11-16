@@ -90,8 +90,9 @@ func TestMaintainerrExportsConnectionsAndRuleGroups(t *testing.T) {
 	assert.Equal(t, []string{"mediaAboutToBeHandled", "mediaHandled"}, n.Types)
 	assert.Contains(t, res.Warnings, `notification "Discord": the config can't express notification type 2048, so it isn't exported`)
 	assert.Equal(t, int32(3), *n.AboutScale)
-	assert.Equal(t, "Maintainerr", n.Options["botUsername"].ToInterface())
-	assert.NotContains(t, n.Options, "botAvatarUrl", "an empty option isn't exported")
-	require.Contains(t, n.SecretOptions, "webhookUrl")
-	assert.Equal(t, "https://discord.example/hook", res.Secret.StringData[n.SecretOptions["webhookUrl"].Key])
+	assert.Equal(t, "Maintainerr", fieldNamed(t, n.Options, "botUsername").Value.ToInterface())
+	assert.NotContains(t, fieldNames(n.Options), "botAvatarUrl", "an empty option isn't exported")
+	webhook := fieldNamed(t, n.Options, "webhookUrl")
+	require.NotNil(t, webhook.ValueFrom)
+	assert.Equal(t, "https://discord.example/hook", res.Secret.StringData[webhook.ValueFrom.SecretKeyRef.Key])
 }

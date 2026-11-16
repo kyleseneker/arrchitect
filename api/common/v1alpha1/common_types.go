@@ -3,6 +3,8 @@ package v1alpha1
 
 import (
 	"encoding/json"
+	"maps"
+	"slices"
 )
 
 // ReconcileConfig holds common reconciliation settings shared across all config CRDs.
@@ -842,4 +844,41 @@ type RemotePathMapping struct {
 	// +required
 	// +kubebuilder:validation:MinLength=1
 	LocalPath string `json:"localPath"`
+}
+
+// ManagedResource lists the items of one type the operator created.
+type ManagedResource struct {
+	// type is the kind of item, such as downloadClients.
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	Type string `json:"type"`
+
+	// names are the items of that type the operator created.
+	// +required
+	// +listType=set
+	Names []string `json:"names"`
+}
+
+// ManagedMap returns managed resources keyed by type.
+func ManagedMap(list []ManagedResource) map[string][]string {
+	if len(list) == 0 {
+		return nil
+	}
+	out := make(map[string][]string, len(list))
+	for _, r := range list {
+		out[r.Type] = slices.Clone(r.Names)
+	}
+	return out
+}
+
+// ManagedList returns managed resources as a list ordered by type, leaving out
+// types with no names.
+func ManagedList(m map[string][]string) []ManagedResource {
+	var out []ManagedResource
+	for _, t := range slices.Sorted(maps.Keys(m)) {
+		if len(m[t]) > 0 {
+			out = append(out, ManagedResource{Type: t, Names: slices.Clone(m[t])})
+		}
+	}
+	return out
 }

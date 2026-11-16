@@ -76,7 +76,7 @@ func (r *BazarrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		ctrlcommon.UpdateStatus(ctx, r.Client, &config, false, engine.ReasonSyncFailed, fmt.Sprintf("reading settings: %v", err))
 		return ctrl.Result{RequeueAfter: ctrlcommon.ReconcileInterval(config.Spec.Reconcile)}, nil
 	}
-	owned := engine.NewOwnership("bazarr", config.Status.ManagedResources)
+	owned := engine.NewOwnership("bazarr", config.GetManagedResources())
 	var profiles *bazarrProfiles
 	if desired.Has(profilesField) {
 		existing, err := bc.GetLanguageProfiles(ctx)
@@ -288,18 +288,16 @@ func (r *BazarrReconciler) bazarrProviderForm(ctx context.Context, namespace str
 		if p.Enabled == nil || *p.Enabled {
 			form.Add("settings-general-enabled_providers", p.Name)
 		}
-		for k, v := range p.Settings {
-			form.Set(fmt.Sprintf("settings-%s-%s", p.Name, k), v)
+		values, err := ctrlcommon.FieldValues(ctx, r.Client, namespace, "provider "+p.Name, p.Settings)
+		if err != nil {
+			return nil, err
 		}
-		for k, ref := range p.SecretSettings {
-			if _, ok := p.Settings[k]; ok {
-				return nil, fmt.Errorf("provider %s: %s is in both settings and secretSettings", p.Name, k)
+		for k, v := range values {
+			text, ok := v.(string)
+			if !ok {
+				text = fmt.Sprint(v)
 			}
-			secret, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, namespace, ref)
-			if err != nil {
-				return nil, fmt.Errorf("resolving secret for provider %s setting %s: %w", p.Name, k, err)
-			}
-			form.Set(fmt.Sprintf("settings-%s-%s", p.Name, k), secret)
+			form.Set(fmt.Sprintf("settings-%s-%s", p.Name, k), text)
 		}
 	}
 	return form, nil

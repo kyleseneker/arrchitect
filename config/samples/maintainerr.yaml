@@ -56,11 +56,13 @@ spec:
         - ruleHandlingFailed
       aboutScale: 3
       options:
-        botUsername: Maintainerr
-      secretOptions:
-        webhookUrl:
-          name: maintainerr-secrets
-          key: discord-webhook-url
+        - name: botUsername
+          value: Maintainerr
+        - name: webhookUrl
+          valueFrom:
+            secretKeyRef:
+              name: maintainerr-secrets
+              key: discord-webhook-url
   ruleGroups:
     # Properties and comparisons use the names in Maintainerr's rule YAML export.
     - name: Stale unwatched movies

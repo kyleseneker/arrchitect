@@ -15,5 +15,6 @@ type ConfigResource interface {
 	GetObservedGeneration() *int64
 	GetLastSyncTime() **metav1.Time
 	GetReconcileConfig() *commonv1alpha1.ReconcileConfig
-	GetManagedResources() *map[string][]string
+	GetManagedResources() map[string][]string
+	SetManagedResources(map[string][]string)
 }

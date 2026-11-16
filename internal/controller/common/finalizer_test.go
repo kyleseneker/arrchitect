@@ -24,7 +24,7 @@ func newConfig(policy string, deletedAgo time.Duration) *pvrv1alpha1.Sonarr {
 	c := &pvrv1alpha1.Sonarr{
 		Name: "s", Namespace: "arr", Finalizers: []string{Finalizer},
 	}
-	c.Status.ManagedResources = map[string][]string{"indexers": {"created"}}
+	c.SetManagedResources(map[string][]string{"indexers": {"created"}})
 	if policy != "" {
 		c.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{DeletionPolicy: &policy}
 	}
@@ -70,7 +70,7 @@ func TestDeletePolicyRemovesThenReleases(t *testing.T) {
 
 func TestDeletePolicyWithNothingOwnedSkipsTheApp(t *testing.T) {
 	c := newConfig(DeletionPolicyDelete, time.Minute)
-	c.Status.ManagedResources = map[string][]string{"indexers": {}}
+	c.SetManagedResources(map[string][]string{"indexers": {}})
 	cl := testClient(c).Build()
 	handled, err := HandleDeletion(context.Background(), cl, nil, c, func(context.Context) error {
 		return errors.New("app is gone")
@@ -240,7 +240,7 @@ func TestLifecycleRejectsPruneWhereUnsupported(t *testing.T) {
 
 func TestCleanupAppWithoutOwnedPrunableResourcesNeedsNoCredentials(t *testing.T) {
 	obj := newConfig(DeletionPolicyDelete, 0)
-	obj.Status.ManagedResources = map[string][]string{"tags": {"shared"}}
+	obj.SetManagedResources(map[string][]string{"tags": {"shared"}})
 	def := engine.AppDefinition{Resources: []engine.ResourceEndpoint{{Name: "tags"}, {Name: "indexers", Prunable: true}}}
 	require.NoError(t, CleanupApp(context.Background(), nil, nil, obj, commonv1alpha1.AppConnection{}, def, "sonarr"))
 }

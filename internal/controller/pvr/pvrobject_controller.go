@@ -102,7 +102,7 @@ func reconcilePVRObject(ctx context.Context, c client.Client, recorder events.Ev
 	policy := ctrlcommon.Policy(instance.policy)
 	// The object owns only the item it names, so prune replaces it on a rename.
 	policy.Prune = true
-	result, err := pvrclient.Reconcile(ctx, hc, o.app.APIVersion, nil, withApp(opts, o.app), policy, *obj.GetManagedResources())
+	result, err := pvrclient.Reconcile(ctx, hc, o.app.APIVersion, nil, withApp(opts, o.app), policy, obj.GetManagedResources())
 	if err != nil {
 		ctrlcommon.UpdateStatus(ctx, c, obj, false, engine.ReasonSyncFailed, err.Error())
 		return ctrl.Result{RequeueAfter: interval}, nil

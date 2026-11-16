@@ -184,8 +184,9 @@ is synced. When one an item needs is missing, that kind of item is neither
 written nor pruned and is named in a `SyncFailed` message; the rest still
 syncs.
 
-Provider `fields`, and Autobrr indexer `settings`, read a value from a Secret
-with `valueFrom` instead of `value`:
+Provider `fields`, Autobrr indexer and Bazarr provider `settings`, and Seerr
+and Maintainerr notification `options` read a value from a Secret with
+`valueFrom` instead of `value`:
 
 ```yaml
 fields:
@@ -194,18 +195,6 @@ fields:
       secretKeyRef:
         name: indexer-credentials
         key: api-key
-```
-
-Bazarr providers put settings read from Secrets in `secretSettings`:
-
-```yaml
-providers:
-  - name: opensubtitlescom
-    settings:
-      use_hash: "true"
-    secretSettings:
-      username: {name: opensubtitles, key: username}
-      password: {name: opensubtitles, key: password}
 ```
 
 For a private certificate authority, set `connection.tls.caSecretRef`.

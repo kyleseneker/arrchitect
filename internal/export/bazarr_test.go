@@ -86,10 +86,17 @@ func TestBazarrProviderSecretsMoveToTheSecret(t *testing.T) {
 	require.Len(t, cfg.Spec.Providers, 2)
 	os := cfg.Spec.Providers[0]
 	assert.Equal(t, "opensubtitlescom", os.Name)
-	assert.Equal(t, map[string]string{"username": "me", "use_hash": "true", "vip": "false"}, os.Settings)
-	assert.Equal(t, map[string]commonv1alpha1.SecretKeyRef{
-		"password": {Name: "bazarr-credentials", Key: "provider-opensubtitlescom-password"},
-	}, os.SecretSettings)
+	text := func(s string) *commonv1alpha1.FieldValue {
+		return &commonv1alpha1.FieldValue{Raw: []byte(`"` + s + `"`)}
+	}
+	assert.Equal(t, []commonv1alpha1.ConfigField{
+		{Name: "password", ValueFrom: &commonv1alpha1.ValueSource{
+			SecretKeyRef: commonv1alpha1.SecretKeyRef{Name: "bazarr-credentials", Key: "provider-opensubtitlescom-password"},
+		}},
+		{Name: "use_hash", Value: text("true")},
+		{Name: "username", Value: text("me")},
+		{Name: "vip", Value: text("false")},
+	}, os.Settings)
 	assert.Equal(t, "hunter2", res.Secret.StringData["provider-opensubtitlescom-password"])
 	assert.Contains(t, res.Warnings, `provider "opensubtitlescom": the config's provider settings hold text, so extra stays as set in Bazarr`)
 	assert.Empty(t, cfg.Spec.Providers[1].Settings)

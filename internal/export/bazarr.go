@@ -52,11 +52,8 @@ func exportBazarr(r *reader) (map[string]any, error) {
 	for _, name := range texts(general["enabled_providers"]) {
 		provider := map[string]any{"name": name}
 		settings, secrets := r.bazarrProviderSettings(name, section(name))
-		if len(settings) > 0 {
-			provider["settings"] = settings
-		}
-		if len(secrets) > 0 {
-			provider["secretSettings"] = secrets
+		if len(settings)+len(secrets) > 0 {
+			provider["settings"] = configFields(settings, secrets)
 		}
 		providers = append(providers, provider)
 	}

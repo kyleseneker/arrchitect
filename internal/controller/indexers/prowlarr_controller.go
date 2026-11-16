@@ -96,7 +96,7 @@ func (r *ProwlarrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	// Tags and sync profiles must exist before their IDs can be referenced.
 	policy := ctrlcommon.Policy(config.Spec.Reconcile)
 	prerequisites := prowlarrclient.ProwlarrResources(prowlarrclient.ProwlarrOptions{Tags: config.Spec.Tags, AppProfiles: config.Spec.AppProfiles}, nil)
-	result := engine.ReconcileApp(ctx, hc, def, nil, prerequisites, policy, config.Status.ManagedResources)
+	result := engine.ReconcileApp(ctx, hc, def, nil, prerequisites, policy, config.GetManagedResources())
 
 	// Persist prerequisite ownership even if a subsequent lookup or secret fails.
 	ctrlcommon.UpdateStatusManaged(&config, result.Managed)

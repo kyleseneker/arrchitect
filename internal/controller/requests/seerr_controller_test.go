@@ -562,7 +562,7 @@ func TestSeerrFailedSetupKeepsTrackOfTheServersItCreated(t *testing.T) {
 	got := runSeerr(t, cfg)
 
 	require.Equal(t, []string{"Sonarr"}, seerrServiceNames(app, "sonarr"))
-	assert.Equal(t, []string{"Sonarr"}, got.Status.ManagedResources["sonarr"], "prune and deletion could never remove it")
+	assert.Equal(t, []string{"Sonarr"}, got.GetManagedResources()["sonarr"], "prune and deletion could never remove it")
 }
 
 func TestSeerrReportsARefusedAPIKeyAsUnreachable(t *testing.T) {
@@ -701,7 +701,7 @@ func TestSeerrNotificationKeepsWhatTheResourceLeavesOut(t *testing.T) {
 	cfg := seerrWithAPIKey(app.serve(t))
 	cfg.Spec.Notifications = []requestsv1alpha1.SeerrNotificationAgent{{
 		Agent: "discord", Enabled: new(true),
-		Options: map[string]commonv1alpha1.FieldValue{"botUsername": {Raw: []byte(`"Seerr"`)}},
+		Options: []commonv1alpha1.ConfigField{{Name: "botUsername", Value: &commonv1alpha1.FieldValue{Raw: []byte(`"Seerr"`)}}},
 	}}
 
 	runSeerr(t, cfg)
@@ -742,7 +742,7 @@ func TestSeerrPrunesTheConnectionItCreatedUnderAnOldName(t *testing.T) {
 		APIKeySecretRef: commonv1alpha1.SecretKeyRef{Name: "seerr-secrets", Key: "api-key"},
 	}}
 	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{Prune: new(true)}
-	cfg.Status.ManagedResources = map[string][]string{"sonarr": {"Old"}}
+	cfg.SetManagedResources(map[string][]string{"sonarr": {"Old"}})
 
 	runSeerr(t, cfg)
 
@@ -756,7 +756,7 @@ func TestSeerrDeletionPolicyRemovesTheConnectionsItCreated(t *testing.T) {
 	cfg := seerrWithAPIKey(app.serve(t))
 	policy := ctrlcommon.DeletionPolicyDelete
 	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{DeletionPolicy: &policy}
-	cfg.Status.ManagedResources = map[string][]string{"sonarr": {"Sonarr"}}
+	cfg.SetManagedResources(map[string][]string{"sonarr": {"Sonarr"}})
 	now := metav1.NewTime(time.Now())
 	cfg.DeletionTimestamp = &now
 	cfg.Finalizers = []string{ctrlcommon.Finalizer}
@@ -778,7 +778,7 @@ func TestSeerrObserveReportsAConnectionPruneWouldDelete(t *testing.T) {
 	}}
 	observe := "observe"
 	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{Prune: new(true), DriftPolicy: &observe}
-	cfg.Status.ManagedResources = map[string][]string{"sonarr": {"ObserveOld"}}
+	cfg.SetManagedResources(map[string][]string{"sonarr": {"ObserveOld"}})
 	observed := metrics.DriftObservedTotal.WithLabelValues("seerr", "sonarr", "ObserveOld")
 	before := testutil.ToFloat64(observed)
 
@@ -864,12 +864,11 @@ func TestSeerrNotificationOptionsKeepTheirTypeAndReadSecrets(t *testing.T) {
 	cfg := seerrWithAPIKey(app.serve(t))
 	cfg.Spec.Notifications = []requestsv1alpha1.SeerrNotificationAgent{{
 		Agent: "discord", Enabled: new(true),
-		Options: map[string]commonv1alpha1.FieldValue{
-			"botUsername":    {Raw: []byte(`"Seerr"`)},
-			"enableMentions": {Raw: []byte(`false`)},
-			"webhookUrl":     {Raw: []byte(`"http://overridden"`)},
+		Options: []commonv1alpha1.ConfigField{
+			{Name: "botUsername", Value: &commonv1alpha1.FieldValue{Raw: []byte(`"Seerr"`)}},
+			{Name: "enableMentions", Value: &commonv1alpha1.FieldValue{Raw: []byte(`false`)}},
+			{Name: "webhookUrl", ValueFrom: &commonv1alpha1.ValueSource{SecretKeyRef: commonv1alpha1.SecretKeyRef{Name: "seerr-secrets", Key: "token"}}},
 		},
-		SecretOptions: map[string]commonv1alpha1.SecretKeyRef{"webhookUrl": {Name: "seerr-secrets", Key: "token"}},
 	}}
 
 	runSeerr(t, cfg)

@@ -96,11 +96,8 @@ func exportSeerr(r *reader) (map[string]any, error) {
 			notification["types"] = r.seerrNotificationTypes(agent, int(bits))
 		}
 		options, secrets := r.seerrOptions(agent, settings["options"])
-		if len(options) > 0 {
-			notification["options"] = options
-		}
-		if len(secrets) > 0 {
-			notification["secretOptions"] = secrets
+		if len(options)+len(secrets) > 0 {
+			notification["options"] = configFields(options, secrets)
 		}
 		notifications = append(notifications, notification)
 	}

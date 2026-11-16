@@ -24,7 +24,7 @@ func autobrrManaged(t *testing.T, cfg *automationv1alpha1.Autobrr, withSecret bo
 	c := runAutobrr(t, cfg, withSecret)
 	var got automationv1alpha1.Autobrr
 	require.NoError(t, c.Get(context.Background(), types.NamespacedName{Name: "autobrr", Namespace: "media"}, &got))
-	return got.Status.ManagedResources
+	return got.GetManagedResources()
 }
 
 func TestAutobrrPrunesOnlyFeedsItCreated(t *testing.T) {
@@ -34,7 +34,7 @@ func TestAutobrrPrunesOnlyFeedsItCreated(t *testing.T) {
 	cfg := autobrrConfig(app.serve(t))
 	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{Prune: new(true)}
 	cfg.Spec.Feeds = []automationv1alpha1.AutobrrFeed{{Name: "kept", Type: "RSS", URL: "http://feed", IndexerRef: "Generic"}}
-	cfg.Status.ManagedResources = map[string][]string{"feeds": {"old", "kept"}}
+	cfg.SetManagedResources(map[string][]string{"feeds": {"old", "kept"}})
 
 	managed := autobrrManaged(t, cfg, true)
 
@@ -69,7 +69,7 @@ func TestAutobrrDeletionPolicyRemovesWhatItCreated(t *testing.T) {
 	cfg := autobrrConfig(app.serve(t))
 	policy := ctrlcommon.DeletionPolicyDelete
 	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{DeletionPolicy: &policy}
-	cfg.Status.ManagedResources = map[string][]string{"filters": {"TV"}, "actions": {"TV/send"}, "downloadClients": {"qBit"}}
+	cfg.SetManagedResources(map[string][]string{"filters": {"TV"}, "actions": {"TV/send"}, "downloadClients": {"qBit"}})
 	now := metav1.NewTime(time.Now())
 	cfg.DeletionTimestamp = &now
 	cfg.Finalizers = []string{ctrlcommon.Finalizer}
@@ -90,7 +90,7 @@ func TestAutobrrObserveReportsWhatPruneWouldDelete(t *testing.T) {
 	observe := "observe"
 	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{Prune: new(true), DriftPolicy: &observe}
 	cfg.Spec.Feeds = []automationv1alpha1.AutobrrFeed{{Name: "kept", Type: "RSS", URL: "http://feed", IndexerRef: "Generic"}}
-	cfg.Status.ManagedResources = map[string][]string{"feeds": {"observe-old", "kept"}}
+	cfg.SetManagedResources(map[string][]string{"feeds": {"observe-old", "kept"}})
 	observed := metrics.DriftObservedTotal.WithLabelValues("autobrr", "feeds", "observe-old")
 	before := testutil.ToFloat64(observed)
 

@@ -359,7 +359,7 @@ func runSabnzbdConfig(t *testing.T, cfg *downloadsv1alpha1.Sabnzbd) map[string][
 	if err := c.Get(context.Background(), ctrl.Request{Name: "sabnzbd", Namespace: "media"}.NamespacedName, &got); err != nil {
 		return nil
 	}
-	return got.Status.ManagedResources
+	return got.GetManagedResources()
 }
 
 func sabnzbdEntries(names ...string) []any {
@@ -375,7 +375,7 @@ func TestSabnzbdPrunesOnlyServersItCreated(t *testing.T) {
 	cfg := sabnzbdConfig(app.serve(t))
 	cfg.Spec.Servers = []downloadsv1alpha1.SabnzbdServer{{Name: "kept", Host: "news", Port: 563}}
 	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{Prune: new(true)}
-	cfg.Status.ManagedResources = map[string][]string{"servers": {"old", "kept"}}
+	cfg.SetManagedResources(map[string][]string{"servers": {"old", "kept"}})
 
 	managed := runSabnzbdConfig(t, cfg)
 
@@ -402,7 +402,7 @@ func TestSabnzbdDeletionPolicyRemovesWhatItCreated(t *testing.T) {
 	cfg := sabnzbdConfig(app.serve(t))
 	policy := ctrlcommon.DeletionPolicyDelete
 	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{DeletionPolicy: &policy}
-	cfg.Status.ManagedResources = map[string][]string{"servers": {"old"}, "categories": {"tv"}}
+	cfg.SetManagedResources(map[string][]string{"servers": {"old"}, "categories": {"tv"}})
 	now := metav1.NewTime(time.Now())
 	cfg.DeletionTimestamp = &now
 	cfg.Finalizers = []string{ctrlcommon.Finalizer}
@@ -421,7 +421,7 @@ func TestSabnzbdObserveReportsWhatPruneWouldDelete(t *testing.T) {
 	cfg.Spec.Servers = []downloadsv1alpha1.SabnzbdServer{{Name: "kept", Host: "news", Port: 563}}
 	observe := "observe"
 	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{Prune: new(true), DriftPolicy: &observe}
-	cfg.Status.ManagedResources = map[string][]string{"servers": {"observe-old"}}
+	cfg.SetManagedResources(map[string][]string{"servers": {"observe-old"}})
 	observed := metrics.DriftObservedTotal.WithLabelValues("sabnzbd", "servers", "observe-old")
 	before := testutil.ToFloat64(observed)
 

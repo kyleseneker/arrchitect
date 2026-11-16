@@ -170,18 +170,9 @@ func (in *LidarrDownloadClientStatus) DeepCopyInto(out *LidarrDownloadClientStat
 	}
 	if in.ManagedResources != nil {
 		in, out := &in.ManagedResources, &out.ManagedResources
-		*out = make(map[string][]string, len(*in))
-		for key, val := range *in {
-			var outVal []string
-			if val == nil {
-				(*out)[key] = nil
-			} else {
-				inVal := (*in)[key]
-				in, out := &inVal, &outVal
-				*out = make([]string, len(*in))
-				copy(*out, *in)
-			}
-			(*out)[key] = outVal
+		*out = make([]commonv1alpha1.ManagedResource, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
 }
@@ -323,18 +314,9 @@ func (in *LidarrIndexerStatus) DeepCopyInto(out *LidarrIndexerStatus) {
 	}
 	if in.ManagedResources != nil {
 		in, out := &in.ManagedResources, &out.ManagedResources
-		*out = make(map[string][]string, len(*in))
-		for key, val := range *in {
-			var outVal []string
-			if val == nil {
-				(*out)[key] = nil
-			} else {
-				inVal := (*in)[key]
-				in, out := &inVal, &outVal
-				*out = make([]string, len(*in))
-				copy(*out, *in)
-			}
-			(*out)[key] = outVal
+		*out = make([]commonv1alpha1.ManagedResource, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
 }
@@ -580,18 +562,9 @@ func (in *LidarrStatus) DeepCopyInto(out *LidarrStatus) {
 	}
 	if in.ManagedResources != nil {
 		in, out := &in.ManagedResources, &out.ManagedResources
-		*out = make(map[string][]string, len(*in))
-		for key, val := range *in {
-			var outVal []string
-			if val == nil {
-				(*out)[key] = nil
-			} else {
-				inVal := (*in)[key]
-				in, out := &inVal, &outVal
-				*out = make([]string, len(*in))
-				copy(*out, *in)
-			}
-			(*out)[key] = outVal
+		*out = make([]commonv1alpha1.ManagedResource, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
 }
@@ -785,18 +758,9 @@ func (in *RadarrDownloadClientStatus) DeepCopyInto(out *RadarrDownloadClientStat
 	}
 	if in.ManagedResources != nil {
 		in, out := &in.ManagedResources, &out.ManagedResources
-		*out = make(map[string][]string, len(*in))
-		for key, val := range *in {
-			var outVal []string
-			if val == nil {
-				(*out)[key] = nil
-			} else {
-				inVal := (*in)[key]
-				in, out := &inVal, &outVal
-				*out = make([]string, len(*in))
-				copy(*out, *in)
-			}
-			(*out)[key] = outVal
+		*out = make([]commonv1alpha1.ManagedResource, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
 }
@@ -953,18 +917,9 @@ func (in *RadarrIndexerStatus) DeepCopyInto(out *RadarrIndexerStatus) {
 	}
 	if in.ManagedResources != nil {
 		in, out := &in.ManagedResources, &out.ManagedResources
-		*out = make(map[string][]string, len(*in))
-		for key, val := range *in {
-			var outVal []string
-			if val == nil {
-				(*out)[key] = nil
-			} else {
-				inVal := (*in)[key]
-				in, out := &inVal, &outVal
-				*out = make([]string, len(*in))
-				copy(*out, *in)
-			}
-			(*out)[key] = outVal
+		*out = make([]commonv1alpha1.ManagedResource, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
 }
@@ -1235,18 +1190,9 @@ func (in *RadarrStatus) DeepCopyInto(out *RadarrStatus) {
 	}
 	if in.ManagedResources != nil {
 		in, out := &in.ManagedResources, &out.ManagedResources
-		*out = make(map[string][]string, len(*in))
-		for key, val := range *in {
-			var outVal []string
-			if val == nil {
-				(*out)[key] = nil
-			} else {
-				inVal := (*in)[key]
-				in, out := &inVal, &outVal
-				*out = make([]string, len(*in))
-				copy(*out, *in)
-			}
-			(*out)[key] = outVal
+		*out = make([]commonv1alpha1.ManagedResource, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
 }
@@ -1445,18 +1391,9 @@ func (in *ReadarrDownloadClientStatus) DeepCopyInto(out *ReadarrDownloadClientSt
 	}
 	if in.ManagedResources != nil {
 		in, out := &in.ManagedResources, &out.ManagedResources
-		*out = make(map[string][]string, len(*in))
-		for key, val := range *in {
-			var outVal []string
-			if val == nil {
-				(*out)[key] = nil
-			} else {
-				inVal := (*in)[key]
-				in, out := &inVal, &outVal
-				*out = make([]string, len(*in))
-				copy(*out, *in)
-			}
-			(*out)[key] = outVal
+		*out = make([]commonv1alpha1.ManagedResource, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
 }
@@ -1598,18 +1535,9 @@ func (in *ReadarrIndexerStatus) DeepCopyInto(out *ReadarrIndexerStatus) {
 	}
 	if in.ManagedResources != nil {
 		in, out := &in.ManagedResources, &out.ManagedResources
-		*out = make(map[string][]string, len(*in))
-		for key, val := range *in {
-			var outVal []string
-			if val == nil {
-				(*out)[key] = nil
-			} else {
-				inVal := (*in)[key]
-				in, out := &inVal, &outVal
-				*out = make([]string, len(*in))
-				copy(*out, *in)
-			}
-			(*out)[key] = outVal
+		*out = make([]commonv1alpha1.ManagedResource, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
 }
@@ -1855,18 +1783,9 @@ func (in *ReadarrStatus) DeepCopyInto(out *ReadarrStatus) {
 	}
 	if in.ManagedResources != nil {
 		in, out := &in.ManagedResources, &out.ManagedResources
-		*out = make(map[string][]string, len(*in))
-		for key, val := range *in {
-			var outVal []string
-			if val == nil {
-				(*out)[key] = nil
-			} else {
-				inVal := (*in)[key]
-				in, out := &inVal, &outVal
-				*out = make([]string, len(*in))
-				copy(*out, *in)
-			}
-			(*out)[key] = outVal
+		*out = make([]commonv1alpha1.ManagedResource, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
 }
@@ -2055,18 +1974,9 @@ func (in *SonarrDownloadClientStatus) DeepCopyInto(out *SonarrDownloadClientStat
 	}
 	if in.ManagedResources != nil {
 		in, out := &in.ManagedResources, &out.ManagedResources
-		*out = make(map[string][]string, len(*in))
-		for key, val := range *in {
-			var outVal []string
-			if val == nil {
-				(*out)[key] = nil
-			} else {
-				inVal := (*in)[key]
-				in, out := &inVal, &outVal
-				*out = make([]string, len(*in))
-				copy(*out, *in)
-			}
-			(*out)[key] = outVal
+		*out = make([]commonv1alpha1.ManagedResource, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
 }
@@ -2208,18 +2118,9 @@ func (in *SonarrIndexerStatus) DeepCopyInto(out *SonarrIndexerStatus) {
 	}
 	if in.ManagedResources != nil {
 		in, out := &in.ManagedResources, &out.ManagedResources
-		*out = make(map[string][]string, len(*in))
-		for key, val := range *in {
-			var outVal []string
-			if val == nil {
-				(*out)[key] = nil
-			} else {
-				inVal := (*in)[key]
-				in, out := &inVal, &outVal
-				*out = make([]string, len(*in))
-				copy(*out, *in)
-			}
-			(*out)[key] = outVal
+		*out = make([]commonv1alpha1.ManagedResource, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
 }
@@ -2475,18 +2376,9 @@ func (in *SonarrStatus) DeepCopyInto(out *SonarrStatus) {
 	}
 	if in.ManagedResources != nil {
 		in, out := &in.ManagedResources, &out.ManagedResources
-		*out = make(map[string][]string, len(*in))
-		for key, val := range *in {
-			var outVal []string
-			if val == nil {
-				(*out)[key] = nil
-			} else {
-				inVal := (*in)[key]
-				in, out := &inVal, &outVal
-				*out = make([]string, len(*in))
-				copy(*out, *in)
-			}
-			(*out)[key] = outVal
+		*out = make([]commonv1alpha1.ManagedResource, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
 }

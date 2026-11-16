@@ -333,7 +333,9 @@ type PlexStatus struct {
 	// resource type. Prune only removes entries listed here, so resources
 	// created outside the operator are never deleted.
 	// +optional
-	ManagedResources map[string][]string `json:"managedResources,omitempty"`
+	// +listType=map
+	// +listMapKey=type
+	ManagedResources []commonv1alpha1.ManagedResource `json:"managedResources,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -374,4 +376,10 @@ func (c *Plex) GetConditions() *[]metav1.Condition                  { return &c.
 func (c *Plex) GetObservedGeneration() *int64                       { return &c.Status.ObservedGeneration }
 func (c *Plex) GetLastSyncTime() **metav1.Time                      { return &c.Status.LastSyncTime }
 func (c *Plex) GetReconcileConfig() *commonv1alpha1.ReconcileConfig { return c.Spec.Reconcile }
-func (c *Plex) GetManagedResources() *map[string][]string           { return &c.Status.ManagedResources }
+func (c *Plex) GetManagedResources() map[string][]string {
+	return commonv1alpha1.ManagedMap(c.Status.ManagedResources)
+}
+
+func (c *Plex) SetManagedResources(m map[string][]string) {
+	c.Status.ManagedResources = commonv1alpha1.ManagedList(m)
+}

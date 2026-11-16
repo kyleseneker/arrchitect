@@ -52,7 +52,7 @@ func reconcilePVR(ctx context.Context, c client.Client, recorder events.EventRec
 		unresolved = append(unresolved, fmt.Sprintf("importLists: %v", err))
 	}
 
-	result, err := pvrclient.Reconcile(ctx, hc, cfg.app.APIVersion, cfg.spec, opts, ctrlcommon.Policy(cfg.policy), *obj.GetManagedResources())
+	result, err := pvrclient.Reconcile(ctx, hc, cfg.app.APIVersion, cfg.spec, opts, ctrlcommon.Policy(cfg.policy), obj.GetManagedResources())
 	if err != nil {
 		ctrlcommon.UpdateStatus(ctx, c, obj, false, engine.ReasonSyncFailed, err.Error())
 		return ctrl.Result{RequeueAfter: ctrlcommon.ReconcileInterval(cfg.policy)}, nil

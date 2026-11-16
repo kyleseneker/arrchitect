@@ -16,8 +16,10 @@ import (
 func discordNotification() curationv1alpha1.MaintainerrNotification {
 	return curationv1alpha1.MaintainerrNotification{
 		Name: "Discord", Agent: "discord", Types: []string{"mediaHandled", "mediaAboutToBeHandled"}, AboutScale: new(int32(5)),
-		Options:       map[string]commonv1alpha1.FieldValue{"botUsername": {Raw: []byte(`"Maintainerr"`)}},
-		SecretOptions: map[string]commonv1alpha1.SecretKeyRef{"webhookUrl": secretRef("discord-webhook")},
+		Options: []commonv1alpha1.ConfigField{
+			{Name: "botUsername", Value: &commonv1alpha1.FieldValue{Raw: []byte(`"Maintainerr"`)}},
+			{Name: "webhookUrl", ValueFrom: &commonv1alpha1.ValueSource{SecretKeyRef: secretRef("discord-webhook")}},
+		},
 	}
 }
 
@@ -50,7 +52,7 @@ func TestMaintainerrCreatesNotificationsAndLinksThemToRuleGroups(t *testing.T) {
 
 	var cfg curationv1alpha1.Maintainerr
 	require.NoError(t, run.c.Get(context.Background(), types.NamespacedName{Name: "maintainerr", Namespace: "media"}, &cfg))
-	assert.Equal(t, []string{"Discord"}, cfg.Status.ManagedResources[notificationsKind])
+	assert.Equal(t, []string{"Discord"}, cfg.GetManagedResources()[notificationsKind])
 
 	app.resetRequests()
 	run.reconcile(t)
@@ -66,7 +68,7 @@ func TestMaintainerrUpdatesANotificationKeepingWhatTheSpecLeavesOut(t *testing.T
 	spec := jellyfinSpec(app.serve(t))
 	spec.Notifications = []curationv1alpha1.MaintainerrNotification{{
 		Name: "Discord", Agent: "discord",
-		Options: map[string]commonv1alpha1.FieldValue{"botUsername": {Raw: []byte(`"Maintainerr"`)}},
+		Options: []commonv1alpha1.ConfigField{{Name: "botUsername", Value: &commonv1alpha1.FieldValue{Raw: []byte(`"Maintainerr"`)}}},
 	}}
 
 	newMaintainerrRun(t, spec).reconcile(t)
@@ -90,7 +92,7 @@ func TestMaintainerrPrunesOnlyTheNotificationsItCreated(t *testing.T) {
 	run := newMaintainerrRun(t, spec)
 	var cfg curationv1alpha1.Maintainerr
 	require.NoError(t, run.c.Get(context.Background(), types.NamespacedName{Name: "maintainerr", Namespace: "media"}, &cfg))
-	cfg.Status.ManagedResources = map[string][]string{notificationsKind: {"Old"}}
+	cfg.SetManagedResources(map[string][]string{notificationsKind: {"Old"}})
 	require.NoError(t, run.c.Status().Update(context.Background(), &cfg))
 
 	run.reconcile(t)

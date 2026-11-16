@@ -99,7 +99,7 @@ var pvrApps = []pvrApp{
 				yes := true
 				c.Spec.Naming = &pvrv1alpha1.SonarrNaming{RenameEpisodes: &yes}
 			}
-			c.Status.ManagedResources = o.managed
+			c.SetManagedResources(o.managed)
 			return c
 		},
 	},
@@ -119,7 +119,7 @@ var pvrApps = []pvrApp{
 				yes := true
 				c.Spec.Naming = &pvrv1alpha1.RadarrNaming{RenameMovies: &yes}
 			}
-			c.Status.ManagedResources = o.managed
+			c.SetManagedResources(o.managed)
 			return c
 		},
 	},
@@ -139,7 +139,7 @@ var pvrApps = []pvrApp{
 				yes := true
 				c.Spec.Naming = &pvrv1alpha1.LidarrNaming{RenameTracks: &yes}
 			}
-			c.Status.ManagedResources = o.managed
+			c.SetManagedResources(o.managed)
 			return c
 		},
 	},
@@ -159,7 +159,7 @@ var pvrApps = []pvrApp{
 				yes := true
 				c.Spec.Naming = &pvrv1alpha1.ReadarrNaming{RenameBooks: &yes}
 			}
-			c.Status.ManagedResources = o.managed
+			c.SetManagedResources(o.managed)
 			return c
 		},
 	},
@@ -351,8 +351,8 @@ func TestReconcileWritesDeclaredResources(t *testing.T) {
 
 			obj := app.empty()
 			require.NoError(t, c.Get(context.Background(), types.NamespacedName{Name: "app", Namespace: "media"}, obj), "fetching config")
-			assert.NotEmpty(t, (*obj.GetManagedResources())["notifications"],
-				"managedResources did not record the notification: %+v", *obj.GetManagedResources())
+			assert.NotEmpty(t, (obj.GetManagedResources())["notifications"],
+				"managedResources did not record the notification: %+v", obj.GetManagedResources())
 		})
 	}
 }

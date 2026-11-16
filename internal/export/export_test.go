@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
 	pvrv1alpha1 "github.com/kyleseneker/arrchitect/api/pvr/v1alpha1"
 )
 
@@ -99,4 +100,23 @@ func TestCredentialKeysAreValidAndUnique(t *testing.T) {
 	c := &credentials{secret: "s", values: map[string]string{}}
 	assert.Equal(t, "download-client-my-qbit-password", c.ref("", "download-client", "My qBit!", "password")["key"])
 	assert.Equal(t, "download-client-my-qbit-password-2", c.ref("", "download-client", "my qbit", "password")["key"])
+}
+
+func fieldNamed(t *testing.T, fields []commonv1alpha1.ConfigField, name string) commonv1alpha1.ConfigField {
+	t.Helper()
+	for _, f := range fields {
+		if f.Name == name {
+			return f
+		}
+	}
+	require.FailNow(t, "no field "+name)
+	return commonv1alpha1.ConfigField{}
+}
+
+func fieldNames(fields []commonv1alpha1.ConfigField) []string {
+	names := make([]string, 0, len(fields))
+	for _, f := range fields {
+		names = append(names, f.Name)
+	}
+	return names
 }

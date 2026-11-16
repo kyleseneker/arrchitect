@@ -109,15 +109,13 @@ type MaintainerrNotification struct {
 	// +kubebuilder:validation:Minimum=1
 	AboutScale *int32 `json:"aboutScale,omitempty"`
 
-	// options sets the agent's settings, such as botUsername, chatId or
-	// jsonPayload. Values keep their type.
+	// options are the agent's settings, such as botUsername or jsonPayload,
+	// each a value or read from a Secret, such as webhookUrl or authPass.
+	// Values keep their type.
 	// +optional
-	Options map[string]commonv1alpha1.FieldValue `json:"options,omitempty"`
-
-	// secretOptions sets agent settings from Secrets, by setting name, such as
-	// webhookUrl, botAuthToken or authPass. They take precedence over options.
-	// +optional
-	SecretOptions map[string]commonv1alpha1.SecretKeyRef `json:"secretOptions,omitempty"`
+	// +listType=map
+	// +listMapKey=name
+	Options []commonv1alpha1.ConfigField `json:"options,omitempty"`
 }
 
 // MaintainerrConnection defines how the operator reaches Maintainerr. Maintainerr
@@ -456,7 +454,9 @@ type MaintainerrStatus struct {
 	// resource type. Prune only removes entries listed here, so resources
 	// created outside the operator are never deleted.
 	// +optional
-	ManagedResources map[string][]string `json:"managedResources,omitempty"`
+	// +listType=map
+	// +listMapKey=type
+	ManagedResources []commonv1alpha1.ManagedResource `json:"managedResources,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -499,6 +499,10 @@ func (c *Maintainerr) GetLastSyncTime() **metav1.Time     { return &c.Status.Las
 func (c *Maintainerr) GetReconcileConfig() *commonv1alpha1.ReconcileConfig {
 	return c.Spec.Reconcile
 }
-func (c *Maintainerr) GetManagedResources() *map[string][]string {
-	return &c.Status.ManagedResources
+func (c *Maintainerr) GetManagedResources() map[string][]string {
+	return commonv1alpha1.ManagedMap(c.Status.ManagedResources)
+}
+
+func (c *Maintainerr) SetManagedResources(m map[string][]string) {
+	c.Status.ManagedResources = commonv1alpha1.ManagedList(m)
 }

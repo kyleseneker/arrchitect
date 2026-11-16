@@ -68,10 +68,11 @@ func TestSeerrExportsSettingsServicesAndNotifications(t *testing.T) {
 		"mediaAvailable", "mediaDeclined", "mediaFailed", "mediaPending",
 	}, discord.Types)
 	assert.Contains(t, res.Warnings, `notification "discord": the config can't express type bits 32, and applying it would clear them`)
-	require.Len(t, discord.Options, 1)
-	assert.Equal(t, true, discord.Options["enableMentions"].ToInterface(), "a boolean option stays a boolean")
-	require.Contains(t, discord.SecretOptions, "webhookUrl")
-	assert.Equal(t, "https://hook", res.Secret.StringData[discord.SecretOptions["webhookUrl"].Key])
+	require.Len(t, discord.Options, 2)
+	assert.Equal(t, true, fieldNamed(t, discord.Options, "enableMentions").Value.ToInterface(), "a boolean option stays a boolean")
+	webhook := fieldNamed(t, discord.Options, "webhookUrl")
+	require.NotNil(t, webhook.ValueFrom)
+	assert.Equal(t, "https://hook", res.Secret.StringData[webhook.ValueFrom.SecretKeyRef.Key])
 }
 
 func TestIsCredentialOption(t *testing.T) {

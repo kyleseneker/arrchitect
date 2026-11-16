@@ -367,31 +367,50 @@ spec:
                       description: name is the provider key (e.g., opensubtitlescom,
                         addic7ed).
                       type: string
-                    secretSettings:
-                      additionalProperties:
-                        description: SecretKeyRef references a key within a Kubernetes
-                          Secret.
+                    settings:
+                      description: |-
+                        settings are the provider's settings, each a text value or read from a
+                        Secret in the resource's namespace, such as a password or API key.
+                      items:
+                        description: |-
+                          ConfigField is a named field of a provider's configuration. It sets value
+                          or valueFrom, not both.
+                        maxProperties: 2
                         properties:
-                          key:
-                            description: key is the key within the Secret.
-                            type: string
                           name:
-                            description: name is the name of the Secret.
+                            description: name is the field name.
                             type: string
+                          value:
+                            description: 'value is the field value: a string, number,
+                              boolean or list.'
+                            x-kubernetes-preserve-unknown-fields: true
+                          valueFrom:
+                            description: valueFrom reads the field value from a source.
+                            properties:
+                              secretKeyRef:
+                                description: secretKeyRef reads the value from a key
+                                  of a Secret in the resource's namespace.
+                                properties:
+                                  key:
+                                    description: key is the key within the Secret.
+                                    type: string
+                                  name:
+                                    description: name is the name of the Secret.
+                                    type: string
+                                required:
+                                - key
+                                - name
+                                type: object
+                            required:
+                            - secretKeyRef
+                            type: object
                         required:
-                        - key
                         - name
                         type: object
-                      description: |-
-                        secretSettings is a map of provider-specific settings read from Secrets
-                        in the resource's namespace, such as passwords and API keys. A setting
-                        can't be in both settings and secretSettings.
-                      type: object
-                    settings:
-                      additionalProperties:
-                        type: string
-                      description: settings is a map of provider-specific settings.
-                      type: object
+                      type: array
+                      x-kubernetes-list-map-keys:
+                      - name
+                      x-kubernetes-list-type: map
                   required:
                   - name
                   type: object
@@ -718,15 +737,32 @@ spec:
                 format: date-time
                 type: string
               managedResources:
-                additionalProperties:
-                  items:
-                    type: string
-                  type: array
                 description: |-
                   managedResources records the resources this operator created, keyed by
                   resource type. Prune only removes entries listed here, so resources
                   created outside the operator are never deleted.
-                type: object
+                items:
+                  description: ManagedResource lists the items of one type the operator
+                    created.
+                  properties:
+                    names:
+                      description: names are the items of that type the operator created.
+                      items:
+                        type: string
+                      type: array
+                      x-kubernetes-list-type: set
+                    type:
+                      description: type is the kind of item, such as downloadClients.
+                      minLength: 1
+                      type: string
+                  required:
+                  - names
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
               observedGeneration:
                 description: observedGeneration is the most recent generation observed.
                 format: int64

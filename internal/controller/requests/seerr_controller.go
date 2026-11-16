@@ -65,7 +65,7 @@ func (r *SeerrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	}
 
 	writes := &engine.Writes{App: "seerr", Observe: ctrlcommon.ObserveOnly(config.Spec.Reconcile)}
-	owned := engine.NewOwnership("seerr", config.Status.ManagedResources)
+	owned := engine.NewOwnership("seerr", config.GetManagedResources())
 	if !isInitialized && writes.Observe {
 		// Signing in to a Seerr that has not been set up configures its media
 		// server, so observe mode reports the setup as missing and stops.
@@ -135,9 +135,9 @@ func (r *SeerrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 
 	// Reconcile notification agents
 	for _, agent := range config.Spec.Notifications {
-		secrets, err := r.notificationSecrets(ctx, config.Namespace, agent)
+		options, err := ctrlcommon.FieldValues(ctx, r.Client, config.Namespace, "notification "+agent.Agent, agent.Options)
 		if err == nil {
-			err = reconcileSeerrNotificationAgent(ctx, sc, writes, agent, secrets)
+			err = reconcileSeerrNotificationAgent(ctx, sc, writes, agent, options)
 		}
 		if err != nil {
 			logger.Error(err, "failed to reconcile notification agent", "agent", agent.Agent)
@@ -210,7 +210,7 @@ func (r *SeerrReconciler) cleanup(ctx context.Context, config *requestsv1alpha1.
 	if err := r.establishSession(ctx, sc, config); err != nil {
 		return err
 	}
-	owned := engine.NewOwnership("seerr", config.Status.ManagedResources)
+	owned := engine.NewOwnership("seerr", config.GetManagedResources())
 	var errs []error
 	for _, kind := range []string{"sonarr", "radarr"} {
 		names, ids, err := seerrServices(ctx, sc, kind)
@@ -367,21 +367,6 @@ func (r *SeerrReconciler) reconcileServiceConnection(
 	})
 }
 
-// notificationSecrets resolves an agent's secretOptions.
-func (r *SeerrReconciler) notificationSecrets(
-	ctx context.Context, namespace string, agent requestsv1alpha1.SeerrNotificationAgent,
-) (map[string]string, error) {
-	secrets := make(map[string]string, len(agent.SecretOptions))
-	for name, ref := range agent.SecretOptions {
-		value, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, namespace, ref)
-		if err != nil {
-			return nil, fmt.Errorf("resolving %s: %w", name, err)
-		}
-		secrets[name] = value
-	}
-	return secrets, nil
-}
-
 func buildServicePayload(svc *requestsv1alpha1.SeerrServiceConnection, apiKey string) map[string]any {
 	payload := map[string]any{
 		"name":     svc.Name,
@@ -483,7 +468,7 @@ func reconcileSeerrMainSettings(ctx context.Context, sc *seerrclient.Client, w *
 }
 
 func reconcileSeerrNotificationAgent(
-	ctx context.Context, sc *seerrclient.Client, w *engine.Writes, agent requestsv1alpha1.SeerrNotificationAgent, secrets map[string]string,
+	ctx context.Context, sc *seerrclient.Client, w *engine.Writes, agent requestsv1alpha1.SeerrNotificationAgent, options map[string]any,
 ) error {
 	payload := map[string]any{}
 	if agent.Enabled != nil {
@@ -500,15 +485,8 @@ func reconcileSeerrNotificationAgent(
 		}
 		payload["types"] = types
 	}
-	if len(agent.Options)+len(secrets) > 0 {
-		opts := make(map[string]any, len(agent.Options)+len(secrets))
-		for k, v := range agent.Options {
-			opts[k] = v.ToInterface()
-		}
-		for k, v := range secrets {
-			opts[k] = v
-		}
-		payload["options"] = opts
+	if len(options) > 0 {
+		payload["options"] = options
 	}
 
 	path := fmt.Sprintf("/api/v1/settings/notifications/%s", agent.Agent)
