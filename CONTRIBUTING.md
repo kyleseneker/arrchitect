@@ -29,7 +29,7 @@ of the same name.
 
 | Target | What it covers | Needs |
 | --- | --- | --- |
-| `make test` | Unit tests against fakes, and envtest tests against a real kube-apiserver: every sample and admission rule, and the controllers' Kubernetes side | Go |
+| `make test` | Unit tests against fakes, with the race detector; envtest tests against a real kube-apiserver for every sample, admission rule and controller; and `test/consistency`, which checks the chart, Renovate and CI agree with the code | Go, helm |
 | `make test-chart` | The chart's templates, with the helm-unittest suites in `chart/arrchitect/tests`. CI also runs `ct lint` | helm |
 | `make verify-crds` | That the chart carries the generated CRDs | |
 | `make verify-crd-compat` | crdify's report of CRD changes since the last release that existing resources could break on. It doesn't fail CI while the API is v1alpha1 | git history |

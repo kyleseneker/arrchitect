@@ -1,17 +1,10 @@
-// Package envtest runs the sample manifests against a real kube-apiserver.
-//
-// Schema mistakes in the CRDs — a field the API server rejects, or a root
-// required list that makes every apply fail — are invisible to unit tests,
-// which never talk to an API server. This applies every committed sample and
-// example so those failures surface here instead of in someone's cluster.
-//
-// Skipped unless KUBEBUILDER_ASSETS is set, which `make test` does.
 package envtest
 
 import (
 	"bufio"
 	"bytes"
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -121,115 +114,66 @@ func decode(t *testing.T, path string) []*unstructured.Unstructured {
 	return out
 }
 
-func TestDelayProfilesAllowOneWithoutTags(t *testing.T) {
-	c := startAPIServerWith(t)
-	ctx := context.Background()
-	sonarr := func(name, profiles string) *unstructured.Unstructured {
-		obj := &unstructured.Unstructured{}
-		require.NoError(t, yaml.Unmarshal([]byte(`
-apiVersion: arrchitect.dev/v1alpha1
-kind: SonarrConfig
-metadata:
-  name: `+name+`
-  namespace: default
-spec:
-  connection:
-    url: http://sonarr:8989
-    apiKeySecretRef: {name: sonarr, key: api-key}
-  delayProfiles: `+profiles), &obj.Object))
-		return obj
-	}
-
-	require.NoError(t, c.Create(ctx, sonarr("one-default", `[{tagLabels: [anime]}, {usenetDelay: 30}]`)))
-	err := c.Create(ctx, sonarr("two-defaults", `[{usenetDelay: 30}, {tagLabels: []}]`))
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "only one delay profile can be without tags")
-}
-
-func TestDuplicateNamesAreRejected(t *testing.T) {
-	c := startAPIServerWith(t)
-	ctx := context.Background()
-	for name, spec := range map[string]string{
-		"download clients": `downloadClients: [{name: qBit, protocol: torrent, implementation: QBittorrent, host: a, port: 1},
-    {name: qBit, protocol: torrent, implementation: QBittorrent, host: b, port: 2}]`,
-		"fields": `indexers: [{name: x, protocol: torrent, implementation: Torznab,
-    fields: [{name: baseUrl, value: a}, {name: baseUrl, value: b}]}]`,
-		"tag labels": `indexers: [{name: x, protocol: torrent, implementation: Torznab, tagLabels: [anime, anime]}]`,
-	} {
-		t.Run(name, func(t *testing.T) {
-			obj := &unstructured.Unstructured{}
-			require.NoError(t, yaml.Unmarshal([]byte(`
-apiVersion: arrchitect.dev/v1alpha1
-kind: SonarrConfig
-metadata:
-  name: duplicates
-  namespace: default
-spec:
-  connection:
-    url: http://sonarr:8989
-    apiKeySecretRef: {name: sonarr, key: api-key}
-  `+spec), &obj.Object))
-			err := c.Create(ctx, obj)
-			require.Error(t, err)
-			assert.Contains(t, err.Error(), "Duplicate value")
-		})
-	}
-}
-
-func TestFieldValueAndValueFromAreMutuallyExclusive(t *testing.T) {
-	c := startAPIServerWith(t)
-	obj := &unstructured.Unstructured{}
-	require.NoError(t, yaml.Unmarshal([]byte(`
-apiVersion: arrchitect.dev/v1alpha1
-kind: SonarrConfig
-metadata:
-  name: exclusive
-  namespace: default
-spec:
-  connection:
-    url: http://sonarr:8989
-    apiKeySecretRef: {name: sonarr, key: api-key}
-  indexers:
-    - name: x
-      protocol: torrent
-      implementation: Torznab
-      fields: [{name: apiKey, value: a, valueFrom: {secretKeyRef: {name: s, key: k}}}]
-`), &obj.Object))
-	err := c.Create(context.Background(), obj)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "must have at most 2 items")
-}
-
+// TestAdmissionRules checks what the API server accepts and rejects for the
+// rules the CRDs carry: list keys, CEL rules, patterns and property limits.
 func TestAdmissionRules(t *testing.T) {
 	c := startAPIServerWith(t)
 	const conn = `
   connection:
     url: http://app:8080
     apiKeySecretRef: {name: app, key: api-key}`
-	for name, tt := range map[string]struct{ kind, spec, message string }{
-		"an interval under 30s": {"SonarrConfig", conn + `
-  reconcile: {interval: 10s}`, "interval must be at least 30s"},
-		"delete in observe mode": {"SonarrConfig", conn + `
+	for i, tt := range []struct {
+		name, kind, spec string
+		rejected         string
+	}{
+		{name: "one delay profile without tags", kind: "SonarrConfig", spec: conn + `
+  delayProfiles: [{tagLabels: [anime]}, {usenetDelay: 30}]`},
+		{name: "two delay profiles without tags", kind: "SonarrConfig", spec: conn + `
+  delayProfiles: [{usenetDelay: 30}, {tagLabels: []}]`,
+			rejected: "only one delay profile can be without tags"},
+		{name: "duplicate download client names", kind: "SonarrConfig", spec: conn + `
+  downloadClients: [{name: qBit, protocol: torrent, implementation: QBittorrent, host: a, port: 1},
+    {name: qBit, protocol: torrent, implementation: QBittorrent, host: b, port: 2}]`,
+			rejected: "Duplicate value"},
+		{name: "duplicate field names", kind: "SonarrConfig", spec: conn + `
+  indexers: [{name: x, protocol: torrent, implementation: Torznab,
+    fields: [{name: baseUrl, value: a}, {name: baseUrl, value: b}]}]`,
+			rejected: "Duplicate value"},
+		{name: "duplicate tag labels", kind: "SonarrConfig", spec: conn + `
+  indexers: [{name: x, protocol: torrent, implementation: Torznab, tagLabels: [anime, anime]}]`,
+			rejected: "Duplicate value"},
+		{name: "a field with both value and valueFrom", kind: "SonarrConfig", spec: conn + `
+  indexers: [{name: x, protocol: torrent, implementation: Torznab,
+    fields: [{name: apiKey, value: a, valueFrom: {secretKeyRef: {name: s, key: k}}}]}]`,
+			rejected: "must have at most 2 items"},
+		{name: "an interval under 30s", kind: "SonarrConfig", spec: conn + `
+  reconcile: {interval: 10s}`,
+			rejected: "interval must be at least 30s"},
+		{name: "delete in observe mode", kind: "SonarrConfig", spec: conn + `
   reconcile: {deletionPolicy: delete, driftPolicy: observe}`,
-			"deletionPolicy delete conflicts with driftPolicy observe"},
-		"a URL without a scheme": {"SonarrConfig", `
+			rejected: "deletionPolicy delete conflicts with driftPolicy observe"},
+		{name: "a URL without a scheme", kind: "SonarrConfig", spec: `
   connection:
     url: sonarr:8989
-    apiKeySecretRef: {name: app, key: api-key}`, "should match '^https?://'"},
-		"Lidarr root folder without profiles": {"LidarrConfig", conn + `
-  rootFolders: [{path: /music}]`, "Lidarr root folders need defaultQualityProfileName and defaultMetadataProfileName"},
-		"Jellyfin prune": {"JellyfinConfig", `
+    apiKeySecretRef: {name: app, key: api-key}`,
+			rejected: "should match '^https?://'"},
+		{name: "a Lidarr root folder without profiles", kind: "LidarrConfig", spec: conn + `
+  rootFolders: [{path: /music}]`,
+			rejected: "Lidarr root folders need defaultQualityProfileName and defaultMetadataProfileName"},
+		{name: "prune on Jellyfin", kind: "JellyfinConfig", spec: `
   connection: {url: http://jellyfin:8096}
   adminUser:
     usernameSecretRef: {name: app, key: username}
     passwordSecretRef: {name: app, key: password}
-  reconcile: {prune: true}`, "JellyfinConfig doesn't support prune"},
-		"Plex deletionPolicy delete": {"PlexConfig", `
+  reconcile: {prune: true}`,
+			rejected: "JellyfinConfig doesn't support prune"},
+		{name: "deletionPolicy delete on Plex", kind: "PlexConfig", spec: `
   connection:
     url: http://plex:32400
     tokenSecretRef: {name: app, key: token}
-  reconcile: {deletionPolicy: delete}`, "PlexConfig doesn't support deletionPolicy delete"},
-		"Seerr with both auths": {"SeerrConfig", `
+  reconcile: {deletionPolicy: delete}`,
+			rejected: "PlexConfig doesn't support deletionPolicy delete"},
+		{name: "Seerr with both auths", kind: "SeerrConfig", spec: `
   connection:
     url: http://seerr:5055
     apiKeySecretRef: {name: app, key: api-key}
@@ -240,20 +184,25 @@ func TestAdmissionRules(t *testing.T) {
     passwordSecretRef: {name: app, key: password}
   plexAuth:
     hostname: plex
-    tokenSecretRef: {name: app, key: token}`, "jellyfinAuth and plexAuth are mutually exclusive"},
+    tokenSecretRef: {name: app, key: token}`,
+			rejected: "jellyfinAuth and plexAuth are mutually exclusive"},
 	} {
-		t.Run(name, func(t *testing.T) {
+		t.Run(tt.name, func(t *testing.T) {
 			obj := &unstructured.Unstructured{}
-			require.NoError(t, yaml.Unmarshal([]byte(`
+			require.NoError(t, yaml.Unmarshal([]byte(fmt.Sprintf(`
 apiVersion: arrchitect.dev/v1alpha1
-kind: `+tt.kind+`
+kind: %s
 metadata:
-  name: rule
+  name: rule-%d
   namespace: default
-spec:`+tt.spec), &obj.Object))
+spec:%s`, tt.kind, i, tt.spec)), &obj.Object))
 			err := c.Create(context.Background(), obj)
+			if tt.rejected == "" {
+				assert.NoError(t, err)
+				return
+			}
 			require.Error(t, err)
-			assert.Contains(t, err.Error(), tt.message)
+			assert.Contains(t, err.Error(), tt.rejected)
 		})
 	}
 }
