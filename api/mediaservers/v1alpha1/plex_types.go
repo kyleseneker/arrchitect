@@ -315,12 +315,19 @@ type PlexNetwork struct {
 
 // PlexStatus defines the observed state of Plex.
 type PlexStatus struct {
+	// conditions represent the current state of the Plex resource.
 	// +listType=map
 	// +listMapKey=type
 	// +optional
-	Conditions         []metav1.Condition `json:"conditions,omitempty"`
-	ObservedGeneration int64              `json:"observedGeneration,omitempty"`
-	LastSyncTime       *metav1.Time       `json:"lastSyncTime,omitempty"`
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
+
+	// observedGeneration is the most recent generation observed.
+	// +optional
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
+
+	// lastSyncTime is the timestamp of the last successful reconciliation.
+	// +optional
+	LastSyncTime *metav1.Time `json:"lastSyncTime,omitempty"`
 
 	// managedResources records the resources this operator created, keyed by
 	// resource type. Prune only removes entries listed here, so resources
@@ -341,12 +348,15 @@ type PlexStatus struct {
 type Plex struct {
 	metav1.TypeMeta `json:",inline"`
 
+	// metadata is the standard object metadata.
 	// +optional
 	metav1.ObjectMeta `json:"metadata,omitzero"`
 
+	// spec is the desired state of the Plex.
 	// +required
 	Spec PlexSpec `json:"spec"`
 
+	// status is the observed state of the Plex.
 	// +optional
 	Status PlexStatus `json:"status,omitzero"`
 }

@@ -53,7 +53,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: LidarrIndexerSpec is one indexer in a Lidarr instance.
+            description: spec is the desired state of the LidarrIndexer.
             properties:
               configContract:
                 description: |-
@@ -177,7 +177,7 @@ spec:
             - protocol
             type: object
           status:
-            description: LidarrIndexerStatus is the observed state of a LidarrIndexer.
+            description: status is the observed state of the LidarrIndexer.
             properties:
               conditions:
                 description: conditions represent the current state of the indexer.

@@ -61,12 +61,15 @@ type ReadarrIndexerStatus struct {
 type ReadarrIndexer struct {
 	metav1.TypeMeta `json:",inline"`
 
+	// metadata is the standard object metadata.
 	// +optional
 	metav1.ObjectMeta `json:"metadata,omitzero"`
 
+	// spec is the desired state of the ReadarrIndexer.
 	// +required
 	Spec ReadarrIndexerSpec `json:"spec"`
 
+	// status is the observed state of the ReadarrIndexer.
 	// +optional
 	Status ReadarrIndexerStatus `json:"status,omitzero"`
 }

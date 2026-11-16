@@ -602,12 +602,15 @@ type JellyfinStatus struct {
 type Jellyfin struct {
 	metav1.TypeMeta `json:",inline"`
 
+	// metadata is the standard object metadata.
 	// +optional
 	metav1.ObjectMeta `json:"metadata,omitzero"`
 
+	// spec is the desired state of the Jellyfin.
 	// +required
 	Spec JellyfinSpec `json:"spec"`
 
+	// status is the observed state of the Jellyfin.
 	// +optional
 	Status JellyfinStatus `json:"status,omitzero"`
 }

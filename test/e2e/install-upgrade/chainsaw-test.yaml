@@ -53,7 +53,7 @@ spec:
                 name: sonarr
               spec:
                 reconcile:
-                  interval: 2m
+                  intervalSeconds: 120
         - assert:
             resource:
               apiVersion: arrchitect.dev/v1alpha1

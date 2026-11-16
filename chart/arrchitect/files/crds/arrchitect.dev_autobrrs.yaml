@@ -54,7 +54,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: AutobrrSpec defines the desired state of Autobrr.
+            description: spec is the desired state of the Autobrr.
             properties:
               connection:
                 description: connection defines how to connect to the Autobrr instance.
@@ -982,15 +982,13 @@ spec:
                     - enforce
                     - observe
                     type: string
-                  interval:
+                  intervalSeconds:
                     description: |-
-                      interval overrides the default reconciliation interval (default: 5m).
-                      Uses standard Kubernetes duration format (e.g., "30s", "5m", "1h"), and
-                      is at least 30s.
-                    type: string
-                    x-kubernetes-validations:
-                    - message: interval must be at least 30s
-                      rule: duration(self) >= duration('30s')
+                      intervalSeconds is how often the operator reconciles, in seconds.
+                      Defaults to 300, and is at least 30.
+                    format: int32
+                    minimum: 30
+                    type: integer
                   prune:
                     description: |-
                       prune deletes resources the operator created, tracked in
@@ -1010,7 +1008,7 @@ spec:
             - connection
             type: object
           status:
-            description: AutobrrStatus defines the observed state of Autobrr.
+            description: status is the observed state of the Autobrr.
             properties:
               conditions:
                 description: conditions represent the current state of the Autobrr

@@ -53,8 +53,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: LidarrDownloadClientSpec is one download client in a Lidarr
-              instance.
+            description: spec is the desired state of the LidarrDownloadClient.
             properties:
               apiKeySecretRef:
                 description: apiKeySecretRef references a Secret containing the API
@@ -237,7 +236,7 @@ spec:
             - protocol
             type: object
           status:
-            description: LidarrDownloadClientStatus is the observed state of a LidarrDownloadClient.
+            description: status is the observed state of the LidarrDownloadClient.
             properties:
               conditions:
                 description: conditions represent the current state of the download

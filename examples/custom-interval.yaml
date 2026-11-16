@@ -21,7 +21,7 @@ spec:
       key: api-key
   # Check every 10 minutes instead of the default 5, enable pruning
   reconcile:
-    interval: 10m
+    intervalSeconds: 600
     prune: true
   rootFolders:
     - path: /media/tv
@@ -43,7 +43,7 @@ spec:
       key: password
   # Jellyfin config rarely changes, check every 30 minutes
   reconcile:
-    interval: 30m
+    intervalSeconds: 1800
   server:
     serverName: "Homelab Media"
   libraries:

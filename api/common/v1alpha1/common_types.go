@@ -3,19 +3,16 @@ package v1alpha1
 
 import (
 	"encoding/json"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // ReconcileConfig holds common reconciliation settings shared across all config CRDs.
 // +kubebuilder:validation:XValidation:rule="!has(self.deletionPolicy) || self.deletionPolicy != 'delete' || !has(self.driftPolicy) || self.driftPolicy != 'observe'",message="deletionPolicy delete conflicts with driftPolicy observe"
 type ReconcileConfig struct {
-	// interval overrides the default reconciliation interval (default: 5m).
-	// Uses standard Kubernetes duration format (e.g., "30s", "5m", "1h"), and
-	// is at least 30s.
+	// intervalSeconds is how often the operator reconciles, in seconds.
+	// Defaults to 300, and is at least 30.
 	// +optional
-	// +kubebuilder:validation:XValidation:rule="duration(self) >= duration('30s')",message="interval must be at least 30s"
-	Interval *metav1.Duration `json:"interval,omitempty"`
+	// +kubebuilder:validation:Minimum=30
+	IntervalSeconds *int32 `json:"intervalSeconds,omitempty"`
 
 	// prune deletes resources the operator created, tracked in
 	// status.managedResources, once they are removed from this spec. Resources
@@ -309,6 +306,7 @@ type QualityProfile struct {
 
 // QualityProfileItem represents a quality or quality group in a profile.
 // Set quality for an individual quality, or set name+items for a group.
+// +kubebuilder:validation:ExactlyOneOf=name;quality
 type QualityProfileItem struct {
 	// name is the group name. Set only for quality groups, not individual qualities.
 	// +optional
@@ -831,14 +829,17 @@ type ImportList struct {
 // Identity is the pair (host, remotePath); localPath can be updated in place.
 type RemotePathMapping struct {
 	// host must match the download client's configured hostname.
+	// +required
 	// +kubebuilder:validation:MinLength=1
 	Host string `json:"host"`
 
 	// remotePath is the directory reported by the download client.
+	// +required
 	// +kubebuilder:validation:MinLength=1
 	RemotePath string `json:"remotePath"`
 
 	// localPath is the existing directory as seen by the app.
+	// +required
 	// +kubebuilder:validation:MinLength=1
 	LocalPath string `json:"localPath"`
 }

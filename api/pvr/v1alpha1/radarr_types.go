@@ -344,12 +344,15 @@ type RadarrStatus struct {
 type Radarr struct {
 	metav1.TypeMeta `json:",inline"`
 
+	// metadata is the standard object metadata.
 	// +optional
 	metav1.ObjectMeta `json:"metadata,omitzero"`
 
+	// spec is the desired state of the Radarr.
 	// +required
 	Spec RadarrSpec `json:"spec"`
 
+	// status is the observed state of the Radarr.
 	// +optional
 	Status RadarrStatus `json:"status,omitzero"`
 }

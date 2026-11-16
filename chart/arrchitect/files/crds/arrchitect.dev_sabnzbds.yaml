@@ -53,7 +53,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: SabnzbdSpec defines the desired state of Sabnzbd.
+            description: spec is the desired state of the Sabnzbd.
             properties:
               categories:
                 description: categories defines download categories.
@@ -347,15 +347,13 @@ spec:
                     - enforce
                     - observe
                     type: string
-                  interval:
+                  intervalSeconds:
                     description: |-
-                      interval overrides the default reconciliation interval (default: 5m).
-                      Uses standard Kubernetes duration format (e.g., "30s", "5m", "1h"), and
-                      is at least 30s.
-                    type: string
-                    x-kubernetes-validations:
-                    - message: interval must be at least 30s
-                      rule: duration(self) >= duration('30s')
+                      intervalSeconds is how often the operator reconciles, in seconds.
+                      Defaults to 300, and is at least 30.
+                    format: int32
+                    minimum: 30
+                    type: integer
                   prune:
                     description: |-
                       prune deletes resources the operator created, tracked in
@@ -467,9 +465,11 @@ spec:
             - connection
             type: object
           status:
-            description: SabnzbdStatus defines the observed state of Sabnzbd.
+            description: status is the observed state of the Sabnzbd.
             properties:
               conditions:
+                description: conditions represent the current state of the Sabnzbd
+                  resource.
                 items:
                   description: Condition contains details for one aspect of the current
                     state of this API Resource.
@@ -529,6 +529,8 @@ spec:
                 - type
                 x-kubernetes-list-type: map
               lastSyncTime:
+                description: lastSyncTime is the timestamp of the last successful
+                  reconciliation.
                 format: date-time
                 type: string
               managedResources:
@@ -542,6 +544,7 @@ spec:
                   created outside the operator are never deleted.
                 type: object
               observedGeneration:
+                description: observedGeneration is the most recent generation observed.
                 format: int64
                 type: integer
             type: object

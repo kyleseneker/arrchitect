@@ -39,8 +39,8 @@ const DriftPolicyObserve = "observe"
 
 // ReconcileInterval returns the configured interval or the default.
 func ReconcileInterval(rc *commonv1alpha1.ReconcileConfig) time.Duration {
-	if rc != nil && rc.Interval != nil {
-		return rc.Interval.Duration
+	if rc != nil && rc.IntervalSeconds != nil {
+		return time.Duration(*rc.IntervalSeconds) * time.Second
 	}
 	return DefaultReconcileInterval
 }

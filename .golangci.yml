@@ -15,6 +15,7 @@ linters:
     - gocyclo
     - govet
     - ineffassign
+    - kubeapilinter
     - lll
     - modernize
     - misspell
@@ -26,6 +27,21 @@ linters:
     - unparam
     - unused
   settings:
+    custom:
+      kubeapilinter:
+        type: module
+        description: Kube API Linter lints Kube-like APIs against the API conventions.
+        settings:
+          linters: {}
+          lintersConfig:
+            conditions:
+              useProtobuf: Forbid
+              usePatchStrategy: Forbid
+            defaults:
+              preferredDefaultMarker: kubebuilder:default
+            optionalfields:
+              pointers:
+                preference: WhenRequired
     goconst:
       # goconst 1.10 began flagging composite literals (JSON payload keys) and tests.
       ignore-tests: true
@@ -42,6 +58,9 @@ linters:
   exclusions:
     generated: lax
     rules:
+      - linters:
+          - kubeapilinter
+        path-except: api/*
       - linters:
           - dupl
           - lll

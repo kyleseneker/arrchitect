@@ -61,12 +61,15 @@ type LidarrDownloadClientStatus struct {
 type LidarrDownloadClient struct {
 	metav1.TypeMeta `json:",inline"`
 
+	// metadata is the standard object metadata.
 	// +optional
 	metav1.ObjectMeta `json:"metadata,omitzero"`
 
+	// spec is the desired state of the LidarrDownloadClient.
 	// +required
 	Spec LidarrDownloadClientSpec `json:"spec"`
 
+	// status is the observed state of the LidarrDownloadClient.
 	// +optional
 	Status LidarrDownloadClientStatus `json:"status,omitzero"`
 }

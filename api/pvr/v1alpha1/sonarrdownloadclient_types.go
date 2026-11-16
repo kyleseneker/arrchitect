@@ -61,12 +61,15 @@ type SonarrDownloadClientStatus struct {
 type SonarrDownloadClient struct {
 	metav1.TypeMeta `json:",inline"`
 
+	// metadata is the standard object metadata.
 	// +optional
 	metav1.ObjectMeta `json:"metadata,omitzero"`
 
+	// spec is the desired state of the SonarrDownloadClient.
 	// +required
 	Spec SonarrDownloadClientSpec `json:"spec"`
 
+	// status is the observed state of the SonarrDownloadClient.
 	// +optional
 	Status SonarrDownloadClientStatus `json:"status,omitzero"`
 }
