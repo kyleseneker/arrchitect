@@ -5,7 +5,7 @@
 1. Fork and clone: `git clone https://github.com/<your-username>/arrchitect`
 2. Branch: `git checkout -b my-feature`
 3. Make your changes
-4. `make lint test test-chart verify-crds`
+4. `make lint test test-chart verify-crds verify-api-docs`
 5. Push and open a PR
 
 You'll need the Go version in `go.mod` and helm; the Makefile installs every
@@ -17,6 +17,7 @@ Jellyfin, so it helps to have one running.
 make help                     # every target
 make manifests generate       # after editing anything in api/
 make sync-crds                # copy the generated CRDs into the chart
+make api-docs                 # regenerate docs/api.md from the API types
 make run                      # run the operator against the cluster in KUBECONFIG, which must be set
 make build                    # the operator and the CLI
 make docker-build             # the operator's image; IMG= to tag, ARCH= to cross-build
@@ -32,6 +33,7 @@ of the same name.
 | `make test` | Unit tests against fakes, with the race detector; envtest tests against a real kube-apiserver for every sample, admission rule and controller; and `test/consistency`, which checks the chart, Renovate and CI agree with the code | Go, helm |
 | `make test-chart` | The chart's templates, with the helm-unittest suites in `chart/arrchitect/tests`. CI also runs `ct lint` | helm |
 | `make verify-crds` | That the chart carries the generated CRDs | |
+| `make verify-api-docs` | That `docs/api.md` matches the API types | |
 | `make verify-crd-compat` | crdify's report of CRD changes since the last release that existing resources could break on. It doesn't fail CI while the API is v1alpha1 | git history |
 | `make test-compat` | Each app running in a container, reconciled from its fixture in `test/compat/testdata`. `COMPAT_VERSIONS=previous` runs each app's previous version | docker or podman |
 | `make test-e2e` | The image and chart in a kind cluster, with the Chainsaw tests in `test/e2e`: install and upgrade from the last release, every controller, and a single-namespace install | docker |
@@ -76,7 +78,7 @@ the chart's `apps` and `arrchitect.enabledApps`.
 Renovate (`renovate.json`) opens PRs on Saturday mornings; none automerge. The
 Kubernetes libraries and controller-runtime arrive as one PR. A controller-tools
 PR needs `make manifests generate sync-crds` run and committed on its branch
-before `verify-crds` passes.
+before `verify-crds` passes, and a crd-ref-docs PR needs `make api-docs`.
 
 ## Commit messages and releases
 
