@@ -1,0 +1,13 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Configuration
+metadata:
+  name: arrchitect
+spec:
+  parallel: 1
+  timeouts:
+    apply: 30s
+    assert: 3m
+    cleanup: 2m
+    delete: 2m
+    error: 1m
+    exec: 5m

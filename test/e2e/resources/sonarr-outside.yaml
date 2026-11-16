@@ -1,0 +1,10 @@
+apiVersion: arrchitect.dev/v1alpha1
+kind: SonarrConfig
+metadata:
+  name: outside
+spec:
+  connection:
+    url: http://sonarr.invalid:8989
+    apiKeySecretRef:
+      name: sonarr
+      key: api-key

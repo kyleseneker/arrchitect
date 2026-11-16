@@ -101,10 +101,15 @@ verify-crd-compat: manifests crdify ## Report CRD changes since the last release
 	exit $$status
 
 .PHONY: test-e2e
-test-e2e: kind ## Install the chart into a throwaway kind cluster, with its own kubeconfig, and reconcile a real Sonarr (needs docker).
-	$(MAKE) docker-build IMG=arrchitect:e2e
-	KIND="$(KIND)" PREVIOUS_RELEASE="$$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null)" \
-		go test -tags=e2e ./test/e2e/ -count=1 -v -timeout 30m
+test-e2e: IMG = arrchitect:e2e
+test-e2e: kind chainsaw docker-build ## Run the Chainsaw tests in a throwaway kind cluster, against a real Sonarr (needs docker). The cluster's kubeconfig is a temporary file.
+	@dir="$$(mktemp -d)"; export KUBECONFIG="$$dir/kubeconfig"; \
+	trap '"$(KIND)" delete cluster --name $(KIND_CLUSTER); rm -rf "$$dir"' EXIT; \
+	"$(KIND)" create cluster --name $(KIND_CLUSTER) --wait 120s; \
+	"$(KIND)" load docker-image $(IMG) --name $(KIND_CLUSTER); \
+	SONARR_IMAGE="$$(sed -n 's/^[[:space:]]*sonarrImage = "\(.*\)"$$/\1/p' test/compat/images_test.go)" \
+	PREVIOUS_RELEASE="$$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null)" \
+		"$(CHAINSAW)" test --config test/e2e/.chainsaw.yaml --test-dir test/e2e
 
 .PHONY: test-compat
 test-compat: manifests generate setup-envtest ## Reconcile every integration against pinned application containers (needs docker, or CONTAINER_TOOL=podman). Narrow with COMPAT_RUN=TestSonarr.
@@ -159,6 +164,8 @@ $(LOCALBIN):
 
 ## Tool Binaries
 KIND ?= $(LOCALBIN)/kind
+KIND_CLUSTER ?= arrchitect-e2e
+CHAINSAW ?= $(LOCALBIN)/chainsaw
 CRDIFY ?= $(LOCALBIN)/crdify
 HELM_PLUGINS ?= $(LOCALBIN)/helm-plugins
 CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen
@@ -168,6 +175,8 @@ GOLANGCI_LINT = $(LOCALBIN)/golangci-lint
 ## Tool Versions
 # renovate: datasource=go depName=sigs.k8s.io/kind
 KIND_VERSION ?= v0.33.0
+# renovate: datasource=go depName=github.com/kyverno/chainsaw
+CHAINSAW_VERSION ?= v0.2.15
 # renovate: datasource=go depName=sigs.k8s.io/crdify
 CRDIFY_VERSION ?= v0.6.0
 # renovate: datasource=github-releases depName=helm-unittest/helm-unittest
@@ -193,6 +202,11 @@ helm-unittest: ## Install the helm-unittest plugin into bin if necessary.
 		HELM_PLUGINS="$(HELM_PLUGINS)" helm plugin uninstall unittest >/dev/null 2>&1 || true; \
 		HELM_PLUGINS="$(HELM_PLUGINS)" helm plugin install https://github.com/helm-unittest/helm-unittest.git \
 			--version $(HELM_UNITTEST_VERSION) $$(helm version --short | grep -q '^v4' && echo --verify=false); }
+
+.PHONY: chainsaw
+chainsaw: $(CHAINSAW) ## Download chainsaw locally if necessary.
+$(CHAINSAW): $(LOCALBIN)
+	$(call go-install-tool,$(CHAINSAW),github.com/kyverno/chainsaw,$(CHAINSAW_VERSION))
 
 .PHONY: crdify
 crdify: $(CRDIFY) ## Download crdify locally if necessary.

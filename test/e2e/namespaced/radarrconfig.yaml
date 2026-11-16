@@ -1,0 +1,10 @@
+apiVersion: arrchitect.dev/v1alpha1
+kind: RadarrConfig
+metadata:
+  name: radarr
+spec:
+  connection:
+    url: http://radarr.invalid:7878
+    apiKeySecretRef:
+      name: sonarr
+      key: api-key

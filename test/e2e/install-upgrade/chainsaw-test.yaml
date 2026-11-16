@@ -1,0 +1,118 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: install-upgrade
+spec:
+  description: >-
+    Installs the last release when there is one and upgrades to the local chart while a
+    SonarrConfig keeps reconciling against a real Sonarr. Then checks every controller, the
+    chart's CRDs and its roles, and that uninstalling keeps the CRDs and resources.
+  steps:
+    - name: start Sonarr
+      try:
+        - apply:
+            file: ../resources/sonarr.yaml
+        - assert:
+            file: ../resources/sonarr-ready.yaml
+    - name: install the last release
+      try:
+        - script:
+            content: |
+              if [ -z "$PREVIOUS_RELEASE" ]; then echo "no earlier release to upgrade from"; exit 0; fi
+              helm install arrchitect oci://ghcr.io/kyleseneker/charts/arrchitect --version "${PREVIOUS_RELEASE#v}" \
+                --namespace arrchitect --create-namespace --wait --timeout 5m
+        - apply:
+            file: ../resources/sonarrconfig.yaml
+        - script:
+            content: |
+              if [ -z "$PREVIOUS_RELEASE" ]; then exit 0; fi
+              kubectl -n "$NAMESPACE" wait sonarrconfig/sonarr --for=condition=Synced --timeout=3m
+      catch: &diagnostics
+        - podLogs:
+            namespace: arrchitect
+            selector: app.kubernetes.io/name=arrchitect
+        - describe:
+            apiVersion: arrchitect.dev/v1alpha1
+            kind: SonarrConfig
+    - name: upgrade to the local chart
+      try:
+        - script:
+            content: |
+              helm upgrade --install arrchitect ../../../chart/arrchitect --namespace arrchitect --create-namespace \
+                --set image.repository=arrchitect --set image.tag=e2e --set image.pullPolicy=Never --wait --timeout 5m
+        - patch:
+            resource:
+              apiVersion: arrchitect.dev/v1alpha1
+              kind: SonarrConfig
+              metadata:
+                name: sonarr
+              spec:
+                reconcile:
+                  interval: 2m
+        - assert:
+            resource:
+              apiVersion: arrchitect.dev/v1alpha1
+              kind: SonarrConfig
+              metadata:
+                name: sonarr
+              status:
+                observedGeneration: 2
+                (conditions[?type == 'Ready'] | [0].status): "True"
+                (conditions[?type == 'Synced'] | [0].status): "True"
+        - script:
+            content: |
+              kubectl -n "$NAMESPACE" exec deploy/sonarr -- curl -fsS -H "X-Api-Key: 5f1c0a2e9d4b47e3a8c6b2d1f0e9a7c4" \
+                http://localhost:8989/api/v3/rootfolder | grep -Eq '"path": *"/tv/?"'
+      catch: *diagnostics
+    - name: run every controller
+      description: >-
+        Each sample points at a host this cluster doesn't have, so every controller should write a
+        Ready condition that is False: its CRD is served, it runs, and it can write status.
+      try:
+        - script:
+            content: |
+              ns="$NAMESPACE-samples"
+              kubectl create namespace "$ns"
+              for f in ../../../config/samples/*config.yaml; do kubectl -n "$ns" apply -f "$f"; done
+              resources=$(kubectl -n "$ns" get arrchitect -o name)
+              [ "$(echo "$resources" | wc -l)" -eq "$(ls ../../../config/samples/*config.yaml | wc -l)" ]
+              kubectl -n "$ns" wait $resources --for=condition=Ready=false --timeout=3m
+      cleanup:
+        - script:
+            content: kubectl delete namespace "$NAMESPACE-samples" --ignore-not-found --wait=false
+      catch: *diagnostics
+    - name: serve the chart's CRDs
+      try:
+        - assert:
+            file: ../../../chart/arrchitect/files/crds/*.yaml
+    - name: fold access into the built-in roles
+      try:
+        - apply:
+            file: rolebindings.yaml
+        - script:
+            content: |
+              can() { kubectl auth can-i "$1" sonarrconfigs.arrchitect.dev -n "$NAMESPACE" --as "$2" 2>/dev/null || true; }
+              for _ in $(seq 30); do
+                [ "$(can list view-user)" = yes ] && [ "$(can create edit-user)" = yes ] && break
+                sleep 2
+              done
+              [ "$(can list view-user)" = yes ]
+              [ "$(can create view-user)" = no ]
+              [ "$(can create edit-user)" = yes ]
+              [ "$(can delete edit-user)" = yes ]
+    - name: uninstall, keeping the CRDs and resources
+      try:
+        - script:
+            content: helm uninstall arrchitect --namespace arrchitect --wait
+        - assert:
+            resource:
+              apiVersion: apiextensions.k8s.io/v1
+              kind: CustomResourceDefinition
+              metadata:
+                name: sonarrconfigs.arrchitect.dev
+        - assert:
+            resource:
+              apiVersion: arrchitect.dev/v1alpha1
+              kind: SonarrConfig
+              metadata:
+                name: sonarr
