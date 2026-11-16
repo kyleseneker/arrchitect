@@ -3,18 +3,17 @@
 package compat
 
 import (
-	"bytes"
+	"context"
 	"fmt"
-	"net"
+	"io"
 	"os"
-	"os/exec"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
+	"github.com/testcontainers/testcontainers-go"
+	tcexec "github.com/testcontainers/testcontainers-go/exec"
 )
 
 // containerSpec describes one application container. Files are copied in before
@@ -29,62 +28,82 @@ type containerSpec struct {
 }
 
 type container struct {
-	id   string
+	ctr  testcontainers.Container
 	port int
 }
 
-// containerTool is the Makefile's CONTAINER_TOOL: docker in CI, podman works locally.
-func containerTool() string {
-	if tool := os.Getenv("CONTAINER_TOOL"); tool != "" {
-		return tool
-	}
-	return "docker"
-}
-
-func runTool(args ...string) (string, error) {
-	cmd := exec.Command(containerTool(), args...)
-	var out, errOut bytes.Buffer
-	cmd.Stdout, cmd.Stderr = &out, &errOut
-	if err := cmd.Run(); err != nil {
-		return "", fmt.Errorf("%s %s: %w: %s",
-			containerTool(), strings.Join(args, " "), err, strings.TrimSpace(errOut.String()))
-	}
-	return strings.TrimSpace(out.String()), nil
-}
-
-// startContainer publishes the application port on a random host port and
-// removes the container when the test ends. ARRCHITECT_COMPAT_KEEP=1 keeps
-// it for inspection; logs are printed whenever the test failed.
+// startContainer starts the application with its port published on a random
+// host port, and removes the container when the test ends. Logs are printed
+// whenever the test failed; ARRCHITECT_COMPAT_KEEP=1 keeps the container.
 func startContainer(t *testing.T, spec containerSpec) *container {
 	t.Helper()
-	spec.image = pinnedImage(t, spec.image)
-	var id string
-	var err error
-	// The runtime picks a free host port when it creates the container, and with
-	// many tests binding ports at once it can be taken by the time it starts.
-	for range 3 {
-		if id, err = createAndStart(t, spec); err == nil || !strings.Contains(err.Error(), "address already in use") {
-			break
-		}
+	ctx := context.Background()
+	req := testcontainers.ContainerRequest{
+		Image:        pinnedImage(t, spec.image),
+		ExposedPorts: []string{strconv.Itoa(spec.port) + "/tcp"},
+		Env:          spec.env,
+		Cmd:          spec.args,
+		Labels:       map[string]string{"arrchitect-compat": "true"},
+	}
+	for path, content := range spec.files {
+		req.Files = append(req.Files, testcontainers.ContainerFile{
+			Reader: strings.NewReader(content), ContainerFilePath: path, FileMode: 0o644,
+		})
+	}
+	ctr, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
+		ContainerRequest: req, Started: true,
+	})
+	if os.Getenv("ARRCHITECT_COMPAT_KEEP") != "1" {
+		testcontainers.CleanupContainer(t, ctr)
 	}
 	require.NoError(t, err, "starting %s", spec.name)
+	c := &container{ctr: ctr}
+	t.Cleanup(func() {
+		if t.Failed() {
+			t.Logf("%s logs:\n%s", spec.name, tail(c.logs(t), 80))
+		}
+	})
 
-	mapping, err := runTool("port", id, strconv.Itoa(spec.port))
+	mapped, err := ctr.MappedPort(ctx, strconv.Itoa(spec.port)+"/tcp")
 	require.NoError(t, err, "reading %s port", spec.name)
-	// "0.0.0.0:49153", possibly followed by an IPv6 line.
-	_, hostPort, err := net.SplitHostPort(strings.Fields(mapping)[0])
-	require.NoError(t, err, "parsing %s port mapping %q", spec.name, mapping)
-	port, err := strconv.Atoi(hostPort)
-	require.NoError(t, err, "parsing %s port %q", spec.name, hostPort)
-	return &container{id: id, port: port}
+	c.port = int(mapped.Num())
+	return c
 }
 
-// exec runs a shell command inside the container.
+// run runs a shell command inside the container and returns its output.
+func (c *container) run(script string) (string, error) {
+	code, out, err := c.ctr.Exec(context.Background(), []string{"sh", "-c", script}, tcexec.Multiplexed())
+	if err != nil {
+		return "", err
+	}
+	data, err := io.ReadAll(out)
+	if err != nil {
+		return "", err
+	}
+	output := strings.TrimSpace(string(data))
+	if code != 0 {
+		return output, fmt.Errorf("%q exited %d: %s", script, code, output)
+	}
+	return output, nil
+}
+
+// exec runs a shell command inside the container and fails the test if it fails.
 func (c *container) exec(t *testing.T, script string) string {
 	t.Helper()
-	out, err := runTool("exec", c.id, "sh", "-c", script)
-	require.NoError(t, err, "exec %q", script)
+	out, err := c.run(script)
+	require.NoError(t, err)
 	return out
+}
+
+func (c *container) logs(t *testing.T) string {
+	t.Helper()
+	r, err := c.ctr.Logs(context.Background())
+	if err != nil {
+		return err.Error()
+	}
+	defer func() { _ = r.Close() }()
+	data, _ := io.ReadAll(r)
+	return string(data)
 }
 
 // url is the application address as both the operator and other containers
@@ -93,41 +112,10 @@ func (c *container) url() string {
 	return fmt.Sprintf("http://%s:%d", hostIP, c.port)
 }
 
-// createAndStart creates the container, seeds its files and starts it. The
-// container is removed when the test ends whether or not it started.
-func createAndStart(t *testing.T, spec containerSpec) (string, error) {
-	t.Helper()
-	args := []string{"create", "--name", fmt.Sprintf("arrchitect-compat-%s-%d", spec.name, time.Now().UnixNano()),
-		"--label", "arrchitect-compat=true", "-p", strconv.Itoa(spec.port)}
-	for k, v := range spec.env {
-		args = append(args, "-e", k+"="+v)
+func tail(s string, lines int) string {
+	all := strings.Split(strings.TrimRight(s, "\n"), "\n")
+	if len(all) > lines {
+		all = all[len(all)-lines:]
 	}
-	args = append(append(args, spec.image), spec.args...)
-	id, err := runTool(args...)
-	require.NoError(t, err, "creating %s", spec.name)
-	t.Cleanup(func() {
-		if t.Failed() {
-			if logs, err := runTool("logs", "--tail", "80", id); err == nil {
-				t.Logf("%s logs:\n%s", spec.name, logs)
-			}
-		}
-		if os.Getenv("ARRCHITECT_COMPAT_KEEP") == "1" {
-			t.Logf("keeping %s container %s", spec.name, id)
-			return
-		}
-		_, _ = runTool("rm", "-f", "-v", id)
-	})
-
-	if len(spec.files) > 0 {
-		root := t.TempDir()
-		for path, content := range spec.files {
-			local := filepath.Join(root, filepath.FromSlash(strings.TrimPrefix(path, "/")))
-			require.NoError(t, os.MkdirAll(filepath.Dir(local), 0o755))
-			require.NoError(t, os.WriteFile(local, []byte(content), 0o644))
-		}
-		_, err := runTool("cp", root+"/.", id+":/")
-		require.NoError(t, err, "seeding %s", spec.name)
-	}
-	_, err = runTool("start", id)
-	return id, err
+	return strings.Join(all, "\n")
 }

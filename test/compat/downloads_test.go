@@ -31,7 +31,7 @@ func TestSabnzbd(t *testing.T) {
 	sab := startContainer(t, containerSpec{name: "sabnzbd", image: sabnzbdImage, port: 8080, env: linuxserverEnv})
 	var key string
 	waitFor(t, "sabnzbd api key", 2*time.Minute, func() error {
-		out, err := runTool("exec", sab.id, "sh", "-c", `sed -n 's/^api_key = //p' /config/sabnzbd.ini`)
+		out, err := sab.run(`sed -n 's/^api_key = //p' /config/sabnzbd.ini`)
 		if err != nil || out == "" {
 			return fmt.Errorf("api_key not written yet: %v", err)
 		}
