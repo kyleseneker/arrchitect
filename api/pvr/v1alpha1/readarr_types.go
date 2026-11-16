@@ -5,8 +5,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// ReadarrConfigSpec defines the desired state of ReadarrConfig.
-type ReadarrConfigSpec struct {
+// ReadarrSpec is a Readarr instance's connection and app-wide settings. Indexers
+// and download clients are resources of their own that refer to it.
+type ReadarrSpec struct {
 	// connection defines how to connect to the Readarr instance.
 	// +required
 	Connection commonv1alpha1.AppConnection `json:"connection"`
@@ -41,12 +42,6 @@ type ReadarrConfigSpec struct {
 	// +listMapKey=path
 	// +kubebuilder:validation:XValidation:rule="self.all(f, has(f.defaultQualityProfileName) && has(f.defaultMetadataProfileName))",message="Readarr root folders need defaultQualityProfileName and defaultMetadataProfileName"
 	RootFolders []commonv1alpha1.RootFolder `json:"rootFolders,omitempty"`
-
-	// downloadClients defines download client connections.
-	// +optional
-	// +listType=map
-	// +listMapKey=name
-	DownloadClients []commonv1alpha1.DownloadClient `json:"downloadClients,omitempty"`
 
 	// remotePathMappings translates paths reported by remote download clients.
 	// Entries are matched by host and remotePath. Only operator-created entries can be pruned.
@@ -90,12 +85,6 @@ type ReadarrConfigSpec struct {
 	// +listType=map
 	// +listMapKey=label
 	Tags []commonv1alpha1.Tag `json:"tags,omitempty"`
-
-	// indexers defines indexer connections.
-	// +optional
-	// +listType=map
-	// +listMapKey=name
-	Indexers []commonv1alpha1.Indexer `json:"indexers,omitempty"`
 
 	// notifications defines notification/connection configurations.
 	// +optional
@@ -237,8 +226,8 @@ type ReadarrUI struct {
 	UILanguage *int `json:"uiLanguage,omitempty"`
 }
 
-// ReadarrConfigStatus defines the observed state of ReadarrConfig.
-type ReadarrConfigStatus struct {
+// ReadarrStatus defines the observed state of Readarr.
+type ReadarrStatus struct {
 	// +listType=map
 	// +listMapKey=type
 	// +optional
@@ -261,31 +250,31 @@ type ReadarrConfigStatus struct {
 // +kubebuilder:printcolumn:name="Last Sync",type="date",JSONPath=`.status.lastSyncTime`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=`.metadata.creationTimestamp`
 
-// ReadarrConfig is the Schema for the readarrconfigs API.
-type ReadarrConfig struct {
+// Readarr configures a Readarr instance the operator connects to.
+type Readarr struct {
 	metav1.TypeMeta `json:",inline"`
 
 	// +optional
 	metav1.ObjectMeta `json:"metadata,omitzero"`
 
 	// +required
-	Spec ReadarrConfigSpec `json:"spec"`
+	Spec ReadarrSpec `json:"spec"`
 
 	// +optional
-	Status ReadarrConfigStatus `json:"status,omitzero"`
+	Status ReadarrStatus `json:"status,omitzero"`
 }
 
 // +kubebuilder:object:root=true
 
-// ReadarrConfigList contains a list of ReadarrConfig.
-type ReadarrConfigList struct {
+// ReadarrList contains a list of Readarr.
+type ReadarrList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitzero"`
-	Items           []ReadarrConfig `json:"items"`
+	Items           []Readarr `json:"items"`
 }
 
-func (c *ReadarrConfig) GetConditions() *[]metav1.Condition                  { return &c.Status.Conditions }
-func (c *ReadarrConfig) GetObservedGeneration() *int64                       { return &c.Status.ObservedGeneration }
-func (c *ReadarrConfig) GetLastSyncTime() **metav1.Time                      { return &c.Status.LastSyncTime }
-func (c *ReadarrConfig) GetReconcileConfig() *commonv1alpha1.ReconcileConfig { return c.Spec.Reconcile }
-func (c *ReadarrConfig) GetManagedResources() *map[string][]string           { return &c.Status.ManagedResources }
+func (c *Readarr) GetConditions() *[]metav1.Condition                  { return &c.Status.Conditions }
+func (c *Readarr) GetObservedGeneration() *int64                       { return &c.Status.ObservedGeneration }
+func (c *Readarr) GetLastSyncTime() **metav1.Time                      { return &c.Status.LastSyncTime }
+func (c *Readarr) GetReconcileConfig() *commonv1alpha1.ReconcileConfig { return c.Spec.Reconcile }
+func (c *Readarr) GetManagedResources() *map[string][]string           { return &c.Status.ManagedResources }

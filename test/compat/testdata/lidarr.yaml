@@ -1,5 +1,5 @@
 apiVersion: arrchitect.dev/v1alpha1
-kind: LidarrConfig
+kind: Lidarr
 metadata:
   name: lidarr
 spec:
@@ -49,24 +49,6 @@ spec:
   tags:
     - label: favorites
     - label: live
-  downloadClients:
-    - name: qBittorrent
-      protocol: torrent
-      implementation: QBittorrent
-      host: ${HOST}
-      port: ${QBITTORRENT_PORT}
-      category: music
-      priority: 1
-      removeCompletedDownloads: true
-      removeFailedDownloads: true
-      tagLabels:
-        - favorites
-      usernameSecretRef:
-        name: compat-credentials
-        key: qbittorrent-username
-      passwordSecretRef:
-        name: compat-credentials
-        key: qbittorrent-password
   qualityProfiles:
     - name: Music
       upgradeAllowed: true
@@ -85,30 +67,6 @@ spec:
             - quality:
                 id: 7
                 name: ALAC
-  indexers:
-    - name: Compat Torznab
-      protocol: torrent
-      implementation: Torznab
-      enableRss: true
-      enableAutomaticSearch: true
-      enableInteractiveSearch: true
-      priority: 10
-      tagLabels:
-        - favorites
-      fields:
-        - name: baseUrl
-          value: ${FAKES}/torznab
-        - name: apiPath
-          value: /api
-        - name: apiKey
-          valueFrom:
-            secretKeyRef:
-              name: compat-credentials
-              key: api-key
-        - name: categories
-          value: [3000, 3040]
-        - name: minimumSeeders
-          value: 1
   notifications:
     - name: Compat Webhook
       implementation: Webhook
@@ -163,3 +121,59 @@ spec:
         - live
       usenetDelay: 5
     - usenetDelay: 30
+---
+apiVersion: arrchitect.dev/v1alpha1
+kind: LidarrDownloadClient
+metadata:
+  name: lidarr-qbittorrent
+spec:
+  lidarrRef:
+    name: lidarr
+  name: qBittorrent
+  protocol: torrent
+  implementation: QBittorrent
+  host: ${HOST}
+  port: ${QBITTORRENT_PORT}
+  category: music
+  priority: 1
+  removeCompletedDownloads: true
+  removeFailedDownloads: true
+  tagLabels:
+    - favorites
+  usernameSecretRef:
+    name: compat-credentials
+    key: qbittorrent-username
+  passwordSecretRef:
+    name: compat-credentials
+    key: qbittorrent-password
+---
+apiVersion: arrchitect.dev/v1alpha1
+kind: LidarrIndexer
+metadata:
+  name: lidarr-compat-torznab
+spec:
+  lidarrRef:
+    name: lidarr
+  name: Compat Torznab
+  protocol: torrent
+  implementation: Torznab
+  enableRss: true
+  enableAutomaticSearch: true
+  enableInteractiveSearch: true
+  priority: 10
+  tagLabels:
+    - favorites
+  fields:
+    - name: baseUrl
+      value: ${FAKES}/torznab
+    - name: apiPath
+      value: /api
+    - name: apiKey
+      valueFrom:
+        secretKeyRef:
+          name: compat-credentials
+          key: api-key
+    - name: categories
+      value: [3000, 3040]
+    - name: minimumSeeders
+      value: 1

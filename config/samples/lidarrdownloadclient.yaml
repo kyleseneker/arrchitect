@@ -1,0 +1,16 @@
+apiVersion: arrchitect.dev/v1alpha1
+kind: LidarrDownloadClient
+metadata:
+  name: lidarr-sabnzbd
+spec:
+  lidarrRef:
+    name: lidarr
+  name: SABnzbd
+  protocol: usenet
+  implementation: Sabnzbd
+  host: sabnzbd.media.svc.cluster.local
+  port: 8080
+  category: music
+  apiKeySecretRef:
+    name: arr-secrets
+    key: SABNZBD_API_KEY

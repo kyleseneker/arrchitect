@@ -5,8 +5,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// LidarrConfigSpec defines the desired state of LidarrConfig.
-type LidarrConfigSpec struct {
+// LidarrSpec is a Lidarr instance's connection and app-wide settings. Indexers
+// and download clients are resources of their own that refer to it.
+type LidarrSpec struct {
 	// connection defines how to connect to the Lidarr instance.
 	// +required
 	Connection commonv1alpha1.AppConnection `json:"connection"`
@@ -41,12 +42,6 @@ type LidarrConfigSpec struct {
 	// +listMapKey=path
 	// +kubebuilder:validation:XValidation:rule="self.all(f, has(f.defaultQualityProfileName) && has(f.defaultMetadataProfileName))",message="Lidarr root folders need defaultQualityProfileName and defaultMetadataProfileName"
 	RootFolders []commonv1alpha1.RootFolder `json:"rootFolders,omitempty"`
-
-	// downloadClients defines download client connections.
-	// +optional
-	// +listType=map
-	// +listMapKey=name
-	DownloadClients []commonv1alpha1.DownloadClient `json:"downloadClients,omitempty"`
 
 	// remotePathMappings translates paths reported by remote download clients.
 	// Entries are matched by host and remotePath. Only operator-created entries can be pruned.
@@ -90,12 +85,6 @@ type LidarrConfigSpec struct {
 	// +listType=map
 	// +listMapKey=label
 	Tags []commonv1alpha1.Tag `json:"tags,omitempty"`
-
-	// indexers defines indexer connections.
-	// +optional
-	// +listType=map
-	// +listMapKey=name
-	Indexers []commonv1alpha1.Indexer `json:"indexers,omitempty"`
 
 	// notifications defines notification/connection configurations.
 	// +optional
@@ -241,8 +230,8 @@ type LidarrUI struct {
 	UILanguage *int `json:"uiLanguage,omitempty"`
 }
 
-// LidarrConfigStatus defines the observed state of LidarrConfig.
-type LidarrConfigStatus struct {
+// LidarrStatus defines the observed state of Lidarr.
+type LidarrStatus struct {
 	// +listType=map
 	// +listMapKey=type
 	// +optional
@@ -265,31 +254,31 @@ type LidarrConfigStatus struct {
 // +kubebuilder:printcolumn:name="Last Sync",type="date",JSONPath=`.status.lastSyncTime`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=`.metadata.creationTimestamp`
 
-// LidarrConfig is the Schema for the lidarrconfigs API.
-type LidarrConfig struct {
+// Lidarr configures a Lidarr instance the operator connects to.
+type Lidarr struct {
 	metav1.TypeMeta `json:",inline"`
 
 	// +optional
 	metav1.ObjectMeta `json:"metadata,omitzero"`
 
 	// +required
-	Spec LidarrConfigSpec `json:"spec"`
+	Spec LidarrSpec `json:"spec"`
 
 	// +optional
-	Status LidarrConfigStatus `json:"status,omitzero"`
+	Status LidarrStatus `json:"status,omitzero"`
 }
 
 // +kubebuilder:object:root=true
 
-// LidarrConfigList contains a list of LidarrConfig.
-type LidarrConfigList struct {
+// LidarrList contains a list of Lidarr.
+type LidarrList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitzero"`
-	Items           []LidarrConfig `json:"items"`
+	Items           []Lidarr `json:"items"`
 }
 
-func (c *LidarrConfig) GetConditions() *[]metav1.Condition                  { return &c.Status.Conditions }
-func (c *LidarrConfig) GetObservedGeneration() *int64                       { return &c.Status.ObservedGeneration }
-func (c *LidarrConfig) GetLastSyncTime() **metav1.Time                      { return &c.Status.LastSyncTime }
-func (c *LidarrConfig) GetReconcileConfig() *commonv1alpha1.ReconcileConfig { return c.Spec.Reconcile }
-func (c *LidarrConfig) GetManagedResources() *map[string][]string           { return &c.Status.ManagedResources }
+func (c *Lidarr) GetConditions() *[]metav1.Condition                  { return &c.Status.Conditions }
+func (c *Lidarr) GetObservedGeneration() *int64                       { return &c.Status.ObservedGeneration }
+func (c *Lidarr) GetLastSyncTime() **metav1.Time                      { return &c.Status.LastSyncTime }
+func (c *Lidarr) GetReconcileConfig() *commonv1alpha1.ReconcileConfig { return c.Spec.Reconcile }
+func (c *Lidarr) GetManagedResources() *map[string][]string           { return &c.Status.ManagedResources }

@@ -5,29 +5,31 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
 	pvrv1alpha1 "github.com/kyleseneker/arrchitect/api/pvr/v1alpha1"
 	pvrclient "github.com/kyleseneker/arrchitect/internal/client/pvr"
 	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
 )
 
-type RadarrConfigReconciler struct {
+type RadarrReconciler struct {
 	client.Client
 	Scheme   *runtime.Scheme
 	Recorder events.EventRecorder
 }
 
-// +kubebuilder:rbac:groups=arrchitect.dev,resources=radarrconfigs,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=arrchitect.dev,resources=radarrconfigs/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=arrchitect.dev,resources=radarrconfigs/finalizers,verbs=update
+// +kubebuilder:rbac:groups=arrchitect.dev,resources=radarrs,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=arrchitect.dev,resources=radarrs/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=arrchitect.dev,resources=radarrs/finalizers,verbs=update
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
 
-func (r *RadarrConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	var config pvrv1alpha1.RadarrConfig
+func (r *RadarrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	var config pvrv1alpha1.Radarr
 	if err := r.Get(ctx, req.NamespacedName, &config); err != nil {
 		return ctrl.Result{}, ctrlcommon.IgnoreDeleted(&config, req.NamespacedName, err)
 	}
@@ -37,11 +39,9 @@ func (r *RadarrConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		options: pvrclient.Options{
 			RootFolders:        s.RootFolders,
 			RemotePathMappings: s.RemotePathMappings,
-			DownloadClients:    s.DownloadClients,
 			QualityProfiles:    s.QualityProfiles,
 			CustomFormats:      s.CustomFormats,
 			Tags:               s.Tags,
-			Indexers:           s.Indexers,
 			Notifications:      s.Notifications,
 			ImportLists:        s.ImportLists,
 			QualityDefinitions: s.QualityDefinitions,
@@ -50,10 +50,19 @@ func (r *RadarrConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	})
 }
 
-func (r *RadarrConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *RadarrReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&pvrv1alpha1.RadarrConfig{}, builder.WithPredicates(ctrlcommon.ConfigChangedPredicate())).
-		WatchesMetadata(&corev1.Secret{}, ctrlcommon.EnqueueForSecret(r.Client, &pvrv1alpha1.RadarrConfigList{})).
-		Named("radarrconfig").
+		For(&pvrv1alpha1.Radarr{}, builder.WithPredicates(ctrlcommon.ConfigChangedPredicate())).
+		WatchesMetadata(&corev1.Secret{}, ctrlcommon.EnqueueForSecret(r.Client, &pvrv1alpha1.RadarrList{})).
+		Named("radarr").
 		Complete(r)
+}
+
+// radarrInstance reads the Radarr an object names.
+func radarrInstance(ctx context.Context, c client.Client, namespace string, ref commonv1alpha1.LocalObjectReference) (pvrInstance, error) {
+	var radarr pvrv1alpha1.Radarr
+	if err := c.Get(ctx, types.NamespacedName{Namespace: namespace, Name: ref.Name}, &radarr); err != nil {
+		return pvrInstance{}, err
+	}
+	return pvrInstance{connection: radarr.Spec.Connection, policy: radarr.Spec.Reconcile}, nil
 }

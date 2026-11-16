@@ -1,5 +1,5 @@
 apiVersion: arrchitect.dev/v1alpha1
-kind: RadarrConfig
+kind: Radarr
 metadata:
   name: radarr
 spec:

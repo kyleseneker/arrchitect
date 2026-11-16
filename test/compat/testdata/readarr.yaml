@@ -1,5 +1,5 @@
 apiVersion: arrchitect.dev/v1alpha1
-kind: ReadarrConfig
+kind: Readarr
 metadata:
   name: readarr
 spec:
@@ -62,30 +62,6 @@ spec:
             id: 3
             name: EPUB
           allowed: true
-  indexers:
-    - name: Compat Torznab
-      protocol: torrent
-      implementation: Torznab
-      enableRss: true
-      enableAutomaticSearch: true
-      enableInteractiveSearch: true
-      priority: 10
-      tagLabels:
-        - favorites
-      fields:
-        - name: baseUrl
-          value: ${FAKES}/torznab
-        - name: apiPath
-          value: /api
-        - name: apiKey
-          valueFrom:
-            secretKeyRef:
-              name: compat-credentials
-              key: api-key
-        - name: categories
-          value: [7000, 7020]
-        - name: minimumSeeders
-          value: 1
   notifications:
     - name: Compat Webhook
       implementation: Webhook
@@ -123,3 +99,34 @@ spec:
       preferredProtocol: torrent
       torrentDelay: 30
     - usenetDelay: 15
+---
+apiVersion: arrchitect.dev/v1alpha1
+kind: ReadarrIndexer
+metadata:
+  name: readarr-compat-torznab
+spec:
+  readarrRef:
+    name: readarr
+  name: Compat Torznab
+  protocol: torrent
+  implementation: Torznab
+  enableRss: true
+  enableAutomaticSearch: true
+  enableInteractiveSearch: true
+  priority: 10
+  tagLabels:
+    - favorites
+  fields:
+    - name: baseUrl
+      value: ${FAKES}/torznab
+    - name: apiPath
+      value: /api
+    - name: apiKey
+      valueFrom:
+        secretKeyRef:
+          name: compat-credentials
+          key: api-key
+    - name: categories
+      value: [7000, 7020]
+    - name: minimumSeeders
+      value: 1

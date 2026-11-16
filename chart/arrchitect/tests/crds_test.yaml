@@ -5,7 +5,7 @@ tests:
   - it: installs every app's CRDs, kept on uninstall
     asserts:
       - hasDocuments:
-          count: 17
+          count: 23
       - equal:
           path: metadata.annotations["helm.sh/resource-policy"]
           value: keep
@@ -14,7 +14,7 @@ tests:
       apps.tdarr: false
     asserts:
       - hasDocuments:
-          count: 16
+          count: 22
       - notEqual:
           path: metadata.name
           value: tdarrconfigs.arrchitect.dev

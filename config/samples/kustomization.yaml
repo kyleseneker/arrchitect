@@ -4,9 +4,15 @@ resources:
   - sonarr.yaml
   - sonarrindexer.yaml
   - sonarrdownloadclient.yaml
-  - radarrconfig.yaml
-  - lidarrconfig.yaml
-  - readarrconfig.yaml
+  - radarr.yaml
+  - radarrindexer.yaml
+  - radarrdownloadclient.yaml
+  - lidarr.yaml
+  - lidarrindexer.yaml
+  - lidarrdownloadclient.yaml
+  - readarr.yaml
+  - readarrindexer.yaml
+  - readarrdownloadclient.yaml
   - prowlarrconfig.yaml
   - bazarrconfig.yaml
   - qbittorrentconfig.yaml

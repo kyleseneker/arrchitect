@@ -46,7 +46,7 @@ spec:
   category: tv-sonarr
 ---
 apiVersion: arrchitect.dev/v1alpha1
-kind: RadarrConfig
+kind: Radarr
 metadata:
   name: radarr
   namespace: media
@@ -66,13 +66,21 @@ spec:
     movieFolderFormat: "{Movie CleanTitle} ({Release Year})"
   rootFolders:
     - path: /media/movies
-  downloadClients:
-    - name: qBittorrent
-      protocol: torrent
-      implementation: QBittorrent
-      host: qbittorrent.media.svc.cluster.local
-      port: 8080
-      category: radarr
+---
+apiVersion: arrchitect.dev/v1alpha1
+kind: RadarrDownloadClient
+metadata:
+  name: radarr-qbittorrent
+  namespace: media
+spec:
+  radarrRef:
+    name: radarr
+  name: qBittorrent
+  protocol: torrent
+  implementation: QBittorrent
+  host: qbittorrent.media.svc.cluster.local
+  port: 8080
+  category: radarr
 ---
 apiVersion: arrchitect.dev/v1alpha1
 kind: ProwlarrConfig

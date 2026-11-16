@@ -35,10 +35,10 @@ until Jellyfin has a library.
 
 ## Indexers and download clients
 
-Sonarr's indexers and download clients are resources of their own,
-`SonarrIndexer` and `SonarrDownloadClient`. Each one configures one item in the
-Sonarr that `spec.sonarrRef` names, in the same namespace, and its other fields
-are the item's:
+Sonarr, Radarr, Lidarr and Readarr indexers and download clients are resources
+of their own, such as `SonarrIndexer` and `SonarrDownloadClient`. Each one
+configures one item in the app that its reference, such as `spec.sonarrRef`,
+names in the same namespace, and its other fields are the item's:
 
 ```yaml
 apiVersion: arrchitect.dev/v1alpha1
@@ -57,17 +57,17 @@ spec:
   category: tv
 ```
 
-- The Sonarr's connection, `driftPolicy` and `interval` apply to it. Until the
-  Sonarr exists, it reports `ReferenceNotFound`.
-- `status.id` is the item's ID in Sonarr.
+- The app's connection, `driftPolicy` and `interval` apply to it. Until the
+  app's resource exists, it reports `ReferenceNotFound`.
+- `status.id` is the item's ID in the app.
 - An item that already exists is adopted: configured as declared, but never
   deleted.
 - Renaming `spec.name` replaces the item the resource created.
-- When two resources name the same item in the same Sonarr, the older one
+- When two resources name the same item in the same app, the older one
   configures it and the other reports `NameConflict`.
 - `spec.deletionPolicy` defaults to `delete`: deleting the resource deletes the
-  item it created. `orphan` leaves it. If the Sonarr is deleted first, nothing
-  can be removed, and an `InstanceMissing` warning event says so.
+  item it created. `orphan` leaves it. If the app's resource is deleted first,
+  nothing can be removed, and an `InstanceMissing` warning event says so.
 
 ## Status
 
@@ -134,8 +134,7 @@ prune, removing an item from the resource only stops managing it.
 
 | App | Pruned |
 |---|---|
-| Sonarr | notifications, import lists, custom formats, quality profiles, remote path mappings, delay profiles |
-| Radarr, Lidarr, Readarr | download clients, indexers, notifications, import lists, custom formats, quality profiles, remote path mappings, delay profiles |
+| Sonarr, Radarr, Lidarr, Readarr | notifications, import lists, custom formats, quality profiles, remote path mappings, delay profiles |
 | Prowlarr | applications, indexers, proxies, download clients, notifications |
 | FlareSolverr | sessions |
 | Tdarr | library variables |
