@@ -139,9 +139,23 @@ func TestRadarr(t *testing.T) {
 		secrets: map[string]string{
 			"api-key": key, "qbittorrent-username": qbittorrentUser, "qbittorrent-password": qbitPassword,
 		},
-		newObj: func() ctrlcommon.ConfigResource { return &pvrv1alpha1.RadarrConfig{} },
+		newObj: func() ctrlcommon.ConfigResource { return &pvrv1alpha1.Radarr{} },
 		reconciler: func(c client.Client) reconcile.Reconciler {
-			return &pvr.RadarrConfigReconciler{Client: c, Scheme: c.Scheme(), Recorder: events.NewFakeRecorder(100)}
+			return &pvr.RadarrReconciler{Client: c, Scheme: c.Scheme(), Recorder: events.NewFakeRecorder(100)}
+		},
+		objects: map[string]compatKind{
+			"RadarrIndexer": {
+				newObj: func() ctrlcommon.ConfigResource { return &pvrv1alpha1.RadarrIndexer{} },
+				reconciler: func(c client.Client) reconcile.Reconciler {
+					return &pvr.RadarrIndexerReconciler{Client: c, Scheme: c.Scheme(), Recorder: events.NewFakeRecorder(100)}
+				},
+			},
+			"RadarrDownloadClient": {
+				newObj: func() ctrlcommon.ConfigResource { return &pvrv1alpha1.RadarrDownloadClient{} },
+				reconciler: func(c client.Client) reconcile.Reconciler {
+					return &pvr.RadarrDownloadClientReconciler{Client: c, Scheme: c.Scheme(), Recorder: events.NewFakeRecorder(100)}
+				},
+			},
 		},
 		proxy:   proxy,
 		observe: true,
@@ -194,9 +208,23 @@ func TestLidarr(t *testing.T) {
 		secrets: map[string]string{
 			"api-key": key, "qbittorrent-username": qbittorrentUser, "qbittorrent-password": qbitPassword,
 		},
-		newObj: func() ctrlcommon.ConfigResource { return &pvrv1alpha1.LidarrConfig{} },
+		newObj: func() ctrlcommon.ConfigResource { return &pvrv1alpha1.Lidarr{} },
 		reconciler: func(c client.Client) reconcile.Reconciler {
-			return &pvr.LidarrConfigReconciler{Client: c, Scheme: c.Scheme(), Recorder: events.NewFakeRecorder(100)}
+			return &pvr.LidarrReconciler{Client: c, Scheme: c.Scheme(), Recorder: events.NewFakeRecorder(100)}
+		},
+		objects: map[string]compatKind{
+			"LidarrIndexer": {
+				newObj: func() ctrlcommon.ConfigResource { return &pvrv1alpha1.LidarrIndexer{} },
+				reconciler: func(c client.Client) reconcile.Reconciler {
+					return &pvr.LidarrIndexerReconciler{Client: c, Scheme: c.Scheme(), Recorder: events.NewFakeRecorder(100)}
+				},
+			},
+			"LidarrDownloadClient": {
+				newObj: func() ctrlcommon.ConfigResource { return &pvrv1alpha1.LidarrDownloadClient{} },
+				reconciler: func(c client.Client) reconcile.Reconciler {
+					return &pvr.LidarrDownloadClientReconciler{Client: c, Scheme: c.Scheme(), Recorder: events.NewFakeRecorder(100)}
+				},
+			},
 		},
 		proxy:   proxy,
 		observe: true,
@@ -252,9 +280,23 @@ func TestReadarr(t *testing.T) {
 		export:  "readarr",
 		vars:    map[string]string{"URL": proxy.url(), "HOST": hostIP, "FAKES": fakes},
 		secrets: map[string]string{"api-key": key},
-		newObj:  func() ctrlcommon.ConfigResource { return &pvrv1alpha1.ReadarrConfig{} },
+		newObj:  func() ctrlcommon.ConfigResource { return &pvrv1alpha1.Readarr{} },
 		reconciler: func(c client.Client) reconcile.Reconciler {
-			return &pvr.ReadarrConfigReconciler{Client: c, Scheme: c.Scheme(), Recorder: events.NewFakeRecorder(100)}
+			return &pvr.ReadarrReconciler{Client: c, Scheme: c.Scheme(), Recorder: events.NewFakeRecorder(100)}
+		},
+		objects: map[string]compatKind{
+			"ReadarrIndexer": {
+				newObj: func() ctrlcommon.ConfigResource { return &pvrv1alpha1.ReadarrIndexer{} },
+				reconciler: func(c client.Client) reconcile.Reconciler {
+					return &pvr.ReadarrIndexerReconciler{Client: c, Scheme: c.Scheme(), Recorder: events.NewFakeRecorder(100)}
+				},
+			},
+			"ReadarrDownloadClient": {
+				newObj: func() ctrlcommon.ConfigResource { return &pvrv1alpha1.ReadarrDownloadClient{} },
+				reconciler: func(c client.Client) reconcile.Reconciler {
+					return &pvr.ReadarrDownloadClientReconciler{Client: c, Scheme: c.Scheme(), Recorder: events.NewFakeRecorder(100)}
+				},
+			},
 		},
 		proxy:   proxy,
 		observe: true,

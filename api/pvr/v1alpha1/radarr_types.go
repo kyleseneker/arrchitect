@@ -21,8 +21,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// RadarrConfigSpec defines the desired state of RadarrConfig.
-type RadarrConfigSpec struct {
+// RadarrSpec is a Radarr instance's connection and app-wide settings. Indexers
+// and download clients are resources of their own that refer to it.
+type RadarrSpec struct {
 	// connection defines how to connect to the Radarr instance.
 	// +required
 	Connection commonv1alpha1.AppConnection `json:"connection"`
@@ -56,12 +57,6 @@ type RadarrConfigSpec struct {
 	// +listType=map
 	// +listMapKey=path
 	RootFolders []commonv1alpha1.RootFolder `json:"rootFolders,omitempty"`
-
-	// downloadClients defines download client connections.
-	// +optional
-	// +listType=map
-	// +listMapKey=name
-	DownloadClients []commonv1alpha1.DownloadClient `json:"downloadClients,omitempty"`
 
 	// remotePathMappings translates paths reported by remote download clients.
 	// Entries are matched by host and remotePath. Only operator-created entries can be pruned.
@@ -105,12 +100,6 @@ type RadarrConfigSpec struct {
 	// +listType=map
 	// +listMapKey=label
 	Tags []commonv1alpha1.Tag `json:"tags,omitempty"`
-
-	// indexers defines indexer connections.
-	// +optional
-	// +listType=map
-	// +listMapKey=name
-	Indexers []commonv1alpha1.Indexer `json:"indexers,omitempty"`
 
 	// notifications defines notification/connection configurations.
 	// +optional
@@ -320,9 +309,9 @@ type RadarrUI struct {
 	MovieInfoLanguage *int `json:"movieInfoLanguage,omitempty"`
 }
 
-// RadarrConfigStatus defines the observed state of RadarrConfig.
-type RadarrConfigStatus struct {
-	// conditions represent the current state of the RadarrConfig resource.
+// RadarrStatus defines the observed state of Radarr.
+type RadarrStatus struct {
+	// conditions represent the current state of the Radarr resource.
 	// +listType=map
 	// +listMapKey=type
 	// +optional
@@ -351,31 +340,31 @@ type RadarrConfigStatus struct {
 // +kubebuilder:printcolumn:name="Last Sync",type="date",JSONPath=`.status.lastSyncTime`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=`.metadata.creationTimestamp`
 
-// RadarrConfig is the Schema for the radarrconfigs API.
-type RadarrConfig struct {
+// Radarr configures a Radarr instance the operator connects to.
+type Radarr struct {
 	metav1.TypeMeta `json:",inline"`
 
 	// +optional
 	metav1.ObjectMeta `json:"metadata,omitzero"`
 
 	// +required
-	Spec RadarrConfigSpec `json:"spec"`
+	Spec RadarrSpec `json:"spec"`
 
 	// +optional
-	Status RadarrConfigStatus `json:"status,omitzero"`
+	Status RadarrStatus `json:"status,omitzero"`
 }
 
 // +kubebuilder:object:root=true
 
-// RadarrConfigList contains a list of RadarrConfig.
-type RadarrConfigList struct {
+// RadarrList contains a list of Radarr.
+type RadarrList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitzero"`
-	Items           []RadarrConfig `json:"items"`
+	Items           []Radarr `json:"items"`
 }
 
-func (c *RadarrConfig) GetConditions() *[]metav1.Condition                  { return &c.Status.Conditions }
-func (c *RadarrConfig) GetObservedGeneration() *int64                       { return &c.Status.ObservedGeneration }
-func (c *RadarrConfig) GetLastSyncTime() **metav1.Time                      { return &c.Status.LastSyncTime }
-func (c *RadarrConfig) GetReconcileConfig() *commonv1alpha1.ReconcileConfig { return c.Spec.Reconcile }
-func (c *RadarrConfig) GetManagedResources() *map[string][]string           { return &c.Status.ManagedResources }
+func (c *Radarr) GetConditions() *[]metav1.Condition                  { return &c.Status.Conditions }
+func (c *Radarr) GetObservedGeneration() *int64                       { return &c.Status.ObservedGeneration }
+func (c *Radarr) GetLastSyncTime() **metav1.Time                      { return &c.Status.LastSyncTime }
+func (c *Radarr) GetReconcileConfig() *commonv1alpha1.ReconcileConfig { return c.Spec.Reconcile }
+func (c *Radarr) GetManagedResources() *map[string][]string           { return &c.Status.ManagedResources }

@@ -38,20 +38,13 @@ func reconcilePVR(ctx context.Context, c client.Client, recorder events.EventRec
 	opts := withApp(cfg.options, cfg.app)
 	// A kind whose items name a Secret that can't be read is left out of the
 	// pass, neither written nor pruned, and reported; the rest still syncs.
-	var unresolved []string
-	var err error
-	if opts.DCSecrets, err = ctrlcommon.ResolveDownloadClientSecrets(ctx, c, namespace, opts.DownloadClients); err != nil {
-		unresolved = append(unresolved, fmt.Sprintf("downloadClients: %v", err))
-		opts.DownloadClients = nil
-	}
 	hc, wait := connectPVR(ctx, c, obj, conn, cfg.app)
 	if wait != nil {
 		return *wait, nil
 	}
 
-	if opts.Indexers, err = ctrlcommon.ResolveIndexerSecrets(ctx, c, namespace, opts.Indexers); err != nil {
-		unresolved = append(unresolved, fmt.Sprintf("indexers: %v", err))
-	}
+	var unresolved []string
+	var err error
 	if opts.Notifications, err = ctrlcommon.ResolveNotificationSecrets(ctx, c, namespace, opts.Notifications); err != nil {
 		unresolved = append(unresolved, fmt.Sprintf("notifications: %v", err))
 	}

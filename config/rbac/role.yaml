@@ -27,13 +27,13 @@ rules:
   - bazarrconfigs
   - flaresolverrconfigs
   - jellyfinconfigs
-  - lidarrconfigs
+  - lidarrs
   - maintainerrconfigs
   - plexconfigs
   - prowlarrconfigs
   - qbittorrentconfigs
-  - radarrconfigs
-  - readarrconfigs
+  - radarrs
+  - readarrs
   - sabnzbdconfigs
   - seerrconfigs
   - sonarrs
@@ -53,13 +53,19 @@ rules:
   - bazarrconfigs/finalizers
   - flaresolverrconfigs/finalizers
   - jellyfinconfigs/finalizers
-  - lidarrconfigs/finalizers
+  - lidarrdownloadclients/finalizers
+  - lidarrindexers/finalizers
+  - lidarrs/finalizers
   - maintainerrconfigs/finalizers
   - plexconfigs/finalizers
   - prowlarrconfigs/finalizers
   - qbittorrentconfigs/finalizers
-  - radarrconfigs/finalizers
-  - readarrconfigs/finalizers
+  - radarrdownloadclients/finalizers
+  - radarrindexers/finalizers
+  - radarrs/finalizers
+  - readarrdownloadclients/finalizers
+  - readarrindexers/finalizers
+  - readarrs/finalizers
   - sabnzbdconfigs/finalizers
   - seerrconfigs/finalizers
   - sonarrdownloadclients/finalizers
@@ -75,13 +81,19 @@ rules:
   - bazarrconfigs/status
   - flaresolverrconfigs/status
   - jellyfinconfigs/status
-  - lidarrconfigs/status
+  - lidarrdownloadclients/status
+  - lidarrindexers/status
+  - lidarrs/status
   - maintainerrconfigs/status
   - plexconfigs/status
   - prowlarrconfigs/status
   - qbittorrentconfigs/status
-  - radarrconfigs/status
-  - readarrconfigs/status
+  - radarrdownloadclients/status
+  - radarrindexers/status
+  - radarrs/status
+  - readarrdownloadclients/status
+  - readarrindexers/status
+  - readarrs/status
   - sabnzbdconfigs/status
   - seerrconfigs/status
   - sonarrdownloadclients/status
@@ -95,6 +107,12 @@ rules:
 - apiGroups:
   - arrchitect.dev
   resources:
+  - lidarrdownloadclients
+  - lidarrindexers
+  - radarrdownloadclients
+  - radarrindexers
+  - readarrdownloadclients
+  - readarrindexers
   - sonarrdownloadclients
   - sonarrindexers
   verbs:

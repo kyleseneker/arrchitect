@@ -257,54 +257,162 @@ func controllerCases() []controllerCase {
 			},
 		},
 		{
-			name:        "RadarrConfig",
+			name:        "Radarr",
 			addToScheme: pvrv1alpha1.AddToScheme,
-			newObj:      func() client.Object { return &pvrv1alpha1.RadarrConfig{} },
+			newObj:      func() client.Object { return &pvrv1alpha1.Radarr{} },
 			newCR: func(url string) client.Object {
-				return &pvrv1alpha1.RadarrConfig{
+				return &pvrv1alpha1.Radarr{
 					ObjectMeta: meta("radarr"),
-					Spec: pvrv1alpha1.RadarrConfigSpec{
+					Spec: pvrv1alpha1.RadarrSpec{
 						Connection: appConn(url),
 						Reconcile:  orphan(),
 					},
 				}
 			},
 			newRec: func(c client.Client, s *runtime.Scheme) reconcile.Reconciler {
-				return &pvr.RadarrConfigReconciler{Client: c, Scheme: s, Recorder: events.NewFakeRecorder(50)}
+				return &pvr.RadarrReconciler{Client: c, Scheme: s, Recorder: events.NewFakeRecorder(50)}
 			},
 		},
 		{
-			name:        "LidarrConfig",
+			name:        "RadarrIndexer",
 			addToScheme: pvrv1alpha1.AddToScheme,
-			newObj:      func() client.Object { return &pvrv1alpha1.LidarrConfig{} },
+			newObj:      func() client.Object { return &pvrv1alpha1.RadarrIndexer{} },
+			newCR: func(string) client.Object {
+				return &pvrv1alpha1.RadarrIndexer{
+					ObjectMeta: meta("radarr-indexer"),
+					Spec: pvrv1alpha1.RadarrIndexerSpec{
+						RadarrRef: commonv1alpha1.LocalObjectReference{Name: "radarr"}, DeletionPolicy: "orphan",
+						Indexer: commonv1alpha1.Indexer{Name: "x", Protocol: "torrent", Implementation: "Torznab"},
+					},
+				}
+			},
+			newRec: func(c client.Client, s *runtime.Scheme) reconcile.Reconciler {
+				return &pvr.RadarrIndexerReconciler{Client: c, Scheme: s, Recorder: events.NewFakeRecorder(50)}
+			},
+		},
+		{
+			name:        "RadarrDownloadClient",
+			addToScheme: pvrv1alpha1.AddToScheme,
+			newObj:      func() client.Object { return &pvrv1alpha1.RadarrDownloadClient{} },
+			newCR: func(string) client.Object {
+				return &pvrv1alpha1.RadarrDownloadClient{
+					ObjectMeta: meta("radarr-download-client"),
+					Spec: pvrv1alpha1.RadarrDownloadClientSpec{
+						RadarrRef: commonv1alpha1.LocalObjectReference{Name: "radarr"}, DeletionPolicy: "orphan",
+						DownloadClient: commonv1alpha1.DownloadClient{
+							Name: "x", Protocol: "torrent", Implementation: "QBittorrent", Host: "qbittorrent", Port: 8080,
+						},
+					},
+				}
+			},
+			newRec: func(c client.Client, s *runtime.Scheme) reconcile.Reconciler {
+				return &pvr.RadarrDownloadClientReconciler{Client: c, Scheme: s, Recorder: events.NewFakeRecorder(50)}
+			},
+		},
+		{
+			name:        "Lidarr",
+			addToScheme: pvrv1alpha1.AddToScheme,
+			newObj:      func() client.Object { return &pvrv1alpha1.Lidarr{} },
 			newCR: func(url string) client.Object {
-				return &pvrv1alpha1.LidarrConfig{
+				return &pvrv1alpha1.Lidarr{
 					ObjectMeta: meta("lidarr"),
-					Spec: pvrv1alpha1.LidarrConfigSpec{
+					Spec: pvrv1alpha1.LidarrSpec{
 						Connection: appConn(url),
 						Reconcile:  orphan(),
 					},
 				}
 			},
 			newRec: func(c client.Client, s *runtime.Scheme) reconcile.Reconciler {
-				return &pvr.LidarrConfigReconciler{Client: c, Scheme: s, Recorder: events.NewFakeRecorder(50)}
+				return &pvr.LidarrReconciler{Client: c, Scheme: s, Recorder: events.NewFakeRecorder(50)}
 			},
 		},
 		{
-			name:        "ReadarrConfig",
+			name:        "LidarrIndexer",
 			addToScheme: pvrv1alpha1.AddToScheme,
-			newObj:      func() client.Object { return &pvrv1alpha1.ReadarrConfig{} },
+			newObj:      func() client.Object { return &pvrv1alpha1.LidarrIndexer{} },
+			newCR: func(string) client.Object {
+				return &pvrv1alpha1.LidarrIndexer{
+					ObjectMeta: meta("lidarr-indexer"),
+					Spec: pvrv1alpha1.LidarrIndexerSpec{
+						LidarrRef: commonv1alpha1.LocalObjectReference{Name: "lidarr"}, DeletionPolicy: "orphan",
+						Indexer: commonv1alpha1.Indexer{Name: "x", Protocol: "torrent", Implementation: "Torznab"},
+					},
+				}
+			},
+			newRec: func(c client.Client, s *runtime.Scheme) reconcile.Reconciler {
+				return &pvr.LidarrIndexerReconciler{Client: c, Scheme: s, Recorder: events.NewFakeRecorder(50)}
+			},
+		},
+		{
+			name:        "LidarrDownloadClient",
+			addToScheme: pvrv1alpha1.AddToScheme,
+			newObj:      func() client.Object { return &pvrv1alpha1.LidarrDownloadClient{} },
+			newCR: func(string) client.Object {
+				return &pvrv1alpha1.LidarrDownloadClient{
+					ObjectMeta: meta("lidarr-download-client"),
+					Spec: pvrv1alpha1.LidarrDownloadClientSpec{
+						LidarrRef: commonv1alpha1.LocalObjectReference{Name: "lidarr"}, DeletionPolicy: "orphan",
+						DownloadClient: commonv1alpha1.DownloadClient{
+							Name: "x", Protocol: "torrent", Implementation: "QBittorrent", Host: "qbittorrent", Port: 8080,
+						},
+					},
+				}
+			},
+			newRec: func(c client.Client, s *runtime.Scheme) reconcile.Reconciler {
+				return &pvr.LidarrDownloadClientReconciler{Client: c, Scheme: s, Recorder: events.NewFakeRecorder(50)}
+			},
+		},
+		{
+			name:        "Readarr",
+			addToScheme: pvrv1alpha1.AddToScheme,
+			newObj:      func() client.Object { return &pvrv1alpha1.Readarr{} },
 			newCR: func(url string) client.Object {
-				return &pvrv1alpha1.ReadarrConfig{
+				return &pvrv1alpha1.Readarr{
 					ObjectMeta: meta("readarr"),
-					Spec: pvrv1alpha1.ReadarrConfigSpec{
+					Spec: pvrv1alpha1.ReadarrSpec{
 						Connection: appConn(url),
 						Reconcile:  orphan(),
 					},
 				}
 			},
 			newRec: func(c client.Client, s *runtime.Scheme) reconcile.Reconciler {
-				return &pvr.ReadarrConfigReconciler{Client: c, Scheme: s, Recorder: events.NewFakeRecorder(50)}
+				return &pvr.ReadarrReconciler{Client: c, Scheme: s, Recorder: events.NewFakeRecorder(50)}
+			},
+		},
+		{
+			name:        "ReadarrIndexer",
+			addToScheme: pvrv1alpha1.AddToScheme,
+			newObj:      func() client.Object { return &pvrv1alpha1.ReadarrIndexer{} },
+			newCR: func(string) client.Object {
+				return &pvrv1alpha1.ReadarrIndexer{
+					ObjectMeta: meta("readarr-indexer"),
+					Spec: pvrv1alpha1.ReadarrIndexerSpec{
+						ReadarrRef: commonv1alpha1.LocalObjectReference{Name: "readarr"}, DeletionPolicy: "orphan",
+						Indexer: commonv1alpha1.Indexer{Name: "x", Protocol: "torrent", Implementation: "Torznab"},
+					},
+				}
+			},
+			newRec: func(c client.Client, s *runtime.Scheme) reconcile.Reconciler {
+				return &pvr.ReadarrIndexerReconciler{Client: c, Scheme: s, Recorder: events.NewFakeRecorder(50)}
+			},
+		},
+		{
+			name:        "ReadarrDownloadClient",
+			addToScheme: pvrv1alpha1.AddToScheme,
+			newObj:      func() client.Object { return &pvrv1alpha1.ReadarrDownloadClient{} },
+			newCR: func(string) client.Object {
+				return &pvrv1alpha1.ReadarrDownloadClient{
+					ObjectMeta: meta("readarr-download-client"),
+					Spec: pvrv1alpha1.ReadarrDownloadClientSpec{
+						ReadarrRef: commonv1alpha1.LocalObjectReference{Name: "readarr"}, DeletionPolicy: "orphan",
+						DownloadClient: commonv1alpha1.DownloadClient{
+							Name: "x", Protocol: "torrent", Implementation: "QBittorrent", Host: "qbittorrent", Port: 8080,
+						},
+					},
+				}
+			},
+			newRec: func(c client.Client, s *runtime.Scheme) reconcile.Reconciler {
+				return &pvr.ReadarrDownloadClientReconciler{Client: c, Scheme: s, Recorder: events.NewFakeRecorder(50)}
 			},
 		},
 		{

@@ -25,9 +25,9 @@ release of the line before it.
 | App | Resource | Tested versions |
 | --- | --- | --- |
 | Sonarr | `Sonarr`, `SonarrIndexer`, `SonarrDownloadClient` | 4.0.20, 4.0.19 |
-| Radarr | `RadarrConfig` | 6.4.4, 6.3.0 |
-| Lidarr | `LidarrConfig` | 3.1.6, 3.0.1 |
-| Readarr | `ReadarrConfig` | 0.4.18, 0.4.17 |
+| Radarr | `Radarr`, `RadarrIndexer`, `RadarrDownloadClient` | 6.4.4, 6.3.0 |
+| Lidarr | `Lidarr`, `LidarrIndexer`, `LidarrDownloadClient` | 3.1.6, 3.0.1 |
+| Readarr | `Readarr`, `ReadarrIndexer`, `ReadarrDownloadClient` | 0.4.18, 0.4.17 |
 | Prowlarr | `ProwlarrConfig` | 2.7.0, 2.6.5 |
 | FlareSolverr | `FlareSolverrConfig` | 3.5.2, 3.4.6 |
 | Bazarr | `BazarrConfig` | 1.6.2, 1.5.6 |

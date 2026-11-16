@@ -60,13 +60,25 @@ func main() {
 			}
 		}},
 		operator.Controller{Name: "radarr", New: func(d operator.Deps) operator.Reconciler {
-			return &pvr.RadarrConfigReconciler{Client: d.Client, Scheme: d.Scheme, Recorder: d.Recorder}
+			return operator.Reconcilers{
+				&pvr.RadarrReconciler{Client: d.Client, Scheme: d.Scheme, Recorder: d.Recorder},
+				&pvr.RadarrIndexerReconciler{Client: d.Client, Scheme: d.Scheme, Recorder: d.Recorder},
+				&pvr.RadarrDownloadClientReconciler{Client: d.Client, Scheme: d.Scheme, Recorder: d.Recorder},
+			}
 		}},
 		operator.Controller{Name: "lidarr", New: func(d operator.Deps) operator.Reconciler {
-			return &pvr.LidarrConfigReconciler{Client: d.Client, Scheme: d.Scheme, Recorder: d.Recorder}
+			return operator.Reconcilers{
+				&pvr.LidarrReconciler{Client: d.Client, Scheme: d.Scheme, Recorder: d.Recorder},
+				&pvr.LidarrIndexerReconciler{Client: d.Client, Scheme: d.Scheme, Recorder: d.Recorder},
+				&pvr.LidarrDownloadClientReconciler{Client: d.Client, Scheme: d.Scheme, Recorder: d.Recorder},
+			}
 		}},
 		operator.Controller{Name: "readarr", New: func(d operator.Deps) operator.Reconciler {
-			return &pvr.ReadarrConfigReconciler{Client: d.Client, Scheme: d.Scheme, Recorder: d.Recorder}
+			return operator.Reconcilers{
+				&pvr.ReadarrReconciler{Client: d.Client, Scheme: d.Scheme, Recorder: d.Recorder},
+				&pvr.ReadarrIndexerReconciler{Client: d.Client, Scheme: d.Scheme, Recorder: d.Recorder},
+				&pvr.ReadarrDownloadClientReconciler{Client: d.Client, Scheme: d.Scheme, Recorder: d.Recorder},
+			}
 		}},
 		operator.Controller{Name: "prowlarr", New: func(d operator.Deps) operator.Reconciler {
 			return &indexers.ProwlarrConfigReconciler{Client: d.Client, Scheme: d.Scheme, Recorder: d.Recorder}

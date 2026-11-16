@@ -131,9 +131,8 @@ func TestAdmissionRules(t *testing.T) {
 		{name: "two delay profiles without tags", kind: "Sonarr", spec: conn + `
   delayProfiles: [{usenetDelay: 30}, {tagLabels: []}]`,
 			rejected: "only one delay profile can be without tags"},
-		{name: "duplicate download client names", kind: "RadarrConfig", spec: conn + `
-  downloadClients: [{name: qBit, protocol: torrent, implementation: QBittorrent, host: a, port: 1},
-    {name: qBit, protocol: torrent, implementation: QBittorrent, host: b, port: 2}]`,
+		{name: "duplicate notification names", kind: "Radarr", spec: conn + `
+  notifications: [{name: Hook, implementation: Webhook}, {name: Hook, implementation: Discord}]`,
 			rejected: "Duplicate value"},
 		{name: "duplicate field names", kind: "SonarrIndexer", spec: `
   sonarrRef: {name: tv}
@@ -181,7 +180,7 @@ func TestAdmissionRules(t *testing.T) {
     url: sonarr:8989
     apiKeySecretRef: {name: app, key: api-key}`,
 			rejected: "should match '^https?://'"},
-		{name: "a Lidarr root folder without profiles", kind: "LidarrConfig", spec: conn + `
+		{name: "a Lidarr root folder without profiles", kind: "Lidarr", spec: conn + `
   rootFolders: [{path: /music}]`,
 			rejected: "Lidarr root folders need defaultQualityProfileName and defaultMetadataProfileName"},
 		{name: "prune on Jellyfin", kind: "JellyfinConfig", spec: `

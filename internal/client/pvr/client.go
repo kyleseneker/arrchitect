@@ -42,15 +42,15 @@ var (
 		}},
 	}
 	Radarr = App{
-		Name: "radarr", Kind: "RadarrConfig", APIVersion: "v3", CategoryField: "movieCategory",
+		Name: "radarr", Kind: "Radarr", APIVersion: "v3", CategoryField: "movieCategory",
 		ImportListFields: ImportListFields{Enable: "enabled", AutomaticAdd: "enableAuto", Monitor: "monitor"},
 	}
 	Lidarr = App{
-		Name: "lidarr", Kind: "LidarrConfig", APIVersion: "v1", CategoryField: "musicCategory", MetadataProfiles: true,
+		Name: "lidarr", Kind: "Lidarr", APIVersion: "v1", CategoryField: "musicCategory", MetadataProfiles: true,
 		ImportListFields: ImportListFields{AutomaticAdd: "enableAutomaticAdd", Monitor: "shouldMonitor"},
 	}
 	Readarr = App{
-		Name: "readarr", Kind: "ReadarrConfig", APIVersion: "v1", CategoryField: "bookCategory", MetadataProfiles: true,
+		Name: "readarr", Kind: "Readarr", APIVersion: "v1", CategoryField: "bookCategory", MetadataProfiles: true,
 		ImportListFields: ImportListFields{AutomaticAdd: "enableAutomaticAdd", Monitor: "shouldMonitor"},
 	}
 )

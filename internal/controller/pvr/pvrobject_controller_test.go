@@ -33,7 +33,12 @@ func objectClient(t *testing.T, objs ...client.Object) client.Client {
 	require.NoError(t, clientgoscheme.AddToScheme(scheme))
 	require.NoError(t, pvrv1alpha1.AddToScheme(scheme))
 	return fake.NewClientBuilder().WithScheme(scheme).
-		WithStatusSubresource(&pvrv1alpha1.Sonarr{}, &pvrv1alpha1.SonarrIndexer{}, &pvrv1alpha1.SonarrDownloadClient{}).
+		WithStatusSubresource(
+			&pvrv1alpha1.Sonarr{}, &pvrv1alpha1.SonarrIndexer{}, &pvrv1alpha1.SonarrDownloadClient{},
+			&pvrv1alpha1.Radarr{}, &pvrv1alpha1.RadarrIndexer{}, &pvrv1alpha1.RadarrDownloadClient{},
+			&pvrv1alpha1.Lidarr{}, &pvrv1alpha1.LidarrIndexer{}, &pvrv1alpha1.LidarrDownloadClient{},
+			&pvrv1alpha1.Readarr{}, &pvrv1alpha1.ReadarrIndexer{}, &pvrv1alpha1.ReadarrDownloadClient{},
+		).
 		WithIndex(&pvrv1alpha1.SonarrIndexer{}, instanceRefIndex, func(o client.Object) []string {
 			return []string{o.(*pvrv1alpha1.SonarrIndexer).Spec.SonarrRef.Name}
 		}).
@@ -273,4 +278,109 @@ func TestInstanceChangedPassesSpecChangesAndSyncing(t *testing.T) {
 	assert.True(t, p.Update(event.UpdateEvent{ObjectOld: at(1, metav1.ConditionFalse), ObjectNew: at(1, metav1.ConditionTrue)}))
 	assert.False(t, p.Update(event.UpdateEvent{ObjectOld: at(1, metav1.ConditionTrue), ObjectNew: at(1, metav1.ConditionTrue)}),
 		"a routine status write")
+}
+
+// The object controllers share one implementation, so each app's case only
+// checks that its controllers reach that app, at its API version, through the
+// instance kind they name.
+func TestEveryPVRAppsObjectsReachItsApp(t *testing.T) {
+	conn := func(url string) commonv1alpha1.AppConnection {
+		return commonv1alpha1.AppConnection{URL: url, APIKeySecretRef: commonv1alpha1.SecretKeyRef{Name: "app-credentials", Key: "api-key"}}
+	}
+	ref := commonv1alpha1.LocalObjectReference{Name: "app"}
+	dc := commonv1alpha1.DownloadClient{Name: "qBittorrent", Protocol: "torrent", Implementation: "QBittorrent", Host: "qbittorrent", Port: 8080}
+	idx := commonv1alpha1.Indexer{Name: "Torznab", Protocol: "torrent", Implementation: "Torznab"}
+	meta := func(name string) metav1.ObjectMeta { return metav1.ObjectMeta{Name: name, Namespace: "media"} }
+	for _, app := range []struct {
+		name, apiVer, kind string
+		instance           func(url string) client.Object
+		objects            []client.Object
+		reconcilers        func(client.Client) []reconcile.Reconciler
+	}{
+		{
+			name: "sonarr", apiVer: "v3", kind: "Sonarr",
+			instance: func(url string) client.Object {
+				return &pvrv1alpha1.Sonarr{ObjectMeta: meta("app"), Spec: pvrv1alpha1.SonarrSpec{Connection: conn(url)}}
+			},
+			objects: []client.Object{
+				&pvrv1alpha1.SonarrDownloadClient{ObjectMeta: meta("dc"), Spec: pvrv1alpha1.SonarrDownloadClientSpec{SonarrRef: ref, DownloadClient: dc}},
+				&pvrv1alpha1.SonarrIndexer{ObjectMeta: meta("idx"), Spec: pvrv1alpha1.SonarrIndexerSpec{SonarrRef: ref, Indexer: idx}},
+			},
+			reconcilers: func(c client.Client) []reconcile.Reconciler {
+				return []reconcile.Reconciler{
+					&SonarrDownloadClientReconciler{Client: c, Recorder: events.NewFakeRecorder(50)},
+					&SonarrIndexerReconciler{Client: c, Recorder: events.NewFakeRecorder(50)},
+				}
+			},
+		},
+		{
+			name: "radarr", apiVer: "v3", kind: "Radarr",
+			instance: func(url string) client.Object {
+				return &pvrv1alpha1.Radarr{ObjectMeta: meta("app"), Spec: pvrv1alpha1.RadarrSpec{Connection: conn(url)}}
+			},
+			objects: []client.Object{
+				&pvrv1alpha1.RadarrDownloadClient{ObjectMeta: meta("dc"), Spec: pvrv1alpha1.RadarrDownloadClientSpec{RadarrRef: ref, DownloadClient: dc}},
+				&pvrv1alpha1.RadarrIndexer{ObjectMeta: meta("idx"), Spec: pvrv1alpha1.RadarrIndexerSpec{RadarrRef: ref, Indexer: idx}},
+			},
+			reconcilers: func(c client.Client) []reconcile.Reconciler {
+				return []reconcile.Reconciler{
+					&RadarrDownloadClientReconciler{Client: c, Recorder: events.NewFakeRecorder(50)},
+					&RadarrIndexerReconciler{Client: c, Recorder: events.NewFakeRecorder(50)},
+				}
+			},
+		},
+		{
+			name: "lidarr", apiVer: "v1", kind: "Lidarr",
+			instance: func(url string) client.Object {
+				return &pvrv1alpha1.Lidarr{ObjectMeta: meta("app"), Spec: pvrv1alpha1.LidarrSpec{Connection: conn(url)}}
+			},
+			objects: []client.Object{
+				&pvrv1alpha1.LidarrDownloadClient{ObjectMeta: meta("dc"), Spec: pvrv1alpha1.LidarrDownloadClientSpec{LidarrRef: ref, DownloadClient: dc}},
+				&pvrv1alpha1.LidarrIndexer{ObjectMeta: meta("idx"), Spec: pvrv1alpha1.LidarrIndexerSpec{LidarrRef: ref, Indexer: idx}},
+			},
+			reconcilers: func(c client.Client) []reconcile.Reconciler {
+				return []reconcile.Reconciler{
+					&LidarrDownloadClientReconciler{Client: c, Recorder: events.NewFakeRecorder(50)},
+					&LidarrIndexerReconciler{Client: c, Recorder: events.NewFakeRecorder(50)},
+				}
+			},
+		},
+		{
+			name: "readarr", apiVer: "v1", kind: "Readarr",
+			instance: func(url string) client.Object {
+				return &pvrv1alpha1.Readarr{ObjectMeta: meta("app"), Spec: pvrv1alpha1.ReadarrSpec{Connection: conn(url)}}
+			},
+			objects: []client.Object{
+				&pvrv1alpha1.ReadarrDownloadClient{ObjectMeta: meta("dc"), Spec: pvrv1alpha1.ReadarrDownloadClientSpec{ReadarrRef: ref, DownloadClient: dc}},
+				&pvrv1alpha1.ReadarrIndexer{ObjectMeta: meta("idx"), Spec: pvrv1alpha1.ReadarrIndexerSpec{ReadarrRef: ref, Indexer: idx}},
+			},
+			reconcilers: func(c client.Client) []reconcile.Reconciler {
+				return []reconcile.Reconciler{
+					&ReadarrDownloadClientReconciler{Client: c, Recorder: events.NewFakeRecorder(50)},
+					&ReadarrIndexerReconciler{Client: c, Recorder: events.NewFakeRecorder(50)},
+				}
+			},
+		},
+	} {
+		t.Run(app.name, func(t *testing.T) {
+			ctx := context.Background()
+			missing := objectClient(t, append([]client.Object{apiKeySecret()}, app.objects...)...)
+			for i, r := range app.reconcilers(missing) {
+				_, err := r.Reconcile(ctx, ctrl.Request{NamespacedName: client.ObjectKeyFromObject(app.objects[i])})
+				require.NoError(t, err)
+				obj := app.objects[i].DeepCopyObject().(ctrlcommon.ConfigResource)
+				require.NoError(t, missing.Get(ctx, client.ObjectKeyFromObject(obj), obj))
+				assert.Equal(t, app.kind+` "app" not found`, synced(t, *obj.GetConditions()).Message)
+			}
+
+			fa, url := newFakeArr(t, app.apiVer, nil)
+			c := objectClient(t, append([]client.Object{apiKeySecret(), app.instance(url)}, app.objects...)...)
+			for i, r := range app.reconcilers(c) {
+				_, err := r.Reconcile(ctx, ctrl.Request{NamespacedName: client.ObjectKeyFromObject(app.objects[i])})
+				require.NoError(t, err)
+			}
+			assert.True(t, fa.saw("POST", fa.path("downloadclient")), "the download client never reached %s", app.name)
+			assert.True(t, fa.saw("POST", fa.path("indexer")), "the indexer never reached %s", app.name)
+		})
+	}
 }

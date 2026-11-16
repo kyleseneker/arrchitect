@@ -45,10 +45,14 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
 {{- define "arrchitect.resources" -}}
-{{- $kinds := dict "sonarr" (list "sonarrs" "sonarrindexers" "sonarrdownloadclients") }}
+{{- $pvr := list "sonarr" "radarr" "lidarr" "readarr" }}
 {{- $resources := list }}
 {{- range $app := splitList "," (include "arrchitect.enabledApps" .) }}
-{{- $resources = concat $resources (get $kinds $app | default (list (printf "%sconfigs" $app))) }}
+{{- if has $app $pvr }}
+{{- $resources = concat $resources (list (printf "%ss" $app) (printf "%sindexers" $app) (printf "%sdownloadclients" $app)) }}
+{{- else }}
+{{- $resources = append $resources (printf "%sconfigs" $app) }}
+{{- end }}
 {{- end }}
 {{- join "," $resources }}
 {{- end }}

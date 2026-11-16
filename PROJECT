@@ -42,7 +42,25 @@ resources:
   controller: true
   domain: dev
   group: arrchitect
-  kind: RadarrConfig
+  kind: Radarr
+  path: github.com/kyleseneker/arrchitect/api/pvr/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: dev
+  group: arrchitect
+  kind: RadarrIndexer
+  path: github.com/kyleseneker/arrchitect/api/pvr/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: dev
+  group: arrchitect
+  kind: RadarrDownloadClient
   path: github.com/kyleseneker/arrchitect/api/pvr/v1alpha1
   version: v1alpha1
 - api:
@@ -69,7 +87,7 @@ resources:
   controller: true
   domain: dev
   group: arrchitect
-  kind: LidarrConfig
+  kind: Lidarr
   path: github.com/kyleseneker/arrchitect/api/pvr/v1alpha1
   version: v1alpha1
 - api:
@@ -78,7 +96,43 @@ resources:
   controller: true
   domain: dev
   group: arrchitect
-  kind: ReadarrConfig
+  kind: LidarrIndexer
+  path: github.com/kyleseneker/arrchitect/api/pvr/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: dev
+  group: arrchitect
+  kind: LidarrDownloadClient
+  path: github.com/kyleseneker/arrchitect/api/pvr/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: dev
+  group: arrchitect
+  kind: Readarr
+  path: github.com/kyleseneker/arrchitect/api/pvr/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: dev
+  group: arrchitect
+  kind: ReadarrIndexer
+  path: github.com/kyleseneker/arrchitect/api/pvr/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: dev
+  group: arrchitect
+  kind: ReadarrDownloadClient
   path: github.com/kyleseneker/arrchitect/api/pvr/v1alpha1
   version: v1alpha1
 - api:

@@ -105,14 +105,14 @@ var pvrApps = []pvrApp{
 	},
 	{
 		name: "radarr", apiVer: "v3",
-		empty: func() ctrlcommon.ConfigResource { return &pvrv1alpha1.RadarrConfig{} },
+		empty: func() ctrlcommon.ConfigResource { return &pvrv1alpha1.Radarr{} },
 		newRec: func(c client.Client, s *runtime.Scheme) reconcile.Reconciler {
-			return &RadarrConfigReconciler{Client: c, Scheme: s, Recorder: events.NewFakeRecorder(50)}
+			return &RadarrReconciler{Client: c, Scheme: s, Recorder: events.NewFakeRecorder(50)}
 		},
 		build: func(url string, o buildOpts) ctrlcommon.ConfigResource {
 			conn, roots, notifications, rec := baseSpec(o)
 			conn.URL = url
-			c := &pvrv1alpha1.RadarrConfig{ObjectMeta: meta(), Spec: pvrv1alpha1.RadarrConfigSpec{
+			c := &pvrv1alpha1.Radarr{ObjectMeta: meta(), Spec: pvrv1alpha1.RadarrSpec{
 				Connection: conn, RootFolders: roots, Notifications: notifications, Reconcile: rec,
 			}}
 			if o.naming {
@@ -125,14 +125,14 @@ var pvrApps = []pvrApp{
 	},
 	{
 		name: "lidarr", apiVer: "v1",
-		empty: func() ctrlcommon.ConfigResource { return &pvrv1alpha1.LidarrConfig{} },
+		empty: func() ctrlcommon.ConfigResource { return &pvrv1alpha1.Lidarr{} },
 		newRec: func(c client.Client, s *runtime.Scheme) reconcile.Reconciler {
-			return &LidarrConfigReconciler{Client: c, Scheme: s, Recorder: events.NewFakeRecorder(50)}
+			return &LidarrReconciler{Client: c, Scheme: s, Recorder: events.NewFakeRecorder(50)}
 		},
 		build: func(url string, o buildOpts) ctrlcommon.ConfigResource {
 			conn, roots, notifications, rec := baseSpec(o)
 			conn.URL = url
-			c := &pvrv1alpha1.LidarrConfig{ObjectMeta: meta(), Spec: pvrv1alpha1.LidarrConfigSpec{
+			c := &pvrv1alpha1.Lidarr{ObjectMeta: meta(), Spec: pvrv1alpha1.LidarrSpec{
 				Connection: conn, RootFolders: roots, Notifications: notifications, Reconcile: rec,
 			}}
 			if o.naming {
@@ -145,14 +145,14 @@ var pvrApps = []pvrApp{
 	},
 	{
 		name: "readarr", apiVer: "v1",
-		empty: func() ctrlcommon.ConfigResource { return &pvrv1alpha1.ReadarrConfig{} },
+		empty: func() ctrlcommon.ConfigResource { return &pvrv1alpha1.Readarr{} },
 		newRec: func(c client.Client, s *runtime.Scheme) reconcile.Reconciler {
-			return &ReadarrConfigReconciler{Client: c, Scheme: s, Recorder: events.NewFakeRecorder(50)}
+			return &ReadarrReconciler{Client: c, Scheme: s, Recorder: events.NewFakeRecorder(50)}
 		},
 		build: func(url string, o buildOpts) ctrlcommon.ConfigResource {
 			conn, roots, notifications, rec := baseSpec(o)
 			conn.URL = url
-			c := &pvrv1alpha1.ReadarrConfig{ObjectMeta: meta(), Spec: pvrv1alpha1.ReadarrConfigSpec{
+			c := &pvrv1alpha1.Readarr{ObjectMeta: meta(), Spec: pvrv1alpha1.ReadarrSpec{
 				Connection: conn, RootFolders: roots, Notifications: notifications, Reconcile: rec,
 			}}
 			if o.naming {
@@ -472,11 +472,11 @@ func TestRemoteMappingsReachEveryPVRController(t *testing.T) {
 			switch obj := cfg.(type) {
 			case *pvrv1alpha1.Sonarr:
 				obj.Spec.RemotePathMappings = mappings
-			case *pvrv1alpha1.RadarrConfig:
+			case *pvrv1alpha1.Radarr:
 				obj.Spec.RemotePathMappings = mappings
-			case *pvrv1alpha1.LidarrConfig:
+			case *pvrv1alpha1.Lidarr:
 				obj.Spec.RemotePathMappings = mappings
-			case *pvrv1alpha1.ReadarrConfig:
+			case *pvrv1alpha1.Readarr:
 				obj.Spec.RemotePathMappings = mappings
 			}
 			c := run(t, app, apiKeySecret(), cfg)

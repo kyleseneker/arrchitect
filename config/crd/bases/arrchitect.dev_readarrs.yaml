@@ -4,16 +4,16 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.23.0
-  name: lidarrconfigs.arrchitect.dev
+  name: readarrs.arrchitect.dev
 spec:
   group: arrchitect.dev
   names:
     categories:
     - arrchitect
-    kind: LidarrConfig
-    listKind: LidarrConfigList
-    plural: lidarrconfigs
-    singular: lidarrconfig
+    kind: Readarr
+    listKind: ReadarrList
+    plural: readarrs
+    singular: readarr
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
@@ -32,7 +32,7 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: LidarrConfig is the Schema for the lidarrconfigs API.
+        description: Readarr configures a Readarr instance the operator connects to.
         properties:
           apiVersion:
             description: |-
@@ -52,10 +52,12 @@ spec:
           metadata:
             type: object
           spec:
-            description: LidarrConfigSpec defines the desired state of LidarrConfig.
+            description: |-
+              ReadarrSpec is a Readarr instance's connection and app-wide settings. Indexers
+              and download clients are resources of their own that refer to it.
             properties:
               connection:
-                description: connection defines how to connect to the Lidarr instance.
+                description: connection defines how to connect to the Readarr instance.
                 properties:
                   apiKeySecretRef:
                     description: apiKeySecretRef references a Secret containing the
@@ -291,174 +293,6 @@ spec:
                       downloads.
                     type: boolean
                 type: object
-              downloadClients:
-                description: downloadClients defines download client connections.
-                items:
-                  description: DownloadClient defines a download client connection.
-                  properties:
-                    apiKeySecretRef:
-                      description: apiKeySecretRef references a Secret containing
-                        the API key (for Usenet clients like SABnzbd/NzbGet).
-                      properties:
-                        key:
-                          description: key is the key within the Secret.
-                          type: string
-                        name:
-                          description: name is the name of the Secret.
-                          type: string
-                      required:
-                      - key
-                      - name
-                      type: object
-                    category:
-                      description: category is the download category to use.
-                      type: string
-                    configContract:
-                      description: |-
-                        configContract overrides the default config contract name.
-                        Defaults to "<implementation>Settings" if not set.
-                      type: string
-                    enable:
-                      description: |-
-                        enable controls whether this download client is active. A new download
-                        client is enabled unless this is false.
-                      type: boolean
-                    fields:
-                      description: |-
-                        fields defines additional implementation-specific configuration fields.
-                        Use these for settings not covered by first-class fields (e.g., initialState, sequentialOrder).
-                      items:
-                        description: |-
-                          ConfigField is a named field of a provider's configuration. It sets value
-                          or valueFrom, not both.
-                        maxProperties: 2
-                        properties:
-                          name:
-                            description: name is the field name.
-                            type: string
-                          value:
-                            description: 'value is the field value: a string, number,
-                              boolean or list.'
-                            x-kubernetes-preserve-unknown-fields: true
-                          valueFrom:
-                            description: valueFrom reads the field value from a source.
-                            properties:
-                              secretKeyRef:
-                                description: secretKeyRef reads the value from a key
-                                  of a Secret in the resource's namespace.
-                                properties:
-                                  key:
-                                    description: key is the key within the Secret.
-                                    type: string
-                                  name:
-                                    description: name is the name of the Secret.
-                                    type: string
-                                required:
-                                - key
-                                - name
-                                type: object
-                            required:
-                            - secretKeyRef
-                            type: object
-                        required:
-                        - name
-                        type: object
-                      type: array
-                      x-kubernetes-list-map-keys:
-                      - name
-                      x-kubernetes-list-type: map
-                    host:
-                      description: host is the hostname or IP of the download client.
-                      type: string
-                    implementation:
-                      description: implementation is the download client type (e.g.,
-                        QBittorrent, Sabnzbd, NzbGet, Transmission, Deluge).
-                      type: string
-                    name:
-                      description: name is the display name of the download client.
-                      type: string
-                    passwordSecretRef:
-                      description: passwordSecretRef references a Secret containing
-                        the password for authentication.
-                      properties:
-                        key:
-                          description: key is the key within the Secret.
-                          type: string
-                        name:
-                          description: name is the name of the Secret.
-                          type: string
-                      required:
-                      - key
-                      - name
-                      type: object
-                    port:
-                      description: port is the port of the download client.
-                      type: integer
-                    priority:
-                      description: |-
-                        priority is the download client priority. Lower values are higher priority.
-                        A new download client gets 1.
-                      maximum: 50
-                      minimum: 1
-                      type: integer
-                    protocol:
-                      description: protocol is the download protocol.
-                      enum:
-                      - torrent
-                      - usenet
-                      type: string
-                    removeCompletedDownloads:
-                      description: |-
-                        removeCompletedDownloads controls whether completed downloads are removed.
-                        A new download client removes them unless this is false.
-                      type: boolean
-                    removeFailedDownloads:
-                      description: |-
-                        removeFailedDownloads controls whether failed downloads are removed. A new
-                        download client removes them unless this is false.
-                      type: boolean
-                    tagLabels:
-                      description: |-
-                        tagLabels references tags by label, resolved against the app on each
-                        reconciliation. A missing or ambiguous label blocks writes, and an empty
-                        list clears the tags.
-                      items:
-                        type: string
-                      type: array
-                      x-kubernetes-list-type: set
-                    urlBase:
-                      description: urlBase is the base URL path for the download client
-                        (e.g., "/qbittorrent").
-                      type: string
-                    useSsl:
-                      description: useSsl enables SSL/TLS for the download client
-                        connection.
-                      type: boolean
-                    usernameSecretRef:
-                      description: usernameSecretRef references a Secret containing
-                        the username for authentication.
-                      properties:
-                        key:
-                          description: key is the key within the Secret.
-                          type: string
-                        name:
-                          description: name is the name of the Secret.
-                          type: string
-                      required:
-                      - key
-                      - name
-                      type: object
-                  required:
-                  - host
-                  - implementation
-                  - name
-                  - port
-                  - protocol
-                  type: object
-                type: array
-                x-kubernetes-list-map-keys:
-                - name
-                x-kubernetes-list-type: map
               importLists:
                 description: importLists defines import list configurations for automatic
                   content addition.
@@ -603,116 +437,6 @@ spec:
                     description: rssSyncInterval is the RSS sync interval in minutes.
                     type: integer
                 type: object
-              indexers:
-                description: indexers defines indexer connections.
-                items:
-                  description: Indexer defines an indexer in Sonarr, Radarr, Lidarr
-                    or Readarr.
-                  properties:
-                    configContract:
-                      description: |-
-                        configContract is the configuration contract name for the implementation.
-                        Defaults to "<implementation>Settings" if not set.
-                      type: string
-                    enable:
-                      description: |-
-                        enable controls whether this indexer is active. False turns off RSS,
-                        automatic and interactive search; true turns on those not set below.
-                      type: boolean
-                    enableAutomaticSearch:
-                      description: |-
-                        enableAutomaticSearch enables automatic search for this indexer. A new
-                        indexer searches unless this or enable is false.
-                      type: boolean
-                    enableInteractiveSearch:
-                      description: |-
-                        enableInteractiveSearch enables interactive (manual) search for this
-                        indexer. A new indexer allows it unless this or enable is false.
-                      type: boolean
-                    enableRss:
-                      description: |-
-                        enableRss enables RSS feed polling for this indexer. A new indexer
-                        polls unless this or enable is false.
-                      type: boolean
-                    fields:
-                      description: fields defines the indexer's configuration fields
-                        (e.g., baseUrl, apiKey, categories).
-                      items:
-                        description: |-
-                          ConfigField is a named field of a provider's configuration. It sets value
-                          or valueFrom, not both.
-                        maxProperties: 2
-                        properties:
-                          name:
-                            description: name is the field name.
-                            type: string
-                          value:
-                            description: 'value is the field value: a string, number,
-                              boolean or list.'
-                            x-kubernetes-preserve-unknown-fields: true
-                          valueFrom:
-                            description: valueFrom reads the field value from a source.
-                            properties:
-                              secretKeyRef:
-                                description: secretKeyRef reads the value from a key
-                                  of a Secret in the resource's namespace.
-                                properties:
-                                  key:
-                                    description: key is the key within the Secret.
-                                    type: string
-                                  name:
-                                    description: name is the name of the Secret.
-                                    type: string
-                                required:
-                                - key
-                                - name
-                                type: object
-                            required:
-                            - secretKeyRef
-                            type: object
-                        required:
-                        - name
-                        type: object
-                      type: array
-                      x-kubernetes-list-map-keys:
-                      - name
-                      x-kubernetes-list-type: map
-                    implementation:
-                      description: implementation is the indexer type (e.g., Newznab,
-                        Torznab).
-                      type: string
-                    name:
-                      description: name is the display name of the indexer.
-                      type: string
-                    priority:
-                      description: priority is the indexer priority. Lower values
-                        are higher priority.
-                      minimum: 1
-                      type: integer
-                    protocol:
-                      description: protocol is the indexer protocol.
-                      enum:
-                      - torrent
-                      - usenet
-                      type: string
-                    tagLabels:
-                      description: |-
-                        tagLabels references tags by label, resolved against the app on each
-                        reconciliation. A missing or ambiguous label blocks writes, and an empty
-                        list clears the tags.
-                      items:
-                        type: string
-                      type: array
-                      x-kubernetes-list-type: set
-                  required:
-                  - implementation
-                  - name
-                  - protocol
-                  type: object
-                type: array
-                x-kubernetes-list-map-keys:
-                - name
-                x-kubernetes-list-type: map
               mediaManagement:
                 description: mediaManagement configures media management settings.
                 properties:
@@ -720,12 +444,12 @@ spec:
                     description: copyUsingHardlinks uses hardlinks instead of copies
                       when importing.
                     type: boolean
-                  createEmptyArtistFolders:
-                    description: createEmptyArtistFolders creates folders for artists
+                  createEmptyAuthorFolders:
+                    description: createEmptyAuthorFolders creates folders for authors
                       with no files.
                     type: boolean
                   deleteEmptyFolders:
-                    description: deleteEmptyFolders removes empty artist folders after
+                    description: deleteEmptyFolders removes empty author folders after
                       cleanup.
                     type: boolean
                   downloadPropersAndRepacks:
@@ -758,7 +482,7 @@ spec:
                       in the recycling bin.
                     type: integer
                   rescanAfterRefresh:
-                    description: rescanAfterRefresh controls when to rescan artist
+                    description: rescanAfterRefresh controls when to rescan author
                       folders.
                     enum:
                     - always
@@ -771,26 +495,22 @@ spec:
                     type: boolean
                 type: object
               naming:
-                description: naming configures artist and track naming formats.
+                description: naming configures author and book naming formats.
                 properties:
-                  artistFolderFormat:
-                    description: artistFolderFormat is the naming format for artist
+                  authorFolderFormat:
+                    description: authorFolderFormat is the naming format for author
                       folders.
                     type: string
-                  multiDiscTrackFormat:
-                    description: multiDiscTrackFormat is the naming format for multi-disc
-                      tracks.
-                    type: string
-                  renameTracks:
-                    description: renameTracks enables automatic track file renaming.
+                  renameBooks:
+                    description: renameBooks enables automatic book file renaming.
                     type: boolean
                   replaceIllegalCharacters:
                     description: replaceIllegalCharacters replaces illegal characters
                       in filenames.
                     type: boolean
-                  standardTrackFormat:
-                    description: standardTrackFormat is the naming format for standard
-                      tracks.
+                  standardBookFormat:
+                    description: standardBookFormat is the naming format for book
+                      files.
                     type: string
                 type: object
               notifications:
@@ -1240,7 +960,7 @@ spec:
                 - remotePath
                 x-kubernetes-list-type: map
               rootFolders:
-                description: rootFolders defines music library root folder paths.
+                description: rootFolders defines book library root folder paths.
                 items:
                   description: RootFolder defines a media root folder path.
                   properties:
@@ -1273,7 +993,7 @@ spec:
                 - path
                 x-kubernetes-list-type: map
                 x-kubernetes-validations:
-                - message: Lidarr root folders need defaultQualityProfileName and
+                - message: Readarr root folders need defaultQualityProfileName and
                     defaultMetadataProfileName
                   rule: self.all(f, has(f.defaultQualityProfileName) && has(f.defaultMetadataProfileName))
               tags:
@@ -1324,7 +1044,7 @@ spec:
             - connection
             type: object
           status:
-            description: LidarrConfigStatus defines the observed state of LidarrConfig.
+            description: ReadarrStatus defines the observed state of Readarr.
             properties:
               conditions:
                 items:

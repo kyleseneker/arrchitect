@@ -62,14 +62,14 @@ spec:
     - name: leave turned-off apps and other namespaces alone
       try:
         - apply:
-            file: radarrconfig.yaml
+            file: radarr.yaml
         - script:
             content: |
               outside="$NAMESPACE-outside"
               kubectl create namespace "$outside"
               kubectl -n "$outside" apply -f ../resources/sonarr-outside.yaml
               sleep 30
-              [ -z "$(kubectl -n "$NAMESPACE" get radarrconfig radarr -o jsonpath='{.status.conditions}')" ]
+              [ -z "$(kubectl -n "$NAMESPACE" get radarr radarr -o jsonpath='{.status.conditions}')" ]
               [ -z "$(kubectl -n "$outside" get sonarr outside -o jsonpath='{.status.conditions}')" ]
       cleanup:
         - script:

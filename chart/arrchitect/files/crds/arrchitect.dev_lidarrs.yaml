@@ -5,16 +5,16 @@ metadata:
   annotations:
     helm.sh/resource-policy: keep
     controller-gen.kubebuilder.io/version: v0.23.0
-  name: radarrconfigs.arrchitect.dev
+  name: lidarrs.arrchitect.dev
 spec:
   group: arrchitect.dev
   names:
     categories:
     - arrchitect
-    kind: RadarrConfig
-    listKind: RadarrConfigList
-    plural: radarrconfigs
-    singular: radarrconfig
+    kind: Lidarr
+    listKind: LidarrList
+    plural: lidarrs
+    singular: lidarr
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
@@ -33,7 +33,7 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: RadarrConfig is the Schema for the radarrconfigs API.
+        description: Lidarr configures a Lidarr instance the operator connects to.
         properties:
           apiVersion:
             description: |-
@@ -53,10 +53,12 @@ spec:
           metadata:
             type: object
           spec:
-            description: RadarrConfigSpec defines the desired state of RadarrConfig.
+            description: |-
+              LidarrSpec is a Lidarr instance's connection and app-wide settings. Indexers
+              and download clients are resources of their own that refer to it.
             properties:
               connection:
-                description: connection defines how to connect to the Radarr instance.
+                description: connection defines how to connect to the Lidarr instance.
                 properties:
                   apiKeySecretRef:
                     description: apiKeySecretRef references a Secret containing the
@@ -287,187 +289,11 @@ spec:
                     description: autoRedownloadFailed automatically searches when
                       a download fails.
                     type: boolean
-                  autoRedownloadFailedFromInteractiveSearch:
-                    description: autoRedownloadFailedFromInteractiveSearch auto-searches
-                      failed interactive searches.
-                    type: boolean
-                  checkForFinishedDownloadInterval:
-                    description: checkForFinishedDownloadInterval is the interval
-                      in minutes to check for finished downloads.
-                    type: integer
                   enableCompletedDownloadHandling:
                     description: enableCompletedDownloadHandling auto-imports completed
                       downloads.
                     type: boolean
                 type: object
-              downloadClients:
-                description: downloadClients defines download client connections.
-                items:
-                  description: DownloadClient defines a download client connection.
-                  properties:
-                    apiKeySecretRef:
-                      description: apiKeySecretRef references a Secret containing
-                        the API key (for Usenet clients like SABnzbd/NzbGet).
-                      properties:
-                        key:
-                          description: key is the key within the Secret.
-                          type: string
-                        name:
-                          description: name is the name of the Secret.
-                          type: string
-                      required:
-                      - key
-                      - name
-                      type: object
-                    category:
-                      description: category is the download category to use.
-                      type: string
-                    configContract:
-                      description: |-
-                        configContract overrides the default config contract name.
-                        Defaults to "<implementation>Settings" if not set.
-                      type: string
-                    enable:
-                      description: |-
-                        enable controls whether this download client is active. A new download
-                        client is enabled unless this is false.
-                      type: boolean
-                    fields:
-                      description: |-
-                        fields defines additional implementation-specific configuration fields.
-                        Use these for settings not covered by first-class fields (e.g., initialState, sequentialOrder).
-                      items:
-                        description: |-
-                          ConfigField is a named field of a provider's configuration. It sets value
-                          or valueFrom, not both.
-                        maxProperties: 2
-                        properties:
-                          name:
-                            description: name is the field name.
-                            type: string
-                          value:
-                            description: 'value is the field value: a string, number,
-                              boolean or list.'
-                            x-kubernetes-preserve-unknown-fields: true
-                          valueFrom:
-                            description: valueFrom reads the field value from a source.
-                            properties:
-                              secretKeyRef:
-                                description: secretKeyRef reads the value from a key
-                                  of a Secret in the resource's namespace.
-                                properties:
-                                  key:
-                                    description: key is the key within the Secret.
-                                    type: string
-                                  name:
-                                    description: name is the name of the Secret.
-                                    type: string
-                                required:
-                                - key
-                                - name
-                                type: object
-                            required:
-                            - secretKeyRef
-                            type: object
-                        required:
-                        - name
-                        type: object
-                      type: array
-                      x-kubernetes-list-map-keys:
-                      - name
-                      x-kubernetes-list-type: map
-                    host:
-                      description: host is the hostname or IP of the download client.
-                      type: string
-                    implementation:
-                      description: implementation is the download client type (e.g.,
-                        QBittorrent, Sabnzbd, NzbGet, Transmission, Deluge).
-                      type: string
-                    name:
-                      description: name is the display name of the download client.
-                      type: string
-                    passwordSecretRef:
-                      description: passwordSecretRef references a Secret containing
-                        the password for authentication.
-                      properties:
-                        key:
-                          description: key is the key within the Secret.
-                          type: string
-                        name:
-                          description: name is the name of the Secret.
-                          type: string
-                      required:
-                      - key
-                      - name
-                      type: object
-                    port:
-                      description: port is the port of the download client.
-                      type: integer
-                    priority:
-                      description: |-
-                        priority is the download client priority. Lower values are higher priority.
-                        A new download client gets 1.
-                      maximum: 50
-                      minimum: 1
-                      type: integer
-                    protocol:
-                      description: protocol is the download protocol.
-                      enum:
-                      - torrent
-                      - usenet
-                      type: string
-                    removeCompletedDownloads:
-                      description: |-
-                        removeCompletedDownloads controls whether completed downloads are removed.
-                        A new download client removes them unless this is false.
-                      type: boolean
-                    removeFailedDownloads:
-                      description: |-
-                        removeFailedDownloads controls whether failed downloads are removed. A new
-                        download client removes them unless this is false.
-                      type: boolean
-                    tagLabels:
-                      description: |-
-                        tagLabels references tags by label, resolved against the app on each
-                        reconciliation. A missing or ambiguous label blocks writes, and an empty
-                        list clears the tags.
-                      items:
-                        type: string
-                      type: array
-                      x-kubernetes-list-type: set
-                    urlBase:
-                      description: urlBase is the base URL path for the download client
-                        (e.g., "/qbittorrent").
-                      type: string
-                    useSsl:
-                      description: useSsl enables SSL/TLS for the download client
-                        connection.
-                      type: boolean
-                    usernameSecretRef:
-                      description: usernameSecretRef references a Secret containing
-                        the username for authentication.
-                      properties:
-                        key:
-                          description: key is the key within the Secret.
-                          type: string
-                        name:
-                          description: name is the name of the Secret.
-                          type: string
-                      required:
-                      - key
-                      - name
-                      type: object
-                  required:
-                  - host
-                  - implementation
-                  - name
-                  - port
-                  - protocol
-                  type: object
-                type: array
-                x-kubernetes-list-map-keys:
-                - name
-                x-kubernetes-list-type: map
               importLists:
                 description: importLists defines import list configurations for automatic
                   content addition.
@@ -599,169 +425,32 @@ spec:
               indexerConfig:
                 description: indexerConfig configures global indexer settings.
                 properties:
-                  allowHardcodedSubs:
-                    description: allowHardcodedSubs allows importing releases with
-                      hardcoded subtitles.
-                    type: boolean
-                  availabilityDelay:
-                    description: availabilityDelay is the number of days to wait after
-                      a movie is available before searching.
-                    type: integer
                   maximumSize:
-                    description: maximumSize is the maximum release size in MB. 0
-                      means unlimited.
+                    description: maximumSize is the maximum release size in MB.
                     type: integer
                   minimumAge:
                     description: minimumAge is the minimum age in minutes before downloading.
                     type: integer
-                  preferIndexerFlags:
-                    description: preferIndexerFlags prefers releases with indexer
-                      flags.
-                    type: boolean
                   retention:
-                    description: retention is the usenet retention in days. 0 means
-                      unlimited.
+                    description: retention is the usenet retention in days.
                     type: integer
                   rssSyncInterval:
                     description: rssSyncInterval is the RSS sync interval in minutes.
-                      0 disables RSS.
                     type: integer
-                  whitelistedHardcodedSubs:
-                    description: whitelistedHardcodedSubs is a comma-separated list
-                      of subtitle languages to allow when hardcoded.
-                    type: string
                 type: object
-              indexers:
-                description: indexers defines indexer connections.
-                items:
-                  description: Indexer defines an indexer in Sonarr, Radarr, Lidarr
-                    or Readarr.
-                  properties:
-                    configContract:
-                      description: |-
-                        configContract is the configuration contract name for the implementation.
-                        Defaults to "<implementation>Settings" if not set.
-                      type: string
-                    enable:
-                      description: |-
-                        enable controls whether this indexer is active. False turns off RSS,
-                        automatic and interactive search; true turns on those not set below.
-                      type: boolean
-                    enableAutomaticSearch:
-                      description: |-
-                        enableAutomaticSearch enables automatic search for this indexer. A new
-                        indexer searches unless this or enable is false.
-                      type: boolean
-                    enableInteractiveSearch:
-                      description: |-
-                        enableInteractiveSearch enables interactive (manual) search for this
-                        indexer. A new indexer allows it unless this or enable is false.
-                      type: boolean
-                    enableRss:
-                      description: |-
-                        enableRss enables RSS feed polling for this indexer. A new indexer
-                        polls unless this or enable is false.
-                      type: boolean
-                    fields:
-                      description: fields defines the indexer's configuration fields
-                        (e.g., baseUrl, apiKey, categories).
-                      items:
-                        description: |-
-                          ConfigField is a named field of a provider's configuration. It sets value
-                          or valueFrom, not both.
-                        maxProperties: 2
-                        properties:
-                          name:
-                            description: name is the field name.
-                            type: string
-                          value:
-                            description: 'value is the field value: a string, number,
-                              boolean or list.'
-                            x-kubernetes-preserve-unknown-fields: true
-                          valueFrom:
-                            description: valueFrom reads the field value from a source.
-                            properties:
-                              secretKeyRef:
-                                description: secretKeyRef reads the value from a key
-                                  of a Secret in the resource's namespace.
-                                properties:
-                                  key:
-                                    description: key is the key within the Secret.
-                                    type: string
-                                  name:
-                                    description: name is the name of the Secret.
-                                    type: string
-                                required:
-                                - key
-                                - name
-                                type: object
-                            required:
-                            - secretKeyRef
-                            type: object
-                        required:
-                        - name
-                        type: object
-                      type: array
-                      x-kubernetes-list-map-keys:
-                      - name
-                      x-kubernetes-list-type: map
-                    implementation:
-                      description: implementation is the indexer type (e.g., Newznab,
-                        Torznab).
-                      type: string
-                    name:
-                      description: name is the display name of the indexer.
-                      type: string
-                    priority:
-                      description: priority is the indexer priority. Lower values
-                        are higher priority.
-                      minimum: 1
-                      type: integer
-                    protocol:
-                      description: protocol is the indexer protocol.
-                      enum:
-                      - torrent
-                      - usenet
-                      type: string
-                    tagLabels:
-                      description: |-
-                        tagLabels references tags by label, resolved against the app on each
-                        reconciliation. A missing or ambiguous label blocks writes, and an empty
-                        list clears the tags.
-                      items:
-                        type: string
-                      type: array
-                      x-kubernetes-list-type: set
-                  required:
-                  - implementation
-                  - name
-                  - protocol
-                  type: object
-                type: array
-                x-kubernetes-list-map-keys:
-                - name
-                x-kubernetes-list-type: map
               mediaManagement:
                 description: mediaManagement configures media management settings.
                 properties:
-                  autoRenameFolders:
-                    description: autoRenameFolders automatically renames movie folders
-                      when the movie title changes.
-                    type: boolean
-                  autoUnmonitorPreviouslyDownloadedMovies:
-                    description: autoUnmonitorPreviouslyDownloadedMovies unmonitors
-                      movies that have been downloaded.
-                    type: boolean
                   copyUsingHardlinks:
                     description: copyUsingHardlinks uses hardlinks instead of copies
                       when importing.
                     type: boolean
-                  createEmptyMovieFolders:
-                    description: createEmptyMovieFolders creates folders for movies
+                  createEmptyArtistFolders:
+                    description: createEmptyArtistFolders creates folders for artists
                       with no files.
                     type: boolean
                   deleteEmptyFolders:
-                    description: deleteEmptyFolders removes empty movie folders after
+                    description: deleteEmptyFolders removes empty artist folders after
                       cleanup.
                     type: boolean
                   downloadPropersAndRepacks:
@@ -772,25 +461,18 @@ spec:
                     - doNotPrefer
                     - doNotUpgrade
                     type: string
-                  enableMediaInfo:
-                    description: enableMediaInfo enables media info scanning.
-                    type: boolean
                   extraFileExtensions:
                     description: extraFileExtensions is a comma-separated list of
                       extra file extensions to import.
                     type: string
                   importExtraFiles:
-                    description: importExtraFiles imports additional files (subtitles,
-                      etc.) alongside media.
+                    description: importExtraFiles imports additional files alongside
+                      media.
                     type: boolean
                   minimumFreeSpaceWhenImporting:
                     description: minimumFreeSpaceWhenImporting is the minimum free
-                      space in MB required to import.
+                      space in MB required.
                     type: integer
-                  pathsDefaultStatic:
-                    description: pathsDefaultStatic prevents Radarr from updating
-                      paths when the root folder changes.
-                    type: boolean
                   recycleBin:
                     description: |-
                       recycleBin is the path to the recycling bin folder. An empty string
@@ -801,7 +483,7 @@ spec:
                       in the recycling bin.
                     type: integer
                   rescanAfterRefresh:
-                    description: rescanAfterRefresh controls when to rescan movie
+                    description: rescanAfterRefresh controls when to rescan artist
                       folders.
                     enum:
                     - always
@@ -812,37 +494,28 @@ spec:
                     description: setPermissionsLinux enables setting file permissions
                       on import.
                     type: boolean
-                  skipFreeSpaceCheckWhenImporting:
-                    description: skipFreeSpaceCheckWhenImporting skips free space
-                      check during import.
-                    type: boolean
                 type: object
               naming:
-                description: naming configures movie and folder naming formats.
+                description: naming configures artist and track naming formats.
                 properties:
-                  colonReplacementFormat:
-                    description: colonReplacementFormat defines how colons are replaced
-                      in filenames.
-                    enum:
-                    - delete
-                    - dash
-                    - spaceDash
-                    - spaceDashSpace
-                    - smart
-                    type: string
-                  movieFolderFormat:
-                    description: movieFolderFormat is the naming format for movie
+                  artistFolderFormat:
+                    description: artistFolderFormat is the naming format for artist
                       folders.
                     type: string
-                  renameMovies:
-                    description: renameMovies enables automatic movie file renaming.
+                  multiDiscTrackFormat:
+                    description: multiDiscTrackFormat is the naming format for multi-disc
+                      tracks.
+                    type: string
+                  renameTracks:
+                    description: renameTracks enables automatic track file renaming.
                     type: boolean
                   replaceIllegalCharacters:
                     description: replaceIllegalCharacters replaces illegal characters
                       in filenames.
                     type: boolean
-                  standardMovieFormat:
-                    description: standardMovieFormat is the naming format for movies.
+                  standardTrackFormat:
+                    description: standardTrackFormat is the naming format for standard
+                      tracks.
                     type: string
                 type: object
               notifications:
@@ -1292,7 +965,7 @@ spec:
                 - remotePath
                 x-kubernetes-list-type: map
               rootFolders:
-                description: rootFolders defines media library root folder paths.
+                description: rootFolders defines music library root folder paths.
                 items:
                   description: RootFolder defines a media root folder path.
                   properties:
@@ -1324,6 +997,10 @@ spec:
                 x-kubernetes-list-map-keys:
                 - path
                 x-kubernetes-list-type: map
+                x-kubernetes-validations:
+                - message: Lidarr root folders need defaultQualityProfileName and
+                    defaultMetadataProfileName
+                  rule: self.all(f, has(f.defaultQualityProfileName) && has(f.defaultMetadataProfileName))
               tags:
                 description: tags defines tags for linking resources together.
                 items:
@@ -1344,36 +1021,16 @@ spec:
               ui:
                 description: ui configures UI display settings.
                 properties:
-                  enableColorImpairedMode:
-                    description: enableColorImpairedMode enables color-impaired accessibility
-                      mode.
-                    type: boolean
                   firstDayOfWeek:
                     description: firstDayOfWeek is the first day of the week. 0=Sunday,
                       1=Monday.
-                    maximum: 1
-                    minimum: 0
                     type: integer
                   longDateFormat:
                     description: longDateFormat is the long date display format.
                     type: string
-                  movieInfoLanguage:
-                    description: movieInfoLanguage is the language ID for movie information.
-                      -1=Original.
-                    type: integer
-                  movieRuntimeFormat:
-                    description: movieRuntimeFormat controls how movie runtimes are
-                      displayed.
-                    enum:
-                    - hoursMinutes
-                    - minutes
-                    type: string
                   shortDateFormat:
                     description: shortDateFormat is the short date display format.
                     type: string
-                  showRelativeDates:
-                    description: showRelativeDates shows relative dates (today, yesterday).
-                    type: boolean
                   theme:
                     description: theme is the UI theme.
                     enum:
@@ -1385,18 +1042,16 @@ spec:
                     description: timeFormat is the time display format.
                     type: string
                   uiLanguage:
-                    description: uiLanguage is the UI language ID. 1=English.
+                    description: uiLanguage is the UI language ID.
                     type: integer
                 type: object
             required:
             - connection
             type: object
           status:
-            description: RadarrConfigStatus defines the observed state of RadarrConfig.
+            description: LidarrStatus defines the observed state of Lidarr.
             properties:
               conditions:
-                description: conditions represent the current state of the RadarrConfig
-                  resource.
                 items:
                   description: Condition contains details for one aspect of the current
                     state of this API Resource.
@@ -1456,8 +1111,6 @@ spec:
                 - type
                 x-kubernetes-list-type: map
               lastSyncTime:
-                description: lastSyncTime is the timestamp of the last successful
-                  reconciliation.
                 format: date-time
                 type: string
               managedResources:
@@ -1471,7 +1124,6 @@ spec:
                   created outside the operator are never deleted.
                 type: object
               observedGeneration:
-                description: observedGeneration is the most recent generation observed.
                 format: int64
                 type: integer
             type: object

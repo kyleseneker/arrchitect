@@ -37,9 +37,15 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&Sonarr{}, &SonarrList{},
 		&SonarrIndexer{}, &SonarrIndexerList{},
 		&SonarrDownloadClient{}, &SonarrDownloadClientList{},
-		&RadarrConfig{}, &RadarrConfigList{},
-		&LidarrConfig{}, &LidarrConfigList{},
-		&ReadarrConfig{}, &ReadarrConfigList{},
+		&Radarr{}, &RadarrList{},
+		&RadarrIndexer{}, &RadarrIndexerList{},
+		&RadarrDownloadClient{}, &RadarrDownloadClientList{},
+		&Lidarr{}, &LidarrList{},
+		&LidarrIndexer{}, &LidarrIndexerList{},
+		&LidarrDownloadClient{}, &LidarrDownloadClientList{},
+		&Readarr{}, &ReadarrList{},
+		&ReadarrIndexer{}, &ReadarrIndexerList{},
+		&ReadarrDownloadClient{}, &ReadarrDownloadClientList{},
 	)
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
 	return nil
