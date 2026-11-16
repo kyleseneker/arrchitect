@@ -36,7 +36,7 @@ rules:
   - readarrconfigs
   - sabnzbdconfigs
   - seerrconfigs
-  - sonarrconfigs
+  - sonarrs
   - tdarrconfigs
   verbs:
   - create
@@ -62,7 +62,9 @@ rules:
   - readarrconfigs/finalizers
   - sabnzbdconfigs/finalizers
   - seerrconfigs/finalizers
-  - sonarrconfigs/finalizers
+  - sonarrdownloadclients/finalizers
+  - sonarrindexers/finalizers
+  - sonarrs/finalizers
   - tdarrconfigs/finalizers
   verbs:
   - update
@@ -82,9 +84,22 @@ rules:
   - readarrconfigs/status
   - sabnzbdconfigs/status
   - seerrconfigs/status
-  - sonarrconfigs/status
+  - sonarrdownloadclients/status
+  - sonarrindexers/status
+  - sonarrs/status
   - tdarrconfigs/status
   verbs:
   - get
   - patch
   - update
+- apiGroups:
+  - arrchitect.dev
+  resources:
+  - sonarrdownloadclients
+  - sonarrindexers
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+  - watch

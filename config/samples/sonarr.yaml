@@ -1,5 +1,5 @@
 apiVersion: arrchitect.dev/v1alpha1
-kind: SonarrConfig
+kind: Sonarr
 metadata:
   name: sonarr
 spec:
@@ -47,19 +47,6 @@ spec:
     uiLanguage: 1
   rootFolders:
     - path: /data/media/tv
-  downloadClients:
-    - name: qBittorrent
-      protocol: torrent
-      implementation: QBittorrent
-      host: arr-vpn-downloads.arr.svc.cluster.local
-      port: 8080
-      category: tv
-      usernameSecretRef:
-        name: arr-config-secrets
-        key: QBITTORRENT_USERNAME
-      passwordSecretRef:
-        name: arr-config-secrets
-        key: QBITTORRENT_PASSWORD
   customFormats:
     - name: x265 (HD)
       includeCustomFormatWhenRenaming: false
@@ -147,22 +134,6 @@ spec:
       minSize: 15
       maxSize: 0
       preferredSize: 0
-  indexers:
-    - name: NZBgeek
-      protocol: usenet
-      implementation: Newznab
-      enableRss: true
-      enableAutomaticSearch: true
-      enableInteractiveSearch: true
-      fields:
-        - name: baseUrl
-          value: "https://api.nzbgeek.info"
-        - name: apiPath
-          value: "/api"
-        - name: apiKey
-          value: "your-api-key"
-        - name: categories
-          value: "5000,5040,5045"
   notifications:
     - name: Discord
       implementation: Discord

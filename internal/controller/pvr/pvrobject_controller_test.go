@@ -1,0 +1,276 @@
+package pvr
+
+import (
+	"context"
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	apimeta "k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/tools/events"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
+	pvrv1alpha1 "github.com/kyleseneker/arrchitect/api/pvr/v1alpha1"
+	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
+	"github.com/kyleseneker/arrchitect/internal/engine"
+)
+
+func objectClient(t *testing.T, objs ...client.Object) client.Client {
+	t.Helper()
+	scheme := runtime.NewScheme()
+	require.NoError(t, clientgoscheme.AddToScheme(scheme))
+	require.NoError(t, pvrv1alpha1.AddToScheme(scheme))
+	return fake.NewClientBuilder().WithScheme(scheme).
+		WithStatusSubresource(&pvrv1alpha1.Sonarr{}, &pvrv1alpha1.SonarrIndexer{}, &pvrv1alpha1.SonarrDownloadClient{}).
+		WithIndex(&pvrv1alpha1.SonarrIndexer{}, instanceRefIndex, func(o client.Object) []string {
+			return []string{o.(*pvrv1alpha1.SonarrIndexer).Spec.SonarrRef.Name}
+		}).
+		WithIndex(&pvrv1alpha1.SonarrDownloadClient{}, instanceRefIndex, func(o client.Object) []string {
+			return []string{o.(*pvrv1alpha1.SonarrDownloadClient).Spec.SonarrRef.Name}
+		}).
+		WithObjects(objs...).
+		Build()
+}
+
+func sonarrInstanceAt(url string, rec *commonv1alpha1.ReconcileConfig) *pvrv1alpha1.Sonarr {
+	return &pvrv1alpha1.Sonarr{
+		Name: "tv", Namespace: "media",
+		Spec: pvrv1alpha1.SonarrSpec{
+			Connection: commonv1alpha1.AppConnection{
+				URL:             url,
+				APIKeySecretRef: commonv1alpha1.SecretKeyRef{Name: "app-credentials", Key: "api-key"},
+			},
+			Reconcile: rec,
+		},
+	}
+}
+
+func sonarrDownloadClient() *pvrv1alpha1.SonarrDownloadClient {
+	return &pvrv1alpha1.SonarrDownloadClient{
+		Name: "tv-qbittorrent", Namespace: "media",
+		Spec: pvrv1alpha1.SonarrDownloadClientSpec{
+			SonarrRef:      commonv1alpha1.LocalObjectReference{Name: "tv"},
+			DeletionPolicy: ctrlcommon.DeletionPolicyDelete,
+			DownloadClient: commonv1alpha1.DownloadClient{
+				Name: "qBittorrent", Protocol: "torrent", Implementation: "QBittorrent",
+				Host: "qbittorrent", Port: 8080, Category: "tv",
+			},
+		},
+	}
+}
+
+// reconcileDownloadClient reconciles the download client once and returns it
+// as stored afterwards, or nil once it is gone.
+func reconcileDownloadClient(t *testing.T, objs ...client.Object) *pvrv1alpha1.SonarrDownloadClient {
+	t.Helper()
+	c := objectClient(t, objs...)
+	r := &SonarrDownloadClientReconciler{Client: c, Scheme: c.Scheme(), Recorder: events.NewFakeRecorder(50)}
+	key := types.NamespacedName{Name: "tv-qbittorrent", Namespace: "media"}
+	_, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: key})
+	require.NoError(t, err)
+	var got pvrv1alpha1.SonarrDownloadClient
+	err = c.Get(context.Background(), key, &got)
+	if apierrors.IsNotFound(err) {
+		return nil
+	}
+	require.NoError(t, err)
+	return &got
+}
+
+func synced(t *testing.T, conditions []metav1.Condition) metav1.Condition {
+	t.Helper()
+	cond := apimeta.FindStatusCondition(conditions, engine.ConditionSynced)
+	require.NotNil(t, cond)
+	return *cond
+}
+
+func TestObjectCreatesItsItemAndOwnsIt(t *testing.T) {
+	fa, url := newFakeArr(t, "v3", nil)
+	got := reconcileDownloadClient(t, apiKeySecret(), sonarrInstanceAt(url, nil), sonarrDownloadClient())
+
+	assert.True(t, fa.saw("POST", fa.path("downloadclient")))
+	assert.Equal(t, []string{"qBittorrent"}, got.Status.ManagedResources["downloadClients"])
+	assert.Equal(t, metav1.ConditionTrue, synced(t, got.Status.Conditions).Status)
+	assert.Contains(t, got.Finalizers, ctrlcommon.Finalizer)
+}
+
+func TestObjectAdoptsAnExistingItemWithoutOwningIt(t *testing.T) {
+	fa, url := newFakeArr(t, "v3", map[string][]map[string]any{
+		"downloadclient": {{"id": float64(7), "name": "qBittorrent"}},
+	})
+	got := reconcileDownloadClient(t, apiKeySecret(), sonarrInstanceAt(url, nil), sonarrDownloadClient())
+
+	assert.False(t, fa.saw("POST", fa.path("downloadclient")))
+	assert.True(t, fa.sawPrefix("PUT", fa.path("downloadclient/7")))
+	assert.Equal(t, 7, got.Status.ID)
+	assert.Empty(t, got.Status.ManagedResources["downloadClients"], "an adopted item must never be deleted with the object")
+}
+
+func TestObjectWaitsForItsInstance(t *testing.T) {
+	got := reconcileDownloadClient(t, apiKeySecret(), sonarrDownloadClient())
+	cond := synced(t, got.Status.Conditions)
+	assert.Equal(t, metav1.ConditionFalse, cond.Status)
+	assert.Equal(t, engine.ReasonReferenceNotFound, cond.Reason)
+	assert.Equal(t, `Sonarr "tv" not found`, cond.Message)
+}
+
+func TestObjectWithAMissingSecretWritesNothing(t *testing.T) {
+	fa, url := newFakeArr(t, "v3", nil)
+	dc := sonarrDownloadClient()
+	dc.Spec.PasswordSecretRef = &commonv1alpha1.SecretKeyRef{Name: "missing", Key: "password"}
+	got := reconcileDownloadClient(t, apiKeySecret(), sonarrInstanceAt(url, nil), dc)
+
+	assert.False(t, fa.sawPrefix("POST", "/api/"))
+	assert.Equal(t, engine.ReasonSecretNotFound, synced(t, got.Status.Conditions).Reason)
+}
+
+func TestObjectFollowsItsInstancesObservePolicy(t *testing.T) {
+	fa, url := newFakeArr(t, "v3", nil)
+	observe := "observe"
+	got := reconcileDownloadClient(t, apiKeySecret(),
+		sonarrInstanceAt(url, &commonv1alpha1.ReconcileConfig{DriftPolicy: &observe}), sonarrDownloadClient())
+
+	assert.False(t, fa.sawPrefix("POST", "/api/"))
+	assert.Equal(t, "DriftDetected", synced(t, got.Status.Conditions).Reason)
+}
+
+// The object owns the one item it names, so a rename replaces the item even
+// when the instance leaves prune off.
+func TestObjectRenameReplacesItsOldItem(t *testing.T) {
+	fa, url := newFakeArr(t, "v3", map[string][]map[string]any{
+		"downloadclient": {{"id": float64(7), "name": "qBit"}},
+	})
+	dc := sonarrDownloadClient()
+	dc.Status.ManagedResources = map[string][]string{"downloadClients": {"qBit"}}
+	got := reconcileDownloadClient(t, apiKeySecret(), sonarrInstanceAt(url, nil), dc)
+
+	assert.True(t, fa.saw("POST", fa.path("downloadclient")))
+	assert.True(t, fa.saw("DELETE", fa.path("downloadclient/7")))
+	assert.Equal(t, []string{"qBittorrent"}, got.Status.ManagedResources["downloadClients"])
+}
+
+func TestObjectDeletion(t *testing.T) {
+	for name, tc := range map[string]struct {
+		policy  string
+		managed []string
+		deletes bool
+	}{
+		"deletes the item it created":             {policy: ctrlcommon.DeletionPolicyDelete, managed: []string{"qBittorrent"}, deletes: true},
+		"leaves an item it adopted":               {policy: ctrlcommon.DeletionPolicyDelete},
+		"leaves the item under the orphan policy": {policy: "orphan", managed: []string{"qBittorrent"}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			fa, url := newFakeArr(t, "v3", map[string][]map[string]any{
+				"downloadclient": {{"id": float64(7), "name": "qBittorrent"}},
+			})
+			dc := sonarrDownloadClient()
+			dc.Spec.DeletionPolicy = tc.policy
+			dc.Status.ManagedResources = map[string][]string{"downloadClients": tc.managed}
+			dc.Finalizers = []string{ctrlcommon.Finalizer}
+			now := metav1.Now()
+			dc.DeletionTimestamp = &now
+			got := reconcileDownloadClient(t, apiKeySecret(), sonarrInstanceAt(url, nil), dc)
+
+			assert.Equal(t, tc.deletes, fa.saw("DELETE", fa.path("downloadclient/7")))
+			assert.Nil(t, got, "the finalizer was not released")
+		})
+	}
+}
+
+func TestObjectDeletionWithoutItsInstanceReleasesTheFinalizer(t *testing.T) {
+	dc := sonarrDownloadClient()
+	dc.Status.ManagedResources = map[string][]string{"downloadClients": {"qBittorrent"}}
+	dc.Finalizers = []string{ctrlcommon.Finalizer}
+	now := metav1.Now()
+	dc.DeletionTimestamp = &now
+	got := reconcileDownloadClient(t, apiKeySecret(), dc)
+	assert.Nil(t, got)
+}
+
+func TestIndexerObjectReadsItsFieldsFromSecrets(t *testing.T) {
+	fa, url := newFakeArr(t, "v3", nil)
+	secret := &corev1.Secret{
+		Name: "indexer", Namespace: "media",
+		Data: map[string][]byte{"api-key": []byte("k")},
+	}
+	idx := &pvrv1alpha1.SonarrIndexer{
+		Name: "tv-nzbgeek", Namespace: "media",
+		Spec: pvrv1alpha1.SonarrIndexerSpec{
+			SonarrRef:      commonv1alpha1.LocalObjectReference{Name: "tv"},
+			DeletionPolicy: ctrlcommon.DeletionPolicyDelete,
+			Indexer: commonv1alpha1.Indexer{
+				Name: "NZBgeek", Protocol: "usenet", Implementation: "Newznab",
+				Fields: []commonv1alpha1.ConfigField{{Name: "apiKey", ValueFrom: &commonv1alpha1.ValueSource{
+					SecretKeyRef: commonv1alpha1.SecretKeyRef{Name: "indexer", Key: "api-key"},
+				}}},
+			},
+		},
+	}
+	c := objectClient(t, apiKeySecret(), secret, sonarrInstanceAt(url, nil), idx)
+	r := &SonarrIndexerReconciler{Client: c, Scheme: c.Scheme(), Recorder: events.NewFakeRecorder(50)}
+	_, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: client.ObjectKeyFromObject(idx)})
+	require.NoError(t, err)
+
+	assert.True(t, fa.saw("POST", fa.path("indexer")))
+	require.NoError(t, c.Get(context.Background(), client.ObjectKeyFromObject(idx), idx))
+	assert.Equal(t, []string{"NZBgeek"}, idx.Status.ManagedResources["indexers"])
+}
+
+func TestInstanceChangeRequeuesOnlyItsObjects(t *testing.T) {
+	named := func(namespace, name, instance string) *pvrv1alpha1.SonarrDownloadClient {
+		dc := sonarrDownloadClient()
+		dc.Namespace, dc.Name, dc.Spec.SonarrRef.Name = namespace, name, instance
+		return dc
+	}
+	c := objectClient(t,
+		named("media", "tv-qbittorrent", "tv"),
+		named("media", "anime-qbittorrent", "anime"),
+		named("other", "tv-qbittorrent", "tv"),
+	)
+	reqs := objectsOf(c, &pvrv1alpha1.SonarrDownloadClientList{})(context.Background(), sonarrInstanceAt("", nil))
+	assert.Equal(t, []reconcile.Request{{Namespace: "media", Name: "tv-qbittorrent"}}, reqs)
+}
+
+func TestObjectLeavesAnItemAnOlderObjectConfigures(t *testing.T) {
+	fa, url := newFakeArr(t, "v3", nil)
+	older := sonarrDownloadClient()
+	older.Name = "tv-qbit"
+	older.CreationTimestamp = metav1.NewTime(time.Now().Add(-time.Hour))
+	younger := sonarrDownloadClient()
+	younger.CreationTimestamp = metav1.Now()
+	got := reconcileDownloadClient(t, apiKeySecret(), sonarrInstanceAt(url, nil), older, younger)
+
+	assert.False(t, fa.sawPrefix("POST", "/api/"))
+	cond := synced(t, got.Status.Conditions)
+	assert.Equal(t, engine.ReasonNameConflict, cond.Reason)
+	assert.Equal(t, `"tv-qbit" already configures "qBittorrent" in Sonarr "tv"`, cond.Message)
+}
+
+func TestInstanceChangedPassesSpecChangesAndSyncing(t *testing.T) {
+	at := func(generation int64, synced metav1.ConditionStatus) *pvrv1alpha1.Sonarr {
+		s := sonarrInstanceAt("", nil)
+		s.Generation = generation
+		if synced != "" {
+			s.Status.Conditions = []metav1.Condition{{Type: engine.ConditionSynced, Status: synced}}
+		}
+		return s
+	}
+	p := instanceChanged()
+	assert.True(t, p.Update(event.UpdateEvent{ObjectOld: at(1, ""), ObjectNew: at(2, "")}), "a spec change")
+	assert.True(t, p.Update(event.UpdateEvent{ObjectOld: at(1, ""), ObjectNew: at(1, metav1.ConditionTrue)}), "a first sync")
+	assert.True(t, p.Update(event.UpdateEvent{ObjectOld: at(1, metav1.ConditionFalse), ObjectNew: at(1, metav1.ConditionTrue)}))
+	assert.False(t, p.Update(event.UpdateEvent{ObjectOld: at(1, metav1.ConditionTrue), ObjectNew: at(1, metav1.ConditionTrue)}),
+		"a routine status write")
+}

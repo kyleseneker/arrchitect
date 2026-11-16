@@ -1,5 +1,5 @@
 {{- if .Values.crds.enabled }}
-{{- range $app := splitList "," (include "arrchitect.enabledApps" .) }}
-{{ $.Files.Get (printf "files/crds/arrchitect.dev_%sconfigs.yaml" $app) }}
+{{- range $resource := splitList "," (include "arrchitect.resources" .) }}
+{{ $.Files.Get (printf "files/crds/arrchitect.dev_%s.yaml" $resource) }}
 {{- end }}
 {{- end }}

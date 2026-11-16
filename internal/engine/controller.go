@@ -11,4 +11,6 @@ const (
 	ReasonAppUnreachable     = "AppUnreachable"
 	ReasonSecretNotFound     = "SecretNotFound"
 	ReasonInvalidConfig      = "InvalidConfig"
+	ReasonReferenceNotFound  = "ReferenceNotFound"
+	ReasonNameConflict       = "NameConflict"
 )

@@ -53,7 +53,11 @@ func main() {
 		automationv1alpha1.AddToScheme,
 	},
 		operator.Controller{Name: "sonarr", New: func(d operator.Deps) operator.Reconciler {
-			return &pvr.SonarrConfigReconciler{Client: d.Client, Scheme: d.Scheme, Recorder: d.Recorder}
+			return operator.Reconcilers{
+				&pvr.SonarrReconciler{Client: d.Client, Scheme: d.Scheme, Recorder: d.Recorder},
+				&pvr.SonarrIndexerReconciler{Client: d.Client, Scheme: d.Scheme, Recorder: d.Recorder},
+				&pvr.SonarrDownloadClientReconciler{Client: d.Client, Scheme: d.Scheme, Recorder: d.Recorder},
+			}
 		}},
 		operator.Controller{Name: "radarr", New: func(d operator.Deps) operator.Reconciler {
 			return &pvr.RadarrConfigReconciler{Client: d.Client, Scheme: d.Scheme, Recorder: d.Recorder}

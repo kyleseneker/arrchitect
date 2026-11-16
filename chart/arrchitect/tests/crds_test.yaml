@@ -2,10 +2,10 @@ suite: CRDs
 templates:
   - templates/crds.yaml
 tests:
-  - it: installs one CRD per app, kept on uninstall
+  - it: installs every app's CRDs, kept on uninstall
     asserts:
       - hasDocuments:
-          count: 15
+          count: 17
       - equal:
           path: metadata.annotations["helm.sh/resource-policy"]
           value: keep
@@ -14,10 +14,34 @@ tests:
       apps.tdarr: false
     asserts:
       - hasDocuments:
-          count: 14
+          count: 16
       - notEqual:
           path: metadata.name
           value: tdarrconfigs.arrchitect.dev
+  - it: installs an app's object kinds with its instance kind
+    set:
+      apps:
+        sonarr: true
+        radarr: false
+        lidarr: false
+        readarr: false
+        prowlarr: false
+        flaresolverr: false
+        bazarr: false
+        qbittorrent: false
+        sabnzbd: false
+        jellyfin: false
+        plex: false
+        seerr: false
+        maintainerr: false
+        tdarr: false
+        autobrr: false
+    asserts:
+      - hasDocuments:
+          count: 3
+      - matchRegex:
+          path: metadata.name
+          pattern: ^sonarr(s|indexers|downloadclients)\.arrchitect\.dev$
   - it: installs none with crds.enabled false
     set:
       crds.enabled: false

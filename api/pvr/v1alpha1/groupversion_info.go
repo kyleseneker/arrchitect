@@ -34,7 +34,9 @@ var (
 
 func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(SchemeGroupVersion,
-		&SonarrConfig{}, &SonarrConfigList{},
+		&Sonarr{}, &SonarrList{},
+		&SonarrIndexer{}, &SonarrIndexerList{},
+		&SonarrDownloadClient{}, &SonarrDownloadClientList{},
 		&RadarrConfig{}, &RadarrConfigList{},
 		&LidarrConfig{}, &LidarrConfigList{},
 		&ReadarrConfig{}, &ReadarrConfigList{},

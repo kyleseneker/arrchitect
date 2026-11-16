@@ -1,0 +1,25 @@
+apiVersion: arrchitect.dev/v1alpha1
+kind: SonarrIndexer
+metadata:
+  name: sonarr-nzbgeek
+spec:
+  sonarrRef:
+    name: sonarr
+  name: NZBgeek
+  protocol: usenet
+  implementation: Newznab
+  enableRss: true
+  enableAutomaticSearch: true
+  enableInteractiveSearch: true
+  fields:
+    - name: baseUrl
+      value: "https://api.nzbgeek.info"
+    - name: apiPath
+      value: "/api"
+    - name: apiKey
+      valueFrom:
+        secretKeyRef:
+          name: arr-config-secrets
+          key: NZBGEEK_API_KEY
+    - name: categories
+      value: "5000,5040,5045"

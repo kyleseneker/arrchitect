@@ -126,33 +126,57 @@ func TestAdmissionRules(t *testing.T) {
 		name, kind, spec string
 		rejected         string
 	}{
-		{name: "one delay profile without tags", kind: "SonarrConfig", spec: conn + `
+		{name: "one delay profile without tags", kind: "Sonarr", spec: conn + `
   delayProfiles: [{tagLabels: [anime]}, {usenetDelay: 30}]`},
-		{name: "two delay profiles without tags", kind: "SonarrConfig", spec: conn + `
+		{name: "two delay profiles without tags", kind: "Sonarr", spec: conn + `
   delayProfiles: [{usenetDelay: 30}, {tagLabels: []}]`,
 			rejected: "only one delay profile can be without tags"},
-		{name: "duplicate download client names", kind: "SonarrConfig", spec: conn + `
+		{name: "duplicate download client names", kind: "RadarrConfig", spec: conn + `
   downloadClients: [{name: qBit, protocol: torrent, implementation: QBittorrent, host: a, port: 1},
     {name: qBit, protocol: torrent, implementation: QBittorrent, host: b, port: 2}]`,
 			rejected: "Duplicate value"},
-		{name: "duplicate field names", kind: "SonarrConfig", spec: conn + `
-  indexers: [{name: x, protocol: torrent, implementation: Torznab,
-    fields: [{name: baseUrl, value: a}, {name: baseUrl, value: b}]}]`,
+		{name: "duplicate field names", kind: "SonarrIndexer", spec: `
+  sonarrRef: {name: tv}
+  name: x
+  protocol: torrent
+  implementation: Torznab
+  fields: [{name: baseUrl, value: a}, {name: baseUrl, value: b}]`,
 			rejected: "Duplicate value"},
-		{name: "duplicate tag labels", kind: "SonarrConfig", spec: conn + `
-  indexers: [{name: x, protocol: torrent, implementation: Torznab, tagLabels: [anime, anime]}]`,
+		{name: "duplicate tag labels", kind: "SonarrIndexer", spec: `
+  sonarrRef: {name: tv}
+  name: x
+  protocol: torrent
+  implementation: Torznab
+  tagLabels: [anime, anime]`,
 			rejected: "Duplicate value"},
-		{name: "a field with both value and valueFrom", kind: "SonarrConfig", spec: conn + `
-  indexers: [{name: x, protocol: torrent, implementation: Torznab,
-    fields: [{name: apiKey, value: a, valueFrom: {secretKeyRef: {name: s, key: k}}}]}]`,
+		{name: "a field with both value and valueFrom", kind: "SonarrIndexer", spec: `
+  sonarrRef: {name: tv}
+  name: x
+  protocol: torrent
+  implementation: Torznab
+  fields: [{name: apiKey, value: a, valueFrom: {secretKeyRef: {name: s, key: k}}}]`,
 			rejected: "must have at most 2 items"},
-		{name: "an interval under 30s", kind: "SonarrConfig", spec: conn + `
+		{name: "an indexer that names no Sonarr", kind: "SonarrIndexer", spec: `
+  name: x
+  protocol: torrent
+  implementation: Torznab`,
+			rejected: "sonarrRef: Required value"},
+		{name: "an unknown deletion policy", kind: "SonarrDownloadClient", spec: `
+  sonarrRef: {name: tv}
+  deletionPolicy: keep
+  name: x
+  protocol: torrent
+  implementation: QBittorrent
+  host: qbittorrent
+  port: 8080`,
+			rejected: "Unsupported value"},
+		{name: "an interval under 30s", kind: "Sonarr", spec: conn + `
   reconcile: {interval: 10s}`,
 			rejected: "interval must be at least 30s"},
-		{name: "delete in observe mode", kind: "SonarrConfig", spec: conn + `
+		{name: "delete in observe mode", kind: "Sonarr", spec: conn + `
   reconcile: {deletionPolicy: delete, driftPolicy: observe}`,
 			rejected: "deletionPolicy delete conflicts with driftPolicy observe"},
-		{name: "a URL without a scheme", kind: "SonarrConfig", spec: `
+		{name: "a URL without a scheme", kind: "Sonarr", spec: `
   connection:
     url: sonarr:8989
     apiKeySecretRef: {name: app, key: api-key}`,
@@ -205,4 +229,26 @@ spec:%s`, tt.kind, i, tt.spec)), &obj.Object))
 			assert.Contains(t, err.Error(), tt.rejected)
 		})
 	}
+}
+
+// An object deletes what it created along with itself unless told otherwise,
+// as a Kubernetes object owning an external one does.
+func TestObjectKindsDefaultToDeletingWhatTheyCreated(t *testing.T) {
+	c := startAPIServerWith(t)
+	obj := &unstructured.Unstructured{}
+	require.NoError(t, yaml.Unmarshal([]byte(`
+apiVersion: arrchitect.dev/v1alpha1
+kind: SonarrIndexer
+metadata:
+  name: defaulted
+  namespace: default
+spec:
+  sonarrRef: {name: tv}
+  name: x
+  protocol: torrent
+  implementation: Torznab`), &obj.Object))
+	require.NoError(t, c.Create(context.Background(), obj))
+	policy, _, err := unstructured.NestedString(obj.Object, "spec", "deletionPolicy")
+	require.NoError(t, err)
+	assert.Equal(t, "delete", policy)
 }

@@ -75,7 +75,13 @@ func UpdateObservationStatus(ctx context.Context, c client.Client, obj ConfigRes
 // UpdateResultStatus reports an engine reconcile: what was applied or, under
 // the observe policy, whether anything differs.
 func UpdateResultStatus(ctx context.Context, c client.Client, obj ConfigResource, result engine.ReconcileResult) {
-	if ObserveOnly(obj.GetReconcileConfig()) {
+	ReportResult(ctx, c, obj, ObserveOnly(obj.GetReconcileConfig()), result)
+}
+
+// ReportResult is UpdateResultStatus for an object whose drift policy is set
+// somewhere other than on the object itself.
+func ReportResult(ctx context.Context, c client.Client, obj ConfigResource, observe bool, result engine.ReconcileResult) {
+	if observe {
 		UpdateObservationStatus(ctx, c, obj, result.Drift, syncError(result.Errors))
 		return
 	}

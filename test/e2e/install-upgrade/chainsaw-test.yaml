@@ -4,9 +4,9 @@ metadata:
   name: install-upgrade
 spec:
   description: >-
-    Installs the last release when there is one and upgrades to the local chart while a
-    SonarrConfig keeps reconciling against a real Sonarr. Then checks every controller, the
-    chart's CRDs and its roles, and that uninstalling keeps the CRDs and resources.
+    Installs the last release when there is one and upgrades to the local chart while a Sonarr
+    keeps reconciling against a real Sonarr. Then checks every controller, the chart's CRDs and
+    its roles, and that uninstalling keeps the CRDs and resources.
   steps:
     - name: start Sonarr
       try:
@@ -21,29 +21,34 @@ spec:
               if [ -z "$PREVIOUS_RELEASE" ]; then echo "no earlier release to upgrade from"; exit 0; fi
               helm install arrchitect oci://ghcr.io/kyleseneker/charts/arrchitect --version "${PREVIOUS_RELEASE#v}" \
                 --namespace arrchitect --create-namespace --wait --timeout 5m
-        - apply:
-            file: ../resources/sonarrconfig.yaml
         - script:
             content: |
               if [ -z "$PREVIOUS_RELEASE" ]; then exit 0; fi
-              kubectl -n "$NAMESPACE" wait sonarrconfig/sonarr --for=condition=Synced --timeout=3m
+              if ! kubectl get crd sonarrs.arrchitect.dev >/dev/null 2>&1; then
+                echo "$PREVIOUS_RELEASE has no Sonarr kind, so no resource carries over the upgrade"; exit 0
+              fi
+              sed "s#url: .*#url: http://sonarr.$NAMESPACE.svc.cluster.local:8989#" ../resources/arrchitect-sonarr.yaml |
+                kubectl -n "$NAMESPACE" apply -f -
+              kubectl -n "$NAMESPACE" wait sonarr/sonarr --for=condition=Synced --timeout=3m
       catch: &diagnostics
         - podLogs:
             namespace: arrchitect
             selector: app.kubernetes.io/name=arrchitect
         - describe:
             apiVersion: arrchitect.dev/v1alpha1
-            kind: SonarrConfig
+            kind: Sonarr
     - name: upgrade to the local chart
       try:
         - script:
             content: |
               helm upgrade --install arrchitect ../../../chart/arrchitect --namespace arrchitect --create-namespace \
                 --set image.repository=arrchitect --set image.tag=e2e --set image.pullPolicy=Never --wait --timeout 5m
+        - apply:
+            file: ../resources/arrchitect-sonarr.yaml
         - patch:
             resource:
               apiVersion: arrchitect.dev/v1alpha1
-              kind: SonarrConfig
+              kind: Sonarr
               metadata:
                 name: sonarr
               spec:
@@ -52,7 +57,7 @@ spec:
         - assert:
             resource:
               apiVersion: arrchitect.dev/v1alpha1
-              kind: SonarrConfig
+              kind: Sonarr
               metadata:
                 name: sonarr
               status:
@@ -73,9 +78,10 @@ spec:
             content: |
               ns="$NAMESPACE-samples"
               kubectl create namespace "$ns"
-              for f in ../../../config/samples/*config.yaml; do kubectl -n "$ns" apply -f "$f"; done
+              samples=$(ls ../../../config/samples/*.yaml | grep -v kustomization.yaml)
+              for f in $samples; do kubectl -n "$ns" apply -f "$f"; done
               resources=$(kubectl -n "$ns" get arrchitect -o name)
-              [ "$(echo "$resources" | wc -l)" -eq "$(ls ../../../config/samples/*config.yaml | wc -l)" ]
+              [ "$(echo "$resources" | wc -l)" -eq "$(echo "$samples" | wc -l)" ]
               kubectl -n "$ns" wait $resources --for=condition=Ready=false --timeout=3m
       cleanup:
         - script:
@@ -91,7 +97,7 @@ spec:
             file: rolebindings.yaml
         - script:
             content: |
-              can() { kubectl auth can-i "$1" sonarrconfigs.arrchitect.dev -n "$NAMESPACE" --as "$2" 2>/dev/null || true; }
+              can() { kubectl auth can-i "$1" sonarrs.arrchitect.dev -n "$NAMESPACE" --as "$2" 2>/dev/null || true; }
               for _ in $(seq 30); do
                 [ "$(can list view-user)" = yes ] && [ "$(can create edit-user)" = yes ] && break
                 sleep 2
@@ -109,10 +115,10 @@ spec:
               apiVersion: apiextensions.k8s.io/v1
               kind: CustomResourceDefinition
               metadata:
-                name: sonarrconfigs.arrchitect.dev
+                name: sonarrs.arrchitect.dev
         - assert:
             resource:
               apiVersion: arrchitect.dev/v1alpha1
-              kind: SonarrConfig
+              kind: Sonarr
               metadata:
                 name: sonarr

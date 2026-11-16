@@ -41,7 +41,7 @@ tests:
           value: "true"
       - notContains:
           path: rules[0].resources
-          content: sonarrconfigs/status
+          content: sonarrs/status
   - it: covers only the enabled apps
     set:
       apps.tdarr: false

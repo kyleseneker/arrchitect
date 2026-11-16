@@ -14,10 +14,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"maps"
 	"net"
 	"os"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -123,13 +123,16 @@ func outboundIP() (string, error) {
 
 // compatCase is one application version under test.
 type compatCase struct {
-	// fixture is a CR under testdata/; ${VAR} references are filled from vars.
+	// fixture is a file under testdata/; ${VAR} references are filled from
+	// vars. Its first document is the case's own kind, and any others are
+	// objects of a kind in objects.
 	fixture string
 	vars    map[string]string
 	// secrets become one Secret named "compat-credentials" in the test namespace.
 	secrets    map[string]string
 	newObj     func() ctrlcommon.ConfigResource
 	reconciler func(client.Client) reconcile.Reconciler
+	objects    map[string]compatKind
 	proxy      *recordingProxy
 	// read classifies requests the application treats as reads; nil means GET only.
 	read isRead
@@ -144,9 +147,56 @@ type compatCase struct {
 	// signs in another way.
 	exportAPIKey func(t *testing.T) string
 	// cleanup, for an integration that supports deletionPolicy: delete, checks
-	// the application after the resource is deleted with that policy. owned is
-	// what the resource recorded creating, read just before the delete.
+	// the application after the resources are deleted with that policy. owned
+	// is what they recorded creating, read just before the delete.
 	cleanup func(t *testing.T, owned map[string][]string)
+}
+
+// compatKind is a kind of object a fixture can hold besides the case's own.
+type compatKind struct {
+	newObj     func() ctrlcommon.ConfigResource
+	reconciler func(client.Client) reconcile.Reconciler
+}
+
+// resource is one fixture document as created in the test namespace.
+type resource struct {
+	key        types.NamespacedName
+	newObj     func() ctrlcommon.ConfigResource
+	reconciler reconcile.Reconciler
+}
+
+// create creates obj, decoded from a fixture or export, along with what
+// reconciles it.
+func (tc compatCase) create(t *testing.T, obj ctrlcommon.ConfigResource) resource {
+	t.Helper()
+	kind := tc.kindOf(t, obj)
+	require.NoError(t, k8s.Create(context.Background(), obj),
+		"creating %s %s", reflect.TypeOf(obj).Elem().Name(), obj.GetName())
+	return resource{key: client.ObjectKeyFromObject(obj), newObj: kind.newObj, reconciler: kind.reconciler(k8s)}
+}
+
+func (tc compatCase) kindOf(t *testing.T, obj client.Object) compatKind {
+	t.Helper()
+	name := reflect.TypeOf(obj).Elem().Name()
+	if name == reflect.TypeOf(tc.newObj()).Elem().Name() {
+		return compatKind{newObj: tc.newObj, reconciler: tc.reconciler}
+	}
+	kind, ok := tc.objects[name]
+	require.True(t, ok, "the case has no kind %s", name)
+	return kind
+}
+
+// decode reads a document of the case's own kind or one of its objects' kinds.
+func (tc compatCase) decode(t *testing.T, doc string) ctrlcommon.ConfigResource {
+	t.Helper()
+	var meta metav1.TypeMeta
+	require.NoError(t, yaml.Unmarshal([]byte(doc), &meta))
+	obj := tc.newObj()
+	if kind, ok := tc.objects[meta.Kind]; ok {
+		obj = kind.newObj()
+	}
+	require.NoError(t, yaml.UnmarshalStrict([]byte(doc), obj), "decoding a %s", meta.Kind)
+	return obj
 }
 
 func checkCompat(t *testing.T, tc compatCase) {
@@ -162,28 +212,30 @@ func checkCompat(t *testing.T, tc compatCase) {
 	secret := &corev1.Secret{Name: "compat-credentials", Namespace: ns.Name, StringData: tc.secrets}
 	require.NoError(t, k8s.Create(ctx, secret), "creating secret")
 
-	obj := tc.newObj()
-	loadFixture(t, tc.fixture, tc.vars, obj)
-	obj.SetNamespace(ns.Name)
-	require.NoError(t, k8s.Create(ctx, obj), "creating %s", tc.fixture)
-	r := tc.reconciler(k8s)
-	key := types.NamespacedName{Namespace: ns.Name, Name: obj.GetName()}
-
-	synced := reconcileUntilCurrent(t, r, key, tc.newObj)
-	if !isSynced(synced) {
-		t.Logf("writes during the first reconcile:\n%s", formatRequests(tc.proxy.writes(read)))
+	docs := loadFixture(t, tc.fixture, tc.vars)
+	fixture := make([]client.Object, 0, len(docs))
+	resources := make([]resource, 0, len(docs))
+	for _, doc := range docs {
+		obj := tc.decode(t, doc)
+		obj.SetNamespace(ns.Name)
+		fixture = append(fixture, obj.DeepCopyObject().(client.Object))
+		resources = append(resources, tc.create(t, obj))
 	}
-	requireSynced(t, synced, "first reconcile")
+	instance := resources[0]
+
+	if !reconcileAll(t, resources, "first reconcile") {
+		t.Logf("writes during the first reconcile:\n%s", formatRequests(tc.proxy.writes(read)))
+		t.FailNow()
+	}
 	if tc.verify != nil {
 		tc.verify(t)
 	}
 
 	tc.proxy.reset()
-	second := reconcileUntilCurrent(t, r, key, tc.newObj)
-	if !isSynced(second) {
+	if !reconcileAll(t, resources, "second reconcile") {
 		t.Logf("requests during the second reconcile:\n%s", formatRequests(tc.proxy.all()))
+		t.FailNow()
 	}
-	requireSynced(t, second, "second reconcile")
 	writes := tc.proxy.writes(read)
 	assert.Empty(t, writes, "second reconcile wrote to the application; these settings do not read back as written:\n%s",
 		formatRequests(writes))
@@ -192,50 +244,82 @@ func checkCompat(t *testing.T, tc compatCase) {
 		return
 	}
 	patch := client.RawPatch(types.MergePatchType, []byte(`{"spec":{"reconcile":{"driftPolicy":"observe"}}}`))
-	require.NoError(t, k8s.Patch(ctx, synced, patch), "switching to observe")
+	require.NoError(t, k8s.Patch(ctx, instance.newObjAt(t), patch), "switching to observe")
 	tc.proxy.reset()
-	requireSynced(t, reconcileUntilCurrent(t, r, key, tc.newObj), "observe reconcile")
+	require.True(t, reconcileAll(t, resources, "observe reconcile"))
 	writes = tc.proxy.writes(read)
 	assert.Empty(t, writes, "observe mode wrote to the application:\n%s", formatRequests(writes))
 
 	if tc.export != "" {
-		checkExport(t, tc, r, obj, read)
+		checkExport(t, tc, fixture, read)
 	}
 	if tc.cleanup != nil {
-		checkCleanup(t, tc, r, key)
+		checkCleanup(t, tc, resources)
 	}
 }
 
-// checkCleanup deletes the resource with deletionPolicy: delete, then lets the
-// case check that what the operator created is gone from the application.
-func checkCleanup(t *testing.T, tc compatCase, r reconcile.Reconciler, key types.NamespacedName) {
+// newObjAt reads the resource as stored.
+func (r resource) newObjAt(t *testing.T) ctrlcommon.ConfigResource {
+	t.Helper()
+	obj := r.newObj()
+	require.NoError(t, k8s.Get(context.Background(), r.key, obj), "reading %s", r.key)
+	return obj
+}
+
+// reconcileAll reconciles each resource in turn until its status describes its
+// current generation, and reports whether all of them synced.
+func reconcileAll(t *testing.T, resources []resource, stage string) bool {
+	t.Helper()
+	ok := true
+	for _, r := range resources {
+		obj := reconcileUntilCurrent(t, r.reconciler, r.key, r.newObj)
+		ok = assertSynced(t, obj, stage+": "+r.key.Name) && ok
+	}
+	return ok
+}
+
+// checkCleanup deletes the resources with deletionPolicy: delete, objects
+// before their instance, then lets the case check that what the operator
+// created is gone from the application.
+func checkCleanup(t *testing.T, tc compatCase, resources []resource) {
 	t.Helper()
 	ctx := context.Background()
-	obj := tc.newObj()
-	require.NoError(t, k8s.Get(ctx, key, obj))
+	instance := resources[0]
 	patch := client.RawPatch(types.MergePatchType,
 		[]byte(`{"spec":{"reconcile":{"driftPolicy":"enforce","deletionPolicy":"delete"}}}`))
-	require.NoError(t, k8s.Patch(ctx, obj, patch), "setting deletionPolicy: delete")
-	requireSynced(t, reconcileUntilCurrent(t, r, key, tc.newObj), "reconcile with deletionPolicy: delete")
-	require.NoError(t, k8s.Get(ctx, key, obj))
-	owned := maps.Clone(*obj.GetManagedResources())
-	require.NotEmpty(t, owned, "the resource recorded nothing it created, so cleanup proves nothing")
-	require.NoError(t, k8s.Delete(ctx, obj), "deleting %s", key)
+	require.NoError(t, k8s.Patch(ctx, instance.newObjAt(t), patch), "setting deletionPolicy: delete")
+	require.True(t, reconcileAll(t, resources, "reconcile with deletionPolicy: delete"))
+	owned := map[string][]string{}
+	for _, r := range resources {
+		for kind, names := range *r.newObjAt(t).GetManagedResources() {
+			owned[kind] = append(owned[kind], names...)
+		}
+	}
+	require.NotEmpty(t, owned, "the resources recorded nothing they created, so cleanup proves nothing")
+	for _, r := range append(resources[1:], instance) {
+		deleteAndRelease(t, r)
+	}
+	tc.cleanup(t, owned)
+}
+
+func deleteAndRelease(t *testing.T, r resource) {
+	t.Helper()
+	ctx := context.Background()
+	require.NoError(t, k8s.Delete(ctx, r.newObjAt(t)), "deleting %s", r.key)
 	for range 5 {
-		_, err := r.Reconcile(ctx, ctrl.Request{NamespacedName: key})
+		_, err := r.reconciler.Reconcile(ctx, ctrl.Request{NamespacedName: r.key})
 		require.NoError(t, err, "reconcile during deletion")
-		if apierrors.IsNotFound(k8s.Get(ctx, key, tc.newObj())) {
-			tc.cleanup(t, owned)
+		if apierrors.IsNotFound(k8s.Get(ctx, r.key, r.newObj())) {
 			return
 		}
 	}
-	require.FailNow(t, "the resource was not released after cleanup", "%s", key)
+	require.FailNow(t, "the resource was not released after cleanup", "%s", r.key)
 }
 
-func checkExport(t *testing.T, tc compatCase, r reconcile.Reconciler, fixture client.Object, read isRead) {
+func checkExport(t *testing.T, tc compatCase, fixture []client.Object, read isRead) {
 	t.Helper()
 	ctx := context.Background()
-	namespace := fixture.GetNamespace()
+	namespace := fixture[0].GetNamespace()
 	apiKey := tc.secrets["api-key"]
 	if tc.exportAPIKey != nil {
 		apiKey = tc.exportAPIKey(t)
@@ -250,7 +334,7 @@ func checkExport(t *testing.T, tc compatCase, r reconcile.Reconciler, fixture cl
 	for _, w := range res.Warnings {
 		t.Logf("export warning: %s", w)
 	}
-	exportedSpec, fixtureSpec := specOf(t, res.Config), specOf(t, fixture)
+	exportedSpec, fixtureSpec := specOf(t, res.Config), specOf(t, fixture[0])
 	for section, value := range fixtureSpec {
 		if section == "connection" || section == "reconcile" {
 			continue
@@ -266,6 +350,17 @@ func checkExport(t *testing.T, tc compatCase, r reconcile.Reconciler, fixture cl
 			}
 		}
 	}
+	exportedNames := map[string][]string{}
+	for _, obj := range res.Objects {
+		kind := reflect.TypeOf(obj).Elem().Name()
+		exportedNames[kind] = append(exportedNames[kind], fmt.Sprint(specOf(t, obj)["name"]))
+	}
+	for _, obj := range fixture[1:] {
+		kind := reflect.TypeOf(obj).Elem().Name()
+		assert.Contains(t, exportedNames[kind], specOf(t, obj)["name"],
+			"export left out the %s the fixture configures:\n%s", kind, out)
+	}
+
 	for _, key := range res.Unfilled {
 		res.Secret.StringData[key] = "unreadable"
 	}
@@ -274,16 +369,21 @@ func checkExport(t *testing.T, tc compatCase, r reconcile.Reconciler, fixture cl
 	}
 	obj, ok := res.Config.(ctrlcommon.ConfigResource)
 	require.True(t, ok)
-	require.NoError(t, k8s.Create(ctx, obj), "creating the exported config:\n%s", out)
+	resources := make([]resource, 0, 1+len(res.Objects))
+	resources = append(resources, tc.create(t, obj))
 	patch := client.RawPatch(types.MergePatchType, []byte(`{"spec":{"reconcile":{"driftPolicy":"observe"}}}`))
 	require.NoError(t, k8s.Patch(ctx, obj, patch), "switching the exported config to observe")
+	for _, o := range res.Objects {
+		cr, ok := o.(ctrlcommon.ConfigResource)
+		require.True(t, ok)
+		resources = append(resources, tc.create(t, cr))
+	}
 
 	tc.proxy.reset()
-	exported := reconcileUntilCurrent(t, r, types.NamespacedName{Namespace: namespace, Name: obj.GetName()}, tc.newObj)
-	if !isSynced(exported) {
+	if !reconcileAll(t, resources, "exported config") {
 		t.Logf("exported config:\n%s\nobserved differences: %v", out, observedDrift(t, tc.export))
+		t.FailNow()
 	}
-	requireSynced(t, exported, "exported config")
 	writes := tc.proxy.writes(read)
 	assert.Empty(t, writes, "reconciling the exported config wrote to the application:\n%s", formatRequests(writes))
 }
@@ -310,28 +410,20 @@ func reconcileUntilCurrent(
 	return nil
 }
 
-func isSynced(obj ctrlcommon.ConfigResource) bool {
-	for _, c := range *obj.GetConditions() {
-		if c.Type == engine.ConditionSynced {
-			return c.Status == metav1.ConditionTrue
-		}
-	}
-	return false
-}
-
-func requireSynced(t *testing.T, obj ctrlcommon.ConfigResource, stage string) {
+func assertSynced(t *testing.T, obj ctrlcommon.ConfigResource, stage string) bool {
 	t.Helper()
 	for _, c := range *obj.GetConditions() {
-		if c.Type != engine.ConditionSynced {
-			continue
+		if c.Type == engine.ConditionSynced {
+			return assert.Equal(t, metav1.ConditionTrue, c.Status,
+				"%s: Synced=%s (%s): %s", stage, c.Status, c.Reason, c.Message)
 		}
-		require.Equal(t, metav1.ConditionTrue, c.Status, "%s: Synced=%s (%s): %s", stage, c.Status, c.Reason, c.Message)
-		return
 	}
-	require.FailNow(t, "no Synced condition", stage)
+	return assert.Fail(t, "no Synced condition", stage)
 }
 
-func loadFixture(t *testing.T, name string, vars map[string]string, into client.Object) {
+// loadFixture returns the documents of a testdata file with its variables
+// filled in.
+func loadFixture(t *testing.T, name string, vars map[string]string) []string {
 	t.Helper()
 	raw, err := os.ReadFile(filepath.Join("testdata", name))
 	require.NoError(t, err)
@@ -344,7 +436,13 @@ func loadFixture(t *testing.T, name string, vars map[string]string, into client.
 		return value
 	})
 	require.Empty(t, missing, "%s references unset variables", name)
-	require.NoError(t, yaml.UnmarshalStrict([]byte(expanded), into), "decoding %s", name)
+	var docs []string
+	for doc := range strings.SplitSeq(expanded, "\n---\n") {
+		if strings.TrimSpace(doc) != "" {
+			docs = append(docs, doc)
+		}
+	}
+	return docs
 }
 
 func formatRequests(rs []request) string {

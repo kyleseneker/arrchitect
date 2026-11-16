@@ -43,3 +43,12 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 {{- join "," (sortAlpha $enabled) }}
 {{- end }}
+
+{{- define "arrchitect.resources" -}}
+{{- $kinds := dict "sonarr" (list "sonarrs" "sonarrindexers" "sonarrdownloadclients") }}
+{{- $resources := list }}
+{{- range $app := splitList "," (include "arrchitect.enabledApps" .) }}
+{{- $resources = concat $resources (get $kinds $app | default (list (printf "%sconfigs" $app))) }}
+{{- end }}
+{{- join "," $resources }}
+{{- end }}

@@ -61,9 +61,23 @@ func TestSonarr(t *testing.T) {
 		secrets: map[string]string{
 			"api-key": key, "qbittorrent-username": qbittorrentUser, "qbittorrent-password": qbitPassword,
 		},
-		newObj: func() ctrlcommon.ConfigResource { return &pvrv1alpha1.SonarrConfig{} },
+		newObj: func() ctrlcommon.ConfigResource { return &pvrv1alpha1.Sonarr{} },
 		reconciler: func(c client.Client) reconcile.Reconciler {
-			return &pvr.SonarrConfigReconciler{Client: c, Scheme: c.Scheme(), Recorder: events.NewFakeRecorder(100)}
+			return &pvr.SonarrReconciler{Client: c, Scheme: c.Scheme(), Recorder: events.NewFakeRecorder(100)}
+		},
+		objects: map[string]compatKind{
+			"SonarrIndexer": {
+				newObj: func() ctrlcommon.ConfigResource { return &pvrv1alpha1.SonarrIndexer{} },
+				reconciler: func(c client.Client) reconcile.Reconciler {
+					return &pvr.SonarrIndexerReconciler{Client: c, Scheme: c.Scheme(), Recorder: events.NewFakeRecorder(100)}
+				},
+			},
+			"SonarrDownloadClient": {
+				newObj: func() ctrlcommon.ConfigResource { return &pvrv1alpha1.SonarrDownloadClient{} },
+				reconciler: func(c client.Client) reconcile.Reconciler {
+					return &pvr.SonarrDownloadClientReconciler{Client: c, Scheme: c.Scheme(), Recorder: events.NewFakeRecorder(100)}
+				},
+			},
 		},
 		proxy:   proxy,
 		observe: true,

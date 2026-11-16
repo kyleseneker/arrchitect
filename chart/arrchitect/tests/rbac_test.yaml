@@ -69,4 +69,4 @@ tests:
           content: tdarrconfigs
       - contains:
           path: rules[0].resources
-          content: sonarrconfigs
+          content: sonarrs

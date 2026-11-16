@@ -137,17 +137,53 @@ func controllerCases() []controllerCase {
 			},
 		},
 		{
-			name:        "SonarrConfig",
+			name:        "Sonarr",
 			addToScheme: pvrv1alpha1.AddToScheme,
-			newObj:      func() client.Object { return &pvrv1alpha1.SonarrConfig{} },
+			newObj:      func() client.Object { return &pvrv1alpha1.Sonarr{} },
 			newCR: func(url string) client.Object {
-				return &pvrv1alpha1.SonarrConfig{
+				return &pvrv1alpha1.Sonarr{
 					ObjectMeta: meta("sonarr"),
-					Spec:       pvrv1alpha1.SonarrConfigSpec{Connection: appConn(url), Reconcile: orphan()},
+					Spec:       pvrv1alpha1.SonarrSpec{Connection: appConn(url), Reconcile: orphan()},
 				}
 			},
 			newRec: func(c client.Client, s *runtime.Scheme) reconcile.Reconciler {
-				return &pvr.SonarrConfigReconciler{Client: c, Scheme: s, Recorder: events.NewFakeRecorder(50)}
+				return &pvr.SonarrReconciler{Client: c, Scheme: s, Recorder: events.NewFakeRecorder(50)}
+			},
+		},
+		{
+			name:        "SonarrIndexer",
+			addToScheme: pvrv1alpha1.AddToScheme,
+			newObj:      func() client.Object { return &pvrv1alpha1.SonarrIndexer{} },
+			newCR: func(string) client.Object {
+				return &pvrv1alpha1.SonarrIndexer{
+					ObjectMeta: meta("sonarr-indexer"),
+					Spec: pvrv1alpha1.SonarrIndexerSpec{
+						SonarrRef: commonv1alpha1.LocalObjectReference{Name: "sonarr"}, DeletionPolicy: "orphan",
+						Indexer: commonv1alpha1.Indexer{Name: "x", Protocol: "torrent", Implementation: "Torznab"},
+					},
+				}
+			},
+			newRec: func(c client.Client, s *runtime.Scheme) reconcile.Reconciler {
+				return &pvr.SonarrIndexerReconciler{Client: c, Scheme: s, Recorder: events.NewFakeRecorder(50)}
+			},
+		},
+		{
+			name:        "SonarrDownloadClient",
+			addToScheme: pvrv1alpha1.AddToScheme,
+			newObj:      func() client.Object { return &pvrv1alpha1.SonarrDownloadClient{} },
+			newCR: func(string) client.Object {
+				return &pvrv1alpha1.SonarrDownloadClient{
+					ObjectMeta: meta("sonarr-download-client"),
+					Spec: pvrv1alpha1.SonarrDownloadClientSpec{
+						SonarrRef: commonv1alpha1.LocalObjectReference{Name: "sonarr"}, DeletionPolicy: "orphan",
+						DownloadClient: commonv1alpha1.DownloadClient{
+							Name: "x", Protocol: "torrent", Implementation: "QBittorrent", Host: "qbittorrent", Port: 8080,
+						},
+					},
+				}
+			},
+			newRec: func(c client.Client, s *runtime.Scheme) reconcile.Reconciler {
+				return &pvr.SonarrDownloadClientReconciler{Client: c, Scheme: s, Recorder: events.NewFakeRecorder(50)}
 			},
 		},
 		{
@@ -459,4 +495,56 @@ func TestDeletePolicyReleasesTheObject(t *testing.T) {
 		_, _ = r.Reconcile(ctx, req)
 		return apierrors.IsNotFound(c.Get(ctx, req.NamespacedName, &transcodev1alpha1.TdarrConfig{}))
 	}, 30*time.Second, 200*time.Millisecond, "the resource is still present after deletion")
+}
+
+// An object waiting on its instance is reconciled as soon as the instance
+// appears, through the index on the reference, rather than on its next requeue.
+func TestInstanceCreationReconcilesItsObjects(t *testing.T) {
+	cfg, c := startControlPlane(t, pvrv1alpha1.AddToScheme)
+	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
+		Scheme:     c.Scheme(),
+		Metrics:    metricsserver.Options{BindAddress: "0"},
+		Controller: config.Controller{SkipNameValidation: new(true)},
+		Client:     operator.ClientOptions(),
+	})
+	require.NoError(t, err)
+	rec := &pvr.SonarrDownloadClientReconciler{
+		Client: mgr.GetClient(), Scheme: mgr.GetScheme(), Recorder: events.NewFakeRecorder(100),
+	}
+	require.NoError(t, rec.SetupWithManager(mgr))
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	go func() { _ = mgr.Start(ctx) }()
+
+	require.NoError(t, c.Create(ctx, &corev1.Secret{
+		ObjectMeta: meta("app-credentials"), Data: map[string][]byte{"api-key": []byte("k")},
+	}))
+	dc := &pvrv1alpha1.SonarrDownloadClient{ObjectMeta: meta("tv-qbittorrent"), Spec: pvrv1alpha1.SonarrDownloadClientSpec{
+		SonarrRef: commonv1alpha1.LocalObjectReference{Name: "tv"}, DeletionPolicy: "orphan",
+		DownloadClient: commonv1alpha1.DownloadClient{
+			Name: "qBittorrent", Protocol: "torrent", Implementation: "QBittorrent", Host: "qbittorrent", Port: 8080,
+		},
+	}}
+	require.NoError(t, c.Create(ctx, dc))
+	syncedReason := func() string {
+		var got pvrv1alpha1.SonarrDownloadClient
+		if c.Get(ctx, client.ObjectKeyFromObject(dc), &got) != nil {
+			return ""
+		}
+		if cond := apimeta.FindStatusCondition(got.Status.Conditions, engine.ConditionSynced); cond != nil {
+			return cond.Reason
+		}
+		return ""
+	}
+	require.Eventually(t, func() bool { return syncedReason() == engine.ReasonReferenceNotFound },
+		10*time.Second, 100*time.Millisecond, "the missing Sonarr was never reported")
+
+	require.NoError(t, c.Create(ctx, &pvrv1alpha1.Sonarr{
+		ObjectMeta: meta("tv"), Spec: pvrv1alpha1.SonarrSpec{Connection: appConn(fakeAppServer(t)), Reconcile: orphan()},
+	}))
+	// Well inside the 30-second requeue for a missing instance.
+	require.Eventually(t, func() bool {
+		reason := syncedReason()
+		return reason != "" && reason != engine.ReasonReferenceNotFound
+	}, 10*time.Second, 100*time.Millisecond, "creating the Sonarr did not reconcile the download client")
 }
