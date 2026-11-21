@@ -24,7 +24,7 @@ spec:
     intervalSeconds: 600
     prune: true
   rootFolders:
-    - path: /media/tv
+    - path: /data/media/tv
 ---
 apiVersion: arrchitect.dev/v1alpha1
 kind: Jellyfin
@@ -50,4 +50,4 @@ spec:
     - name: Movies
       collectionType: movies
       paths:
-        - /media/movies
+        - /data/media/movies

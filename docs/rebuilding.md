@@ -53,12 +53,14 @@ never a production database.
    then install the chart and create the Secrets the apps and the operator
    need.
 2. Set up authentication. Either give each app a known API key through its
-   deployment, or copy the key it generates into a Secret. The operator doesn't
-   discover keys, and runs only the Jellyfin and Seerr setup wizards.
+   deployment, or copy the key it generates into a Secret; see
+   [Example stack](example-stack.md#other-apps) for which apps take one. The
+   operator doesn't discover keys, and runs only the Jellyfin and Seerr setup
+   wizards.
 3. Apply the resources, with one owner per setting. For example, let Recyclarr
    own quality profiles, custom formats, quality definitions and naming, and
    Prowlarr the indexers it syncs, and leave those out of Arrchitect's
-   resources.
+   resources; see [Sharing apps with other tools](other-tools.md).
 4. Check each resource's status and read the settings back in each app.
    Associations should use the new IDs, and a second reconcile should write
    nothing.

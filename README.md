@@ -64,6 +64,8 @@ To start from an existing setup instead, see
 ## Documentation
 
 - [User guide](docs/guide.md)
+- [Example stack](docs/example-stack.md), deployed with app-template
+- [Sharing apps with other tools](docs/other-tools.md) such as Recyclarr and Prowlarr
 - [API reference](docs/api.md)
 - [Stability and support](docs/stability.md)
 - [Exporting an existing app](docs/export.md)

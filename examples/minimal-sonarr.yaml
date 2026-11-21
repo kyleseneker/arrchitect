@@ -22,4 +22,4 @@ spec:
       name: sonarr-credentials
       key: api-key
   rootFolders:
-    - path: /media/tv
+    - path: /data/media/tv
