@@ -35,6 +35,7 @@ type BazarrReconciler struct {
 	client.Client
 	Scheme   *runtime.Scheme
 	Recorder events.EventRecorder
+	Apps     ctrlcommon.Apps
 }
 
 // +kubebuilder:rbac:groups=arrchitect.dev,resources=bazarrs,verbs=get;list;watch;update;patch
@@ -220,7 +221,7 @@ func (r *BazarrReconciler) resolveConnection(
 	ctx context.Context, namespace string, conn subtitlesv1alpha1.BazarrAppConnection,
 ) (subtitlesv1alpha1.BazarrAppConnection, error) {
 	if conn.AppRef != nil {
-		app, addr, err := ctrlcommon.ResolveAppAddress(ctx, r.Client, namespace, *conn.AppRef)
+		app, addr, err := ctrlcommon.ResolveAppAddress(ctx, r.Client, r.Apps, namespace, *conn.AppRef)
 		if err != nil {
 			return conn, fmt.Errorf("appRef: %w", err)
 		}
@@ -462,7 +463,7 @@ func (r *BazarrReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	b := ctrl.NewControllerManagedBy(mgr).
 		For(&subtitlesv1alpha1.Bazarr{}, builder.WithPredicates(ctrlcommon.ConfigChangedPredicate())).
 		WatchesMetadata(&corev1.Secret{}, ctrlcommon.EnqueueForSecretThroughRefs(r.Client, &subtitlesv1alpha1.BazarrList{}, bazarrAppRefs))
-	b, err := ctrlcommon.WatchAppRefs(mgr, b, &subtitlesv1alpha1.Bazarr{}, &subtitlesv1alpha1.BazarrList{}, bazarrAppRefs, "Sonarr", "Radarr")
+	b, err := ctrlcommon.WatchAppRefs(mgr, b, r.Apps, &subtitlesv1alpha1.Bazarr{}, &subtitlesv1alpha1.BazarrList{}, bazarrAppRefs, "Sonarr", "Radarr")
 	if err != nil {
 		return err
 	}

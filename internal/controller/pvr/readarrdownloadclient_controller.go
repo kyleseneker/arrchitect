@@ -21,6 +21,7 @@ type ReadarrDownloadClientReconciler struct {
 	client.Client
 	Scheme   *runtime.Scheme
 	Recorder events.EventRecorder
+	Apps     ctrlcommon.Apps
 }
 
 // +kubebuilder:rbac:groups=arrchitect.dev,resources=readarrdownloadclients,verbs=get;list;watch;update;patch
@@ -47,7 +48,7 @@ func (r *ReadarrDownloadClientReconciler) Reconcile(ctx context.Context, req ctr
 			return other.Spec.ReadarrRef.Name, other.Spec.Name
 		},
 		options: func(ctx context.Context) (pvrclient.Options, error) {
-			dc, err := ctrlcommon.ResolveDownloadClient(ctx, r.Client, obj.Namespace, s.DownloadClient)
+			dc, err := ctrlcommon.ResolveDownloadClient(ctx, r.Client, r.Apps, obj.Namespace, s.DownloadClient)
 			if err != nil {
 				return pvrclient.Options{}, err
 			}
@@ -72,7 +73,7 @@ func (r *ReadarrDownloadClientReconciler) SetupWithManager(mgr ctrl.Manager) err
 		Watches(&pvrv1alpha1.Readarr{}, handler.EnqueueRequestsFromMapFunc(objectsOf(r.Client, &pvrv1alpha1.ReadarrDownloadClientList{})),
 			builder.WithPredicates(instanceChanged())).
 		WatchesMetadata(&corev1.Secret{}, ctrlcommon.EnqueueForSecretThroughRefs(r.Client, &pvrv1alpha1.ReadarrDownloadClientList{}, downloadClientAppRefs))
-	b, err = ctrlcommon.WatchAppRefs(mgr, b, &pvrv1alpha1.ReadarrDownloadClient{}, &pvrv1alpha1.ReadarrDownloadClientList{},
+	b, err = ctrlcommon.WatchAppRefs(mgr, b, r.Apps, &pvrv1alpha1.ReadarrDownloadClient{}, &pvrv1alpha1.ReadarrDownloadClientList{},
 		downloadClientAppRefs, "QBittorrent", "Sabnzbd")
 	if err != nil {
 		return err

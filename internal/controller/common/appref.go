@@ -86,6 +86,15 @@ var appKinds = map[string]appKind{
 		}},
 }
 
+// Apps are the apps the operator runs, by controller name. It reads and
+// watches only those apps' kinds, the ones its RBAC covers. Nil is every app.
+type Apps map[string]bool
+
+// Runs reports whether the operator runs kind's app.
+func (a Apps) Runs(kind string) bool {
+	return a == nil || a[strings.ToLower(kind)]
+}
+
 var errAppRefNotFound = errors.New("not found")
 
 // IsAppRefNotFound reports whether err is ResolveAppRef's for a resource that
@@ -104,10 +113,13 @@ func AppRefReason(err error) string {
 
 // ResolveAppRef reads the resource ref names in namespace. Its errors name the
 // reference, never what the resource holds.
-func ResolveAppRef(ctx context.Context, c client.Reader, namespace string, ref commonv1alpha1.AppRef) (App, error) {
+func ResolveAppRef(ctx context.Context, c client.Reader, apps Apps, namespace string, ref commonv1alpha1.AppRef) (App, error) {
 	kind, ok := appKinds[ref.Kind]
 	if !ok {
 		return App{}, fmt.Errorf("%s %q: unsupported kind", ref.Kind, ref.Name)
+	}
+	if !apps.Runs(ref.Kind) {
+		return App{}, fmt.Errorf("%s %q: the operator doesn't run the %s controller", ref.Kind, ref.Name, strings.ToLower(ref.Kind))
 	}
 	obj := kind.newObj()
 	if err := c.Get(ctx, types.NamespacedName{Namespace: namespace, Name: ref.Name}, obj); err != nil {
@@ -123,8 +135,8 @@ func ResolveAppRef(ctx context.Context, c client.Reader, namespace string, ref c
 
 // ResolveAppAddress is ResolveAppRef for a connection that takes the app's URL
 // in parts.
-func ResolveAppAddress(ctx context.Context, c client.Reader, namespace string, ref commonv1alpha1.AppRef) (App, Address, error) {
-	app, err := ResolveAppRef(ctx, c, namespace, ref)
+func ResolveAppAddress(ctx context.Context, c client.Reader, apps Apps, namespace string, ref commonv1alpha1.AppRef) (App, Address, error) {
+	app, err := ResolveAppRef(ctx, c, apps, namespace, ref)
 	if err != nil {
 		return App{}, Address{}, err
 	}
@@ -138,12 +150,12 @@ func ResolveAppAddress(ctx context.Context, c client.Reader, namespace string, r
 // ResolveDownloadClient returns dc with its appRef, if any, replaced by the
 // referenced download client's kind, address and credentials.
 func ResolveDownloadClient(
-	ctx context.Context, c client.Reader, namespace string, dc commonv1alpha1.DownloadClient,
+	ctx context.Context, c client.Reader, apps Apps, namespace string, dc commonv1alpha1.DownloadClient,
 ) (commonv1alpha1.DownloadClient, error) {
 	if dc.AppRef == (commonv1alpha1.AppRef{}) {
 		return dc, nil
 	}
-	app, addr, err := ResolveAppAddress(ctx, c, namespace, dc.AppRef)
+	app, addr, err := ResolveAppAddress(ctx, c, apps, namespace, dc.AppRef)
 	if err != nil {
 		return dc, fmt.Errorf("download client %q appRef: %w", dc.Name, err)
 	}
@@ -210,11 +222,10 @@ func appRefKeys(refs []commonv1alpha1.AppRef) []string {
 }
 
 // WatchAppRefs indexes obj's kind by the references refsOf returns and requeues
-// the ones that refer to a changed app resource, for each of kinds the API
-// server serves and the manager's scheme knows. A kind whose CRD the chart left
-// out is skipped.
+// the ones that refer to a changed app resource, for each of kinds whose app
+// the operator runs, the API server serves and the manager's scheme knows.
 func WatchAppRefs(
-	mgr ctrl.Manager, b *builder.Builder, obj client.Object, list client.ObjectList,
+	mgr ctrl.Manager, b *builder.Builder, apps Apps, obj client.Object, list client.ObjectList,
 	refsOf func(client.Object) []commonv1alpha1.AppRef, kinds ...string,
 ) (*builder.Builder, error) {
 	err := mgr.GetFieldIndexer().IndexField(context.Background(), obj, appRefIndex, func(o client.Object) []string {
@@ -224,6 +235,9 @@ func WatchAppRefs(
 		return nil, err
 	}
 	for _, k := range kinds {
+		if !apps.Runs(k) {
+			continue
+		}
 		target := appKinds[k].newObj()
 		if _, _, err := mgr.GetScheme().ObjectKinds(target); err != nil {
 			continue

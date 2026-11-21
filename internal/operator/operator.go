@@ -48,11 +48,12 @@ func (rs Reconcilers) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 // Deps are what a reconciler is built from: the manager's client and scheme,
-// and an event recorder named for the controller.
+// an event recorder named for the controller, and the apps the operator runs.
 type Deps struct {
 	Client   client.Client
 	Scheme   *runtime.Scheme
 	Recorder events.EventRecorder
+	Apps     map[string]bool
 }
 
 // Controller is one integration the manager runs.
@@ -196,7 +197,9 @@ func Run(addToSchemes []func(*runtime.Scheme) error, controllers ...Controller) 
 			setupLog.Info("Controller disabled, skipping", "controller", c.Name)
 			continue
 		}
-		reconciler := c.New(Deps{Client: mgr.GetClient(), Scheme: mgr.GetScheme(), Recorder: mgr.GetEventRecorder(c.Name + "-controller")})
+		reconciler := c.New(Deps{
+			Client: mgr.GetClient(), Scheme: mgr.GetScheme(), Recorder: mgr.GetEventRecorder(c.Name + "-controller"), Apps: enabled,
+		})
 		if err := reconciler.SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "Failed to create controller", "controller", c.Name)
 			os.Exit(1)

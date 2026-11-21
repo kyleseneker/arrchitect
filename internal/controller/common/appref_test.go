@@ -98,7 +98,7 @@ func TestResolveAppRefTakesEachKindsConnection(t *testing.T) {
 			App{Kind: "QBittorrent", URL: "http://qbittorrent:8080", UsernameSecretRef: ref("qbit", "user"), PasswordSecretRef: ref("qbit", "pass")}},
 	}
 	for _, tt := range tests {
-		got, err := ResolveAppRef(context.Background(), c, "media", tt.ref)
+		got, err := ResolveAppRef(context.Background(), c, nil, "media", tt.ref)
 		require.NoError(t, err, tt.ref.Kind)
 		assert.Equal(t, tt.want, got, tt.ref.Kind)
 	}
@@ -109,11 +109,41 @@ func TestResolveAppRefNamesOnlyTheReference(t *testing.T) {
 		Connection: commonv1alpha1.AppConnection{URL: "http://sonarr.other:8989"},
 	}})
 
-	_, err := ResolveAppRef(context.Background(), c, "media", commonv1alpha1.AppRef{Kind: "Sonarr", Name: "sonarr"})
+	_, err := ResolveAppRef(context.Background(), c, nil, "media", commonv1alpha1.AppRef{Kind: "Sonarr", Name: "sonarr"})
 	require.EqualError(t, err, `Sonarr "sonarr" not found`, "a resource in another namespace was used")
 
-	_, err = ResolveAppRef(context.Background(), c, "media", commonv1alpha1.AppRef{Kind: "Tdarr", Name: "tdarr"})
+	_, err = ResolveAppRef(context.Background(), c, nil, "media", commonv1alpha1.AppRef{Kind: "Tdarr", Name: "tdarr"})
 	require.EqualError(t, err, `Tdarr "tdarr": unsupported kind`)
+}
+
+type countingReader struct {
+	client.Reader
+	gets int
+}
+
+func (r *countingReader) Get(ctx context.Context, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+	r.gets++
+	return r.Reader.Get(ctx, key, obj, opts...)
+}
+
+func TestResolveAppRefReadsOnlyAppsTheOperatorRuns(t *testing.T) {
+	c := &countingReader{Reader: appRefClient(t,
+		&pvrv1alpha1.Sonarr{Name: "sonarr", Namespace: "media", Spec: pvrv1alpha1.SonarrSpec{
+			Connection: commonv1alpha1.AppConnection{URL: "http://sonarr:8989"},
+		}},
+		&pvrv1alpha1.Radarr{Name: "radarr", Namespace: "media", Spec: pvrv1alpha1.RadarrSpec{
+			Connection: commonv1alpha1.AppConnection{URL: "http://radarr:7878"},
+		}},
+	)}
+	apps := Apps{"sonarr": true, "radarr": false}
+
+	_, err := ResolveAppRef(context.Background(), c, apps, "media", commonv1alpha1.AppRef{Kind: "Radarr", Name: "radarr"})
+	require.EqualError(t, err, `Radarr "radarr": the operator doesn't run the radarr controller`)
+	assert.Zero(t, c.gets, "read a kind the operator's RBAC may not cover")
+
+	got, err := ResolveAppRef(context.Background(), c, apps, "media", commonv1alpha1.AppRef{Kind: "Sonarr", Name: "sonarr"})
+	require.NoError(t, err)
+	assert.Equal(t, "http://sonarr:8989", got.URL)
 }
 
 func TestReferrersOfMatchesKindNameAndNamespace(t *testing.T) {

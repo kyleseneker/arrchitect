@@ -28,6 +28,7 @@ type SeerrReconciler struct {
 	client.Client
 	Scheme   *runtime.Scheme
 	Recorder events.EventRecorder
+	Apps     ctrlcommon.Apps
 }
 
 // +kubebuilder:rbac:groups=arrchitect.dev,resources=seerrs,verbs=get;list;watch;update;patch
@@ -402,7 +403,7 @@ func (r *SeerrReconciler) resolveService(
 	ctx context.Context, namespace string, svc requestsv1alpha1.SeerrServiceConnection,
 ) (requestsv1alpha1.SeerrServiceConnection, error) {
 	if svc.AppRef != nil {
-		app, addr, err := ctrlcommon.ResolveAppAddress(ctx, r.Client, namespace, *svc.AppRef)
+		app, addr, err := ctrlcommon.ResolveAppAddress(ctx, r.Client, r.Apps, namespace, *svc.AppRef)
 		if err != nil {
 			return svc, fmt.Errorf("appRef: %w", err)
 		}
@@ -424,7 +425,7 @@ func (r *SeerrReconciler) mediaServer(ctx context.Context, config *requestsv1alp
 	var m seerrMediaServer
 	if auth := config.Spec.JellyfinAuth; auth != (requestsv1alpha1.SeerrJellyfinAuth{}) {
 		if auth.AppRef != nil {
-			app, addr, err := ctrlcommon.ResolveAppAddress(ctx, r.Client, config.Namespace, *auth.AppRef)
+			app, addr, err := ctrlcommon.ResolveAppAddress(ctx, r.Client, r.Apps, config.Namespace, *auth.AppRef)
 			if err != nil {
 				return m, fmt.Errorf("jellyfinAuth appRef: %w", err)
 			}
@@ -437,7 +438,7 @@ func (r *SeerrReconciler) mediaServer(ctx context.Context, config *requestsv1alp
 	}
 	if auth := config.Spec.PlexAuth; auth != (requestsv1alpha1.SeerrPlexAuth{}) {
 		if auth.AppRef != nil {
-			app, addr, err := ctrlcommon.ResolveAppAddress(ctx, r.Client, config.Namespace, *auth.AppRef)
+			app, addr, err := ctrlcommon.ResolveAppAddress(ctx, r.Client, r.Apps, config.Namespace, *auth.AppRef)
 			if err != nil {
 				return m, fmt.Errorf("plexAuth appRef: %w", err)
 			}
@@ -623,7 +624,7 @@ func (r *SeerrReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	b := ctrl.NewControllerManagedBy(mgr).
 		For(&requestsv1alpha1.Seerr{}, builder.WithPredicates(ctrlcommon.ConfigChangedPredicate())).
 		WatchesMetadata(&corev1.Secret{}, ctrlcommon.EnqueueForSecretThroughRefs(r.Client, &requestsv1alpha1.SeerrList{}, seerrAppRefs))
-	b, err := ctrlcommon.WatchAppRefs(mgr, b, &requestsv1alpha1.Seerr{}, &requestsv1alpha1.SeerrList{}, seerrAppRefs, "Sonarr", "Radarr", "Jellyfin", "Plex")
+	b, err := ctrlcommon.WatchAppRefs(mgr, b, r.Apps, &requestsv1alpha1.Seerr{}, &requestsv1alpha1.SeerrList{}, seerrAppRefs, "Sonarr", "Radarr", "Jellyfin", "Plex")
 	if err != nil {
 		return err
 	}
