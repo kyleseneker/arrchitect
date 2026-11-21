@@ -65,6 +65,7 @@ To start from an existing setup instead, see
 
 - [User guide](docs/guide.md)
 - [API reference](docs/api.md)
+- [Stability and support](docs/stability.md)
 - [Exporting an existing app](docs/export.md)
 - [Rebuilding apps](docs/rebuilding.md)
 - [Examples](examples/) and [one sample per resource](config/samples/)
