@@ -4,10 +4,12 @@
 - [Indexers and download clients](#indexers-and-download-clients)
 - [Status](#status)
 - [Observe mode](#observe-mode)
+- [Delay profiles and quality definitions](#delay-profiles-and-quality-definitions)
 - [Prune](#prune)
 - [Deletion](#deletion)
 - [Credentials](#credentials)
 - [References by name](#references-by-name)
+- [Access](#access)
 - [Metrics](#metrics)
 - [Upgrading](#upgrading)
 - [Verifying a release](#verifying-a-release)
@@ -18,9 +20,9 @@ The operator reads each app's configuration through its API, compares it with
 the resource, and writes what differs. Fields left out of the resource are not
 managed: an item that already exists in the app keeps them, and a new item gets
 the app's defaults. An empty list, such as `tagLabels: []`, is declared and
-clears the item's tags. It reconciles every 5 minutes, when the resource changes, and when a
-Secret the resource refers to changes. `spec.reconcile.intervalSeconds` changes
-the period, down to a minimum of 30.
+clears the item's tags. It reconciles every 5 minutes, when the resource
+changes, and when a Secret the resource refers to changes.
+`spec.reconcile.intervalSeconds` changes the period, down to a minimum of 30.
 
 Download clients, indexers, notifications and other lists are matched by name.
 Root folders are created if missing and otherwise left alone. Jellyfin and
@@ -83,6 +85,8 @@ apps. The `Synced` reason is one of:
 | `AppUnreachable` | The app did not respond, or rejected the credentials. |
 | `SecretNotFound` | A Secret or key the connection needs does not exist. |
 | `InvalidConfig` | The resource asks for something the operator does not support. |
+| `ReferenceNotFound` | The app's resource an indexer or download client names does not exist. |
+| `NameConflict` | An older resource already configures the item this one names. |
 | `Observed` | Observe mode found no differences. |
 | `DriftDetected` | Observe mode found differences. |
 
@@ -161,19 +165,22 @@ The API server rejects `prune: true` on Jellyfin and Plex.
 
 ## Deletion
 
-Deleting a resource leaves the app unchanged. With
-`spec.reconcile.deletionPolicy: delete`, the operator first deletes the items it
-created, the same kinds prune covers. Everything else is kept. Only resources
-with `delete` carry the operator's finalizer, so removing the operator never
-leaves the others stuck deleting. Indexers and download clients default to
-`delete`, so delete them before uninstalling the operator.
+Deleting an app's resource leaves the app unchanged unless
+`spec.reconcile.deletionPolicy` is `delete`. Then the operator first deletes
+the items it created, the same kinds prune covers, and keeps everything else.
+Indexers and download clients default to `delete`; see
+[Indexers and download clients](#indexers-and-download-clients). Only
+resources set to delete carry the operator's finalizer, so removing the
+operator never leaves the others stuck; delete the ones that do before
+uninstalling it.
 
 `delete` is supported for the apps in the prune table, and not in observe mode;
-the API server rejects it on Jellyfin and Plex and alongside `driftPolicy: observe`. An item the app won't delete
-because something still uses it, such as a Lidarr or Readarr quality profile a
-root folder defaults to, is kept and named in a `ResourceKept` warning event. If
-cleanup keeps failing for another reason, the operator gives up after 10
-minutes, records a warning event and removes the finalizer.
+the API server rejects it on Jellyfin and Plex and alongside
+`driftPolicy: observe`. An item the app won't delete because something still
+uses it, such as a Lidarr or Readarr quality profile a root folder defaults to,
+is kept and named in a `ResourceKept` warning event. If cleanup keeps failing
+for another reason, the operator gives up after 10 minutes, records a warning
+event and removes the finalizer.
 
 ## Credentials
 
@@ -182,7 +189,8 @@ works, including Sealed and External Secrets. When a Secret the connection
 needs is missing, `Ready` is `False` with reason `SecretNotFound` and nothing
 is synced. When one an item needs is missing, that kind of item is neither
 written nor pruned and is named in a `SyncFailed` message; the rest still
-syncs.
+syncs. An indexer or download client reports `SecretNotFound` and writes
+nothing.
 
 Provider `fields`, Autobrr indexer and Bazarr provider `settings`, and Seerr
 and Maintainerr notification `options` read a value from a Secret with
@@ -254,9 +262,9 @@ apply them yourself from the release assets; the release notes list the ones
 that changed. Breaking changes are listed at the top of the release notes; see
 [Stability and support](stability.md) for what a release can change.
 
-Versions before 0.34.2 also recorded pre-existing items in
-`status.managedResources`. Review that list before enabling prune on a resource
-created by one of those versions.
+A CRD that a release removes stays installed, along with any resources of that
+kind, and the operator no longer reconciles them. Delete it once you've moved
+them to their replacement.
 
 ## Verifying a release
 

@@ -53,8 +53,9 @@ to a new line, move its previous pin too.
 
 ## Layout
 
-One binary, `cmd/operator`, runs a controller per app, and one chart,
-`chart/arrchitect`, installs it with the CRDs of the apps it runs. The apps
+`cmd/operator` runs the controllers for every app, `cmd/cli` is the
+`arrchitect export` command, and `chart/arrchitect` installs the operator with
+the CRDs of the apps it runs. The apps
 are grouped by what they do, each group with an API package and a controller
 package named the same way.
 

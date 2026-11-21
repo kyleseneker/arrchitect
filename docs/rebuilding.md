@@ -1,87 +1,86 @@
-# Rebuilding application configuration
+# Rebuilding apps
 
-The operator configures running applications. Deploy their containers, storage,
-networking and credentials separately. A successful reconcile does not restore
-media, watch history, requests, download queues or other application databases.
+Arrchitect configures apps that are already running. Deploy their containers,
+storage, networking and credentials separately. A reconcile doesn't restore
+media, watch history, requests, download queues or anything else an app keeps
+in its database.
 
-## Portable references
+## References by name
 
-Use [portable-references.yaml](../examples/portable-references.yaml) as a starting
+Apps link items by ID, and a rebuilt app hands out new IDs. Resources refer to
+those items by name instead, and the names are looked up on every reconcile.
+[portable-references.yaml](../examples/portable-references.yaml) is a starting
 point; replace its endpoints, paths and Secret references before applying it.
 
-- Tags are referenced by label with `tagLabels`. Declare them in `spec.tags` or
-  reference labels already present in the app. Tags declared in the same
-  resource are created before references are looked up, and a label that
-  matches no tag blocks writes.
-- Prowlarr `appProfiles` creates/updates sync profiles before indexers.
-  `indexers[].appProfileName` resolves the current profile ID and takes precedence
-  over `appProfileId`. Existing ID-only manifests still work. Profiles are retained
-  during prune and CR deletion because unmanaged indexers may reference them.
-- Quality profiles resolve custom-format names after formats are applied; import
-  lists resolve quality-profile names after profiles are applied. Missing or
-  ambiguous names block the dependent stage instead of producing partial payloads.
-- Seerr already supports `activeProfileName`. Run the profile owner (for example,
-  Recyclarr) before expecting those connections to reconcile successfully.
+- Tags, by label with `tagLabels`. Tags declared in `spec.tags` are created
+  before references are looked up, and a label that matches no tag blocks
+  writes.
+- Prowlarr sync profiles. `appProfiles` are created or updated before indexers,
+  and `indexers[].appProfileName` looks up a profile's current ID, taking
+  precedence over `appProfileId`. Sync profiles are never pruned or deleted,
+  since indexers the operator doesn't manage may use them.
+- Custom formats in quality profiles, looked up after formats are applied, and
+  quality profiles in import lists, looked up after profiles are applied.
+- Seerr's `activeProfileName`, looked up from the Sonarr or Radarr it connects
+  to. When another tool, such as Recyclarr, owns those profiles, run it first.
 
-Resolution runs every cycle, so recreated resources can receive new IDs. Missing,
-ambiguous or unreadable references report failure and stop the dependent stage;
-prerequisites already created remain recorded in status. This is not a transaction:
-other stages may already have made changes. Observe mode never creates prerequisites
-and reports unresolved references if they do not yet exist.
+A name that matches nothing, or more than one item, fails that stage and says
+so in status; items already created stay recorded. A reconcile isn't a
+transaction, so other stages may still have made changes. Observe mode creates
+nothing, so it reports references to things that don't exist yet.
 
 ## Remote download paths
 
-Sonarr, Radarr, Lidarr and Readarr support `remotePathMappings` with `host`,
-`remotePath` and `localPath`. The host must match the configured download-client
-hostname. The local directory must already exist and be accessible **inside the
-app's container**. The disposable-app checks exercise Sonarr and Radarr; Lidarr and
-Readarr share the same endpoint and are covered by the regular Go suite.
+Sonarr, Radarr, Lidarr and Readarr take `remotePathMappings` with `host`,
+`remotePath` and `localPath`. The host must match the download client's
+configured hostname, and the local directory must already exist inside the
+app's container.
 
-Identity is `(host, remotePath)`, not just the directory. Changing `localPath`
-updates a mapping in place. Directory paths receive trailing separators to match
-how Sonarr, Radarr, Lidarr and Readarr store them, including Windows paths.
-Changing host or remotePath creates a new identity; use prune with a nonempty
-desired mapping list to remove old operator-created mappings. Omission or an
-empty list leaves existing mappings alone, consistent with other resources. Manually created mappings are never adopted
-for deletion. `deletionPolicy: delete` cleans up tracked mappings.
+A mapping is identified by `host` and `remotePath`: changing `localPath`
+updates it in place, and changing either of the others makes a new one.
+Directory paths get the trailing separator these apps store, Windows paths
+included. To remove a mapping the operator created, use prune with at least
+one mapping still declared; leaving the list out, or empty, leaves existing
+mappings alone. Mappings made in the app are never deleted, and
+`deletionPolicy: delete` removes the ones the operator created.
 
-## Rebuild acceptance procedure
+## Rehearsing a rebuild
 
-Use isolated applications with disposable configuration volumes and test media
-paths. Do not run destructive rebuild tests against a production database.
+Use disposable apps with empty configuration volumes and test media paths,
+never a production database.
 
-1. Record each app image/version. Start with empty configuration volumes. Deploy
-   the CRDs/operator and create the Secrets the applications and operator will use.
-2. Establish authentication. Either configure a known API key through the app's
-   supported deployment mechanism or import its generated key into a Secret.
-   Key discovery/adoption is not automatic. Jellyfin/Seerr support setup workflows,
-   but that does not bootstrap credentials for every application.
-3. Apply configuration with a single owner for each setting. For example, let
-   Recyclarr own quality profiles/custom formats/quality sizes/naming and Prowlarr own downstream
-   indexers; omit those sections from competing CRs.
-4. Verify CR status and read back the actual settings through each application's
-   API/UI. Confirm associations use the freshly assigned IDs. A second reconciliation
-   should converge without repeated configuration writes.
-5. Recreate the disposable apps, arrange for different generated IDs, and reapply
-   the same manifests. Repeat the checks without editing IDs in Git.
-6. Exercise one missing reference and one unavailable dependency. Confirm failure
-   is visible, existing associations stay intact, and retry succeeds after fixing
-   the dependency.
+1. Note each app's image and version. Start the apps with empty configuration,
+   then install the chart and create the Secrets the apps and the operator
+   need.
+2. Set up authentication. Either give each app a known API key through its
+   deployment, or copy the key it generates into a Secret. The operator doesn't
+   discover keys, and runs only the Jellyfin and Seerr setup wizards.
+3. Apply the resources, with one owner per setting. For example, let Recyclarr
+   own quality profiles, custom formats, quality definitions and naming, and
+   Prowlarr the indexers it syncs, and leave those out of Arrchitect's
+   resources.
+4. Check each resource's status and read the settings back in each app.
+   Associations should use the new IDs, and a second reconcile should write
+   nothing.
+5. Recreate the apps so they hand out different IDs, apply the same manifests
+   again, and repeat the checks without editing any IDs.
+6. Break one reference and stop one dependency. The failure should show in
+   status, existing associations should stay, and the first reconcile after the
+   fix should succeed.
 
-The regular Go suite covers these ordering/failure cases with stateful HTTP
-fixtures, and its envtest tests check Kubernetes schema acceptance. `make test-compat`
-reconciles every integration against fresh containers of the application releases
-pinned in [test/compat/images_test.go](../test/compat/images_test.go), current and
-previous, reads the settings back and checks that a second pass makes no writes. It
-does not cover releases other than the pinned ones.
+CI checks the same on every change: `make test-compat` reconciles every app
+against fresh containers of the versions pinned in
+[test/compat/images_test.go](../test/compat/images_test.go), current and
+previous, reads the settings back and checks that a second pass writes
+nothing.
 
-## Remaining rebuild limitations
+## Limits
 
-Bazarr profiles currently require explicit `profileId` values; those are declared
-profile identities, not a name-to-generated-ID lookup. Validate defaults and any
-existing media assignments after a rebuild.
-Seerr's first-time setup enables Jellyfin libraries only; with Plex it neither
-configures the Plex server nor enables its libraries, so finish that in Seerr.
-Database-backed users, histories, media assignments and settings outside the CRDs
-still require backups or separate provisioning. This milestone does not establish
-fully unattended recovery of an entire media stack.
+- Bazarr language profiles are identified by an explicit `profileId`, not
+  looked up by name. After a rebuild, check the default profiles and existing
+  media assignments.
+- Seerr's first-time setup enables Jellyfin libraries only. With Plex it
+  neither configures the Plex server nor enables its libraries, so finish that
+  in Seerr.
+- Users, history, media assignments and settings the resources don't cover
+  need backups or separate provisioning.
