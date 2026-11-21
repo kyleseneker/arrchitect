@@ -74,10 +74,10 @@ test-compat: manifests generate setup-envtest ## Reconcile every app running in 
 
 .PHONY: test-e2e
 test-e2e: IMG = arrchitect:e2e
-test-e2e: kind chainsaw docker-build ## Run the Chainsaw tests in a throwaway kind cluster (needs docker). Its kubeconfig is a temporary file.
+test-e2e: kind chainsaw docker-build ## Run the Chainsaw tests in a throwaway kind cluster (needs docker). Its kubeconfig is a temporary file. KIND_NODE_IMAGE= picks the Kubernetes version.
 	@dir="$$(mktemp -d)"; export KUBECONFIG="$$dir/kubeconfig"; \
 	trap '"$(KIND)" delete cluster --name $(KIND_CLUSTER); rm -rf "$$dir"' EXIT; \
-	"$(KIND)" create cluster --name $(KIND_CLUSTER) --wait 120s; \
+	"$(KIND)" create cluster --name $(KIND_CLUSTER) --wait 120s $(if $(KIND_NODE_IMAGE),--image $(KIND_NODE_IMAGE)); \
 	"$(KIND)" load docker-image $(IMG) --name $(KIND_CLUSTER); \
 	SONARR_IMAGE="$$(sed -n 's/^[[:space:]]*sonarrImage = "\(.*\)"$$/\1/p' test/compat/images_test.go)" \
 	PREVIOUS_RELEASE="$$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null)" \

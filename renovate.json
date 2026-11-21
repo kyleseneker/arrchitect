@@ -84,6 +84,15 @@
       ]
     },
     {
+      "description": "The e2e matrix runs the node images a kind release lists",
+      "matchPackageNames": [
+        "sigs.k8s.io/kind"
+      ],
+      "prBodyNotes": [
+        "Update the node images in the test-e2e matrix in `.github/workflows/ci.yml` to the three newest this kind release lists."
+      ]
+    },
+    {
       "description": "Compat images are pinned by tag, one PR per app so a failing suite names the app that broke",
       "matchFileNames": [
         "test/compat/images_test.go"

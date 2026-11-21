@@ -251,7 +251,8 @@ ServiceMonitor.
 The chart installs and upgrades the CRDs of the apps it runs, and uninstalling
 it leaves them in place along with your resources. With `crds.enabled: false`,
 apply them yourself from the release assets; the release notes list the ones
-that changed. Breaking changes are listed at the top of the release notes.
+that changed. Breaking changes are listed at the top of the release notes; see
+[Stability and support](stability.md) for what a release can change.
 
 Versions before 0.34.2 also recorded pre-existing items in
 `status.managedResources`. Review that list before enabling prune on a resource
