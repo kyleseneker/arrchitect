@@ -44,6 +44,16 @@ type fakeJellyfin struct {
 	apiKey string
 	// auth is the Authorization header each path last received.
 	auth map[string]string
+	// version is what /System/Info/Public reports.
+	version string
+	// posted is the last body each configuration path received.
+	posted map[string]map[string]any
+}
+
+func (f *fakeJellyfin) postedTo(path string) map[string]any {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.posted[path]
 }
 
 func (f *fakeJellyfin) authFor(path string) string {
@@ -112,7 +122,7 @@ func (f *fakeJellyfin) serve(t *testing.T) string {
 			f.mu.Lock()
 			done := f.setupComplete
 			f.mu.Unlock()
-			_ = json.NewEncoder(w).Encode(map[string]any{"StartupWizardCompleted": done})
+			_ = json.NewEncoder(w).Encode(map[string]any{"StartupWizardCompleted": done, "Version": f.version})
 		case "/System/Configuration":
 			_ = json.NewEncoder(w).Encode(f.config)
 		case "/Users/AuthenticateByName":
@@ -131,6 +141,16 @@ func (f *fakeJellyfin) serve(t *testing.T) string {
 			w.WriteHeader(http.StatusNoContent)
 		default:
 			// Startup wizard steps and config posts.
+			if r.Method == http.MethodPost && strings.HasPrefix(r.URL.Path, "/System/Configuration/") {
+				var body map[string]any
+				_ = json.NewDecoder(r.Body).Decode(&body)
+				f.mu.Lock()
+				if f.posted == nil {
+					f.posted = map[string]map[string]any{}
+				}
+				f.posted[r.URL.Path] = body
+				f.mu.Unlock()
+			}
 			_ = json.NewEncoder(w).Encode(map[string]any{})
 		}
 	}))
@@ -424,4 +444,48 @@ func TestJellyfinReportsARefusedAPIKeyAsUnreachable(t *testing.T) {
 	assert.Equal(t, "AppUnreachable", ready.Reason)
 	assert.Contains(t, ready.Message, "checking the API key")
 	assert.False(t, app.saw("GET", "/System/Configuration"), "carried on with a refused key")
+}
+
+func TestJellyfinLeavesOutSettingsItsVersionLacks(t *testing.T) {
+	for _, tt := range []struct {
+		version string
+		sent    bool
+	}{{"10.11.3", false}, {"12.4.0", true}, {"", true}} {
+		app := &fakeJellyfin{setupComplete: true, version: tt.version}
+		cfg := jellyfinConfig(app.serve(t))
+		cfg.Spec.Encoding = &mediaserversv1alpha1.JellyfinEncoding{HardwareAccelerationType: "vaapi", SubtitleExtractionTimeoutMinutes: 45}
+
+		c := runJellyfin(t, cfg, adminSecret())
+
+		body := app.postedTo("/System/Configuration/encoding")
+		assert.Equal(t, "vaapi", body["HardwareAccelerationType"], "version %q: the settings it has were held back", tt.version)
+		_, sent := body["SubtitleExtractionTimeoutMinutes"]
+		assert.Equal(t, tt.sent, sent, "version %q", tt.version)
+		var got mediaserversv1alpha1.Jellyfin
+		require.NoError(t, c.Get(context.Background(), types.NamespacedName{Name: "jellyfin", Namespace: "media"}, &got))
+		synced := meta.FindStatusCondition(got.Status.Conditions, "Synced")
+		require.NotNil(t, synced)
+		if tt.sent {
+			assert.Equal(t, metav1.ConditionTrue, synced.Status, "version %q: %s", tt.version, synced.Message)
+			continue
+		}
+		assert.Equal(t, "SyncFailed", synced.Reason)
+		assert.Contains(t, synced.Message,
+			"encoding.subtitleExtractionTimeoutMinutes needs Jellyfin 12.0 or later, and this server runs 10.11.3")
+	}
+}
+
+func TestVersionBefore(t *testing.T) {
+	for _, tt := range []struct {
+		a, b string
+		want bool
+	}{
+		{"10.11.3", "12.0", true},
+		{"12.0.0", "12.0", false},
+		{"12.4", "12.0", false},
+		{"12.0", "12.0.1", true},
+		{"9.9", "10.0", true},
+	} {
+		assert.Equal(t, tt.want, versionBefore(tt.a, tt.b), "%s before %s", tt.a, tt.b)
+	}
 }

@@ -34,6 +34,16 @@ func (c *Client) IsSetupComplete(ctx context.Context) (bool, error) {
 	return completed, nil
 }
 
+// Version is the server's version, as Jellyfin reports it.
+func (c *Client) Version(ctx context.Context) (string, error) {
+	result, err := c.hc.GetJSON(ctx, "/System/Info/Public")
+	if err != nil {
+		return "", err
+	}
+	version, _ := result["Version"].(string)
+	return version, nil
+}
+
 // RunSetupWizard drives the Jellyfin first-time setup wizard to completion.
 func (c *Client) RunSetupWizard(ctx context.Context, username, password, serverName, metadataLang, countryCode string) error {
 	// Step 1: Set initial user. Reading it first is what creates it: Jellyfin 12
