@@ -53,7 +53,14 @@ func TestSonarr(t *testing.T) {
 
 	checkCompat(t, compatCase{
 		fixture: "sonarr.yaml",
-		export:  "sonarr",
+		update: `[
+			{"op": "replace", "path": "/spec/customFormats/0/includeCustomFormatWhenRenaming", "value": true},
+			{"op": "replace", "path": "/spec/qualityProfiles/0/minUpgradeFormatScore", "value": 10},
+			{"op": "replace", "path": "/spec/notifications/0/onRename", "value": false},
+			{"op": "replace", "path": "/spec/importLists/0/seasonFolder", "value": false},
+			{"op": "replace", "path": "/spec/delayProfiles/0/usenetDelay", "value": 90}
+		]`,
+		export: "sonarr",
 		vars: map[string]string{
 			"URL": proxy.url(), "HOST": hostIP, "FAKES": fakes,
 			"QBITTORRENT_PORT": strconv.Itoa(qbit.port),
@@ -131,7 +138,14 @@ func TestRadarr(t *testing.T) {
 
 	checkCompat(t, compatCase{
 		fixture: "radarr.yaml",
-		export:  "radarr",
+		update: `[
+			{"op": "replace", "path": "/spec/customFormats/0/includeCustomFormatWhenRenaming", "value": true},
+			{"op": "replace", "path": "/spec/qualityProfiles/0/minUpgradeFormatScore", "value": 10},
+			{"op": "replace", "path": "/spec/notifications/0/onRename", "value": false},
+			{"op": "replace", "path": "/spec/importLists/0/minimumAvailability", "value": "announced"},
+			{"op": "replace", "path": "/spec/delayProfiles/0/usenetDelay", "value": 180}
+		]`,
+		export: "radarr",
 		vars: map[string]string{
 			"URL": proxy.url(), "HOST": hostIP, "FAKES": fakes,
 			"QBITTORRENT_PORT": strconv.Itoa(qbit.port), "RADARR_LIST": "RadarrListImport",
@@ -201,7 +215,13 @@ func TestLidarr(t *testing.T) {
 
 	checkCompat(t, compatCase{
 		fixture: "lidarr.yaml",
-		export:  "lidarr",
+		update: `[
+			{"op": "replace", "path": "/spec/qualityProfiles/0/upgradeAllowed", "value": false},
+			{"op": "replace", "path": "/spec/notifications/0/onRename", "value": false},
+			{"op": "replace", "path": "/spec/importLists/0/monitor", "value": "none"},
+			{"op": "replace", "path": "/spec/delayProfiles/0/torrentDelay", "value": 20}
+		]`,
+		export: "lidarr",
 		vars: map[string]string{
 			"URL": proxy.url(), "HOST": hostIP, "FAKES": fakes, "QBITTORRENT_PORT": strconv.Itoa(qbit.port),
 		},
@@ -277,6 +297,11 @@ func TestReadarr(t *testing.T) {
 
 	checkCompat(t, compatCase{
 		fixture: "readarr.yaml",
+		update: `[
+			{"op": "replace", "path": "/spec/qualityProfiles/0/upgradeAllowed", "value": false},
+			{"op": "replace", "path": "/spec/notifications/0/onRename", "value": false},
+			{"op": "replace", "path": "/spec/delayProfiles/0/torrentDelay", "value": 45}
+		]`,
 		export:  "readarr",
 		vars:    map[string]string{"URL": proxy.url(), "HOST": hostIP, "FAKES": fakes},
 		secrets: map[string]string{"api-key": key},

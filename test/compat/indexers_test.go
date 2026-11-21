@@ -34,7 +34,14 @@ func TestProwlarr(t *testing.T) {
 
 	checkCompat(t, compatCase{
 		fixture: "prowlarr.yaml",
-		export:  "prowlarr",
+		update: `[
+			{"op": "replace", "path": "/spec/appProfiles/0/minimumSeeders", "value": 3},
+			{"op": "replace", "path": "/spec/applications/0/syncCategories", "value": [5000, 5030, 5040]},
+			{"op": "replace", "path": "/spec/indexers/0/priority", "value": 25},
+			{"op": "replace", "path": "/spec/downloadClients/0/priority", "value": 2},
+			{"op": "replace", "path": "/spec/notifications/0/onGrab", "value": false}
+		]`,
+		export: "prowlarr",
 		vars: map[string]string{
 			"URL": proxy.url(), "HOST": hostIP, "FAKES": fakes, "QBITTORRENT_PORT": strconv.Itoa(qbit.port),
 			"PROWLARR_URL": prowlarr.url(), "SONARR_URL": sonarr.url(),

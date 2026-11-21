@@ -47,6 +47,10 @@ func TestSabnzbd(t *testing.T) {
 
 	checkCompat(t, compatCase{
 		fixture: "sabnzbd.yaml",
+		update: `[
+			{"op": "replace", "path": "/spec/servers/0/connections", "value": 25},
+			{"op": "replace", "path": "/spec/categories/1/priority", "value": "normal"}
+		]`,
 		export:  "sabnzbd",
 		vars:    map[string]string{"URL": proxy.url()},
 		secrets: map[string]string{"api-key": key, "usenet-username": "compat", "usenet-password": "usenet-secret"},
@@ -138,6 +142,9 @@ func TestQBittorrent(t *testing.T) {
 
 	checkCompat(t, compatCase{
 		fixture: "qbittorrent.yaml",
+		update: `[
+			{"op": "replace", "path": "/spec/categories/0/savePath", "value": "/downloads/complete/series"}
+		]`,
 		export:  "qbittorrent",
 		vars:    map[string]string{"URL": proxy.url()},
 		secrets: map[string]string{"username": qbittorrentUser, "password": password},
