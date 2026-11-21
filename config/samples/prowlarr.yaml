@@ -17,13 +17,9 @@ spec:
   applications:
     - name: Sonarr
       syncLevel: fullSync
-      implementation: Sonarr
-      configContract: SonarrSettings
-      prowlarrUrl: http://arr-prowlarr.arr.svc.cluster.local:9696
-      baseUrl: http://arr-sonarr.arr.svc.cluster.local:8989
-      apiKeySecretRef:
-        name: arr-config-secrets
-        key: SONARR_API_KEY
+      appRef:
+        kind: Sonarr
+        name: sonarr
       syncCategories: [5000, 5010, 5020, 5030, 5040, 5045, 5050, 5090]
     - name: Radarr
       syncLevel: fullSync

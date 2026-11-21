@@ -18,6 +18,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
+	pvrv1alpha1 "github.com/kyleseneker/arrchitect/api/pvr/v1alpha1"
 	pvrclient "github.com/kyleseneker/arrchitect/internal/client/pvr"
 	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
 	"github.com/kyleseneker/arrchitect/internal/engine"
@@ -94,7 +95,11 @@ func reconcilePVRObject(ctx context.Context, c client.Client, recorder events.Ev
 	}
 	opts, err := o.options(ctx)
 	if err != nil {
-		ctrlcommon.UpdateStatusUnreachable(ctx, c, obj, engine.ReasonSecretNotFound, err.Error())
+		reason := engine.ReasonSecretNotFound
+		if ctrlcommon.IsAppRefNotFound(err) {
+			reason = engine.ReasonReferenceNotFound
+		}
+		ctrlcommon.UpdateStatusUnreachable(ctx, c, obj, reason, err.Error())
 		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
 	}
 
@@ -191,6 +196,25 @@ func objectsOf(c client.Client, list client.ObjectList) handler.MapFunc {
 		}
 		return reqs
 	}
+}
+
+// downloadClientAppRefs returns the reference an <App>DownloadClient holds.
+func downloadClientAppRefs(o client.Object) []commonv1alpha1.AppRef {
+	var ref commonv1alpha1.AppRef
+	switch o := o.(type) {
+	case *pvrv1alpha1.SonarrDownloadClient:
+		ref = o.Spec.AppRef
+	case *pvrv1alpha1.RadarrDownloadClient:
+		ref = o.Spec.AppRef
+	case *pvrv1alpha1.LidarrDownloadClient:
+		ref = o.Spec.AppRef
+	case *pvrv1alpha1.ReadarrDownloadClient:
+		ref = o.Spec.AppRef
+	}
+	if ref == (commonv1alpha1.AppRef{}) {
+		return nil
+	}
+	return []commonv1alpha1.AppRef{ref}
 }
 
 // instanceChanged passes an instance's spec changes and changes to whether it

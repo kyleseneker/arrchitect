@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -658,4 +659,64 @@ func TestInstanceCreationReconcilesItsObjects(t *testing.T) {
 		reason := syncedReason()
 		return reason != "" && reason != engine.ReasonReferenceNotFound
 	}, 10*time.Second, 100*time.Millisecond, "creating the Sonarr did not reconcile the download client")
+}
+
+// A resource whose reference can't be resolved yet is reconciled as soon as
+// the referenced resource appears, and again when that resource's Secret does,
+// rather than on its next requeue.
+func TestAppRefChangesReconcileTheReferrer(t *testing.T) {
+	cfg, c := startControlPlane(t, indexersv1alpha1.AddToScheme, pvrv1alpha1.AddToScheme)
+	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
+		Scheme:     c.Scheme(),
+		Metrics:    metricsserver.Options{BindAddress: "0"},
+		Controller: config.Controller{SkipNameValidation: new(true)},
+		Client:     operator.ClientOptions(),
+	})
+	require.NoError(t, err)
+	rec := &indexers.ProwlarrReconciler{
+		Client: mgr.GetClient(), Scheme: mgr.GetScheme(), Recorder: events.NewFakeRecorder(100),
+	}
+	require.NoError(t, rec.SetupWithManager(mgr))
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	go func() { _ = mgr.Start(ctx) }()
+
+	require.NoError(t, c.Create(ctx, &corev1.Secret{
+		ObjectMeta: meta("app-credentials"), Data: map[string][]byte{"api-key": []byte("k")},
+	}))
+	prowlarr := &indexersv1alpha1.Prowlarr{ObjectMeta: meta("prowlarr"), Spec: indexersv1alpha1.ProwlarrSpec{
+		Connection: appConn(fakeListAppServer(t)),
+		Applications: []indexersv1alpha1.ProwlarrApplication{{
+			Name: "Sonarr", AppRef: &commonv1alpha1.AppRef{Kind: "Sonarr", Name: "tv"},
+		}},
+	}}
+	require.NoError(t, c.Create(ctx, prowlarr))
+	message := func() string {
+		var got indexersv1alpha1.Prowlarr
+		if c.Get(ctx, client.ObjectKeyFromObject(prowlarr), &got) != nil {
+			return ""
+		}
+		if cond := apimeta.FindStatusCondition(got.Status.Conditions, engine.ConditionSynced); cond != nil {
+			return cond.Message
+		}
+		return ""
+	}
+	require.Eventually(t, func() bool { return strings.Contains(message(), `Sonarr "tv" not found`) },
+		10*time.Second, 100*time.Millisecond, "the missing Sonarr was never reported: %s", message())
+
+	require.NoError(t, c.Create(ctx, &pvrv1alpha1.Sonarr{ObjectMeta: meta("tv"), Spec: pvrv1alpha1.SonarrSpec{
+		Connection: commonv1alpha1.AppConnection{URL: "http://sonarr:8989",
+			APIKeySecretRef: commonv1alpha1.SecretKeyRef{Name: "sonarr-key", Key: "api-key"}},
+		Reconcile: orphan(),
+	}}))
+	require.Eventually(t, func() bool { return strings.Contains(message(), `secret "sonarr-key" not found`) },
+		10*time.Second, 100*time.Millisecond, "creating the Sonarr did not reconcile the Prowlarr")
+
+	require.NoError(t, c.Create(ctx, &corev1.Secret{
+		ObjectMeta: meta("sonarr-key"), Data: map[string][]byte{"api-key": []byte("k")},
+	}))
+	require.Eventually(t, func() bool {
+		m := message()
+		return m != "" && !strings.Contains(m, "sonarr-key")
+	}, 10*time.Second, 100*time.Millisecond, "creating the Sonarr's Secret did not reconcile the Prowlarr")
 }

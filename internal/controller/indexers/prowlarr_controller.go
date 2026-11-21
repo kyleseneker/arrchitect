@@ -12,6 +12,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
 	indexersv1alpha1 "github.com/kyleseneker/arrchitect/api/indexers/v1alpha1"
 	prowlarrclient "github.com/kyleseneker/arrchitect/internal/client/prowlarr"
 	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
@@ -29,6 +30,7 @@ type ProwlarrReconciler struct {
 // +kubebuilder:rbac:groups=arrchitect.dev,resources=prowlarrs/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=arrchitect.dev,resources=prowlarrs/finalizers,verbs=update
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
+// +kubebuilder:rbac:groups=arrchitect.dev,resources=sonarrs;radarrs;lidarrs;readarrs,verbs=get;list;watch
 
 func (r *ProwlarrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	var config indexersv1alpha1.Prowlarr
@@ -118,7 +120,7 @@ func (r *ProwlarrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		unresolved = append(unresolved, fmt.Sprintf("notifications: %v", nerr))
 	}
 
-	appPayloads, aerr := r.buildApplicationPayloads(ctx, config.Namespace, config.Spec.Applications, tagIDs)
+	appPayloads, aerr := r.buildApplicationPayloads(ctx, &config, tagIDs)
 	if aerr != nil {
 		unresolved = append(unresolved, fmt.Sprintf("applications: %v", aerr))
 	}
@@ -144,11 +146,25 @@ func (r *ProwlarrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	return ctrl.Result{RequeueAfter: ctrlcommon.ReconcileInterval(config.Spec.Reconcile)}, nil
 }
 
-// buildApplicationPayloads resolves per-application API key secrets and builds payloads.
-func (r *ProwlarrReconciler) buildApplicationPayloads(ctx context.Context, namespace string, apps []indexersv1alpha1.ProwlarrApplication, tagIDs map[string]int) ([]map[string]any, error) {
-	payloads := make([]map[string]any, 0, len(apps))
-	for _, app := range apps {
-		appAPIKey, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, namespace, app.APIKeySecretRef)
+// buildApplicationPayloads resolves each application's reference and API key
+// Secret and builds its payload.
+func (r *ProwlarrReconciler) buildApplicationPayloads(ctx context.Context, config *indexersv1alpha1.Prowlarr, tagIDs map[string]int) ([]map[string]any, error) {
+	payloads := make([]map[string]any, 0, len(config.Spec.Applications))
+	for _, app := range config.Spec.Applications {
+		if app.AppRef != nil {
+			ref, err := ctrlcommon.ResolveAppRef(ctx, r.Client, config.Namespace, *app.AppRef)
+			if err != nil {
+				return nil, fmt.Errorf("application %q appRef: %w", app.Name, err)
+			}
+			app.Implementation, app.BaseUrl, app.APIKeySecretRef = ref.Kind, ref.URL, ref.APIKeySecretRef
+			if app.ProwlarrUrl == "" {
+				app.ProwlarrUrl = config.Spec.Connection.URL
+			}
+		}
+		if app.APIKeySecretRef == nil {
+			return nil, fmt.Errorf("application %q has no API key Secret", app.Name)
+		}
+		appAPIKey, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, *app.APIKeySecretRef)
 		if err != nil {
 			return nil, fmt.Errorf("application %q apiKeySecretRef: %w", app.Name, err)
 		}
@@ -157,10 +173,25 @@ func (r *ProwlarrReconciler) buildApplicationPayloads(ctx context.Context, names
 	return payloads, nil
 }
 
+func prowlarrAppRefs(o client.Object) []commonv1alpha1.AppRef {
+	var refs []commonv1alpha1.AppRef
+	for _, app := range o.(*indexersv1alpha1.Prowlarr).Spec.Applications {
+		if app.AppRef != nil {
+			refs = append(refs, *app.AppRef)
+		}
+	}
+	return refs
+}
+
 func (r *ProwlarrReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
+	b := ctrl.NewControllerManagedBy(mgr).
 		For(&indexersv1alpha1.Prowlarr{}, builder.WithPredicates(ctrlcommon.ConfigChangedPredicate())).
-		WatchesMetadata(&corev1.Secret{}, ctrlcommon.EnqueueForSecret(r.Client, &indexersv1alpha1.ProwlarrList{})).
+		WatchesMetadata(&corev1.Secret{}, ctrlcommon.EnqueueForSecretThroughRefs(r.Client, &indexersv1alpha1.ProwlarrList{}, prowlarrAppRefs))
+	b, err := ctrlcommon.WatchAppRefs(mgr, b, &indexersv1alpha1.Prowlarr{}, &indexersv1alpha1.ProwlarrList{}, prowlarrAppRefs, "Sonarr", "Radarr", "Lidarr", "Readarr")
+	if err != nil {
+		return err
+	}
+	return b.
 		Named("prowlarr").
 		Complete(r)
 }

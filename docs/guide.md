@@ -2,6 +2,7 @@
 
 - [Reconciling](#reconciling)
 - [Indexers and download clients](#indexers-and-download-clients)
+- [Connecting apps](#connecting-apps)
 - [Status](#status)
 - [Observe mode](#observe-mode)
 - [Delay profiles and quality definitions](#delay-profiles-and-quality-definitions)
@@ -71,6 +72,59 @@ spec:
   item it created. `orphan` leaves it. If the app's resource is deleted first,
   nothing can be removed, and an `InstanceMissing` warning event says so.
 
+## Connecting apps
+
+Where one app connects to another, the connection can name that app's resource
+with `appRef` instead of repeating its address and credentials. On each
+reconcile the operator reads the resource and uses its `spec.connection`:
+
+```yaml
+apiVersion: arrchitect.dev/v1alpha1
+kind: Prowlarr
+metadata:
+  name: prowlarr
+spec:
+  connection:
+    url: http://prowlarr.media.svc.cluster.local:9696
+    apiKeySecretRef: {name: media-api-keys, key: prowlarr}
+  applications:
+    - name: Sonarr
+      appRef:
+        kind: Sonarr
+        name: sonarr
+```
+
+| Connection | `appRef` kinds | In place of |
+| --- | --- | --- |
+| Prowlarr `applications` | Sonarr, Radarr, Lidarr, Readarr | `implementation`, `baseUrl`, `apiKeySecretRef`; `prowlarrUrl` defaults to the Prowlarr resource's URL |
+| Seerr `sonarr`, `radarr` | Sonarr in `sonarr`, Radarr in `radarr` | `hostname`, `port`, `useSsl`, `baseUrl`, `apiKeySecretRef` |
+| Seerr `jellyfinAuth` | Jellyfin | the address and the admin user |
+| Seerr `plexAuth` | Plex | the address and the token |
+| Bazarr `sonarrConnection`, `radarrConnection` | Sonarr, Radarr | `host`, `port`, `ssl`, `basePath`, `apiKeySecretRef` |
+| Maintainerr `sonarr`, `radarr` | Sonarr in `sonarr`, Radarr in `radarr` | `url`, `apiKeySecretRef` |
+| Maintainerr `seerr` | Seerr | `url`, `apiKeySecretRef` |
+| Maintainerr `mediaServer.plex` | Plex | `hostname`, `port`, `ssl`, `tokenSecretRef` |
+| Sonarr, Radarr, Lidarr and Readarr download clients | QBittorrent, Sabnzbd | `implementation`, `protocol`, `host`, `port`, `useSsl`, `urlBase` and the credentials |
+| Autobrr `downloadClients` | QBittorrent, Sabnzbd, Sonarr, Radarr, Lidarr, Readarr | `type`, `host`, `port`, `tls` and the credentials |
+
+- A connection sets `appRef` or the fields it stands for, not both, and the API
+  server rejects a mix. To have an app reach another at a different address
+  from the operator's, set the fields.
+- The resource must be in the same namespace. The operator only reads it, and
+  copies nothing from it into the resource that refers to it.
+- Until the resource exists, that connection is neither written nor pruned and
+  the `SyncFailed` message names the reference; the rest still syncs. A
+  download client resource, and a Seerr that signs in through the media server
+  it refers to, report `ReferenceNotFound` instead and write nothing.
+- A change to the resource, or to a Secret it names, reconciles the resources
+  that refer to it straight away.
+- Maintainerr's `seerr` reference needs the Seerr resource to set
+  `connection.apiKeySecretRef`. Maintainerr's Jellyfin connection takes a
+  Jellyfin API key, which the Jellyfin resource doesn't hold, so it has no
+  `appRef`.
+- `arrchitect export` writes the address and credentials: it can't tell which
+  resource, if any, describes the app at a URL.
+
 ## Status
 
 Each resource has a `Ready` condition, for whether the app and its credentials
@@ -85,7 +139,7 @@ apps. The `Synced` reason is one of:
 | `AppUnreachable` | The app did not respond, or rejected the credentials. |
 | `SecretNotFound` | A Secret or key the connection needs does not exist. |
 | `InvalidConfig` | The resource asks for something the operator does not support. |
-| `ReferenceNotFound` | The app's resource an indexer or download client names does not exist. |
+| `ReferenceNotFound` | The app's resource an indexer or download client names does not exist, or one an `appRef` the resource can't sync without names. |
 | `NameConflict` | An older resource already configures the item this one names. |
 | `Observed` | Observe mode found no differences. |
 | `DriftDetected` | Observe mode found differences. |
@@ -235,6 +289,10 @@ two ClusterRoles for people who manage these resources.
 `edit` and `admin`. A namespace's existing role bindings therefore cover the
 resources of the apps the chart runs. Set `rbac.aggregateClusterRoles: false`
 to leave them out.
+
+The namespace is the trust boundary. Anyone who can create a resource in a
+namespace can have the operator use the credentials of any other resource
+there through an `appRef`, as naming that resource's Secret already allows.
 
 ## Metrics
 

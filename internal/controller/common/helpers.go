@@ -11,7 +11,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/events"
@@ -21,7 +20,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
 	pvrclient "github.com/kyleseneker/arrchitect/internal/client/pvr"
@@ -235,25 +233,7 @@ func EnqueueForSecret(c client.Client, list client.ObjectList) handler.EventHand
 }
 
 func configsForSecret(c client.Client, list client.ObjectList) handler.MapFunc {
-	return func(ctx context.Context, obj client.Object) []reconcile.Request {
-		configs := list.DeepCopyObject().(client.ObjectList)
-		if err := c.List(ctx, configs, client.InNamespace(obj.GetNamespace())); err != nil {
-			log.FromContext(ctx).Error(err, "listing configs for a changed Secret", "secret", obj.GetName())
-			return nil
-		}
-		items, err := meta.ExtractList(configs)
-		if err != nil {
-			return nil
-		}
-		var reqs []reconcile.Request
-		for _, item := range items {
-			config, ok := item.(client.Object)
-			if ok && ReferencesSecret(config, obj.GetName()) {
-				reqs = append(reqs, reconcile.Request{NamespacedName: client.ObjectKeyFromObject(config)})
-			}
-		}
-		return reqs
-	}
+	return secretReferrers(c, list, func(client.Object) []commonv1alpha1.AppRef { return nil })
 }
 
 // ResolveDownloadClientSecrets resolves all secret references for a list of download clients.

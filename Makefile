@@ -80,6 +80,7 @@ test-e2e: kind chainsaw docker-build ## Run the Chainsaw tests in a throwaway ki
 	"$(KIND)" create cluster --name $(KIND_CLUSTER) --wait 120s $(if $(KIND_NODE_IMAGE),--image $(KIND_NODE_IMAGE)); \
 	"$(KIND)" load docker-image $(IMG) --name $(KIND_CLUSTER); \
 	SONARR_IMAGE="$$(sed -n 's/^[[:space:]]*sonarrImage = "\(.*\)"$$/\1/p' test/compat/images_test.go)" \
+	PROWLARR_IMAGE="$$(sed -n 's/^[[:space:]]*prowlarrImage = "\(.*\)"$$/\1/p' test/compat/images_test.go)" \
 	PREVIOUS_RELEASE="$$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null)" \
 		"$(CHAINSAW)" test --config test/e2e/.chainsaw.yaml --test-dir test/e2e
 

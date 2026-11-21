@@ -15,6 +15,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
+	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
 	requestsv1alpha1 "github.com/kyleseneker/arrchitect/api/requests/v1alpha1"
 	seerrclient "github.com/kyleseneker/arrchitect/internal/client/seerr"
 	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
@@ -33,6 +34,7 @@ type SeerrReconciler struct {
 // +kubebuilder:rbac:groups=arrchitect.dev,resources=seerrs/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=arrchitect.dev,resources=seerrs/finalizers,verbs=update
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
+// +kubebuilder:rbac:groups=arrchitect.dev,resources=sonarrs;radarrs;jellyfins;plexes,verbs=get;list;watch
 
 func (r *SeerrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
@@ -75,7 +77,13 @@ func (r *SeerrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return ctrl.Result{RequeueAfter: ctrlcommon.ReconcileInterval(config.Spec.Reconcile)}, nil
 	}
 
-	if err := r.establishSession(ctx, sc, &config); err != nil {
+	media, mediaErr := r.mediaServer(ctx, &config)
+	if mediaErr != nil && (config.Spec.Connection.APIKeySecretRef == nil || !isInitialized) {
+		ctrlcommon.UpdateStatusUnreachable(ctx, r.Client, &config, ctrlcommon.AppRefReason(mediaErr), mediaErr.Error())
+		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
+	}
+
+	if err := r.establishSession(ctx, sc, &config, media); err != nil {
 		reason := engine.ReasonAppUnreachable
 		if reconciler.IsSecretError(err) {
 			reason = engine.ReasonSecretNotFound
@@ -85,7 +93,7 @@ func (r *SeerrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	}
 
 	if !isInitialized {
-		if err := r.setup(ctx, sc, writes, owned, &config); err != nil {
+		if err := r.setup(ctx, sc, writes, owned, &config, media); err != nil {
 			// A setup that failed partway may have created connections already.
 			ctrlcommon.UpdateStatusManaged(&config, owned.Managed())
 			ctrlcommon.UpdateStatus(ctx, r.Client, &config, false, engine.ReasonSyncFailed, err.Error())
@@ -96,20 +104,7 @@ func (r *SeerrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	initialized := true
 	config.Status.Initialized = &initialized
 
-	var syncErrors []string
-
-	if config.Spec.JellyfinAuth != (requestsv1alpha1.SeerrJellyfinAuth{}) {
-		if err := reconcileSeerrJellyfin(ctx, sc, writes, &config.Spec.JellyfinAuth); err != nil {
-			logger.Error(err, "failed to reconcile Jellyfin server")
-			syncErrors = append(syncErrors, fmt.Sprintf("jellyfin: %v", err))
-		}
-	}
-	if config.Spec.PlexAuth != (requestsv1alpha1.SeerrPlexAuth{}) {
-		if err := reconcileSeerrPlex(ctx, sc, writes, &config.Spec.PlexAuth); err != nil {
-			logger.Error(err, "failed to reconcile Plex server")
-			syncErrors = append(syncErrors, fmt.Sprintf("plex: %v", err))
-		}
-	}
+	syncErrors := reconcileSeerrMediaServer(ctx, sc, writes, media, mediaErr)
 
 	for _, k := range seerrServers(config.Spec) {
 		kind, declared := k.kind, k.servers
@@ -207,7 +202,11 @@ func (r *SeerrReconciler) cleanup(ctx context.Context, config *requestsv1alpha1.
 	if err != nil {
 		return err
 	}
-	if err := r.establishSession(ctx, sc, config); err != nil {
+	media, err := r.mediaServer(ctx, config)
+	if err != nil && config.Spec.Connection.APIKeySecretRef == nil {
+		return err
+	}
+	if err := r.establishSession(ctx, sc, config, media); err != nil {
 		return err
 	}
 	owned := engine.NewOwnership("seerr", config.GetManagedResources())
@@ -245,19 +244,20 @@ func seerrServices(ctx context.Context, sc *seerrclient.Client, kind string) ([]
 // and Radarr connections and the main settings, then marks Seerr initialized.
 func (r *SeerrReconciler) setup(
 	ctx context.Context, sc *seerrclient.Client, writes *engine.Writes, owned *engine.Ownership, config *requestsv1alpha1.Seerr,
+	media seerrMediaServer,
 ) error {
 	logger := log.FromContext(ctx)
 	var initErrors []string
 
 	// Sync media server libraries
-	if config.Spec.JellyfinAuth != (requestsv1alpha1.SeerrJellyfinAuth{}) {
-		if err := syncJellyfinLibraries(ctx, sc, writes, &config.Spec.JellyfinAuth); err != nil {
+	if media.jellyfin != nil {
+		if err := syncJellyfinLibraries(ctx, sc, writes, media.jellyfin); err != nil {
 			logger.Error(err, "failed to configure Jellyfin libraries")
 			initErrors = append(initErrors, err.Error())
 		}
 	}
-	if config.Spec.PlexAuth != (requestsv1alpha1.SeerrPlexAuth{}) {
-		if err := syncPlexLibraries(ctx, sc, writes, &config.Spec.PlexAuth); err != nil {
+	if media.plex != nil {
+		if err := syncPlexLibraries(ctx, sc, writes, media.plex); err != nil {
 			logger.Error(err, "failed to configure Plex libraries")
 			initErrors = append(initErrors, err.Error())
 		}
@@ -326,13 +326,21 @@ func (r *SeerrReconciler) reconcileServiceConnection(
 	ctx context.Context, sc *seerrclient.Client, w *engine.Writes, owned *engine.Ownership,
 	namespace, kind string, svc *requestsv1alpha1.SeerrServiceConnection, existing []map[string]any,
 ) error {
-	apiKey, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, namespace, svc.APIKeySecretRef)
+	resolved, err := r.resolveService(ctx, namespace, *svc)
+	if err != nil {
+		return err
+	}
+	svc = &resolved
+	apiKey, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, namespace, *svc.APIKeySecretRef)
 	if err != nil {
 		return fmt.Errorf("resolving API key: %w", err)
 	}
 	payload, err := resolvedServicePayload(ctx, svc, apiKey)
 	if err != nil {
 		return fmt.Errorf("resolving profile: %w", err)
+	}
+	if svc.AppRef != nil {
+		payload["baseUrl"] = svc.BaseUrl
 	}
 
 	for _, e := range existing {
@@ -365,6 +373,95 @@ func (r *SeerrReconciler) reconcileServiceConnection(
 		owned.Created(kind, svc.Name)
 		return nil
 	})
+}
+
+func reconcileSeerrMediaServer(ctx context.Context, sc *seerrclient.Client, w *engine.Writes, media seerrMediaServer, mediaErr error) []string {
+	if mediaErr != nil {
+		return []string{mediaErr.Error()}
+	}
+	logger := log.FromContext(ctx)
+	var syncErrors []string
+	if media.jellyfin != nil {
+		if err := reconcileSeerrJellyfin(ctx, sc, w, media.jellyfin); err != nil {
+			logger.Error(err, "failed to reconcile Jellyfin server")
+			syncErrors = append(syncErrors, fmt.Sprintf("jellyfin: %v", err))
+		}
+	}
+	if media.plex != nil {
+		if err := reconcileSeerrPlex(ctx, sc, w, media.plex); err != nil {
+			logger.Error(err, "failed to reconcile Plex server")
+			syncErrors = append(syncErrors, fmt.Sprintf("plex: %v", err))
+		}
+	}
+	return syncErrors
+}
+
+// resolveService returns svc with its appRef, if any, replaced by the
+// referenced resource's address and API key Secret.
+func (r *SeerrReconciler) resolveService(
+	ctx context.Context, namespace string, svc requestsv1alpha1.SeerrServiceConnection,
+) (requestsv1alpha1.SeerrServiceConnection, error) {
+	if svc.AppRef != nil {
+		app, addr, err := ctrlcommon.ResolveAppAddress(ctx, r.Client, namespace, *svc.AppRef)
+		if err != nil {
+			return svc, fmt.Errorf("appRef: %w", err)
+		}
+		svc.Hostname, svc.Port, svc.UseSsl, svc.BaseUrl, svc.APIKeySecretRef = addr.Host, &addr.Port, &addr.TLS, addr.Base, app.APIKeySecretRef
+	}
+	if svc.APIKeySecretRef == nil {
+		return svc, fmt.Errorf("no API key Secret")
+	}
+	return svc, nil
+}
+
+// seerrMediaServer is the declared media server, with its appRef followed.
+type seerrMediaServer struct {
+	jellyfin *requestsv1alpha1.SeerrJellyfinAuth
+	plex     *requestsv1alpha1.SeerrPlexAuth
+}
+
+func (r *SeerrReconciler) mediaServer(ctx context.Context, config *requestsv1alpha1.Seerr) (seerrMediaServer, error) {
+	var m seerrMediaServer
+	if auth := config.Spec.JellyfinAuth; auth != (requestsv1alpha1.SeerrJellyfinAuth{}) {
+		if auth.AppRef != nil {
+			app, addr, err := ctrlcommon.ResolveAppAddress(ctx, r.Client, config.Namespace, *auth.AppRef)
+			if err != nil {
+				return m, fmt.Errorf("jellyfinAuth appRef: %w", err)
+			}
+			auth = requestsv1alpha1.SeerrJellyfinAuth{
+				Hostname: addr.Host, Port: &addr.Port, UseSsl: &addr.TLS, UrlBase: addr.Base,
+				UsernameSecretRef: app.UsernameSecretRef, PasswordSecretRef: app.PasswordSecretRef,
+			}
+		}
+		m.jellyfin = &auth
+	}
+	if auth := config.Spec.PlexAuth; auth != (requestsv1alpha1.SeerrPlexAuth{}) {
+		if auth.AppRef != nil {
+			app, addr, err := ctrlcommon.ResolveAppAddress(ctx, r.Client, config.Namespace, *auth.AppRef)
+			if err != nil {
+				return m, fmt.Errorf("plexAuth appRef: %w", err)
+			}
+			auth = requestsv1alpha1.SeerrPlexAuth{Hostname: addr.Host, Port: &addr.Port, UseSsl: &addr.TLS, TokenSecretRef: app.TokenSecretRef}
+		}
+		m.plex = &auth
+	}
+	return m, nil
+}
+
+func seerrAppRefs(o client.Object) []commonv1alpha1.AppRef {
+	spec := o.(*requestsv1alpha1.Seerr).Spec
+	var refs []commonv1alpha1.AppRef
+	for _, svc := range append(append([]requestsv1alpha1.SeerrServiceConnection{}, spec.Sonarr...), spec.Radarr...) {
+		if svc.AppRef != nil {
+			refs = append(refs, *svc.AppRef)
+		}
+	}
+	for _, ref := range []*commonv1alpha1.AppRef{spec.JellyfinAuth.AppRef, spec.PlexAuth.AppRef} {
+		if ref != nil {
+			refs = append(refs, *ref)
+		}
+	}
+	return refs
 }
 
 func buildServicePayload(svc *requestsv1alpha1.SeerrServiceConnection, apiKey string) map[string]any {
@@ -523,9 +620,14 @@ func seerrDiffers(current, payload map[string]any) bool {
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *SeerrReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
+	b := ctrl.NewControllerManagedBy(mgr).
 		For(&requestsv1alpha1.Seerr{}, builder.WithPredicates(ctrlcommon.ConfigChangedPredicate())).
-		WatchesMetadata(&corev1.Secret{}, ctrlcommon.EnqueueForSecret(r.Client, &requestsv1alpha1.SeerrList{})).
+		WatchesMetadata(&corev1.Secret{}, ctrlcommon.EnqueueForSecretThroughRefs(r.Client, &requestsv1alpha1.SeerrList{}, seerrAppRefs))
+	b, err := ctrlcommon.WatchAppRefs(mgr, b, &requestsv1alpha1.Seerr{}, &requestsv1alpha1.SeerrList{}, seerrAppRefs, "Sonarr", "Radarr", "Jellyfin", "Plex")
+	if err != nil {
+		return err
+	}
+	return b.
 		Named("seerr").
 		Complete(r)
 }
@@ -619,7 +721,7 @@ func enableLibraries(ctx context.Context, sc *seerrclient.Client, server string)
 	return nil
 }
 
-func (r *SeerrReconciler) establishSession(ctx context.Context, sc *seerrclient.Client, config *requestsv1alpha1.Seerr) error {
+func (r *SeerrReconciler) establishSession(ctx context.Context, sc *seerrclient.Client, config *requestsv1alpha1.Seerr, media seerrMediaServer) error {
 	if ref := config.Spec.Connection.APIKeySecretRef; ref != nil {
 		apiKey, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, *ref)
 		if err != nil {
@@ -631,7 +733,7 @@ func (r *SeerrReconciler) establishSession(ctx context.Context, sc *seerrclient.
 		}
 		return nil
 	}
-	if err := r.authenticate(ctx, sc, config); err != nil {
+	if err := r.authenticate(ctx, sc, config.Namespace, media); err != nil {
 		return err
 	}
 	apiKey, err := sc.GetAPIKey(ctx)
@@ -642,34 +744,39 @@ func (r *SeerrReconciler) establishSession(ctx context.Context, sc *seerrclient.
 	return nil
 }
 
-func (r *SeerrReconciler) authenticate(ctx context.Context, sc *seerrclient.Client, config *requestsv1alpha1.Seerr) error {
-	if config.Spec.PlexAuth != (requestsv1alpha1.SeerrPlexAuth{}) {
-		plexToken, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, config.Spec.PlexAuth.TokenSecretRef)
+func (r *SeerrReconciler) authenticate(ctx context.Context, sc *seerrclient.Client, namespace string, media seerrMediaServer) error {
+	if plex := media.plex; plex != nil {
+		if plex.TokenSecretRef == nil {
+			return fmt.Errorf("plexAuth has no token Secret")
+		}
+		plexToken, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, namespace, *plex.TokenSecretRef)
 		if err != nil {
 			return fmt.Errorf("resolving plex token: %w", err)
 		}
 		return sc.AuthenticatePlex(ctx, plexToken)
 	}
-	if config.Spec.JellyfinAuth != (requestsv1alpha1.SeerrJellyfinAuth{}) {
-		jfUsername, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, config.Spec.JellyfinAuth.UsernameSecretRef)
+	if jf := media.jellyfin; jf != nil {
+		if jf.UsernameSecretRef == nil || jf.PasswordSecretRef == nil {
+			return fmt.Errorf("jellyfinAuth has no username or password Secret")
+		}
+		jfUsername, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, namespace, *jf.UsernameSecretRef)
 		if err != nil {
 			return fmt.Errorf("resolving jellyfin username: %w", err)
 		}
-		jfPassword, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, config.Spec.JellyfinAuth.PasswordSecretRef)
+		jfPassword, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, namespace, *jf.PasswordSecretRef)
 		if err != nil {
 			return fmt.Errorf("resolving jellyfin password: %w", err)
 		}
 		jfPort := 0
-		if config.Spec.JellyfinAuth.Port != nil {
-			jfPort = int(*config.Spec.JellyfinAuth.Port)
+		if jf.Port != nil {
+			jfPort = int(*jf.Port)
 		}
-		useSsl := config.Spec.JellyfinAuth.UseSsl != nil && *config.Spec.JellyfinAuth.UseSsl
+		useSsl := jf.UseSsl != nil && *jf.UseSsl
 		configured, err := sc.MediaServerConfigured(ctx)
 		if err != nil {
 			return fmt.Errorf("reading media server state: %w", err)
 		}
-		return sc.AuthenticateJellyfin(ctx, jfUsername, jfPassword, config.Spec.JellyfinAuth.Hostname, jfPort,
-			config.Spec.JellyfinAuth.UrlBase, useSsl, configured)
+		return sc.AuthenticateJellyfin(ctx, jfUsername, jfPassword, jf.Hostname, jfPort, jf.UrlBase, useSsl, configured)
 	}
 	return fmt.Errorf("either jellyfinAuth or plexAuth must be configured")
 }

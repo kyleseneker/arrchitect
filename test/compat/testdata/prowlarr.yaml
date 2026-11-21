@@ -19,13 +19,10 @@ spec:
   applications:
     - name: Sonarr
       syncLevel: fullSync
-      implementation: Sonarr
-      configContract: SonarrSettings
+      appRef:
+        kind: Sonarr
+        name: sonarr
       prowlarrUrl: ${PROWLARR_URL}
-      baseUrl: ${SONARR_URL}
-      apiKeySecretRef:
-        name: compat-credentials
-        key: sonarr-api-key
       syncCategories: [5000, 5040]
   indexers:
     - name: Compat Torznab
@@ -82,3 +79,14 @@ spec:
           value: ${FAKES}/webhook
         - name: method
           value: 1
+---
+apiVersion: arrchitect.dev/v1alpha1
+kind: Sonarr
+metadata:
+  name: sonarr
+spec:
+  connection:
+    url: ${SONARR_URL}
+    apiKeySecretRef:
+      name: compat-credentials
+      key: sonarr-api-key

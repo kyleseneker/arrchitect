@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -25,6 +26,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
+	pvrv1alpha1 "github.com/kyleseneker/arrchitect/api/pvr/v1alpha1"
 	subtitlesv1alpha1 "github.com/kyleseneker/arrchitect/api/subtitles/v1alpha1"
 	bazarrclient "github.com/kyleseneker/arrchitect/internal/client/bazarr"
 	"github.com/kyleseneker/arrchitect/internal/engine"
@@ -39,6 +41,8 @@ type fakeBazarr struct {
 	forms    []url.Values
 	paths    []string
 	profiles []map[string]any
+	// settings is what Bazarr reports as its settings, by section.
+	settings map[string]any
 }
 
 // formValue returns the first value posted for key across all requests.
@@ -46,8 +50,8 @@ func (f *fakeBazarr) formValue(key string) (string, bool) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	for _, form := range f.forms {
-		if v := form.Get(key); v != "" {
-			return v, true
+		if form.Has(key) {
+			return form.Get(key), true
 		}
 	}
 	return "", false
@@ -113,6 +117,10 @@ func (f *fakeBazarr) serve(t *testing.T) string {
 		f.mu.Unlock()
 
 		w.Header().Set("Content-Type", "application/json")
+		if r.Method == http.MethodGet && r.URL.Path == "/api/system/settings" && f.settings != nil {
+			_ = json.NewEncoder(w).Encode(f.settings)
+			return
+		}
 		if r.URL.Path == "/api/system/languages/profiles" && f.profiles != nil {
 			_ = json.NewEncoder(w).Encode(f.profiles)
 			return
@@ -157,6 +165,7 @@ func runBazarr(t *testing.T, cfg *subtitlesv1alpha1.Bazarr, objs ...client.Objec
 	scheme := runtime.NewScheme()
 	require.NoError(t, clientgoscheme.AddToScheme(scheme), "adding client-go scheme")
 	require.NoError(t, subtitlesv1alpha1.AddToScheme(scheme), "adding subtitles scheme")
+	require.NoError(t, pvrv1alpha1.AddToScheme(scheme), "adding pvr scheme")
 	b := fake.NewClientBuilder().WithScheme(scheme).
 		WithStatusSubresource(&subtitlesv1alpha1.Bazarr{}).WithObjects(cfg)
 	for _, o := range objs {
@@ -196,7 +205,7 @@ func TestBazarrSubstitutesResolvedAPIKeyIntoForm(t *testing.T) {
 	cfg.Spec.SonarrConnection = subtitlesv1alpha1.BazarrAppConnection{
 		Host:            "sonarr",
 		Port:            &port,
-		APIKeySecretRef: commonv1alpha1.SecretKeyRef{Name: "bazarr-secrets", Key: "sonarr-api-key"},
+		APIKeySecretRef: &commonv1alpha1.SecretKeyRef{Name: "bazarr-secrets", Key: "sonarr-api-key"},
 	}
 	runBazarr(t, cfg, bazarrSecrets())
 
@@ -360,4 +369,51 @@ func TestBazarrProviderSecretSettingsReadFromASecret(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "me", form.Get("settings-opensubtitlescom-username"))
 	assert.Equal(t, "sonarr-key", form.Get("settings-opensubtitlescom-password"))
+}
+
+// A reference sets the whole address, so one at the root clears a base path
+// Bazarr has from before.
+func TestBazarrAppRefUsesTheReferencedConnection(t *testing.T) {
+	app := &fakeBazarr{settings: map[string]any{"radarr": map[string]any{"base_url": "/radarr"}}}
+	cfg := bazarrConfig(app.serve(t))
+	cfg.Spec.SonarrConnection = subtitlesv1alpha1.BazarrAppConnection{AppRef: &commonv1alpha1.AppRef{Kind: "Sonarr", Name: "sonarr"}}
+	cfg.Spec.RadarrConnection = subtitlesv1alpha1.BazarrAppConnection{AppRef: &commonv1alpha1.AppRef{Kind: "Radarr", Name: "radarr"}}
+	key := commonv1alpha1.SecretKeyRef{Name: "bazarr-secrets", Key: "sonarr-api-key"}
+	sonarr := &pvrv1alpha1.Sonarr{Name: "sonarr", Namespace: "media", Spec: pvrv1alpha1.SonarrSpec{
+		Connection: commonv1alpha1.AppConnection{URL: "https://sonarr.media.svc/sonarr", APIKeySecretRef: key},
+	}}
+	radarr := &pvrv1alpha1.Radarr{Name: "radarr", Namespace: "media", Spec: pvrv1alpha1.RadarrSpec{
+		Connection: commonv1alpha1.AppConnection{URL: "http://radarr.media.svc:7878", APIKeySecretRef: key},
+	}}
+
+	runBazarr(t, cfg, bazarrSecrets(), sonarr, radarr)
+
+	for key, want := range map[string]string{
+		"settings-sonarr-ip": "sonarr.media.svc", "settings-sonarr-port": "443", "settings-sonarr-ssl": "true",
+		"settings-sonarr-base_url": "/sonarr", "settings-sonarr-apikey": "sonarr-key",
+		"settings-radarr-ip": "radarr.media.svc", "settings-radarr-port": "7878", "settings-radarr-ssl": "false",
+		"settings-radarr-base_url": "",
+	} {
+		got, ok := app.formValue(key)
+		require.True(t, ok, "%s was never sent", key)
+		assert.Equal(t, want, got, key)
+	}
+}
+
+func TestBazarrMissingAppRefSkipsOnlyThatConnection(t *testing.T) {
+	app := &fakeBazarr{}
+	cfg := bazarrConfig(app.serve(t))
+	cfg.Spec.SonarrConnection = subtitlesv1alpha1.BazarrAppConnection{AppRef: &commonv1alpha1.AppRef{Kind: "Sonarr", Name: "sonarr"}}
+	cfg.Spec.Languages = &subtitlesv1alpha1.BazarrLanguages{Enabled: []string{"en"}}
+
+	c := runBazarr(t, cfg, bazarrSecrets())
+
+	_, sent := app.formValue("languages-enabled")
+	assert.True(t, sent, "the rest of Bazarr was held back too")
+	assert.False(t, app.anyKeyContains("settings-sonarr-"), "a connection was sent without its reference")
+	var got subtitlesv1alpha1.Bazarr
+	require.NoError(t, c.Get(context.Background(), types.NamespacedName{Name: "bazarr", Namespace: "media"}, &got))
+	synced := meta.FindStatusCondition(got.Status.Conditions, "Synced")
+	require.NotNil(t, synced)
+	assert.Contains(t, synced.Message, `sonarrConnection: appRef: Sonarr "sonarr" not found`)
 }

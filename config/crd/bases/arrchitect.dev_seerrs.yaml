@@ -118,7 +118,47 @@ spec:
                 description: |-
                   jellyfinAuth defines Jellyfin authentication settings.
                   Set this for Jellyfin-based Seerr instances. Mutually exclusive with plexAuth.
+                minProperties: 1
                 properties:
+                  appRef:
+                    description: |-
+                      appRef names the Jellyfin resource whose connection URL and admin user are
+                      used in place of hostname, port, useSsl, urlBase, usernameSecretRef and
+                      passwordSecretRef.
+                    properties:
+                      group:
+                        default: arrchitect.dev
+                        description: group is the resource's API group.
+                        enum:
+                        - arrchitect.dev
+                        type: string
+                      kind:
+                        description: kind is the resource's kind, such as Sonarr.
+                        enum:
+                        - Sonarr
+                        - Radarr
+                        - Lidarr
+                        - Readarr
+                        - Prowlarr
+                        - Seerr
+                        - Jellyfin
+                        - Plex
+                        - QBittorrent
+                        - Sabnzbd
+                        type: string
+                      name:
+                        description: name is the resource's name.
+                        maxLength: 253
+                        minLength: 1
+                        pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                        type: string
+                    required:
+                    - kind
+                    - name
+                    type: object
+                    x-kubernetes-validations:
+                    - message: jellyfinAuth refers to a Jellyfin
+                      rule: self.kind == 'Jellyfin'
                   hostname:
                     description: hostname is the Jellyfin server hostname.
                     minLength: 1
@@ -167,12 +207,14 @@ spec:
                     - key
                     - name
                     type: object
-                required:
-                - hostname
-                - passwordSecretRef
-                - port
-                - usernameSecretRef
                 type: object
+                x-kubernetes-validations:
+                - message: set appRef, or hostname, port, usernameSecretRef and passwordSecretRef,
+                    not both
+                  rule: 'has(self.appRef) ? !has(self.hostname) && !has(self.port)
+                    && !has(self.useSsl) && !has(self.urlBase) && !has(self.usernameSecretRef)
+                    && !has(self.passwordSecretRef) : has(self.hostname) && has(self.port)
+                    && has(self.usernameSecretRef) && has(self.passwordSecretRef)'
               main:
                 description: main configures general application settings.
                 properties:
@@ -305,14 +347,52 @@ spec:
                 description: |-
                   plexAuth defines Plex authentication settings.
                   Set this for Plex-based Seerr instances. Mutually exclusive with jellyfinAuth.
+                minProperties: 1
                 properties:
+                  appRef:
+                    description: |-
+                      appRef names the Plex resource whose connection URL and token are used in
+                      place of hostname, port, useSsl and tokenSecretRef.
+                    properties:
+                      group:
+                        default: arrchitect.dev
+                        description: group is the resource's API group.
+                        enum:
+                        - arrchitect.dev
+                        type: string
+                      kind:
+                        description: kind is the resource's kind, such as Sonarr.
+                        enum:
+                        - Sonarr
+                        - Radarr
+                        - Lidarr
+                        - Readarr
+                        - Prowlarr
+                        - Seerr
+                        - Jellyfin
+                        - Plex
+                        - QBittorrent
+                        - Sabnzbd
+                        type: string
+                      name:
+                        description: name is the resource's name.
+                        maxLength: 253
+                        minLength: 1
+                        pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                        type: string
+                    required:
+                    - kind
+                    - name
+                    type: object
+                    x-kubernetes-validations:
+                    - message: plexAuth refers to a Plex
+                      rule: self.kind == 'Plex'
                   hostname:
                     description: hostname is the Plex server hostname.
                     minLength: 1
                     type: string
                   port:
-                    default: 32400
-                    description: port is the Plex server port.
+                    description: port is the Plex server port. Defaults to 32400.
                     format: int32
                     type: integer
                   tokenSecretRef:
@@ -334,10 +414,12 @@ spec:
                   useSsl:
                     description: useSsl enables SSL for the Plex connection.
                     type: boolean
-                required:
-                - hostname
-                - tokenSecretRef
                 type: object
+                x-kubernetes-validations:
+                - message: set appRef, or hostname and tokenSecretRef, not both
+                  rule: 'has(self.appRef) ? !has(self.hostname) && !has(self.port)
+                    && !has(self.useSsl) && !has(self.tokenSecretRef) : has(self.hostname)
+                    && has(self.tokenSecretRef)'
               radarr:
                 description: |-
                   radarr lists the Radarr servers Seerr sends movie requests to, matched by
@@ -397,6 +479,42 @@ spec:
                           type: string
                       required:
                       - key
+                      - name
+                      type: object
+                    appRef:
+                      description: |-
+                        appRef names the server's resource, a Sonarr in sonarr or a Radarr in
+                        radarr, whose connection is used in place of hostname, port, useSsl,
+                        baseUrl and apiKeySecretRef.
+                      properties:
+                        group:
+                          default: arrchitect.dev
+                          description: group is the resource's API group.
+                          enum:
+                          - arrchitect.dev
+                          type: string
+                        kind:
+                          description: kind is the resource's kind, such as Sonarr.
+                          enum:
+                          - Sonarr
+                          - Radarr
+                          - Lidarr
+                          - Readarr
+                          - Prowlarr
+                          - Seerr
+                          - Jellyfin
+                          - Plex
+                          - QBittorrent
+                          - Sabnzbd
+                          type: string
+                        name:
+                          description: name is the resource's name.
+                          maxLength: 253
+                          minLength: 1
+                          pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                          type: string
+                      required:
+                      - kind
                       - name
                       type: object
                     baseUrl:
@@ -471,15 +589,21 @@ spec:
                       description: useSsl enables SSL for the service connection.
                       type: boolean
                   required:
-                  - apiKeySecretRef
-                  - hostname
                   - name
-                  - port
                   type: object
+                  x-kubernetes-validations:
+                  - message: set appRef, or hostname, port and apiKeySecretRef, not
+                      both
+                    rule: 'has(self.appRef) ? !has(self.hostname) && !has(self.port)
+                      && !has(self.useSsl) && !has(self.baseUrl) && !has(self.apiKeySecretRef)
+                      : has(self.hostname) && has(self.port) && has(self.apiKeySecretRef)'
                 type: array
                 x-kubernetes-list-map-keys:
                 - name
                 x-kubernetes-list-type: map
+                x-kubernetes-validations:
+                - message: a radarr server refers to a Radarr
+                  rule: self.all(s, !has(s.appRef) || s.appRef.kind == 'Radarr')
               reconcile:
                 description: reconcile configures reconciliation behavior (e.g., sync
                   interval).
@@ -588,6 +712,42 @@ spec:
                       - key
                       - name
                       type: object
+                    appRef:
+                      description: |-
+                        appRef names the server's resource, a Sonarr in sonarr or a Radarr in
+                        radarr, whose connection is used in place of hostname, port, useSsl,
+                        baseUrl and apiKeySecretRef.
+                      properties:
+                        group:
+                          default: arrchitect.dev
+                          description: group is the resource's API group.
+                          enum:
+                          - arrchitect.dev
+                          type: string
+                        kind:
+                          description: kind is the resource's kind, such as Sonarr.
+                          enum:
+                          - Sonarr
+                          - Radarr
+                          - Lidarr
+                          - Readarr
+                          - Prowlarr
+                          - Seerr
+                          - Jellyfin
+                          - Plex
+                          - QBittorrent
+                          - Sabnzbd
+                          type: string
+                        name:
+                          description: name is the resource's name.
+                          maxLength: 253
+                          minLength: 1
+                          pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                          type: string
+                      required:
+                      - kind
+                      - name
+                      type: object
                     baseUrl:
                       description: baseUrl is the URL base path for the service.
                       minLength: 1
@@ -660,15 +820,21 @@ spec:
                       description: useSsl enables SSL for the service connection.
                       type: boolean
                   required:
-                  - apiKeySecretRef
-                  - hostname
                   - name
-                  - port
                   type: object
+                  x-kubernetes-validations:
+                  - message: set appRef, or hostname, port and apiKeySecretRef, not
+                      both
+                    rule: 'has(self.appRef) ? !has(self.hostname) && !has(self.port)
+                      && !has(self.useSsl) && !has(self.baseUrl) && !has(self.apiKeySecretRef)
+                      : has(self.hostname) && has(self.port) && has(self.apiKeySecretRef)'
                 type: array
                 x-kubernetes-list-map-keys:
                 - name
                 x-kubernetes-list-type: map
+                x-kubernetes-validations:
+                - message: a sonarr server refers to a Sonarr
+                  rule: self.all(s, !has(s.appRef) || s.appRef.kind == 'Sonarr')
             required:
             - connection
             type: object

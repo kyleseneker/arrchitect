@@ -69,7 +69,7 @@ func TestLanguagesForm(t *testing.T) {
 func TestStructToFormDataSkipsNonScalarFields(t *testing.T) {
 	form := StructToFormData("sonarr", &subtitlesv1alpha1.BazarrAppConnection{
 		Host:            "sonarr",
-		APIKeySecretRef: commonv1alpha1.SecretKeyRef{Name: "creds", Key: "api-key"},
+		APIKeySecretRef: &commonv1alpha1.SecretKeyRef{Name: "creds", Key: "api-key"},
 	})
 	assert.Equal(t, "sonarr", form.Get("settings-sonarr-ip"))
 	for key := range form {

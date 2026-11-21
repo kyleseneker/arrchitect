@@ -13,10 +13,9 @@ spec:
         key: jellyfin-api-key
   radarr:
     - name: Radarr
-      url: http://${HOST}:${RADARR_PORT}
-      apiKeySecretRef:
-        name: compat-credentials
-        key: radarr-api-key
+      appRef:
+        kind: Radarr
+        name: radarr
       tagExclusions: true
       exclusionTag: keep
   seerr:
@@ -76,3 +75,14 @@ spec:
               customValue:
                 type: boolean
                 value: "false"
+---
+apiVersion: arrchitect.dev/v1alpha1
+kind: Radarr
+metadata:
+  name: radarr
+spec:
+  connection:
+    url: http://${HOST}:${RADARR_PORT}
+    apiKeySecretRef:
+      name: compat-credentials
+      key: radarr-api-key

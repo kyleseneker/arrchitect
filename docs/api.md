@@ -64,6 +64,38 @@ _Appears in:_
 | `tls` _[TLSConfig](#tlsconfig)_ | tls configures TLS settings for the connection.<br />Only needed when the app uses HTTPS with self-signed or private CA certificates. |  | Optional: \{\} <br /> |
 
 
+#### AppRef
+
+
+
+AppRef names another app's resource in the same namespace, whose connection
+is used in place of an address and credentials.
+
+
+
+_Appears in:_
+- [AutobrrDownloadClient](#autobrrdownloadclient)
+- [BazarrAppConnection](#bazarrappconnection)
+- [DownloadClient](#downloadclient)
+- [LidarrDownloadClientSpec](#lidarrdownloadclientspec)
+- [MaintainerrArrServer](#maintainerrarrserver)
+- [MaintainerrPlex](#maintainerrplex)
+- [MaintainerrSeerrConnection](#maintainerrseerrconnection)
+- [ProwlarrApplication](#prowlarrapplication)
+- [RadarrDownloadClientSpec](#radarrdownloadclientspec)
+- [ReadarrDownloadClientSpec](#readarrdownloadclientspec)
+- [SeerrJellyfinAuth](#seerrjellyfinauth)
+- [SeerrPlexAuth](#seerrplexauth)
+- [SeerrServiceConnection](#seerrserviceconnection)
+- [SonarrDownloadClientSpec](#sonarrdownloadclientspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `group` _string_ | group is the resource's API group. | arrchitect.dev | Enum: [arrchitect.dev] <br />Optional: \{\} <br /> |
+| `kind` _string_ | kind is the resource's kind, such as Sonarr. |  | Enum: [Sonarr Radarr Lidarr Readarr Prowlarr Seerr Jellyfin Plex QBittorrent Sabnzbd] <br />Required: \{\} <br /> |
+| `name` _string_ | name is the resource's name. |  | MaxLength: 253 <br />MinLength: 1 <br />Pattern: `^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$` <br />Required: \{\} <br /> |
+
+
 #### Autobrr
 
 
@@ -97,9 +129,10 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `name` _string_ | name is the display name of the download client. |  | MinLength: 1 <br />Required: \{\} <br /> |
+| `appRef` _[AppRef](#appref)_ | appRef names the download client's resource, a QBittorrent, Sabnzbd,<br />Sonarr, Radarr, Lidarr or Readarr, whose kind and connection are used in<br />place of type, host, port, tls and the credentials. |  | Optional: \{\} <br /> |
 | `enable` _boolean_ | enable controls whether this download client is active. A new download<br />client is enabled unless this is false. |  | Optional: \{\} <br /> |
-| `type` _string_ | type is the download client type. Deluge means Deluge 2 (Autobrr's DELUGE_V2). |  | Enum: [qBittorrent Deluge Transmission rTorrent SABnzbd Sonarr Radarr Lidarr Readarr Whisparr] <br />Required: \{\} <br /> |
-| `host` _string_ | host is the hostname or URL of the download client. |  | MinLength: 1 <br />Required: \{\} <br /> |
+| `type` _string_ | type is the download client type. Deluge means Deluge 2 (Autobrr's DELUGE_V2). |  | Enum: [qBittorrent Deluge Transmission rTorrent SABnzbd Sonarr Radarr Lidarr Readarr Whisparr] <br />Optional: \{\} <br /> |
+| `host` _string_ | host is the hostname or URL of the download client. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `port` _integer_ | port is the port of the download client. |  | Optional: \{\} <br /> |
 | `tls` _boolean_ | tls enables TLS for the connection. |  | Optional: \{\} <br /> |
 | `usernameSecretRef` _[SecretKeyRef](#secretkeyref)_ | usernameSecretRef references a Secret containing the username. |  | Optional: \{\} <br /> |
@@ -387,18 +420,20 @@ Bazarr configures a Bazarr instance the operator connects to.
 
 BazarrAppConnection defines a connection to a Sonarr or Radarr instance from Bazarr.
 
-
+_Validation:_
+- MinProperties: 1
 
 _Appears in:_
 - [BazarrSpec](#bazarrspec)
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `host` _string_ | host is the hostname or IP of the application. |  | MinLength: 1 <br />Required: \{\} <br /> |
-| `port` _integer_ | port is the port of the application. |  | Required: \{\} <br /> |
+| `appRef` _[AppRef](#appref)_ | appRef names the application's resource, whose connection is used in<br />place of host, port, basePath, ssl and apiKeySecretRef. |  | Optional: \{\} <br /> |
+| `host` _string_ | host is the hostname or IP of the application. |  | MinLength: 1 <br />Optional: \{\} <br /> |
+| `port` _integer_ | port is the port of the application. |  | Optional: \{\} <br /> |
 | `basePath` _string_ | basePath is the URL base path of the application. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `ssl` _boolean_ | ssl enables HTTPS connections to the application. |  | Optional: \{\} <br /> |
-| `apiKeySecretRef` _[SecretKeyRef](#secretkeyref)_ | apiKeySecretRef references a Secret containing the application's API key. |  | Required: \{\} <br /> |
+| `apiKeySecretRef` _[SecretKeyRef](#secretkeyref)_ | apiKeySecretRef references a Secret containing the application's API key. |  | Optional: \{\} <br /> |
 | `httpTimeout` _integer_ | httpTimeout is the HTTP request timeout in seconds. |  | Optional: \{\} <br /> |
 | `fullUpdate` _string_ | fullUpdate controls how often a full library sync is performed. |  | Enum: [Daily Weekly Manually] <br />Optional: \{\} <br /> |
 | `onlyMonitored` _boolean_ | onlyMonitored limits subtitle searches to monitored items only. |  | Optional: \{\} <br /> |
@@ -560,8 +595,8 @@ _Appears in:_
 | `connection` _[AppConnection](#appconnection)_ | connection defines how to connect to the Bazarr instance. |  | Required: \{\} <br /> |
 | `reconcile` _[ReconcileConfig](#reconcileconfig)_ | reconcile configures reconciliation behavior (e.g., sync interval). |  | Optional: \{\} <br /> |
 | `general` _[BazarrGeneral](#bazarrgeneral)_ | general configures general Bazarr settings. |  | Optional: \{\} <br /> |
-| `sonarrConnection` _[BazarrAppConnection](#bazarrappconnection)_ | sonarrConnection configures the connection to a Sonarr instance. |  | Optional: \{\} <br /> |
-| `radarrConnection` _[BazarrAppConnection](#bazarrappconnection)_ | radarrConnection configures the connection to a Radarr instance. |  | Optional: \{\} <br /> |
+| `sonarrConnection` _[BazarrAppConnection](#bazarrappconnection)_ | sonarrConnection configures the connection to a Sonarr instance. |  | MinProperties: 1 <br />Optional: \{\} <br /> |
+| `radarrConnection` _[BazarrAppConnection](#bazarrappconnection)_ | radarrConnection configures the connection to a Radarr instance. |  | MinProperties: 1 <br />Optional: \{\} <br /> |
 | `subSync` _[BazarrSubSync](#bazarrsubsync)_ | subSync configures subtitle synchronization settings. |  | Optional: \{\} <br /> |
 | `providers` _[BazarrProvider](#bazarrprovider) array_ | providers defines subtitle provider configurations. |  | Optional: \{\} <br /> |
 | `languages` _[BazarrLanguages](#bazarrlanguages)_ | languages configures language settings and profiles. |  | Optional: \{\} <br /> |
@@ -750,12 +785,13 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `name` _string_ | name is the display name of the download client. |  | MinLength: 1 <br />Required: \{\} <br /> |
+| `appRef` _[AppRef](#appref)_ | appRef names the download client's resource, a QBittorrent or Sabnzbd,<br />whose kind and connection are used in place of implementation, protocol,<br />host, port, useSsl, urlBase and the credentials. |  | Optional: \{\} <br /> |
 | `enable` _boolean_ | enable controls whether this download client is active. A new download<br />client is enabled unless this is false. |  | Optional: \{\} <br /> |
-| `protocol` _string_ | protocol is the download protocol. |  | Enum: [torrent usenet] <br />Required: \{\} <br /> |
-| `implementation` _string_ | implementation is the download client type (e.g., QBittorrent, Sabnzbd, NzbGet, Transmission, Deluge). |  | MinLength: 1 <br />Required: \{\} <br /> |
+| `protocol` _string_ | protocol is the download protocol. |  | Enum: [torrent usenet] <br />Optional: \{\} <br /> |
+| `implementation` _string_ | implementation is the download client type (e.g., QBittorrent, Sabnzbd, NzbGet, Transmission, Deluge). |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `configContract` _string_ | configContract overrides the default config contract name.<br />Defaults to "<implementation>Settings" if not set. |  | MinLength: 1 <br />Optional: \{\} <br /> |
-| `host` _string_ | host is the hostname or IP of the download client. |  | MinLength: 1 <br />Required: \{\} <br /> |
-| `port` _integer_ | port is the port of the download client. |  | Maximum: 65535 <br />Minimum: 1 <br />Required: \{\} <br /> |
+| `host` _string_ | host is the hostname or IP of the download client. |  | MinLength: 1 <br />Optional: \{\} <br /> |
+| `port` _integer_ | port is the port of the download client. |  | Maximum: 65535 <br />Minimum: 1 <br />Optional: \{\} <br /> |
 | `useSsl` _boolean_ | useSsl enables SSL/TLS for the download client connection. |  | Optional: \{\} <br /> |
 | `urlBase` _string_ | urlBase is the base URL path for the download client (e.g., "/qbittorrent"). |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `category` _string_ | category is the download category to use. |  | MinLength: 1 <br />Optional: \{\} <br /> |
@@ -1248,12 +1284,13 @@ _Appears in:_
 | `lidarrRef` _[LocalObjectReference](#localobjectreference)_ | lidarrRef names the Lidarr this download client belongs to, in the same namespace. |  | Required: \{\} <br /> |
 | `deletionPolicy` _string_ | deletionPolicy controls what deleting this resource does in Lidarr:<br />"delete" removes the download client, "orphan" leaves it. One that existed before<br />the operator adopted it is never deleted. | delete | Enum: [delete orphan] <br />Optional: \{\} <br /> |
 | `name` _string_ | name is the display name of the download client. |  | MinLength: 1 <br />Required: \{\} <br /> |
+| `appRef` _[AppRef](#appref)_ | appRef names the download client's resource, a QBittorrent or Sabnzbd,<br />whose kind and connection are used in place of implementation, protocol,<br />host, port, useSsl, urlBase and the credentials. |  | Optional: \{\} <br /> |
 | `enable` _boolean_ | enable controls whether this download client is active. A new download<br />client is enabled unless this is false. |  | Optional: \{\} <br /> |
-| `protocol` _string_ | protocol is the download protocol. |  | Enum: [torrent usenet] <br />Required: \{\} <br /> |
-| `implementation` _string_ | implementation is the download client type (e.g., QBittorrent, Sabnzbd, NzbGet, Transmission, Deluge). |  | MinLength: 1 <br />Required: \{\} <br /> |
+| `protocol` _string_ | protocol is the download protocol. |  | Enum: [torrent usenet] <br />Optional: \{\} <br /> |
+| `implementation` _string_ | implementation is the download client type (e.g., QBittorrent, Sabnzbd, NzbGet, Transmission, Deluge). |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `configContract` _string_ | configContract overrides the default config contract name.<br />Defaults to "<implementation>Settings" if not set. |  | MinLength: 1 <br />Optional: \{\} <br /> |
-| `host` _string_ | host is the hostname or IP of the download client. |  | MinLength: 1 <br />Required: \{\} <br /> |
-| `port` _integer_ | port is the port of the download client. |  | Maximum: 65535 <br />Minimum: 1 <br />Required: \{\} <br /> |
+| `host` _string_ | host is the hostname or IP of the download client. |  | MinLength: 1 <br />Optional: \{\} <br /> |
+| `port` _integer_ | port is the port of the download client. |  | Maximum: 65535 <br />Minimum: 1 <br />Optional: \{\} <br /> |
 | `useSsl` _boolean_ | useSsl enables SSL/TLS for the download client connection. |  | Optional: \{\} <br /> |
 | `urlBase` _string_ | urlBase is the base URL path for the download client (e.g., "/qbittorrent"). |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `category` _string_ | category is the download category to use. |  | MinLength: 1 <br />Optional: \{\} <br /> |
@@ -1550,8 +1587,9 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `name` _string_ | name identifies the server here and in ruleGroups[].sonarrServer and<br />ruleGroups[].radarrServer. It is the server name Maintainerr shows. |  | MinLength: 1 <br />Required: \{\} <br /> |
-| `url` _string_ | url is the server URL as Maintainerr reaches it (e.g., http://radarr:7878). |  | MinLength: 1 <br />Pattern: `^https?://` <br />Required: \{\} <br /> |
-| `apiKeySecretRef` _[SecretKeyRef](#secretkeyref)_ | apiKeySecretRef references a Secret containing the server's API key. |  | Required: \{\} <br /> |
+| `appRef` _[AppRef](#appref)_ | appRef names the server's resource, a Sonarr in sonarr or a Radarr in<br />radarr, whose connection is used in place of url and apiKeySecretRef. |  | Optional: \{\} <br /> |
+| `url` _string_ | url is the server URL as Maintainerr reaches it (e.g., http://radarr:7878). |  | MinLength: 1 <br />Pattern: `^https?://` <br />Optional: \{\} <br /> |
+| `apiKeySecretRef` _[SecretKeyRef](#secretkeyref)_ | apiKeySecretRef references a Secret containing the server's API key. |  | Optional: \{\} <br /> |
 | `tagExclusions` _boolean_ | tagExclusions excludes media carrying exclusionTag in this server from<br />every rule group. |  | Optional: \{\} <br /> |
 | `exclusionTag` _string_ | exclusionTag is the tag tagExclusions looks for. Maintainerr uses "dnd"<br />when it is unset. |  | MinLength: 1 <br />Pattern: `^[a-z0-9-]+$` <br />Optional: \{\} <br /> |
 | `untagOnUnexclude` _boolean_ | untagOnUnexclude removes exclusionTag from media when it is no longer<br />excluded in Maintainerr. |  | Optional: \{\} <br /> |
@@ -1640,7 +1678,7 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `plex` _[MaintainerrPlex](#maintainerrplex)_ | plex connects Maintainerr to a Plex server. |  | Optional: \{\} <br /> |
+| `plex` _[MaintainerrPlex](#maintainerrplex)_ | plex connects Maintainerr to a Plex server. |  | MinProperties: 1 <br />Optional: \{\} <br /> |
 | `jellyfin` _[MaintainerrJellyfin](#maintainerrjellyfin)_ | jellyfin connects Maintainerr to a Jellyfin server. Maintainerr tests the<br />connection before saving it, so Jellyfin must be reachable from Maintainerr. |  | Optional: \{\} <br /> |
 
 
@@ -1673,17 +1711,19 @@ MaintainerrPlex connects Maintainerr to a Plex server. The operator turns on
 Maintainerr's manual mode, so Maintainerr does not replace these values with
 another address it discovers through plex.tv.
 
-
+_Validation:_
+- MinProperties: 1
 
 _Appears in:_
 - [MaintainerrMediaServer](#maintainerrmediaserver)
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `hostname` _string_ | hostname is the Plex host as Maintainerr reaches it, without a scheme<br />(e.g., plex.media.svc.cluster.local). |  | MinLength: 1 <br />Required: \{\} <br /> |
-| `port` _integer_ | port is the Plex port. | 32400 | Maximum: 65535 <br />Minimum: 1 <br />Optional: \{\} <br /> |
+| `appRef` _[AppRef](#appref)_ | appRef names the Plex resource whose connection URL and token are used in<br />place of hostname, port, ssl and tokenSecretRef. |  | Optional: \{\} <br /> |
+| `hostname` _string_ | hostname is the Plex host as Maintainerr reaches it, without a scheme<br />(e.g., plex.media.svc.cluster.local). |  | MinLength: 1 <br />Optional: \{\} <br /> |
+| `port` _integer_ | port is the Plex port. Defaults to 32400. |  | Maximum: 65535 <br />Minimum: 1 <br />Optional: \{\} <br /> |
 | `ssl` _boolean_ | ssl connects to Plex over HTTPS. |  | Optional: \{\} <br /> |
-| `tokenSecretRef` _[SecretKeyRef](#secretkeyref)_ | tokenSecretRef references a Secret containing a Plex token for an account<br />with access to the server. |  | Required: \{\} <br /> |
+| `tokenSecretRef` _[SecretKeyRef](#secretkeyref)_ | tokenSecretRef references a Secret containing a Plex token for an account<br />with access to the server. |  | Optional: \{\} <br /> |
 
 
 #### MaintainerrRule
@@ -1762,6 +1802,25 @@ _Appears in:_
 | `rules` _[MaintainerrRule](#maintainerrrule) array_ | rules are combined in order, each with the result of the ones before it. |  | MinItems: 1 <br />Required: \{\} <br /> |
 
 
+#### MaintainerrSeerrConnection
+
+
+
+MaintainerrSeerrConnection connects Maintainerr to Seerr.
+
+_Validation:_
+- MinProperties: 1
+
+_Appears in:_
+- [MaintainerrSpec](#maintainerrspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `appRef` _[AppRef](#appref)_ | appRef names the Seerr resource whose connection URL and API key are used<br />in place of url and apiKeySecretRef. That resource must set its<br />connection's apiKeySecretRef. |  | Optional: \{\} <br /> |
+| `url` _string_ | url is Seerr's URL as Maintainerr reaches it. |  | MinLength: 1 <br />Pattern: `^https?://` <br />Optional: \{\} <br /> |
+| `apiKeySecretRef` _[SecretKeyRef](#secretkeyref)_ | apiKeySecretRef references a Secret containing Seerr's API key. |  | Optional: \{\} <br /> |
+
+
 #### MaintainerrServiceConnection
 
 
@@ -1797,7 +1856,7 @@ _Appears in:_
 | `mediaServer` _[MaintainerrMediaServer](#maintainerrmediaserver)_ | mediaServer connects Maintainerr to Plex or Jellyfin. The operator sets the<br />media server on a fresh Maintainerr only: switching an existing one deletes<br />every collection, so a different server already in use is reported as an<br />error instead. |  | Optional: \{\} <br /> |
 | `sonarr` _[MaintainerrArrServer](#maintainerrarrserver) array_ | sonarr lists the Sonarr servers rule groups can act through. |  | Optional: \{\} <br /> |
 | `radarr` _[MaintainerrArrServer](#maintainerrarrserver) array_ | radarr lists the Radarr servers rule groups can act through. |  | Optional: \{\} <br /> |
-| `seerr` _[MaintainerrServiceConnection](#maintainerrserviceconnection)_ | seerr connects Maintainerr to Seerr (or Overseerr or Jellyseerr), which<br />rules can read and which Maintainerr clears requests in. |  | Optional: \{\} <br /> |
+| `seerr` _[MaintainerrSeerrConnection](#maintainerrseerrconnection)_ | seerr connects Maintainerr to Seerr (or Overseerr or Jellyseerr), which<br />rules can read and which Maintainerr clears requests in. |  | MinProperties: 1 <br />Optional: \{\} <br /> |
 | `tautulli` _[MaintainerrServiceConnection](#maintainerrserviceconnection)_ | tautulli connects Maintainerr to Tautulli. Rules can read it only when<br />Plex is the media server. |  | Optional: \{\} <br /> |
 | `jobs` _[MaintainerrJobs](#maintainerrjobs)_ | jobs sets when Maintainerr runs its rules and acts on its collections. |  | Optional: \{\} <br /> |
 | `ruleGroups` _[MaintainerrRuleGroup](#maintainerrrulegroup) array_ | ruleGroups are the rules that put media into a collection and the action<br />Maintainerr takes on it. Each group is matched by name. |  | Optional: \{\} <br /> |
@@ -2165,11 +2224,12 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `name` _string_ | name is the display name of the application. |  | MinLength: 1 <br />Required: \{\} <br /> |
 | `syncLevel` _string_ | syncLevel controls how indexers are synced to this application. |  | Enum: [disabled addOnly fullSync] <br />Optional: \{\} <br /> |
-| `implementation` _string_ | implementation is the application type (e.g., Sonarr, Radarr). |  | MinLength: 1 <br />Required: \{\} <br /> |
-| `configContract` _string_ | configContract is the configuration contract name for the implementation. |  | MinLength: 1 <br />Required: \{\} <br /> |
+| `appRef` _[AppRef](#appref)_ | appRef names the application's resource, a Sonarr, Radarr, Lidarr or<br />Readarr, whose kind and connection are used in place of implementation,<br />baseUrl and apiKeySecretRef. prowlarrUrl then defaults to this resource's<br />connection URL. |  | Optional: \{\} <br /> |
+| `implementation` _string_ | implementation is the application type (e.g., Sonarr, Radarr). |  | MinLength: 1 <br />Optional: \{\} <br /> |
+| `configContract` _string_ | configContract is the configuration contract name for the implementation.<br />Defaults to "<implementation>Settings" if not set. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `prowlarrUrl` _string_ | prowlarrUrl is the URL Prowlarr uses to reach itself (for callbacks). |  | MinLength: 1 <br />Optional: \{\} <br /> |
-| `baseUrl` _string_ | baseUrl is the base URL of the application. |  | MinLength: 1 <br />Required: \{\} <br /> |
-| `apiKeySecretRef` _[SecretKeyRef](#secretkeyref)_ | apiKeySecretRef references a Secret containing the application's API key. |  | Required: \{\} <br /> |
+| `baseUrl` _string_ | baseUrl is the base URL of the application. |  | MinLength: 1 <br />Optional: \{\} <br /> |
+| `apiKeySecretRef` _[SecretKeyRef](#secretkeyref)_ | apiKeySecretRef references a Secret containing the application's API key. |  | Optional: \{\} <br /> |
 | `syncCategories` _integer array_ | syncCategories is the list of category IDs to sync to this application. |  | Optional: \{\} <br /> |
 | `tagLabels` _string array_ | tagLabels references tags by label, resolved against Prowlarr on each<br />reconciliation. A missing or ambiguous label blocks writes, and an empty<br />list clears the tags. |  | Optional: \{\} <br /> |
 
@@ -2672,12 +2732,13 @@ _Appears in:_
 | `radarrRef` _[LocalObjectReference](#localobjectreference)_ | radarrRef names the Radarr this download client belongs to, in the same namespace. |  | Required: \{\} <br /> |
 | `deletionPolicy` _string_ | deletionPolicy controls what deleting this resource does in Radarr:<br />"delete" removes the download client, "orphan" leaves it. One that existed before<br />the operator adopted it is never deleted. | delete | Enum: [delete orphan] <br />Optional: \{\} <br /> |
 | `name` _string_ | name is the display name of the download client. |  | MinLength: 1 <br />Required: \{\} <br /> |
+| `appRef` _[AppRef](#appref)_ | appRef names the download client's resource, a QBittorrent or Sabnzbd,<br />whose kind and connection are used in place of implementation, protocol,<br />host, port, useSsl, urlBase and the credentials. |  | Optional: \{\} <br /> |
 | `enable` _boolean_ | enable controls whether this download client is active. A new download<br />client is enabled unless this is false. |  | Optional: \{\} <br /> |
-| `protocol` _string_ | protocol is the download protocol. |  | Enum: [torrent usenet] <br />Required: \{\} <br /> |
-| `implementation` _string_ | implementation is the download client type (e.g., QBittorrent, Sabnzbd, NzbGet, Transmission, Deluge). |  | MinLength: 1 <br />Required: \{\} <br /> |
+| `protocol` _string_ | protocol is the download protocol. |  | Enum: [torrent usenet] <br />Optional: \{\} <br /> |
+| `implementation` _string_ | implementation is the download client type (e.g., QBittorrent, Sabnzbd, NzbGet, Transmission, Deluge). |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `configContract` _string_ | configContract overrides the default config contract name.<br />Defaults to "<implementation>Settings" if not set. |  | MinLength: 1 <br />Optional: \{\} <br /> |
-| `host` _string_ | host is the hostname or IP of the download client. |  | MinLength: 1 <br />Required: \{\} <br /> |
-| `port` _integer_ | port is the port of the download client. |  | Maximum: 65535 <br />Minimum: 1 <br />Required: \{\} <br /> |
+| `host` _string_ | host is the hostname or IP of the download client. |  | MinLength: 1 <br />Optional: \{\} <br /> |
+| `port` _integer_ | port is the port of the download client. |  | Maximum: 65535 <br />Minimum: 1 <br />Optional: \{\} <br /> |
 | `useSsl` _boolean_ | useSsl enables SSL/TLS for the download client connection. |  | Optional: \{\} <br /> |
 | `urlBase` _string_ | urlBase is the base URL path for the download client (e.g., "/qbittorrent"). |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `category` _string_ | category is the download category to use. |  | MinLength: 1 <br />Optional: \{\} <br /> |
@@ -3001,12 +3062,13 @@ _Appears in:_
 | `readarrRef` _[LocalObjectReference](#localobjectreference)_ | readarrRef names the Readarr this download client belongs to, in the same namespace. |  | Required: \{\} <br /> |
 | `deletionPolicy` _string_ | deletionPolicy controls what deleting this resource does in Readarr:<br />"delete" removes the download client, "orphan" leaves it. One that existed before<br />the operator adopted it is never deleted. | delete | Enum: [delete orphan] <br />Optional: \{\} <br /> |
 | `name` _string_ | name is the display name of the download client. |  | MinLength: 1 <br />Required: \{\} <br /> |
+| `appRef` _[AppRef](#appref)_ | appRef names the download client's resource, a QBittorrent or Sabnzbd,<br />whose kind and connection are used in place of implementation, protocol,<br />host, port, useSsl, urlBase and the credentials. |  | Optional: \{\} <br /> |
 | `enable` _boolean_ | enable controls whether this download client is active. A new download<br />client is enabled unless this is false. |  | Optional: \{\} <br /> |
-| `protocol` _string_ | protocol is the download protocol. |  | Enum: [torrent usenet] <br />Required: \{\} <br /> |
-| `implementation` _string_ | implementation is the download client type (e.g., QBittorrent, Sabnzbd, NzbGet, Transmission, Deluge). |  | MinLength: 1 <br />Required: \{\} <br /> |
+| `protocol` _string_ | protocol is the download protocol. |  | Enum: [torrent usenet] <br />Optional: \{\} <br /> |
+| `implementation` _string_ | implementation is the download client type (e.g., QBittorrent, Sabnzbd, NzbGet, Transmission, Deluge). |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `configContract` _string_ | configContract overrides the default config contract name.<br />Defaults to "<implementation>Settings" if not set. |  | MinLength: 1 <br />Optional: \{\} <br /> |
-| `host` _string_ | host is the hostname or IP of the download client. |  | MinLength: 1 <br />Required: \{\} <br /> |
-| `port` _integer_ | port is the port of the download client. |  | Maximum: 65535 <br />Minimum: 1 <br />Required: \{\} <br /> |
+| `host` _string_ | host is the hostname or IP of the download client. |  | MinLength: 1 <br />Optional: \{\} <br /> |
+| `port` _integer_ | port is the port of the download client. |  | Maximum: 65535 <br />Minimum: 1 <br />Optional: \{\} <br /> |
 | `useSsl` _boolean_ | useSsl enables SSL/TLS for the download client connection. |  | Optional: \{\} <br /> |
 | `urlBase` _string_ | urlBase is the base URL path for the download client (e.g., "/qbittorrent"). |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `category` _string_ | category is the download category to use. |  | MinLength: 1 <br />Optional: \{\} <br /> |
@@ -3515,6 +3577,7 @@ _Appears in:_
 - [MaintainerrArrServer](#maintainerrarrserver)
 - [MaintainerrJellyfin](#maintainerrjellyfin)
 - [MaintainerrPlex](#maintainerrplex)
+- [MaintainerrSeerrConnection](#maintainerrseerrconnection)
 - [MaintainerrServiceConnection](#maintainerrserviceconnection)
 - [PlexConnection](#plexconnection)
 - [ProwlarrApplication](#prowlarrapplication)
@@ -3580,19 +3643,21 @@ _Appears in:_
 
 SeerrJellyfinAuth defines the Jellyfin authentication configuration for Seerr.
 
-
+_Validation:_
+- MinProperties: 1
 
 _Appears in:_
 - [SeerrSpec](#seerrspec)
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `hostname` _string_ | hostname is the Jellyfin server hostname. |  | MinLength: 1 <br />Required: \{\} <br /> |
-| `port` _integer_ | port is the Jellyfin server port. |  | Required: \{\} <br /> |
+| `appRef` _[AppRef](#appref)_ | appRef names the Jellyfin resource whose connection URL and admin user are<br />used in place of hostname, port, useSsl, urlBase, usernameSecretRef and<br />passwordSecretRef. |  | Optional: \{\} <br /> |
+| `hostname` _string_ | hostname is the Jellyfin server hostname. |  | MinLength: 1 <br />Optional: \{\} <br /> |
+| `port` _integer_ | port is the Jellyfin server port. |  | Optional: \{\} <br /> |
 | `useSsl` _boolean_ | useSsl enables SSL for the Jellyfin connection. |  | Optional: \{\} <br /> |
 | `urlBase` _string_ | urlBase is the subpath Jellyfin is served under, if any. |  | MinLength: 1 <br />Optional: \{\} <br /> |
-| `usernameSecretRef` _[SecretKeyRef](#secretkeyref)_ | usernameSecretRef references a Secret containing the Jellyfin username. |  | Required: \{\} <br /> |
-| `passwordSecretRef` _[SecretKeyRef](#secretkeyref)_ | passwordSecretRef references a Secret containing the Jellyfin password. |  | Required: \{\} <br /> |
+| `usernameSecretRef` _[SecretKeyRef](#secretkeyref)_ | usernameSecretRef references a Secret containing the Jellyfin username. |  | Optional: \{\} <br /> |
+| `passwordSecretRef` _[SecretKeyRef](#secretkeyref)_ | passwordSecretRef references a Secret containing the Jellyfin password. |  | Optional: \{\} <br /> |
 
 
 #### SeerrMain
@@ -3643,17 +3708,19 @@ _Appears in:_
 
 SeerrPlexAuth defines Plex authentication for Seerr setup.
 
-
+_Validation:_
+- MinProperties: 1
 
 _Appears in:_
 - [SeerrSpec](#seerrspec)
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `hostname` _string_ | hostname is the Plex server hostname. |  | MinLength: 1 <br />Required: \{\} <br /> |
-| `port` _integer_ | port is the Plex server port. | 32400 | Optional: \{\} <br /> |
+| `appRef` _[AppRef](#appref)_ | appRef names the Plex resource whose connection URL and token are used in<br />place of hostname, port, useSsl and tokenSecretRef. |  | Optional: \{\} <br /> |
+| `hostname` _string_ | hostname is the Plex server hostname. |  | MinLength: 1 <br />Optional: \{\} <br /> |
+| `port` _integer_ | port is the Plex server port. Defaults to 32400. |  | Optional: \{\} <br /> |
 | `useSsl` _boolean_ | useSsl enables SSL for the Plex connection. |  | Optional: \{\} <br /> |
-| `tokenSecretRef` _[SecretKeyRef](#secretkeyref)_ | tokenSecretRef references a Secret containing the Plex auth token. |  | Required: \{\} <br /> |
+| `tokenSecretRef` _[SecretKeyRef](#secretkeyref)_ | tokenSecretRef references a Secret containing the Plex auth token. |  | Optional: \{\} <br /> |
 
 
 #### SeerrServiceConnection
@@ -3670,9 +3737,10 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `name` _string_ | name is the display name for this service connection. |  | MinLength: 1 <br />Required: \{\} <br /> |
-| `hostname` _string_ | hostname is the service hostname. |  | MinLength: 1 <br />Required: \{\} <br /> |
-| `port` _integer_ | port is the service port. |  | Required: \{\} <br /> |
-| `apiKeySecretRef` _[SecretKeyRef](#secretkeyref)_ | apiKeySecretRef references a Secret containing the service API key. |  | Required: \{\} <br /> |
+| `appRef` _[AppRef](#appref)_ | appRef names the server's resource, a Sonarr in sonarr or a Radarr in<br />radarr, whose connection is used in place of hostname, port, useSsl,<br />baseUrl and apiKeySecretRef. |  | Optional: \{\} <br /> |
+| `hostname` _string_ | hostname is the service hostname. |  | MinLength: 1 <br />Optional: \{\} <br /> |
+| `port` _integer_ | port is the service port. |  | Optional: \{\} <br /> |
+| `apiKeySecretRef` _[SecretKeyRef](#secretkeyref)_ | apiKeySecretRef references a Secret containing the service API key. |  | Optional: \{\} <br /> |
 | `useSsl` _boolean_ | useSsl enables SSL for the service connection. |  | Optional: \{\} <br /> |
 | `baseUrl` _string_ | baseUrl is the URL base path for the service. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `activeProfileId` _integer_ | activeProfileId is used when activeProfileName is omitted. |  | Optional: \{\} <br /> |
@@ -3708,8 +3776,8 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `connection` _[SeerrConnection](#seerrconnection)_ | connection defines how to connect to the Seerr instance. |  | Required: \{\} <br /> |
 | `reconcile` _[ReconcileConfig](#reconcileconfig)_ | reconcile configures reconciliation behavior (e.g., sync interval). |  | Optional: \{\} <br /> |
-| `jellyfinAuth` _[SeerrJellyfinAuth](#seerrjellyfinauth)_ | jellyfinAuth defines Jellyfin authentication settings.<br />Set this for Jellyfin-based Seerr instances. Mutually exclusive with plexAuth. |  | Optional: \{\} <br /> |
-| `plexAuth` _[SeerrPlexAuth](#seerrplexauth)_ | plexAuth defines Plex authentication settings.<br />Set this for Plex-based Seerr instances. Mutually exclusive with jellyfinAuth. |  | Optional: \{\} <br /> |
+| `jellyfinAuth` _[SeerrJellyfinAuth](#seerrjellyfinauth)_ | jellyfinAuth defines Jellyfin authentication settings.<br />Set this for Jellyfin-based Seerr instances. Mutually exclusive with plexAuth. |  | MinProperties: 1 <br />Optional: \{\} <br /> |
+| `plexAuth` _[SeerrPlexAuth](#seerrplexauth)_ | plexAuth defines Plex authentication settings.<br />Set this for Plex-based Seerr instances. Mutually exclusive with jellyfinAuth. |  | MinProperties: 1 <br />Optional: \{\} <br /> |
 | `main` _[SeerrMain](#seerrmain)_ | main configures general application settings. |  | Optional: \{\} <br /> |
 | `sonarr` _[SeerrServiceConnection](#seerrserviceconnection) array_ | sonarr lists the Sonarr servers Seerr sends TV requests to, matched by<br />name. Seerr uses the default server, and the default 4K server for 4K<br />requests. |  | Optional: \{\} <br /> |
 | `radarr` _[SeerrServiceConnection](#seerrserviceconnection) array_ | radarr lists the Radarr servers Seerr sends movie requests to, matched by<br />name. Seerr uses the default server, and the default 4K server for 4K<br />requests. |  | Optional: \{\} <br /> |
@@ -3809,12 +3877,13 @@ _Appears in:_
 | `sonarrRef` _[LocalObjectReference](#localobjectreference)_ | sonarrRef names the Sonarr this download client belongs to, in the same namespace. |  | Required: \{\} <br /> |
 | `deletionPolicy` _string_ | deletionPolicy controls what deleting this resource does in Sonarr:<br />"delete" removes the download client, "orphan" leaves it. One that existed before<br />the operator adopted it is never deleted. | delete | Enum: [delete orphan] <br />Optional: \{\} <br /> |
 | `name` _string_ | name is the display name of the download client. |  | MinLength: 1 <br />Required: \{\} <br /> |
+| `appRef` _[AppRef](#appref)_ | appRef names the download client's resource, a QBittorrent or Sabnzbd,<br />whose kind and connection are used in place of implementation, protocol,<br />host, port, useSsl, urlBase and the credentials. |  | Optional: \{\} <br /> |
 | `enable` _boolean_ | enable controls whether this download client is active. A new download<br />client is enabled unless this is false. |  | Optional: \{\} <br /> |
-| `protocol` _string_ | protocol is the download protocol. |  | Enum: [torrent usenet] <br />Required: \{\} <br /> |
-| `implementation` _string_ | implementation is the download client type (e.g., QBittorrent, Sabnzbd, NzbGet, Transmission, Deluge). |  | MinLength: 1 <br />Required: \{\} <br /> |
+| `protocol` _string_ | protocol is the download protocol. |  | Enum: [torrent usenet] <br />Optional: \{\} <br /> |
+| `implementation` _string_ | implementation is the download client type (e.g., QBittorrent, Sabnzbd, NzbGet, Transmission, Deluge). |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `configContract` _string_ | configContract overrides the default config contract name.<br />Defaults to "<implementation>Settings" if not set. |  | MinLength: 1 <br />Optional: \{\} <br /> |
-| `host` _string_ | host is the hostname or IP of the download client. |  | MinLength: 1 <br />Required: \{\} <br /> |
-| `port` _integer_ | port is the port of the download client. |  | Maximum: 65535 <br />Minimum: 1 <br />Required: \{\} <br /> |
+| `host` _string_ | host is the hostname or IP of the download client. |  | MinLength: 1 <br />Optional: \{\} <br /> |
+| `port` _integer_ | port is the port of the download client. |  | Maximum: 65535 <br />Minimum: 1 <br />Optional: \{\} <br /> |
 | `useSsl` _boolean_ | useSsl enables SSL/TLS for the download client connection. |  | Optional: \{\} <br /> |
 | `urlBase` _string_ | urlBase is the base URL path for the download client (e.g., "/qbittorrent"). |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `category` _string_ | category is the download category to use. |  | MinLength: 1 <br />Optional: \{\} <br /> |

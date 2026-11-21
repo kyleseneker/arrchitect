@@ -195,22 +195,15 @@ spec:
   sonarrRef:
     name: sonarr
   name: qBittorrent
-  protocol: torrent
-  implementation: QBittorrent
-  host: ${HOST}
-  port: ${QBITTORRENT_PORT}
+  appRef:
+    kind: QBittorrent
+    name: qbittorrent
   category: tv
   priority: 1
   removeCompletedDownloads: true
   removeFailedDownloads: true
   tagLabels:
     - hdr
-  usernameSecretRef:
-    name: compat-credentials
-    key: qbittorrent-username
-  passwordSecretRef:
-    name: compat-credentials
-    key: qbittorrent-password
 ---
 apiVersion: arrchitect.dev/v1alpha1
 kind: SonarrIndexer
@@ -242,3 +235,17 @@ spec:
       value: [5000, 5040]
     - name: minimumSeeders
       value: 1
+---
+apiVersion: arrchitect.dev/v1alpha1
+kind: QBittorrent
+metadata:
+  name: qbittorrent
+spec:
+  connection:
+    url: http://${HOST}:${QBITTORRENT_PORT}
+    usernameSecretRef:
+      name: compat-credentials
+      key: qbittorrent-username
+    passwordSecretRef:
+      name: compat-credentials
+      key: qbittorrent-password

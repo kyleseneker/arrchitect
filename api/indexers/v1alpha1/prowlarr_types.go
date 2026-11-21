@@ -101,6 +101,7 @@ type ProwlarrAppProfile struct {
 }
 
 // ProwlarrApplication defines an application connection managed by Prowlarr.
+// +kubebuilder:validation:XValidation:rule="has(self.appRef) ? !has(self.implementation) && !has(self.baseUrl) && !has(self.apiKeySecretRef) : has(self.implementation) && has(self.baseUrl) && has(self.apiKeySecretRef)",message="set appRef, or implementation, baseUrl and apiKeySecretRef, not both"
 type ProwlarrApplication struct {
 	// name is the display name of the application.
 	// +required
@@ -112,13 +113,22 @@ type ProwlarrApplication struct {
 	// +kubebuilder:validation:Enum=disabled;addOnly;fullSync
 	SyncLevel string `json:"syncLevel,omitempty"`
 
+	// appRef names the application's resource, a Sonarr, Radarr, Lidarr or
+	// Readarr, whose kind and connection are used in place of implementation,
+	// baseUrl and apiKeySecretRef. prowlarrUrl then defaults to this resource's
+	// connection URL.
+	// +optional
+	// +kubebuilder:validation:XValidation:rule="self.kind in ['Sonarr', 'Radarr', 'Lidarr', 'Readarr']",message="an application refers to a Sonarr, Radarr, Lidarr or Readarr"
+	AppRef *commonv1alpha1.AppRef `json:"appRef,omitempty"`
+
 	// implementation is the application type (e.g., Sonarr, Radarr).
-	// +required
+	// +optional
 	// +kubebuilder:validation:MinLength=1
 	Implementation string `json:"implementation,omitempty"`
 
 	// configContract is the configuration contract name for the implementation.
-	// +required
+	// Defaults to "<implementation>Settings" if not set.
+	// +optional
 	// +kubebuilder:validation:MinLength=1
 	ConfigContract string `json:"configContract,omitempty"`
 
@@ -128,13 +138,13 @@ type ProwlarrApplication struct {
 	ProwlarrUrl string `json:"prowlarrUrl,omitempty"`
 
 	// baseUrl is the base URL of the application.
-	// +required
+	// +optional
 	// +kubebuilder:validation:MinLength=1
 	BaseUrl string `json:"baseUrl,omitempty"`
 
 	// apiKeySecretRef references a Secret containing the application's API key.
-	// +required
-	APIKeySecretRef commonv1alpha1.SecretKeyRef `json:"apiKeySecretRef,omitempty"`
+	// +optional
+	APIKeySecretRef *commonv1alpha1.SecretKeyRef `json:"apiKeySecretRef,omitempty"`
 
 	// syncCategories is the list of category IDs to sync to this application.
 	// +optional

@@ -37,10 +37,12 @@ type BazarrSpec struct {
 
 	// sonarrConnection configures the connection to a Sonarr instance.
 	// +optional
+	// +kubebuilder:validation:XValidation:rule="!has(self.appRef) || self.appRef.kind == 'Sonarr'",message="sonarrConnection refers to a Sonarr"
 	SonarrConnection BazarrAppConnection `json:"sonarrConnection,omitzero"`
 
 	// radarrConnection configures the connection to a Radarr instance.
 	// +optional
+	// +kubebuilder:validation:XValidation:rule="!has(self.appRef) || self.appRef.kind == 'Radarr'",message="radarrConnection refers to a Radarr"
 	RadarrConnection BazarrAppConnection `json:"radarrConnection,omitzero"`
 
 	// subSync configures subtitle synchronization settings.
@@ -229,14 +231,21 @@ type BazarrPathMapping struct {
 }
 
 // BazarrAppConnection defines a connection to a Sonarr or Radarr instance from Bazarr.
+// +kubebuilder:validation:MinProperties=1
+// +kubebuilder:validation:XValidation:rule="has(self.appRef) ? !has(self.host) && !has(self.port) && !has(self.basePath) && !has(self.ssl) && !has(self.apiKeySecretRef) : has(self.host) && has(self.port) && has(self.apiKeySecretRef)",message="set appRef, or host, port and apiKeySecretRef, not both"
 type BazarrAppConnection struct {
+	// appRef names the application's resource, whose connection is used in
+	// place of host, port, basePath, ssl and apiKeySecretRef.
+	// +optional
+	AppRef *commonv1alpha1.AppRef `json:"appRef,omitempty"`
+
 	// host is the hostname or IP of the application.
-	// +required
+	// +optional
 	// +kubebuilder:validation:MinLength=1
 	Host string `json:"host,omitempty"`
 
 	// port is the port of the application.
-	// +required
+	// +optional
 	Port *int32 `json:"port,omitempty"`
 
 	// basePath is the URL base path of the application.
@@ -249,8 +258,8 @@ type BazarrAppConnection struct {
 	SSL *bool `json:"ssl,omitempty"`
 
 	// apiKeySecretRef references a Secret containing the application's API key.
-	// +required
-	APIKeySecretRef commonv1alpha1.SecretKeyRef `json:"apiKeySecretRef,omitempty"`
+	// +optional
+	APIKeySecretRef *commonv1alpha1.SecretKeyRef `json:"apiKeySecretRef,omitempty"`
 
 	// httpTimeout is the HTTP request timeout in seconds.
 	// +optional

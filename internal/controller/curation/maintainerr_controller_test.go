@@ -29,6 +29,9 @@ import (
 
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
 	curationv1alpha1 "github.com/kyleseneker/arrchitect/api/curation/v1alpha1"
+	mediaserversv1alpha1 "github.com/kyleseneker/arrchitect/api/mediaservers/v1alpha1"
+	pvrv1alpha1 "github.com/kyleseneker/arrchitect/api/pvr/v1alpha1"
+	requestsv1alpha1 "github.com/kyleseneker/arrchitect/api/requests/v1alpha1"
 	"github.com/kyleseneker/arrchitect/internal/controller/internal/contract"
 	"github.com/kyleseneker/arrchitect/internal/engine"
 )
@@ -321,9 +324,9 @@ func jellyfinSpec(url string) curationv1alpha1.MaintainerrSpec {
 			URL: "http://jellyfin:8096/", APIKeySecretRef: secretRef("jellyfin-api-key"),
 		}},
 		Radarr: []curationv1alpha1.MaintainerrArrServer{{
-			Name: "Radarr", URL: "http://Radarr:7878", APIKeySecretRef: secretRef("radarr-api-key"),
+			Name: "Radarr", URL: "http://Radarr:7878", APIKeySecretRef: new(secretRef("radarr-api-key")),
 		}},
-		Seerr: curationv1alpha1.MaintainerrServiceConnection{URL: "http://seerr:5055", APIKeySecretRef: secretRef("seerr-api-key")},
+		Seerr: curationv1alpha1.MaintainerrSeerrConnection{URL: "http://seerr:5055", APIKeySecretRef: new(secretRef("seerr-api-key"))},
 		Jobs:  &curationv1alpha1.MaintainerrJobs{Rules: "0 0-23/8 * * *"},
 		RuleGroups: []curationv1alpha1.MaintainerrRuleGroup{{
 			Name: "Stale movies", Library: "Movies", ArrAction: "delete", RadarrServer: "Radarr",
@@ -343,15 +346,18 @@ type maintainerrRun struct {
 	r *MaintainerrReconciler
 }
 
-func newMaintainerrRun(t *testing.T, spec curationv1alpha1.MaintainerrSpec) *maintainerrRun {
+func newMaintainerrRun(t *testing.T, spec curationv1alpha1.MaintainerrSpec, objs ...client.Object) *maintainerrRun {
 	t.Helper()
 	scheme := runtime.NewScheme()
 	require.NoError(t, clientgoscheme.AddToScheme(scheme), "adding client-go scheme")
 	require.NoError(t, curationv1alpha1.AddToScheme(scheme), "adding curation scheme")
+	require.NoError(t, pvrv1alpha1.AddToScheme(scheme), "adding pvr scheme")
+	require.NoError(t, requestsv1alpha1.AddToScheme(scheme), "adding requests scheme")
+	require.NoError(t, mediaserversv1alpha1.AddToScheme(scheme), "adding mediaservers scheme")
 	cfg := &curationv1alpha1.Maintainerr{Name: "maintainerr", Namespace: "media", Spec: spec}
 	c := fake.NewClientBuilder().WithScheme(scheme).
 		WithStatusSubresource(&curationv1alpha1.Maintainerr{}).
-		WithObjects(cfg, maintainerrSecrets()).Build()
+		WithObjects(append(objs, cfg, maintainerrSecrets())...).Build()
 	return &maintainerrRun{c: c, r: &MaintainerrReconciler{Client: c, Scheme: scheme, Recorder: events.NewFakeRecorder(50)}}
 }
 
@@ -440,7 +446,7 @@ func TestMaintainerrSetsUpPlexInOrderAndComparesTheMaskedToken(t *testing.T) {
 	spec := curationv1alpha1.MaintainerrSpec{
 		Connection: curationv1alpha1.MaintainerrConnection{URL: app.serve(t)},
 		MediaServer: &curationv1alpha1.MaintainerrMediaServer{Plex: curationv1alpha1.MaintainerrPlex{
-			Hostname: "https://Plex.media.svc", Port: 32400, TokenSecretRef: secretRef("plex-token"),
+			Hostname: "https://Plex.media.svc", Port: 32400, TokenSecretRef: new(secretRef("plex-token")),
 		}},
 	}
 	run := newMaintainerrRun(t, spec)
@@ -594,4 +600,73 @@ func TestMaintainerrJobsFieldsAllReachThePayload(t *testing.T) {
 // rather than clearing schedules the CR does not manage.
 func TestMaintainerrEmptyJobsProduceNoPayload(t *testing.T) {
 	assert.Empty(t, buildMaintainerrJobs(&curationv1alpha1.MaintainerrJobs{}), "empty jobs produced a payload")
+}
+
+func TestMaintainerrAppRefsUseTheReferencedConnections(t *testing.T) {
+	app := newFakeMaintainerr()
+	spec := curationv1alpha1.MaintainerrSpec{
+		Connection: curationv1alpha1.MaintainerrConnection{URL: app.serve(t)},
+		MediaServer: &curationv1alpha1.MaintainerrMediaServer{Plex: curationv1alpha1.MaintainerrPlex{
+			AppRef: &commonv1alpha1.AppRef{Kind: "Plex", Name: "plex"},
+		}},
+		Radarr: []curationv1alpha1.MaintainerrArrServer{{Name: "Radarr", AppRef: &commonv1alpha1.AppRef{Kind: "Radarr", Name: "radarr"}}},
+		Seerr:  curationv1alpha1.MaintainerrSeerrConnection{AppRef: &commonv1alpha1.AppRef{Kind: "Seerr", Name: "seerr"}},
+	}
+	run := newMaintainerrRun(t, spec,
+		&mediaserversv1alpha1.Plex{Name: "plex", Namespace: "media", Spec: mediaserversv1alpha1.PlexSpec{
+			Connection: mediaserversv1alpha1.PlexConnection{URL: "https://plex.media.svc:32400", TokenSecretRef: secretRef("plex-token")},
+		}},
+		&pvrv1alpha1.Radarr{Name: "radarr", Namespace: "media", Spec: pvrv1alpha1.RadarrSpec{
+			Connection: commonv1alpha1.AppConnection{URL: "http://radarr.media.svc:7878", APIKeySecretRef: secretRef("radarr-api-key")},
+		}},
+		&requestsv1alpha1.Seerr{Name: "seerr", Namespace: "media", Spec: requestsv1alpha1.SeerrSpec{
+			Connection: requestsv1alpha1.SeerrConnection{URL: "http://seerr.media.svc:5055", APIKeySecretRef: new(secretRef("seerr-api-key"))},
+		}},
+	)
+
+	run.reconcile(t)
+
+	require.Equal(t, conditionTrue, string(run.condition(t, "Synced").Status), run.condition(t, "Synced").Message)
+	assert.Equal(t, "plex.media.svc", app.settings["plex_hostname"])
+	assert.EqualValues(t, 32400, app.settings["plex_port"])
+	assert.EqualValues(t, 1, app.settings["plex_ssl"])
+	require.Len(t, app.servers["radarr"], 1)
+	assert.Equal(t, "http://radarr.media.svc:7878", app.servers["radarr"][0]["url"])
+	assert.Equal(t, "radarr-key", app.servers["radarr"][0]["apiKey"])
+	assert.Equal(t, "http://seerr.media.svc:5055", app.services["seerr"]["url"])
+	assert.Equal(t, "seerr-key", app.services["seerr"]["api_key"])
+}
+
+// A Seerr that signs in through its media server holds no API key Secret for
+// Maintainerr to use.
+func TestMaintainerrSeerrAppRefNeedsTheSeerrAPIKey(t *testing.T) {
+	app := newFakeMaintainerr()
+	spec := curationv1alpha1.MaintainerrSpec{
+		Connection: curationv1alpha1.MaintainerrConnection{URL: app.serve(t)},
+		Seerr:      curationv1alpha1.MaintainerrSeerrConnection{AppRef: &commonv1alpha1.AppRef{Kind: "Seerr", Name: "seerr"}},
+		Jobs:       &curationv1alpha1.MaintainerrJobs{Rules: "0 0-23/8 * * *"},
+	}
+	run := newMaintainerrRun(t, spec, &requestsv1alpha1.Seerr{Name: "seerr", Namespace: "media", Spec: requestsv1alpha1.SeerrSpec{
+		Connection: requestsv1alpha1.SeerrConnection{URL: "http://seerr.media.svc:5055"},
+	}})
+
+	run.reconcile(t)
+
+	assert.Equal(t, "0 0-23/8 * * *", app.settings["rules_handler_job_cron"], "the rest of Maintainerr was held back too")
+	assert.Empty(t, app.services["seerr"])
+	assert.Contains(t, run.condition(t, "Synced").Message, `seerr: appRef: Seerr "seerr" sets no API key Secret`)
+}
+
+func TestMaintainerrMissingServerAppRefIsReported(t *testing.T) {
+	app := newFakeMaintainerr()
+	spec := curationv1alpha1.MaintainerrSpec{
+		Connection: curationv1alpha1.MaintainerrConnection{URL: app.serve(t)},
+		Radarr:     []curationv1alpha1.MaintainerrArrServer{{Name: "Radarr", AppRef: &commonv1alpha1.AppRef{Kind: "Radarr", Name: "radarr"}}},
+	}
+	run := newMaintainerrRun(t, spec)
+
+	run.reconcile(t)
+
+	assert.Empty(t, app.servers["radarr"])
+	assert.Contains(t, run.condition(t, "Synced").Message, `radarr: Radarr: appRef: Radarr "radarr" not found`)
 }

@@ -26,6 +26,7 @@ type ReadarrDownloadClientReconciler struct {
 // +kubebuilder:rbac:groups=arrchitect.dev,resources=readarrdownloadclients,verbs=get;list;watch;update;patch
 // +kubebuilder:rbac:groups=arrchitect.dev,resources=readarrdownloadclients/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=arrchitect.dev,resources=readarrdownloadclients/finalizers,verbs=update
+// +kubebuilder:rbac:groups=arrchitect.dev,resources=qbittorrents;sabnzbds,verbs=get;list;watch
 
 func (r *ReadarrDownloadClientReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	var obj pvrv1alpha1.ReadarrDownloadClient
@@ -46,7 +47,11 @@ func (r *ReadarrDownloadClientReconciler) Reconcile(ctx context.Context, req ctr
 			return other.Spec.ReadarrRef.Name, other.Spec.Name
 		},
 		options: func(ctx context.Context) (pvrclient.Options, error) {
-			dcs := []commonv1alpha1.DownloadClient{s.DownloadClient}
+			dc, err := ctrlcommon.ResolveDownloadClient(ctx, r.Client, obj.Namespace, s.DownloadClient)
+			if err != nil {
+				return pvrclient.Options{}, err
+			}
+			dcs := []commonv1alpha1.DownloadClient{dc}
 			secrets, err := ctrlcommon.ResolveDownloadClientSecrets(ctx, r.Client, obj.Namespace, dcs)
 			return pvrclient.Options{DownloadClients: dcs, DCSecrets: secrets}, err
 		},
@@ -62,11 +67,15 @@ func (r *ReadarrDownloadClientReconciler) SetupWithManager(mgr ctrl.Manager) err
 	if err != nil {
 		return err
 	}
-	return ctrl.NewControllerManagedBy(mgr).
+	b := ctrl.NewControllerManagedBy(mgr).
 		For(&pvrv1alpha1.ReadarrDownloadClient{}, builder.WithPredicates(ctrlcommon.ConfigChangedPredicate())).
 		Watches(&pvrv1alpha1.Readarr{}, handler.EnqueueRequestsFromMapFunc(objectsOf(r.Client, &pvrv1alpha1.ReadarrDownloadClientList{})),
 			builder.WithPredicates(instanceChanged())).
-		WatchesMetadata(&corev1.Secret{}, ctrlcommon.EnqueueForSecret(r.Client, &pvrv1alpha1.ReadarrDownloadClientList{})).
-		Named("readarrdownloadclient").
-		Complete(r)
+		WatchesMetadata(&corev1.Secret{}, ctrlcommon.EnqueueForSecretThroughRefs(r.Client, &pvrv1alpha1.ReadarrDownloadClientList{}, downloadClientAppRefs))
+	b, err = ctrlcommon.WatchAppRefs(mgr, b, &pvrv1alpha1.ReadarrDownloadClient{}, &pvrv1alpha1.ReadarrDownloadClientList{},
+		downloadClientAppRefs, "QBittorrent", "Sabnzbd")
+	if err != nil {
+		return err
+	}
+	return b.Named("readarrdownloadclient").Complete(r)
 }

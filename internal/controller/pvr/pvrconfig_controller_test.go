@@ -172,7 +172,15 @@ type fakeArr struct {
 	apiVer   string
 	mu       sync.Mutex
 	requests []string
+	bodies   map[string][]map[string]any
 	existing map[string][]map[string]any
+}
+
+// sent returns the bodies written to path, by POST or PUT.
+func (f *fakeArr) sent(path string) []map[string]any {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.bodies[path]
 }
 
 func (f *fakeArr) saw(method, path string) bool {
@@ -250,7 +258,7 @@ func newFakeArr(t *testing.T, apiVer string, existing map[string][]map[string]an
 			existing[kind] = []map[string]any{{"id": float64(1), "name": name}}
 		}
 	}
-	f := &fakeArr{apiVer: apiVer, existing: existing}
+	f := &fakeArr{apiVer: apiVer, existing: existing, bodies: map[string][]map[string]any{}}
 	prefix := "/api/" + apiVer + "/"
 
 	ln, err := net.Listen("tcp", net.JoinHostPort(routableAddr(t), "0"))
@@ -284,6 +292,9 @@ func newFakeArr(t *testing.T, apiVer string, existing map[string][]map[string]an
 			if body == nil {
 				body = map[string]any{}
 			}
+			f.mu.Lock()
+			f.bodies[r.URL.Path] = append(f.bodies[r.URL.Path], body)
+			f.mu.Unlock()
 			body["id"] = 99
 			w.WriteHeader(http.StatusCreated)
 			_ = json.NewEncoder(w).Encode(body)

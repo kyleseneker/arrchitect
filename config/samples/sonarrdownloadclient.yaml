@@ -6,14 +6,7 @@ spec:
   sonarrRef:
     name: sonarr
   name: qBittorrent
-  protocol: torrent
-  implementation: QBittorrent
-  host: arr-vpn-downloads.arr.svc.cluster.local
-  port: 8080
+  appRef:
+    kind: QBittorrent
+    name: qbittorrent
   category: tv
-  usernameSecretRef:
-    name: arr-config-secrets
-    key: QBITTORRENT_USERNAME
-  passwordSecretRef:
-    name: arr-config-secrets
-    key: QBITTORRENT_PASSWORD

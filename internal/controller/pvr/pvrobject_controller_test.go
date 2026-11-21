@@ -22,6 +22,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
+	downloadsv1alpha1 "github.com/kyleseneker/arrchitect/api/downloads/v1alpha1"
 	pvrv1alpha1 "github.com/kyleseneker/arrchitect/api/pvr/v1alpha1"
 	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
 	"github.com/kyleseneker/arrchitect/internal/engine"
@@ -32,6 +33,7 @@ func objectClient(t *testing.T, objs ...client.Object) client.Client {
 	scheme := runtime.NewScheme()
 	require.NoError(t, clientgoscheme.AddToScheme(scheme))
 	require.NoError(t, pvrv1alpha1.AddToScheme(scheme))
+	require.NoError(t, downloadsv1alpha1.AddToScheme(scheme))
 	return fake.NewClientBuilder().WithScheme(scheme).
 		WithStatusSubresource(
 			&pvrv1alpha1.Sonarr{}, &pvrv1alpha1.SonarrIndexer{}, &pvrv1alpha1.SonarrDownloadClient{},
@@ -383,4 +385,77 @@ func TestEveryPVRAppsObjectsReachItsApp(t *testing.T) {
 			assert.True(t, fa.saw("POST", fa.path("indexer")), "the indexer never reached %s", app.name)
 		})
 	}
+}
+
+func TestObjectDownloadClientAppRefUsesTheReferencedClient(t *testing.T) {
+	creds := func(key string) commonv1alpha1.SecretKeyRef {
+		return commonv1alpha1.SecretKeyRef{Name: "app-credentials", Key: key}
+	}
+	secret := apiKeySecret()
+	secret.Data["username"], secret.Data["password"], secret.Data["sab-key"] = []byte("admin"), []byte("hunter2"), []byte("sab-api-key")
+	tests := []struct {
+		kind   string
+		target client.Object
+		want   map[string]any
+		fields map[string]any
+	}{
+		{
+			kind: "QBittorrent",
+			target: &downloadsv1alpha1.QBittorrent{Name: "qbittorrent", Namespace: "media", Spec: downloadsv1alpha1.QBittorrentSpec{
+				Connection: downloadsv1alpha1.QBittorrentConnection{URL: "http://qbittorrent.media.svc:8080/qbt",
+					UsernameSecretRef: creds("username"), PasswordSecretRef: creds("password")},
+			}},
+			want: map[string]any{"implementation": "QBittorrent", "configContract": "QBittorrentSettings", "protocol": "torrent"},
+			fields: map[string]any{"host": "qbittorrent.media.svc", "port": float64(8080), "useSsl": false, "urlBase": "/qbt",
+				"username": "admin", "password": "hunter2"},
+		},
+		{
+			kind: "Sabnzbd",
+			target: &downloadsv1alpha1.Sabnzbd{Name: "sabnzbd", Namespace: "media", Spec: downloadsv1alpha1.SabnzbdSpec{
+				Connection: commonv1alpha1.AppConnection{URL: "https://sabnzbd.example.com", APIKeySecretRef: creds("sab-key")},
+			}},
+			want: map[string]any{"implementation": "Sabnzbd", "configContract": "SabnzbdSettings", "protocol": "usenet"},
+			fields: map[string]any{"host": "sabnzbd.example.com", "port": float64(443), "useSsl": true, "urlBase": "",
+				"apiKey": "sab-api-key"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.kind, func(t *testing.T) {
+			fa, url := newFakeArr(t, "v3", nil)
+			dc := sonarrDownloadClient()
+			dc.Spec.DownloadClient = commonv1alpha1.DownloadClient{Name: "client", Category: "tv",
+				AppRef: commonv1alpha1.AppRef{Kind: tt.kind, Name: tt.target.GetName()}}
+
+			got := reconcileDownloadClient(t, secret.DeepCopy(), sonarrInstanceAt(url, nil), dc, tt.target)
+
+			require.Equal(t, metav1.ConditionTrue, synced(t, got.Status.Conditions).Status, synced(t, got.Status.Conditions).Message)
+			sent := fa.sent(fa.path("downloadclient"))
+			require.Len(t, sent, 1)
+			for k, v := range tt.want {
+				assert.Equal(t, v, sent[0][k], k)
+			}
+			fields := map[string]any{}
+			for _, f := range sent[0]["fields"].([]any) {
+				m := f.(map[string]any)
+				if _, ok := tt.fields[m["name"].(string)]; ok {
+					fields[m["name"].(string)] = m["value"]
+				}
+			}
+			assert.Equal(t, tt.fields, fields)
+		})
+	}
+}
+
+func TestObjectDownloadClientWithAMissingAppRefWritesNothing(t *testing.T) {
+	fa, url := newFakeArr(t, "v3", nil)
+	dc := sonarrDownloadClient()
+	dc.Spec.DownloadClient = commonv1alpha1.DownloadClient{Name: "qBittorrent",
+		AppRef: commonv1alpha1.AppRef{Kind: "QBittorrent", Name: "qbittorrent"}}
+
+	got := reconcileDownloadClient(t, apiKeySecret(), sonarrInstanceAt(url, nil), dc)
+
+	assert.False(t, fa.sawPrefix("POST", "/api/"))
+	cond := synced(t, got.Status.Conditions)
+	assert.Equal(t, engine.ReasonReferenceNotFound, cond.Reason)
+	assert.Equal(t, `download client "qBittorrent" appRef: QBittorrent "qbittorrent" not found`, cond.Message)
 }
