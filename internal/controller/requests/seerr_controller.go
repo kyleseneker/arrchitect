@@ -357,6 +357,8 @@ func (r *SeerrReconciler) reconcileServiceConnection(
 			if err != nil {
 				return err
 			}
+			// Seerr's API refuses a body that carries the read-only id.
+			delete(body, "id")
 			return w.Apply(kind, name, func() error {
 				return sc.Put(ctx, fmt.Sprintf("/api/v1/settings/%s/%d", kind, int(id)), body)
 			})

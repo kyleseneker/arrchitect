@@ -342,6 +342,10 @@ func (f *fakeSeerr) replaceWhole(w http.ResponseWriter, r *http.Request, body ma
 	switch {
 	case r.Method == http.MethodPut && (strings.HasPrefix(r.URL.Path, "/api/v1/settings/sonarr/") ||
 		strings.HasPrefix(r.URL.Path, "/api/v1/settings/radarr/")):
+		if _, ok := body["id"]; ok {
+			http.Error(w, `{"message":"request/body/id is read-only"}`, http.StatusBadRequest)
+			return true
+		}
 		kind, id, _ := strings.Cut(strings.TrimPrefix(r.URL.Path, "/api/v1/settings/"), "/")
 		for i, s := range f.services[kind] {
 			if fmt.Sprint(s["id"]) == id {
@@ -862,6 +866,7 @@ func TestSeerrManagesEveryDeclaredServer(t *testing.T) {
 	app.mu.Lock()
 	defer app.mu.Unlock()
 	assert.Equal(t, true, app.services["sonarr"][1]["is4k"])
+	assert.Equal(t, "sonarr", app.services["sonarr"][0]["hostname"], "Seerr refused the update to the existing server")
 }
 
 func TestSeerrNotificationOptionsKeepTheirTypeAndReadSecrets(t *testing.T) {
