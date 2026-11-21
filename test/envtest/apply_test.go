@@ -257,6 +257,24 @@ func TestAdmissionRules(t *testing.T) {
   mediaServer: {plex: {appRef: {kind: Plex, name: plex}}}
   radarr: [{name: Radarr, appRef: {kind: Radarr, name: radarr}}]
   seerr: {appRef: {kind: Seerr, name: seerr}}`},
+		{name: "Maintainerr's Jellyfin by reference", kind: "Maintainerr", spec: `
+  connection: {url: http://maintainerr:6246}
+  mediaServer: {jellyfin: {appRef: {kind: Jellyfin, name: jellyfin}, userId: abc}}`},
+		{name: "Maintainerr's Jellyfin referring to Plex", kind: "Maintainerr", spec: `
+  connection: {url: http://maintainerr:6246}
+  mediaServer: {jellyfin: {appRef: {kind: Plex, name: plex}}}`,
+			rejected: "jellyfin refers to a Jellyfin"},
+		{name: "Maintainerr's Jellyfin by reference and URL", kind: "Maintainerr", spec: `
+  connection: {url: http://maintainerr:6246}
+  mediaServer: {jellyfin: {appRef: {kind: Jellyfin, name: jellyfin}, url: http://jellyfin:8096}}`,
+			rejected: "set appRef, or url and apiKeySecretRef, not both"},
+		{name: "a Jellyfin with an API key", kind: "Jellyfin", spec: `
+  connection:
+    url: http://jellyfin:8096
+    apiKeySecretRef: {name: app, key: jellyfin-api-key}
+  adminUser:
+    usernameSecretRef: {name: app, key: username}
+    passwordSecretRef: {name: app, key: password}`},
 		{name: "a Maintainerr radarr server referring to Sonarr", kind: "Maintainerr", spec: `
   connection: {url: http://maintainerr:6246}
   radarr: [{name: Radarr, appRef: {kind: Sonarr, name: sonarr}}]`,

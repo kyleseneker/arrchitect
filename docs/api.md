@@ -79,6 +79,7 @@ _Appears in:_
 - [DownloadClient](#downloadclient)
 - [LidarrDownloadClientSpec](#lidarrdownloadclientspec)
 - [MaintainerrArrServer](#maintainerrarrserver)
+- [MaintainerrJellyfin](#maintainerrjellyfin)
 - [MaintainerrPlex](#maintainerrplex)
 - [MaintainerrSeerrConnection](#maintainerrseerrconnection)
 - [ProwlarrApplication](#prowlarrapplication)
@@ -991,6 +992,7 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `url` _string_ | url is the base URL of the Jellyfin instance (e.g., http://jellyfin.media.svc.cluster.local:8096). |  | MinLength: 1 <br />Pattern: `^https?://` <br />Required: \{\} <br /> |
+| `apiKeySecretRef` _[SecretKeyRef](#secretkeyref)_ | apiKeySecretRef references a Secret containing a Jellyfin API key, from<br />the API Keys page of Jellyfin's dashboard. Once Jellyfin is set up, the<br />operator uses it instead of signing in as adminUser, and an appRef to this<br />resource passes it to apps that connect with a key, such as Maintainerr. |  | Optional: \{\} <br /> |
 | `tls` _[TLSConfig](#tlsconfig)_ | tls configures TLS settings for the connection.<br />Only needed when Jellyfin uses HTTPS with self-signed or private CA certificates. |  | Optional: \{\} <br /> |
 
 
@@ -1636,15 +1638,17 @@ _Appears in:_
 
 MaintainerrJellyfin connects Maintainerr to a Jellyfin server.
 
-
+_Validation:_
+- MinProperties: 1
 
 _Appears in:_
 - [MaintainerrMediaServer](#maintainerrmediaserver)
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `url` _string_ | url is the Jellyfin URL as Maintainerr reaches it (e.g., http://jellyfin:8096). |  | MinLength: 1 <br />Pattern: `^https?://` <br />Required: \{\} <br /> |
-| `apiKeySecretRef` _[SecretKeyRef](#secretkeyref)_ | apiKeySecretRef references a Secret containing a Jellyfin API key. |  | Required: \{\} <br /> |
+| `appRef` _[AppRef](#appref)_ | appRef names the Jellyfin resource whose connection URL and API key are<br />used in place of url and apiKeySecretRef. That resource must set its<br />connection's apiKeySecretRef. |  | Optional: \{\} <br /> |
+| `url` _string_ | url is the Jellyfin URL as Maintainerr reaches it (e.g., http://jellyfin:8096). |  | MinLength: 1 <br />Pattern: `^https?://` <br />Optional: \{\} <br /> |
+| `apiKeySecretRef` _[SecretKeyRef](#secretkeyref)_ | apiKeySecretRef references a Secret containing a Jellyfin API key. |  | Optional: \{\} <br /> |
 | `userId` _string_ | userId is the Jellyfin administrator Maintainerr acts as. Maintainerr<br />picks the first administrator when it is unset. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 
 
@@ -1679,7 +1683,7 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `plex` _[MaintainerrPlex](#maintainerrplex)_ | plex connects Maintainerr to a Plex server. |  | MinProperties: 1 <br />Optional: \{\} <br /> |
-| `jellyfin` _[MaintainerrJellyfin](#maintainerrjellyfin)_ | jellyfin connects Maintainerr to a Jellyfin server. Maintainerr tests the<br />connection before saving it, so Jellyfin must be reachable from Maintainerr. |  | Optional: \{\} <br /> |
+| `jellyfin` _[MaintainerrJellyfin](#maintainerrjellyfin)_ | jellyfin connects Maintainerr to a Jellyfin server. Maintainerr tests the<br />connection before saving it, so Jellyfin must be reachable from Maintainerr. |  | MinProperties: 1 <br />Optional: \{\} <br /> |
 
 
 #### MaintainerrNotification
@@ -3573,6 +3577,7 @@ _Appears in:_
 - [BazarrAppConnection](#bazarrappconnection)
 - [DownloadClient](#downloadclient)
 - [JellyfinAdminUser](#jellyfinadminuser)
+- [JellyfinConnection](#jellyfinconnection)
 - [LidarrDownloadClientSpec](#lidarrdownloadclientspec)
 - [MaintainerrArrServer](#maintainerrarrserver)
 - [MaintainerrJellyfin](#maintainerrjellyfin)

@@ -184,16 +184,25 @@ type MaintainerrPlex struct {
 }
 
 // MaintainerrJellyfin connects Maintainerr to a Jellyfin server.
+// +kubebuilder:validation:MinProperties=1
+// +kubebuilder:validation:XValidation:rule="has(self.appRef) ? !has(self.url) && !has(self.apiKeySecretRef) : has(self.url) && has(self.apiKeySecretRef)",message="set appRef, or url and apiKeySecretRef, not both"
 type MaintainerrJellyfin struct {
+	// appRef names the Jellyfin resource whose connection URL and API key are
+	// used in place of url and apiKeySecretRef. That resource must set its
+	// connection's apiKeySecretRef.
+	// +optional
+	// +kubebuilder:validation:XValidation:rule="self.kind == 'Jellyfin'",message="jellyfin refers to a Jellyfin"
+	AppRef *commonv1alpha1.AppRef `json:"appRef,omitempty"`
+
 	// url is the Jellyfin URL as Maintainerr reaches it (e.g., http://jellyfin:8096).
-	// +required
+	// +optional
 	// +kubebuilder:validation:Pattern=`^https?://`
 	// +kubebuilder:validation:MinLength=1
 	URL string `json:"url,omitempty"`
 
 	// apiKeySecretRef references a Secret containing a Jellyfin API key.
-	// +required
-	APIKeySecretRef commonv1alpha1.SecretKeyRef `json:"apiKeySecretRef,omitempty"`
+	// +optional
+	APIKeySecretRef *commonv1alpha1.SecretKeyRef `json:"apiKeySecretRef,omitempty"`
 
 	// userId is the Jellyfin administrator Maintainerr acts as. Maintainerr
 	// picks the first administrator when it is unset.

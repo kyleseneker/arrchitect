@@ -7,10 +7,9 @@ spec:
     url: ${URL}
   mediaServer:
     jellyfin:
-      url: http://${HOST}:${JELLYFIN_PORT}
-      apiKeySecretRef:
-        name: compat-credentials
-        key: jellyfin-api-key
+      appRef:
+        kind: Jellyfin
+        name: jellyfin
   radarr:
     - name: Radarr
       appRef:
@@ -86,3 +85,21 @@ spec:
     apiKeySecretRef:
       name: compat-credentials
       key: radarr-api-key
+---
+apiVersion: arrchitect.dev/v1alpha1
+kind: Jellyfin
+metadata:
+  name: jellyfin
+spec:
+  connection:
+    url: http://${HOST}:${JELLYFIN_PORT}
+    apiKeySecretRef:
+      name: compat-credentials
+      key: jellyfin-api-key
+  adminUser:
+    usernameSecretRef:
+      name: compat-credentials
+      key: jellyfin-username
+    passwordSecretRef:
+      name: compat-credentials
+      key: jellyfin-password

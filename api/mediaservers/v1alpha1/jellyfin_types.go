@@ -69,6 +69,13 @@ type JellyfinConnection struct {
 	// +kubebuilder:validation:MinLength=1
 	URL string `json:"url,omitempty"`
 
+	// apiKeySecretRef references a Secret containing a Jellyfin API key, from
+	// the API Keys page of Jellyfin's dashboard. Once Jellyfin is set up, the
+	// operator uses it instead of signing in as adminUser, and an appRef to this
+	// resource passes it to apps that connect with a key, such as Maintainerr.
+	// +optional
+	APIKeySecretRef *commonv1alpha1.SecretKeyRef `json:"apiKeySecretRef,omitempty"`
+
 	// tls configures TLS settings for the connection.
 	// Only needed when Jellyfin uses HTTPS with self-signed or private CA certificates.
 	// +optional

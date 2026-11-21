@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -39,6 +40,16 @@ type fakeJellyfin struct {
 	requests      []string
 	setupComplete bool
 	existingLibs  []map[string]any
+	// apiKey, when set, is the only token /System/Info accepts.
+	apiKey string
+	// auth is the Authorization header each path last received.
+	auth map[string]string
+}
+
+func (f *fakeJellyfin) authFor(path string) string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.auth[path]
 }
 
 func (f *fakeJellyfin) saw(method, path string) bool {
@@ -80,9 +91,18 @@ func (f *fakeJellyfin) serve(t *testing.T) string {
 	srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		f.mu.Lock()
 		f.requests = append(f.requests, r.Method+" "+r.URL.Path)
+		if f.auth == nil {
+			f.auth = map[string]string{}
+		}
+		f.auth[r.URL.Path] = r.Header.Get("Authorization")
 		f.mu.Unlock()
 
 		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path == "/System/Info" && f.apiKey != "" &&
+			!strings.Contains(r.Header.Get("Authorization"), `Token="`+f.apiKey+`"`) {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
 		if r.URL.Path == f.failure {
 			w.WriteHeader(500)
 			return
@@ -367,4 +387,41 @@ func TestReconcileWritesJellyfinNetworkSettings(t *testing.T) {
 
 	assert.True(t, app.saw("POST", "/System/Configuration/network"), "network settings were never written")
 	assert.Equal(t, conditionTrue, jellyfinSynced(t, c))
+}
+
+func jellyfinWithAPIKey(url string) (*mediaserversv1alpha1.Jellyfin, *corev1.Secret) {
+	cfg := jellyfinConfig(url)
+	cfg.Spec.Connection.APIKeySecretRef = &commonv1alpha1.SecretKeyRef{Name: "jellyfin-admin", Key: "api-key"}
+	secret := adminSecret()
+	secret.Data["api-key"] = []byte("jf-key")
+	return cfg, secret
+}
+
+// Signing in creates a session in Jellyfin on every pass; an API key doesn't.
+func TestJellyfinUsesItsAPIKeyInsteadOfSigningIn(t *testing.T) {
+	app := &fakeJellyfin{setupComplete: true, apiKey: "jf-key"}
+	cfg, secret := jellyfinWithAPIKey(app.serve(t))
+	cfg.Spec.Libraries = []mediaserversv1alpha1.JellyfinLibrary{{Name: "Movies", CollectionType: "movies", Paths: []string{"/data/movies"}}}
+
+	c := runJellyfin(t, secret, cfg)
+
+	assert.False(t, app.saw("POST", "/Users/AuthenticateByName"), "signed in despite having an API key")
+	assert.True(t, app.saw("GET", "/System/Info"), "never checked the API key")
+	assert.Contains(t, app.authFor("/Library/VirtualFolders"), `Token="jf-key"`)
+	assert.Equal(t, conditionTrue, jellyfinSynced(t, c), "Synced")
+}
+
+func TestJellyfinReportsARefusedAPIKeyAsUnreachable(t *testing.T) {
+	app := &fakeJellyfin{setupComplete: true, apiKey: "another-key"}
+	cfg, secret := jellyfinWithAPIKey(app.serve(t))
+
+	c := runJellyfin(t, secret, cfg)
+
+	var got mediaserversv1alpha1.Jellyfin
+	require.NoError(t, c.Get(context.Background(), types.NamespacedName{Name: "jellyfin", Namespace: "media"}, &got))
+	ready := meta.FindStatusCondition(got.Status.Conditions, "Ready")
+	require.NotNil(t, ready)
+	assert.Equal(t, "AppUnreachable", ready.Reason)
+	assert.Contains(t, ready.Message, "checking the API key")
+	assert.False(t, app.saw("GET", "/System/Configuration"), "carried on with a refused key")
 }

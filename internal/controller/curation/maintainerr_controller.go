@@ -40,7 +40,7 @@ type MaintainerrReconciler struct {
 // +kubebuilder:rbac:groups=arrchitect.dev,resources=maintainerrs/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=arrchitect.dev,resources=maintainerrs/finalizers,verbs=update
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
-// +kubebuilder:rbac:groups=arrchitect.dev,resources=sonarrs;radarrs;seerrs;plexes,verbs=get;list;watch
+// +kubebuilder:rbac:groups=arrchitect.dev,resources=sonarrs;radarrs;seerrs;plexes;jellyfins,verbs=get;list;watch
 
 func (r *MaintainerrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
@@ -233,7 +233,22 @@ func (s *maintainerrSync) mediaServer(ctx context.Context, ms *curationv1alpha1.
 }
 
 func (s *maintainerrSync) jellyfin(ctx context.Context, jf *curationv1alpha1.MaintainerrJellyfin) error {
-	key, err := reconciler.ResolveSecretKeyRef(ctx, s.c, s.namespace, jf.APIKeySecretRef)
+	if jf.AppRef != nil {
+		app, err := ctrlcommon.ResolveAppRef(ctx, s.c, s.namespace, *jf.AppRef)
+		if err != nil {
+			return fmt.Errorf("jellyfin appRef: %w", err)
+		}
+		if app.APIKeySecretRef == nil {
+			return fmt.Errorf("jellyfin appRef: Jellyfin %q sets no API key Secret", jf.AppRef.Name)
+		}
+		resolved := *jf
+		resolved.URL, resolved.APIKeySecretRef = app.URL, app.APIKeySecretRef
+		jf = &resolved
+	}
+	if jf.APIKeySecretRef == nil {
+		return fmt.Errorf("no Jellyfin API key Secret")
+	}
+	key, err := reconciler.ResolveSecretKeyRef(ctx, s.c, s.namespace, *jf.APIKeySecretRef)
 	if err != nil {
 		return fmt.Errorf("resolving Jellyfin API key: %w", err)
 	}
@@ -445,8 +460,12 @@ func maintainerrAppRefs(o client.Object) []commonv1alpha1.AppRef {
 	if spec.Seerr.AppRef != nil {
 		refs = append(refs, *spec.Seerr.AppRef)
 	}
-	if spec.MediaServer != nil && spec.MediaServer.Plex.AppRef != nil {
-		refs = append(refs, *spec.MediaServer.Plex.AppRef)
+	if ms := spec.MediaServer; ms != nil {
+		for _, ref := range []*commonv1alpha1.AppRef{ms.Plex.AppRef, ms.Jellyfin.AppRef} {
+			if ref != nil {
+				refs = append(refs, *ref)
+			}
+		}
 	}
 	return refs
 }
@@ -481,7 +500,7 @@ func (r *MaintainerrReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	b := ctrl.NewControllerManagedBy(mgr).
 		For(&curationv1alpha1.Maintainerr{}, builder.WithPredicates(ctrlcommon.ConfigChangedPredicate())).
 		WatchesMetadata(&corev1.Secret{}, ctrlcommon.EnqueueForSecretThroughRefs(r.Client, &curationv1alpha1.MaintainerrList{}, maintainerrAppRefs))
-	b, err := ctrlcommon.WatchAppRefs(mgr, b, &curationv1alpha1.Maintainerr{}, &curationv1alpha1.MaintainerrList{}, maintainerrAppRefs, "Sonarr", "Radarr", "Seerr", "Plex")
+	b, err := ctrlcommon.WatchAppRefs(mgr, b, &curationv1alpha1.Maintainerr{}, &curationv1alpha1.MaintainerrList{}, maintainerrAppRefs, "Sonarr", "Radarr", "Seerr", "Plex", "Jellyfin")
 	if err != nil {
 		return err
 	}

@@ -321,7 +321,7 @@ func jellyfinSpec(url string) curationv1alpha1.MaintainerrSpec {
 	return curationv1alpha1.MaintainerrSpec{
 		Connection: curationv1alpha1.MaintainerrConnection{URL: url},
 		MediaServer: &curationv1alpha1.MaintainerrMediaServer{Jellyfin: curationv1alpha1.MaintainerrJellyfin{
-			URL: "http://jellyfin:8096/", APIKeySecretRef: secretRef("jellyfin-api-key"),
+			URL: "http://jellyfin:8096/", APIKeySecretRef: new(secretRef("jellyfin-api-key")),
 		}},
 		Radarr: []curationv1alpha1.MaintainerrArrServer{{
 			Name: "Radarr", URL: "http://Radarr:7878", APIKeySecretRef: new(secretRef("radarr-api-key")),
@@ -669,4 +669,37 @@ func TestMaintainerrMissingServerAppRefIsReported(t *testing.T) {
 
 	assert.Empty(t, app.servers["radarr"])
 	assert.Contains(t, run.condition(t, "Synced").Message, `radarr: Radarr: appRef: Radarr "radarr" not found`)
+}
+
+func TestMaintainerrJellyfinAppRefUsesTheJellyfinAPIKey(t *testing.T) {
+	jellyfin := func(key *commonv1alpha1.SecretKeyRef) *mediaserversv1alpha1.Jellyfin {
+		return &mediaserversv1alpha1.Jellyfin{Name: "jellyfin", Namespace: "media", Spec: mediaserversv1alpha1.JellyfinSpec{
+			Connection: mediaserversv1alpha1.JellyfinConnection{URL: "http://jellyfin.media.svc:8096", APIKeySecretRef: key},
+			AdminUser:  mediaserversv1alpha1.JellyfinAdminUser{UsernameSecretRef: secretRef("u"), PasswordSecretRef: secretRef("p")},
+		}}
+	}
+	spec := func(url string) curationv1alpha1.MaintainerrSpec {
+		return curationv1alpha1.MaintainerrSpec{
+			Connection: curationv1alpha1.MaintainerrConnection{URL: url},
+			MediaServer: &curationv1alpha1.MaintainerrMediaServer{Jellyfin: curationv1alpha1.MaintainerrJellyfin{
+				AppRef: &commonv1alpha1.AppRef{Kind: "Jellyfin", Name: "jellyfin"},
+			}},
+		}
+	}
+
+	t.Run("with a key", func(t *testing.T) {
+		app := newFakeMaintainerr()
+		run := newMaintainerrRun(t, spec(app.serve(t)), jellyfin(new(secretRef("jellyfin-api-key"))))
+		run.reconcile(t)
+		require.Equal(t, conditionTrue, string(run.condition(t, "Synced").Status), run.condition(t, "Synced").Message)
+		assert.Equal(t, "http://jellyfin.media.svc:8096", app.jellyfin["jellyfin_url"])
+		assert.Equal(t, "jellyfin-key", app.jellyfin["jellyfin_api_key"])
+	})
+	t.Run("without one", func(t *testing.T) {
+		app := newFakeMaintainerr()
+		run := newMaintainerrRun(t, spec(app.serve(t)), jellyfin(nil))
+		run.reconcile(t)
+		assert.Empty(t, app.jellyfin)
+		assert.Contains(t, run.condition(t, "Synced").Message, `jellyfin appRef: Jellyfin "jellyfin" sets no API key Secret`)
+	})
 }

@@ -119,10 +119,13 @@ func (r *JellyfinReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	initialized := true
 	config.Status.Initialized = &initialized
 
-	// Authenticate
-	if err := jf.Authenticate(ctx, username, password); err != nil {
+	if err := r.signIn(ctx, jf, &config, username, password); err != nil {
 		logger.Error(err, "Jellyfin authentication failed")
-		ctrlcommon.UpdateStatusUnreachable(ctx, r.Client, &config, engine.ReasonAppUnreachable, fmt.Sprintf("authentication: %v", err))
+		reason := engine.ReasonAppUnreachable
+		if reconciler.IsSecretError(err) {
+			reason = engine.ReasonSecretNotFound
+		}
+		ctrlcommon.UpdateStatusUnreachable(ctx, r.Client, &config, reason, fmt.Sprintf("authentication: %v", err))
 		return ctrl.Result{RequeueAfter: 60 * time.Second}, nil
 	}
 
@@ -162,6 +165,22 @@ func (r *JellyfinReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 // jellyfinSettings renders a spec section under Jellyfin's own PascalCase
 // setting names. Jellyfin accepts camelCase on write but reads back PascalCase,
 // so camelCase keys always looked missing and every pass rewrote the settings.
+// signIn authenticates with the connection's API key when it sets one, or as
+// the admin user.
+func (r *JellyfinReconciler) signIn(
+	ctx context.Context, jf *jellyfinclient.Client, config *mediaserversv1alpha1.Jellyfin, username, password string,
+) error {
+	ref := config.Spec.Connection.APIKeySecretRef
+	if ref == nil {
+		return jf.Authenticate(ctx, username, password)
+	}
+	key, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, *ref)
+	if err != nil {
+		return err
+	}
+	return jf.UseAPIKey(ctx, key)
+}
+
 func jellyfinSettings(section any) (map[string]any, error) {
 	raw, err := json.Marshal(section)
 	if err != nil {

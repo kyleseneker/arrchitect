@@ -125,13 +125,25 @@ func jellyfinAPIKey(t *testing.T, base string) string {
 	require.NoError(t, jc.CreateLibrary(ctx, "Movies", "movies", map[string]any{
 		"PathInfos": []map[string]any{{"Path": "/media/movies"}},
 	}))
-	_, err = hc.Do(ctx, http.MethodPost, "/Auth/Keys?app=maintainerr", nil)
+	return createJellyfinAPIKey(t, hc, "maintainerr")
+}
+
+// createJellyfinAPIKey creates an API key named app through a signed-in client.
+func createJellyfinAPIKey(t *testing.T, hc *engine.HTTPClient, app string) string {
+	t.Helper()
+	ctx := context.Background()
+	_, err := hc.Do(ctx, http.MethodPost, "/Auth/Keys?app="+app, nil)
 	require.NoError(t, err)
 	keys, err := hc.GetJSON(ctx, "/Auth/Keys")
 	require.NoError(t, err)
 	items, _ := keys["Items"].([]any)
-	require.NotEmpty(t, items, "Jellyfin created no API key")
-	token, _ := items[0].(map[string]any)["AccessToken"].(string)
-	require.NotEmpty(t, token)
-	return token
+	for _, item := range items {
+		if key, _ := item.(map[string]any); key["AppName"] == app {
+			token, _ := key["AccessToken"].(string)
+			require.NotEmpty(t, token)
+			return token
+		}
+	}
+	require.Fail(t, "Jellyfin created no API key", "for %s", app)
+	return ""
 }

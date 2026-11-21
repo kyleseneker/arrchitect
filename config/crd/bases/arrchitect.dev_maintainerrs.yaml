@@ -127,6 +127,7 @@ spec:
                     description: |-
                       jellyfin connects Maintainerr to a Jellyfin server. Maintainerr tests the
                       connection before saving it, so Jellyfin must be reachable from Maintainerr.
+                    minProperties: 1
                     properties:
                       apiKeySecretRef:
                         description: apiKeySecretRef references a Secret containing
@@ -144,6 +145,45 @@ spec:
                         - key
                         - name
                         type: object
+                      appRef:
+                        description: |-
+                          appRef names the Jellyfin resource whose connection URL and API key are
+                          used in place of url and apiKeySecretRef. That resource must set its
+                          connection's apiKeySecretRef.
+                        properties:
+                          group:
+                            default: arrchitect.dev
+                            description: group is the resource's API group.
+                            enum:
+                            - arrchitect.dev
+                            type: string
+                          kind:
+                            description: kind is the resource's kind, such as Sonarr.
+                            enum:
+                            - Sonarr
+                            - Radarr
+                            - Lidarr
+                            - Readarr
+                            - Prowlarr
+                            - Seerr
+                            - Jellyfin
+                            - Plex
+                            - QBittorrent
+                            - Sabnzbd
+                            type: string
+                          name:
+                            description: name is the resource's name.
+                            maxLength: 253
+                            minLength: 1
+                            pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                            type: string
+                        required:
+                        - kind
+                        - name
+                        type: object
+                        x-kubernetes-validations:
+                        - message: jellyfin refers to a Jellyfin
+                          rule: self.kind == 'Jellyfin'
                       url:
                         description: url is the Jellyfin URL as Maintainerr reaches
                           it (e.g., http://jellyfin:8096).
@@ -156,10 +196,11 @@ spec:
                           picks the first administrator when it is unset.
                         minLength: 1
                         type: string
-                    required:
-                    - apiKeySecretRef
-                    - url
                     type: object
+                    x-kubernetes-validations:
+                    - message: set appRef, or url and apiKeySecretRef, not both
+                      rule: 'has(self.appRef) ? !has(self.url) && !has(self.apiKeySecretRef)
+                        : has(self.url) && has(self.apiKeySecretRef)'
                   plex:
                     description: plex connects Maintainerr to a Plex server.
                     minProperties: 1
