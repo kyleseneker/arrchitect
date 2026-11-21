@@ -2,7 +2,7 @@
 # This is the Plex-based variant (vs Jellyfin). Adjust URLs to match your cluster.
 #
 # Prerequisites:
-#   - Apps deployed and accessible at the URLs below
+#   - Apps deployed and accessible at the URLs below (see docs/example-stack.md)
 #   - Secrets created (see secrets.yaml)
 #   - Arrchitect installed:
 #     helm install arrchitect oci://ghcr.io/kyleseneker/charts/arrchitect
@@ -28,7 +28,7 @@ spec:
     seriesFolderFormat: "{Series TitleYear}"
     seasonFolderFormat: "Season {season:00}"
   rootFolders:
-    - path: /media/tv
+    - path: /data/media/tv
 ---
 apiVersion: arrchitect.dev/v1alpha1
 kind: SonarrDownloadClient
@@ -39,10 +39,9 @@ spec:
   sonarrRef:
     name: sonarr
   name: qBittorrent
-  protocol: torrent
-  implementation: QBittorrent
-  host: qbittorrent.media.svc.cluster.local
-  port: 8080
+  appRef:
+    kind: QBittorrent
+    name: qbittorrent
   category: tv-sonarr
 ---
 apiVersion: arrchitect.dev/v1alpha1
@@ -65,7 +64,7 @@ spec:
     standardMovieFormat: "{Movie CleanTitle} {(Release Year)} [{Quality Full}]"
     movieFolderFormat: "{Movie CleanTitle} ({Release Year})"
   rootFolders:
-    - path: /media/movies
+    - path: /data/media/movies
 ---
 apiVersion: arrchitect.dev/v1alpha1
 kind: RadarrDownloadClient
@@ -76,10 +75,9 @@ spec:
   radarrRef:
     name: radarr
   name: qBittorrent
-  protocol: torrent
-  implementation: QBittorrent
-  host: qbittorrent.media.svc.cluster.local
-  port: 8080
+  appRef:
+    kind: QBittorrent
+    name: qbittorrent
   category: radarr
 ---
 apiVersion: arrchitect.dev/v1alpha1
@@ -95,24 +93,16 @@ spec:
       key: api-key
   applications:
     - name: Sonarr
-      implementation: Sonarr
-      configContract: SonarrSettings
+      appRef:
+        kind: Sonarr
+        name: sonarr
       syncLevel: fullSync
-      baseUrl: http://sonarr.media.svc.cluster.local:8989
-      prowlarrUrl: http://prowlarr.media.svc.cluster.local:9696
-      apiKeySecretRef:
-        name: sonarr-credentials
-        key: api-key
       syncCategories: [5000, 5010, 5020, 5030, 5040, 5045, 5050]
     - name: Radarr
-      implementation: Radarr
-      configContract: RadarrSettings
+      appRef:
+        kind: Radarr
+        name: radarr
       syncLevel: fullSync
-      baseUrl: http://radarr.media.svc.cluster.local:7878
-      prowlarrUrl: http://prowlarr.media.svc.cluster.local:9696
-      apiKeySecretRef:
-        name: radarr-credentials
-        key: api-key
       syncCategories: [2000, 2010, 2020, 2030, 2040, 2045, 2050, 2060, 2070, 2080]
 ---
 apiVersion: arrchitect.dev/v1alpha1
@@ -130,14 +120,14 @@ spec:
       name: qbittorrent-credentials
       key: password
   preferences:
-    savePath: /downloads
+    savePath: /data/torrents
     maxRatioEnabled: true
     maxRatio: "2.0"
   categories:
     - name: tv-sonarr
-      savePath: /downloads/tv
+      savePath: /data/torrents/tv
     - name: radarr
-      savePath: /downloads/movies
+      savePath: /data/torrents/movies
 ---
 apiVersion: arrchitect.dev/v1alpha1
 kind: Plex
@@ -162,11 +152,11 @@ spec:
     - name: Movies
       type: movie
       paths:
-        - /media/movies
+        - /data/media/movies
     - name: TV Shows
       type: show
       paths:
-        - /media/tv
+        - /data/media/tv
 ---
 apiVersion: arrchitect.dev/v1alpha1
 kind: Seerr
@@ -177,32 +167,26 @@ spec:
   connection:
     url: http://seerr.media.svc.cluster.local:5055
   plexAuth:
-    hostname: plex.media.svc.cluster.local
-    port: 32400
-    tokenSecretRef:
-      name: plex-credentials
-      key: token
+    appRef:
+      kind: Plex
+      name: plex
   main:
     applicationTitle: "Media Requests"
     hideAvailable: false
     localLogin: true
   sonarr:
     - name: Sonarr
-      hostname: sonarr.media.svc.cluster.local
-      port: 8989
-      apiKeySecretRef:
-        name: sonarr-credentials
-        key: api-key
+      appRef:
+        kind: Sonarr
+        name: sonarr
       isDefault: true
       enableSeasonFolders: true
-      activeDirectory: /media/tv
+      activeDirectory: /data/media/tv
   radarr:
     - name: Radarr
-      hostname: radarr.media.svc.cluster.local
-      port: 7878
-      apiKeySecretRef:
-        name: radarr-credentials
-        key: api-key
+      appRef:
+        kind: Radarr
+        name: radarr
       isDefault: true
       minimumAvailability: released
-      activeDirectory: /media/movies
+      activeDirectory: /data/media/movies

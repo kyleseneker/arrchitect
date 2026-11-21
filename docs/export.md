@@ -68,7 +68,7 @@ list. Seerr notification options that look like credentials go to the Secret.
 
 Use `--exclude` for parts managed by another tool, for example `indexers` when
 Prowlarr syncs them, or `customFormats,qualityProfiles,qualityDefinitions` when
-Recyclarr does.
+Recyclarr does; see [Sharing apps with other tools](other-tools.md).
 
 ## Applying the result
 

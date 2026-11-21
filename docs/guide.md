@@ -86,7 +86,7 @@ metadata:
 spec:
   connection:
     url: http://prowlarr.media.svc.cluster.local:9696
-    apiKeySecretRef: {name: media-api-keys, key: prowlarr}
+    apiKeySecretRef: {name: prowlarr-credentials, key: api-key}
   applications:
     - name: Sonarr
       appRef:
