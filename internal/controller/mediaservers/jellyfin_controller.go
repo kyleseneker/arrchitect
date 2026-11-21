@@ -3,8 +3,10 @@ package mediaservers
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -138,8 +140,9 @@ func (r *JellyfinReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 	var syncErrors []string
 
+	version := jellyfinVersion(ctx, jf)
 	for _, section := range jellyfinSections(config.Spec) {
-		if err := reconcileJellyfinSection(ctx, jf, section.path, section.settings); err != nil {
+		if err := reconcileJellyfinSection(ctx, jf, section, version); err != nil {
 			logger.Error(err, "failed to reconcile settings", "section", section.name)
 			syncErrors = append(syncErrors, fmt.Sprintf("%s: %v", section.name, err))
 		}
@@ -224,23 +227,80 @@ func jellyfinSections(spec mediaserversv1alpha1.JellyfinSpec) []jellyfinSection 
 	return sections
 }
 
-func reconcileJellyfinSection(ctx context.Context, jf *jellyfinclient.Client, path string, section any) error {
-	current, err := jf.GetConfig(ctx, path)
+func reconcileJellyfinSection(ctx context.Context, jf *jellyfinclient.Client, section jellyfinSection, version string) error {
+	current, err := jf.GetConfig(ctx, section.path)
 	if err != nil {
 		return fmt.Errorf("getting current config: %w", err)
 	}
-	desired, err := jellyfinSettings(section)
+	desired, err := jellyfinSettings(section.settings)
 	if err != nil {
 		return err
 	}
+	missing := withoutNewerSettings(section.name, desired, version)
 	merged, changed, err := reconciler.MergeDesiredOverCurrent(current, desired)
 	if err != nil {
 		return fmt.Errorf("merging config: %w", err)
 	}
-	if !changed {
-		return nil
+	if changed {
+		if err := jf.PostConfig(ctx, section.path, merged); err != nil {
+			return err
+		}
 	}
-	return jf.PostConfig(ctx, path, merged)
+	if len(missing) > 0 {
+		return errors.New(strings.Join(missing, "; "))
+	}
+	return nil
+}
+
+// jellyfinSettingsSince lists settings older Jellyfin releases don't have, by
+// the release that added them. Jellyfin leaves unset settings out of what it
+// returns, so a missing one can't tell an older release apart.
+var jellyfinSettingsSince = map[string]map[string]string{
+	"encoding": {"SubtitleExtractionTimeoutMinutes": "12.0"},
+}
+
+// jellyfinVersion is the server's version, or "" when it can't be read, which
+// leaves every setting in.
+func jellyfinVersion(ctx context.Context, jf *jellyfinclient.Client) string {
+	version, err := jf.Version(ctx)
+	if err != nil {
+		log.FromContext(ctx).V(1).Info("reading the Jellyfin version", "error", err.Error())
+	}
+	return version
+}
+
+// withoutNewerSettings removes from desired the settings version doesn't have
+// and describes each one.
+func withoutNewerSettings(section string, desired map[string]any, version string) []string {
+	var missing []string
+	for name, since := range jellyfinSettingsSince[section] {
+		if _, ok := desired[name]; !ok || version == "" || !versionBefore(version, since) {
+			continue
+		}
+		delete(desired, name)
+		missing = append(missing, fmt.Sprintf("%s.%s needs Jellyfin %s or later, and this server runs %s",
+			section, strings.ToLower(name[:1])+name[1:], since, version))
+	}
+	slices.Sort(missing)
+	return missing
+}
+
+// versionBefore reports whether dotted version a is older than b.
+func versionBefore(a, b string) bool {
+	as, bs := strings.Split(a, "."), strings.Split(b, ".")
+	for i := range max(len(as), len(bs)) {
+		var x, y int
+		if i < len(as) {
+			x, _ = strconv.Atoi(as[i])
+		}
+		if i < len(bs) {
+			y, _ = strconv.Atoi(bs[i])
+		}
+		if x != y {
+			return x < y
+		}
+	}
+	return false
 }
 
 // reconcileJellyfinLibrary creates a library, or keeps an existing one's
@@ -397,11 +457,14 @@ func (r *JellyfinReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 func observeJellyfinConfig(ctx context.Context, jf *jellyfinclient.Client, spec mediaserversv1alpha1.JellyfinSpec, w *engine.Writes) error {
+	version := jellyfinVersion(ctx, jf)
+	var missing []string
 	for _, section := range jellyfinSections(spec) {
 		desired, err := jellyfinSettings(section.settings)
 		if err != nil {
 			return err
 		}
+		missing = append(missing, withoutNewerSettings(section.name, desired, version)...)
 		current, err := jf.GetConfig(ctx, section.path)
 		if err != nil {
 			return fmt.Errorf("reading %s: %w", section.path, err)
@@ -410,8 +473,12 @@ func observeJellyfinConfig(ctx context.Context, jf *jellyfinclient.Client, spec 
 			return err
 		}
 	}
+	var missingErr error
+	if len(missing) > 0 {
+		missingErr = errors.New(strings.Join(missing, "; "))
+	}
 	if len(spec.Libraries) == 0 {
-		return nil
+		return missingErr
 	}
 	libraries, err := jf.ListLibraries(ctx)
 	if err != nil {
@@ -448,5 +515,5 @@ func observeJellyfinConfig(ctx context.Context, jf *jellyfinclient.Client, spec 
 			return err
 		}
 	}
-	return nil
+	return missingErr
 }
