@@ -5,6 +5,7 @@ import (
 	"os"
 	"regexp"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -62,4 +63,69 @@ func TestCustomGolangciLintMatchesTheMakefile(t *testing.T) {
 	require.NotNil(t, built, "version not found in .custom-gcl.yml")
 
 	assert.Equal(t, string(local[1]), string(built[1]))
+}
+
+// config:recommended ignores every path under test/, which hid the compat
+// images from Renovate; ignorePaths replaces that list rather than adding to it.
+func TestRenovateTracksEveryCompatImage(t *testing.T) {
+	var config struct {
+		IgnorePaths    []string `json:"ignorePaths"`
+		CustomManagers []struct {
+			ManagerFilePatterns []string `json:"managerFilePatterns"`
+			MatchStrings        []string `json:"matchStrings"`
+		} `json:"customManagers"`
+	}
+	raw, err := os.ReadFile("../../renovate.json")
+	require.NoError(t, err)
+	require.NoError(t, json.Unmarshal(raw, &config))
+
+	const file = "test/compat/images_test.go"
+	require.NotNil(t, config.IgnorePaths, "without ignorePaths, config:recommended ignores %s", file)
+	for _, pattern := range config.IgnorePaths {
+		assert.False(t, globRegexp(pattern).MatchString(file), "ignorePaths entry %s hides %s from Renovate", pattern, file)
+	}
+
+	var manager *regexp.Regexp
+	for _, m := range config.CustomManagers {
+		for _, p := range m.ManagerFilePatterns {
+			if regexp.MustCompile(strings.Trim(p, "/")).MatchString(file) {
+				manager = regexp.MustCompile(m.MatchStrings[0])
+			}
+		}
+	}
+	require.NotNil(t, manager, "renovate.json has no custom manager for %s", file)
+
+	images, err := os.ReadFile("../../" + file)
+	require.NoError(t, err)
+	extracted := map[string]bool{}
+	for _, m := range manager.FindAllSubmatch(images, -1) {
+		extracted[string(m[manager.SubexpIndex("depName")])] = true
+	}
+	pins := regexp.MustCompile(`(?m)^\t(\w+Image) += "([^:"]+):`).FindAllSubmatch(images, -1)
+	require.NotEmpty(t, pins)
+	for _, p := range pins {
+		assert.True(t, extracted[string(p[2])], "%s has no // renovate: annotation", p[1])
+	}
+}
+
+// globRegexp turns a Renovate ignorePaths glob into a regular expression.
+func globRegexp(glob string) *regexp.Regexp {
+	var b strings.Builder
+	b.WriteString("^")
+	for i := 0; i < len(glob); i++ {
+		switch {
+		case strings.HasPrefix(glob[i:], "**/"):
+			b.WriteString("(.*/)?")
+			i += 2
+		case strings.HasPrefix(glob[i:], "**"):
+			b.WriteString(".*")
+			i++
+		case glob[i] == '*':
+			b.WriteString("[^/]*")
+		default:
+			b.WriteString(regexp.QuoteMeta(string(glob[i])))
+		}
+	}
+	b.WriteString("$")
+	return regexp.MustCompile(b.String())
 }

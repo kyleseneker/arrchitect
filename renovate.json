@@ -9,6 +9,10 @@
   "labels": [
     "renovate"
   ],
+  "ignorePaths": [
+    "**/node_modules/**",
+    "**/vendor/**"
+  ],
   "pinDigests": true,
   "postUpdateOptions": [
     "gomodTidy",
