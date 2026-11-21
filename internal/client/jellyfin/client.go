@@ -98,6 +98,16 @@ func (c *Client) Authenticate(ctx context.Context, username, password string) er
 	return nil
 }
 
+// UseAPIKey authenticates with an API key, which Jellyfin takes as a token,
+// and checks it.
+func (c *Client) UseAPIKey(ctx context.Context, key string) error {
+	c.hc.SetMediaToken(key)
+	if _, err := c.hc.Do(ctx, http.MethodGet, "/System/Info", nil); err != nil {
+		return fmt.Errorf("checking the API key: %w", err)
+	}
+	return nil
+}
+
 // GetConfig fetches a configuration resource by path.
 func (c *Client) GetConfig(ctx context.Context, path string) (map[string]any, error) {
 	return c.hc.GetJSON(ctx, path)

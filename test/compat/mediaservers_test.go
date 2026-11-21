@@ -6,12 +6,15 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"slices"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/events"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -89,8 +92,44 @@ func TestJellyfin(t *testing.T) {
 				names = append(names, l["Name"])
 			}
 			assert.ElementsMatch(t, []any{"Movies", "TV Shows"}, names)
+			checkJellyfinAPIKey(t, jf.url(), password, proxy)
 		},
 	})
+}
+
+// checkJellyfinAPIKey switches the resource to an API key and checks that a
+// reconcile with it syncs without signing in. The rest of the case then runs
+// with the key.
+func checkJellyfinAPIKey(t *testing.T, base, password string, proxy *recordingProxy) {
+	t.Helper()
+	ctx := context.Background()
+	hc, err := engine.NewHTTPClient(base, engine.AuthMediaBrowser, engine.WithAppLabel("compat"))
+	require.NoError(t, err)
+	require.NoError(t, jellyfinclient.NewClient(hc).Authenticate(ctx, jellyfinAdmin, password))
+	key := createJellyfinAPIKey(t, hc, "arrchitect")
+
+	var list mediaserversv1alpha1.JellyfinList
+	require.NoError(t, k8s.List(ctx, &list))
+	i := slices.IndexFunc(list.Items, func(j mediaserversv1alpha1.Jellyfin) bool {
+		return j.Spec.Connection.URL == proxy.url()
+	})
+	require.GreaterOrEqual(t, i, 0, "no Jellyfin resource for this case")
+	cfg := &list.Items[i]
+	secret := &corev1.Secret{Name: "compat-credentials", Namespace: cfg.Namespace}
+	require.NoError(t, k8s.Patch(ctx, secret, client.RawPatch(types.MergePatchType,
+		fmt.Appendf(nil, `{"stringData":{"jellyfin-api-key":%q}}`, key))))
+	require.NoError(t, k8s.Patch(ctx, cfg, client.RawPatch(types.MergePatchType,
+		[]byte(`{"spec":{"connection":{"apiKeySecretRef":{"name":"compat-credentials","key":"jellyfin-api-key"}}}}`))))
+
+	proxy.reset()
+	r := &mediaservers.JellyfinReconciler{Client: k8s, Scheme: k8s.Scheme(), Recorder: events.NewFakeRecorder(100)}
+	obj := reconcileUntilCurrent(t, r, client.ObjectKeyFromObject(cfg), func() ctrlcommon.ConfigResource {
+		return &mediaserversv1alpha1.Jellyfin{}
+	})
+	assertSynced(t, obj, "reconcile with an API key")
+	for _, req := range proxy.all() {
+		assert.NotEqual(t, "/Users/AuthenticateByName", req.Path, "signed in despite having an API key")
+	}
 }
 
 // jellyfinClient signs in as the admin the operator created.

@@ -71,7 +71,8 @@ var appKinds = map[string]appKind{
 		func(o client.Object) App {
 			spec := o.(*mediaserversv1alpha1.Jellyfin).Spec
 			return App{URL: spec.Connection.URL,
-				UsernameSecretRef: &spec.AdminUser.UsernameSecretRef, PasswordSecretRef: &spec.AdminUser.PasswordSecretRef}
+				UsernameSecretRef: &spec.AdminUser.UsernameSecretRef, PasswordSecretRef: &spec.AdminUser.PasswordSecretRef,
+				APIKeySecretRef: spec.Connection.APIKeySecretRef}
 		}},
 	"Plex": {func() client.Object { return &mediaserversv1alpha1.Plex{} },
 		func(o client.Object) App {

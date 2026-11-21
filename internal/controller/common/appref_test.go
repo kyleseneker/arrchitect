@@ -70,7 +70,7 @@ func TestResolveAppRefTakesEachKindsConnection(t *testing.T) {
 			Connection: requestsv1alpha1.SeerrConnection{URL: "http://seerr:5055", APIKeySecretRef: ref("keys", "seerr")},
 		}},
 		&mediaserversv1alpha1.Jellyfin{Name: "jellyfin", Namespace: "media", Spec: mediaserversv1alpha1.JellyfinSpec{
-			Connection: mediaserversv1alpha1.JellyfinConnection{URL: "http://jellyfin:8096"},
+			Connection: mediaserversv1alpha1.JellyfinConnection{URL: "http://jellyfin:8096", APIKeySecretRef: ref("keys", "jellyfin")},
 			AdminUser:  mediaserversv1alpha1.JellyfinAdminUser{UsernameSecretRef: *ref("admin", "user"), PasswordSecretRef: *ref("admin", "pass")},
 		}},
 		&mediaserversv1alpha1.Plex{Name: "plex", Namespace: "media", Spec: mediaserversv1alpha1.PlexSpec{
@@ -90,7 +90,8 @@ func TestResolveAppRefTakesEachKindsConnection(t *testing.T) {
 		{commonv1alpha1.AppRef{Kind: "Seerr", Name: "seerr"},
 			App{Kind: "Seerr", URL: "http://seerr:5055", APIKeySecretRef: ref("keys", "seerr")}},
 		{commonv1alpha1.AppRef{Kind: "Jellyfin", Name: "jellyfin"},
-			App{Kind: "Jellyfin", URL: "http://jellyfin:8096", UsernameSecretRef: ref("admin", "user"), PasswordSecretRef: ref("admin", "pass")}},
+			App{Kind: "Jellyfin", URL: "http://jellyfin:8096", APIKeySecretRef: ref("keys", "jellyfin"),
+				UsernameSecretRef: ref("admin", "user"), PasswordSecretRef: ref("admin", "pass")}},
 		{commonv1alpha1.AppRef{Kind: "Plex", Name: "plex"},
 			App{Kind: "Plex", URL: "http://plex:32400", TokenSecretRef: ref("keys", "plex")}},
 		{commonv1alpha1.AppRef{Kind: "QBittorrent", Name: "qbittorrent"},

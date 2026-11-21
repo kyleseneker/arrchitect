@@ -104,6 +104,7 @@ spec:
 | Maintainerr `sonarr`, `radarr` | Sonarr in `sonarr`, Radarr in `radarr` | `url`, `apiKeySecretRef` |
 | Maintainerr `seerr` | Seerr | `url`, `apiKeySecretRef` |
 | Maintainerr `mediaServer.plex` | Plex | `hostname`, `port`, `ssl`, `tokenSecretRef` |
+| Maintainerr `mediaServer.jellyfin` | Jellyfin | `url`, `apiKeySecretRef` |
 | Sonarr, Radarr, Lidarr and Readarr download clients | QBittorrent, Sabnzbd | `implementation`, `protocol`, `host`, `port`, `useSsl`, `urlBase` and the credentials |
 | Autobrr `downloadClients` | QBittorrent, Sabnzbd, Sonarr, Radarr, Lidarr, Readarr | `type`, `host`, `port`, `tls` and the credentials |
 
@@ -118,10 +119,11 @@ spec:
   it refers to, report `ReferenceNotFound` instead and write nothing.
 - A change to the resource, or to a Secret it names, reconciles the resources
   that refer to it straight away.
-- Maintainerr's `seerr` reference needs the Seerr resource to set
-  `connection.apiKeySecretRef`. Maintainerr's Jellyfin connection takes a
-  Jellyfin API key, which the Jellyfin resource doesn't hold, so it has no
-  `appRef`.
+- Maintainerr connects with API keys, so its `seerr` and `mediaServer.jellyfin`
+  references need the Seerr or Jellyfin resource to set
+  `connection.apiKeySecretRef`. A Jellyfin resource with a key also uses it
+  instead of signing in as `adminUser` once Jellyfin is set up, so the
+  operator no longer adds a Jellyfin session on each reconcile.
 - `arrchitect export` writes the address and credentials: it can't tell which
   resource, if any, describes the app at a URL.
 

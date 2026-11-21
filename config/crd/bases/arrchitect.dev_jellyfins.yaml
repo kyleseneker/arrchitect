@@ -98,6 +98,25 @@ spec:
               connection:
                 description: connection defines how to connect to the Jellyfin instance.
                 properties:
+                  apiKeySecretRef:
+                    description: |-
+                      apiKeySecretRef references a Secret containing a Jellyfin API key, from
+                      the API Keys page of Jellyfin's dashboard. Once Jellyfin is set up, the
+                      operator uses it instead of signing in as adminUser, and an appRef to this
+                      resource passes it to apps that connect with a key, such as Maintainerr.
+                    properties:
+                      key:
+                        description: key is the key within the Secret.
+                        minLength: 1
+                        type: string
+                      name:
+                        description: name is the name of the Secret.
+                        minLength: 1
+                        type: string
+                    required:
+                    - key
+                    - name
+                    type: object
                   tls:
                     description: |-
                       tls configures TLS settings for the connection.
