@@ -107,6 +107,16 @@ func TestSeerr(t *testing.T) {
 		read: func(r request) bool {
 			return getOnly(r) || (r.Method == http.MethodPost && r.Path == "/api/v1/auth/jellyfin")
 		},
+		update: `[{"op": "replace", "path": "/spec/sonarr/0/externalUrl", "value": "https://tv.example.com"}]`,
+		verifyUpdate: func(t *testing.T) {
+			sonarrs, err := directClient(t, seerr.url(), seerrAPIKey(t)).GetJSONList(ctx, "/api/v1/settings/sonarr")
+			require.NoError(t, err)
+			urls := map[any]any{}
+			for _, s := range sonarrs {
+				urls[s["name"]] = s["externalUrl"]
+			}
+			assert.Equal(t, "https://tv.example.com", urls["Sonarr"], "Seerr didn't take the update to an existing server")
+		},
 		verify: func(t *testing.T) {
 			resp, err := http.Get(seerr.url() + "/api/v1/settings/public")
 			require.NoError(t, err)

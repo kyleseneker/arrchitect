@@ -4,7 +4,8 @@
 // container. Each case proves three things for that application version: the
 // operator reaches Synced, the application reflects the declared settings, and a
 // second pass makes no writes, so nothing the operator sends is rewritten by the
-// application into a value the operator then sees as drift.
+// application into a value the operator then sees as drift. A case with an
+// update also proves the application takes a change to an item it already has.
 //
 // Run with `make test-compat`. Containers run through testcontainers-go, on docker
 // or, with CONTAINER_TOOL=podman, on the podman machine.
@@ -141,6 +142,11 @@ type compatCase struct {
 	observe bool
 	// verify reads the application directly after the first reconcile.
 	verify func(t *testing.T)
+	// update is a JSON patch (RFC 6902) to the case's own resource that changes
+	// items the first reconcile created, so the operator updates them in place.
+	// verifyUpdate reads the application after that reconcile.
+	update       string
+	verifyUpdate func(t *testing.T)
 	// export names the app for arrchitect export, whose output must then
 	// describe the application exactly: observe mode finds nothing different.
 	export string
@@ -265,6 +271,10 @@ func checkCompat(t *testing.T, tc compatCase) {
 	assert.Empty(t, writes, "second reconcile wrote to the application; these settings do not read back as written:\n%s",
 		formatRequests(writes))
 
+	if tc.update != "" {
+		checkUpdate(t, tc, resources, read)
+	}
+
 	if !tc.observe {
 		return
 	}
@@ -281,6 +291,27 @@ func checkCompat(t *testing.T, tc compatCase) {
 	if tc.cleanup != nil {
 		checkCleanup(t, tc, resources)
 	}
+}
+
+// checkUpdate applies the case's update and reconciles: the application takes
+// the change in place, and the pass after it writes nothing.
+func checkUpdate(t *testing.T, tc compatCase, resources []resource, read isRead) {
+	t.Helper()
+	patch := client.RawPatch(types.JSONPatchType, []byte(tc.update))
+	require.NoError(t, k8s.Patch(context.Background(), resources[0].newObjAt(t), patch), "updating")
+	tc.proxy.reset()
+	if !reconcileAll(t, resources, "update reconcile") {
+		t.Logf("requests during the update reconcile:\n%s", formatRequests(tc.proxy.all()))
+		t.FailNow()
+	}
+	assert.NotEmpty(t, tc.proxy.writes(read), "the update reconcile wrote nothing")
+	if tc.verifyUpdate != nil {
+		tc.verifyUpdate(t)
+	}
+	tc.proxy.reset()
+	require.True(t, reconcileAll(t, resources, "reconcile after update"))
+	writes := tc.proxy.writes(read)
+	assert.Empty(t, writes, "the reconcile after the update wrote again:\n%s", formatRequests(writes))
 }
 
 // newObjAt reads the resource as stored.
