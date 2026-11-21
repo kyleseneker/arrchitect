@@ -6,8 +6,8 @@ spec:
   connection:
     url: http://sabnzbd.media.svc.cluster.local:8080
     apiKeySecretRef:
-      name: sabnzbd-secrets
-      key: API_KEY
+      name: sabnzbd-credentials
+      key: api-key
   general:
     preCheck: true
     failHopelessJobs: true
@@ -30,11 +30,11 @@ spec:
       ssl: true
       connections: 20
       usernameSecretRef:
-        name: usenet-secrets
-        key: USERNAME
+        name: usenet-credentials
+        key: username
       passwordSecretRef:
-        name: usenet-secrets
-        key: PASSWORD
+        name: usenet-credentials
+        key: password
   categories:
     - name: tv
       dir: tv

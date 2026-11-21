@@ -6,8 +6,8 @@ spec:
   connection:
     url: http://arr-prowlarr.arr.svc.cluster.local:9696
     apiKeySecretRef:
-      name: arr-config-secrets
-      key: PROWLARR_API_KEY
+      name: prowlarr-credentials
+      key: api-key
   proxies:
     - name: FlareSolverr
       implementation: FlareSolverr
@@ -28,8 +28,8 @@ spec:
       prowlarrUrl: http://arr-prowlarr.arr.svc.cluster.local:9696
       baseUrl: http://arr-radarr.arr.svc.cluster.local:7878
       apiKeySecretRef:
-        name: arr-config-secrets
-        key: RADARR_API_KEY
+        name: radarr-credentials
+        key: api-key
       syncCategories: [2000, 2010, 2020, 2030, 2040, 2045, 2050, 2060, 2070, 2080, 2090]
   indexers:
     - name: 1337x

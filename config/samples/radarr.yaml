@@ -6,8 +6,8 @@ spec:
   connection:
     url: http://arr-radarr.arr.svc.cluster.local:7878
     apiKeySecretRef:
-      name: arr-config-secrets
-      key: RADARR_API_KEY
+      name: radarr-credentials
+      key: api-key
   mediaManagement:
     copyUsingHardlinks: true
     deleteEmptyFolders: true

@@ -9,7 +9,7 @@ spec:
   connection:
     url: http://autobrr:7474
     apiKeySecretRef:
-      name: autobrr-secrets
+      name: autobrr-credentials
       key: api-key
   downloadClients:
     - name: qBittorrent
@@ -17,10 +17,10 @@ spec:
       host: qbittorrent.media.svc.cluster.local
       port: 8080
       usernameSecretRef:
-        name: qbittorrent-secrets
+        name: qbittorrent-credentials
         key: username
       passwordSecretRef:
-        name: qbittorrent-secrets
+        name: qbittorrent-credentials
         key: password
   indexers:
     - name: IPTorrents
@@ -29,8 +29,8 @@ spec:
         - name: passkey
           valueFrom:
             secretKeyRef:
-              name: autobrr-secrets
-              key: ipt-passkey
+              name: iptorrents-credentials
+              key: passkey
   filters:
     - name: "TV Shows - 1080p"
       priority: 1

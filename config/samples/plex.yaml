@@ -6,8 +6,8 @@ spec:
   connection:
     url: http://plex.media.svc.cluster.local:32400
     tokenSecretRef:
-      name: plex-secrets
-      key: PLEX_TOKEN
+      name: plex-credentials
+      key: token
   server:
     friendlyName: Plex
     scanMyLibraryAutomatically: true
