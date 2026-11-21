@@ -3,6 +3,7 @@ package autobrr
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"maps"
 	"net/http"
@@ -109,6 +110,9 @@ var ActionFields = map[string]string{
 
 type Client struct {
 	hc *engine.HTTPClient
+	// downloaders is where this Autobrr serves download clients:
+	// /api/downloaders since 1.86.0, /api/download_clients before it.
+	downloaders string
 }
 
 // Types maps Autobrr's download client and action types to Autobrr's
@@ -125,7 +129,7 @@ var IRCAuthMechanisms = map[string]string{"None": "NONE", "NickServ": "NICKSERV"
 
 // NewClient creates a new Autobrr API client.
 func NewClient(hc *engine.HTTPClient) *Client {
-	return &Client{hc: hc}
+	return &Client{hc: hc, downloaders: "/api/downloaders"}
 }
 
 // Ping checks if Autobrr is reachable.
@@ -136,21 +140,29 @@ func (c *Client) Ping(ctx context.Context) error {
 }
 
 // --- Download Clients ---
-// Autobrr serves download clients as "downloaders" and updates them without an
-// ID in the path; the ID travels in the body.
+// Autobrr updates download clients without an ID in the path; the ID travels
+// in the body.
 
+// ListDownloadClients lists the download clients, and finds which path this
+// Autobrr serves them at for the calls after it.
 func (c *Client) ListDownloadClients(ctx context.Context) ([]map[string]any, error) {
-	return c.hc.GetJSONList(ctx, "/api/downloaders")
+	list, err := c.hc.GetJSONList(ctx, c.downloaders)
+	var apiErr *engine.APIError
+	if errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusNotFound && c.downloaders == "/api/downloaders" {
+		c.downloaders = "/api/download_clients"
+		return c.hc.GetJSONList(ctx, c.downloaders)
+	}
+	return list, err
 }
 
 func (c *Client) CreateDownloadClient(ctx context.Context, dc map[string]any) error {
-	return c.hc.PostJSON(ctx, "/api/downloaders", dc)
+	return c.hc.PostJSON(ctx, c.downloaders, dc)
 }
 
 func (c *Client) UpdateDownloadClient(ctx context.Context, id int, dc map[string]any) error {
 	body := maps.Clone(dc)
 	body["id"] = id
-	return c.hc.PutJSON(ctx, "/api/downloaders", body)
+	return c.hc.PutJSON(ctx, c.downloaders, body)
 }
 
 // --- Indexers ---
@@ -258,7 +270,7 @@ func (c *Client) UpdateAction(ctx context.Context, id int, action map[string]any
 
 // DeleteDownloadClient removes a download client.
 func (c *Client) DeleteDownloadClient(ctx context.Context, id int) error {
-	return c.hc.DeleteJSON(ctx, fmt.Sprintf("/api/downloaders/%d", id))
+	return c.hc.DeleteJSON(ctx, fmt.Sprintf("%s/%d", c.downloaders, id))
 }
 
 // DeleteIndexer removes an indexer.
