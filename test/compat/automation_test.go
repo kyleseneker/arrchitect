@@ -34,7 +34,13 @@ func TestAutobrr(t *testing.T) {
 
 	checkCompat(t, compatCase{
 		fixture: "autobrr.yaml",
-		export:  "autobrr",
+		update: `[
+			{"op": "replace", "path": "/spec/downloadClients/1/enable", "value": false},
+			{"op": "replace", "path": "/spec/feeds/0/interval", "value": 45},
+			{"op": "replace", "path": "/spec/ircNetworks/0/nick", "value": "compat-bot2"},
+			{"op": "replace", "path": "/spec/filters/0/priority", "value": 2}
+		]`,
+		export: "autobrr",
 		vars: map[string]string{
 			"URL": proxy.url(), "HOST": hostIP, "QBITTORRENT_PORT": strconv.Itoa(qbit.port),
 		},

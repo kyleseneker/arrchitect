@@ -54,6 +54,9 @@ func TestJellyfin(t *testing.T) {
 
 	checkCompat(t, compatCase{
 		fixture: "jellyfin.yaml",
+		update: `[
+			{"op": "replace", "path": "/spec/libraries/0/automaticRefreshIntervalDays", "value": 60}
+		]`,
 		export:  "jellyfin",
 		vars:    map[string]string{"URL": proxy.url()},
 		secrets: map[string]string{"username": jellyfinAdmin, "password": password},
@@ -176,6 +179,9 @@ func TestPlex(t *testing.T) {
 
 	checkCompat(t, compatCase{
 		fixture: "plex.yaml",
+		update: `[
+			{"op": "replace", "path": "/spec/libraries/0/language", "value": "en-GB"}
+		]`,
 		export:  "plex",
 		vars:    map[string]string{"URL": proxy.url(), "ALLOWED_NETWORKS": plexAllowedNetworks},
 		secrets: map[string]string{"token": "unclaimed"},

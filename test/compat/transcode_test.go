@@ -51,8 +51,13 @@ func TestTdarr(t *testing.T) {
 
 	checkCompat(t, compatCase{
 		fixture: "tdarr.yaml",
-		export:  "tdarr",
-		vars:    map[string]string{"URL": proxy.url()},
+		update: `[
+			{"op": "replace", "path": "/spec/workers/0/transcodeCPU", "value": 2},
+			{"op": "replace", "path": "/spec/flows/0/description", "value": "Checks the container"},
+			{"op": "replace", "path": "/spec/libraries/0/folderWatchScanInterval", "value": 90}
+		]`,
+		export: "tdarr",
+		vars:   map[string]string{"URL": proxy.url()},
 		// Tdarr 3 enables authentication on a fresh config; this runs it without, as
 		// homelab does. The key is still required by the CRD.
 		secrets: map[string]string{"api-key": "unused", "discord-webhook": "http://discord.invalid/hook"},

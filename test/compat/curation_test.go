@@ -50,7 +50,12 @@ func TestMaintainerr(t *testing.T) {
 
 	checkCompat(t, compatCase{
 		fixture: "maintainerr.yaml",
-		export:  "maintainerr",
+		update: `[
+			{"op": "replace", "path": "/spec/notifications/0/aboutScale", "value": 7},
+			{"op": "replace", "path": "/spec/ruleGroups/0/actionAfterDays", "value": 45},
+			{"op": "replace", "path": "/spec/radarr/0/exclusionTag", "value": "retain"}
+		]`,
+		export: "maintainerr",
 		vars: map[string]string{
 			"URL": proxy.url(), "HOST": hostIP, "FAKES": fakes,
 			"JELLYFIN_PORT": strconv.Itoa(jf.port), "RADARR_PORT": strconv.Itoa(radarr.port),
