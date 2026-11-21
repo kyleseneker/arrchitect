@@ -70,7 +70,7 @@ jobs:
       - name: Package, push and sign Helm chart
         run: |
           helm package chart/arrchitect
-          pushed=$(helm push arrchitect-*.tgz oci://ghcr.io/kyleseneker/charts 2>&1)
+          pushed=$(helm push arrchitect-*.tgz oci://ghcr.io/kyleseneker/charts 2>&1) || { echo "$pushed"; exit 1; }
           echo "$pushed"
           digest=$(echo "$pushed" | awk '/^Digest:/ {print $2}')
           test -n "$digest"
