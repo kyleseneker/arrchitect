@@ -7,11 +7,11 @@ spec:
     url: http://arr-jellyfin.arr.svc.cluster.local:8096
   adminUser:
     usernameSecretRef:
-      name: arr-config-secrets
-      key: JELLYFIN_ADMIN_USER
+      name: jellyfin-credentials
+      key: username
     passwordSecretRef:
-      name: arr-config-secrets
-      key: JELLYFIN_ADMIN_PASSWORD
+      name: jellyfin-credentials
+      key: password
   server:
     serverName: homelab-jellyfin
     preferredMetadataLanguage: en

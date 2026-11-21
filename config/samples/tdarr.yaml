@@ -6,8 +6,8 @@ spec:
   connection:
     url: http://arr-tdarr.arr.svc.cluster.local:8266
     apiKeySecretRef:
-      name: arr-config-secrets
-      key: TDARR_API_KEY
+      name: tdarr-credentials
+      key: api-key
   workers:
     - nodeName: InternalNode
       transcodeGPU: 1
@@ -20,8 +20,8 @@ spec:
     autoPauseIfCacheFullThreshold: 20
     workerStallDetector: true
     notificationsDiscordWebhookSecretRef:
-      name: arr-config-secrets
-      key: TDARR_DISCORD_WEBHOOK
+      name: discord-credentials
+      key: webhook-url
     notificationsTranscodeError: true
   libraries:
     - id: library-tv

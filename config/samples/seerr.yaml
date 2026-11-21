@@ -10,11 +10,11 @@ spec:
     port: 8096
     useSsl: false
     usernameSecretRef:
-      name: arr-config-secrets
-      key: JELLYFIN_ADMIN_USER
+      name: jellyfin-credentials
+      key: username
     passwordSecretRef:
-      name: arr-config-secrets
-      key: JELLYFIN_ADMIN_PASSWORD
+      name: jellyfin-credentials
+      key: password
   main:
     applicationTitle: Seerr
     localLogin: true
@@ -27,8 +27,8 @@ spec:
       hostname: arr-sonarr.arr.svc.cluster.local
       port: 8989
       apiKeySecretRef:
-        name: arr-config-secrets
-        key: SONARR_API_KEY
+        name: sonarr-credentials
+        key: api-key
       activeProfileName: WEB-1080p
       activeDirectory: /data/media/tv
       isDefault: true
@@ -39,8 +39,8 @@ spec:
       hostname: arr-radarr.arr.svc.cluster.local
       port: 7878
       apiKeySecretRef:
-        name: arr-config-secrets
-        key: RADARR_API_KEY
+        name: radarr-credentials
+        key: api-key
       activeProfileName: HD Bluray + WEB
       activeDirectory: /data/media/movies
       isDefault: true
@@ -57,8 +57,8 @@ spec:
         - name: webhookUrl
           valueFrom:
             secretKeyRef:
-              name: arr-config-secrets
-              key: DISCORD_WEBHOOK_URL
+              name: discord-credentials
+              key: webhook-url
     - agent: telegram
       enabled: true
       types: [mediaPending, mediaApproved, mediaAvailable, mediaFailed, mediaDeclined]
@@ -68,5 +68,5 @@ spec:
         - name: botAPI
           valueFrom:
             secretKeyRef:
-              name: arr-config-secrets
-              key: TELEGRAM_BOT_TOKEN
+              name: telegram-credentials
+              key: bot-token

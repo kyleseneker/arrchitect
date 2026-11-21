@@ -6,11 +6,11 @@ spec:
   connection:
     url: http://arr-vpn-downloads.arr.svc.cluster.local:8080
     usernameSecretRef:
-      name: arr-config-secrets
-      key: QBIT_USERNAME
+      name: qbittorrent-credentials
+      key: username
     passwordSecretRef:
-      name: arr-config-secrets
-      key: QBIT_PASSWORD
+      name: qbittorrent-credentials
+      key: password
   preferences:
     savePath: /data/torrents/
     dht: true

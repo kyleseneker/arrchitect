@@ -17,13 +17,13 @@ spec:
       port: 32400
       ssl: false
       tokenSecretRef:
-        name: plex-secrets
+        name: plex-credentials
         key: token
   sonarr:
     - name: Sonarr
       url: http://sonarr:8989
       apiKeySecretRef:
-        name: sonarr-secrets
+        name: sonarr-credentials
         key: api-key
       tagExclusions: true
       exclusionTag: keep
@@ -32,17 +32,17 @@ spec:
     - name: Radarr
       url: http://radarr:7878
       apiKeySecretRef:
-        name: radarr-secrets
+        name: radarr-credentials
         key: api-key
   seerr:
     url: http://seerr:5055
     apiKeySecretRef:
-      name: seerr-secrets
+      name: seerr-credentials
       key: api-key
   tautulli:
     url: http://tautulli:8181
     apiKeySecretRef:
-      name: tautulli-secrets
+      name: tautulli-credentials
       key: api-key
   jobs:
     rules: "0 0-23/8 * * *"
@@ -61,8 +61,8 @@ spec:
         - name: webhookUrl
           valueFrom:
             secretKeyRef:
-              name: maintainerr-secrets
-              key: discord-webhook-url
+              name: discord-credentials
+              key: webhook-url
   ruleGroups:
     # Properties and comparisons use the names in Maintainerr's rule YAML export.
     - name: Stale unwatched movies

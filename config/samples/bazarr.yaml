@@ -6,8 +6,8 @@ spec:
   connection:
     url: http://arr-bazarr.arr.svc.cluster.local:6767
     apiKeySecretRef:
-      name: arr-config-secrets
-      key: BAZARR_API_KEY
+      name: bazarr-credentials
+      key: api-key
   general:
     useSonarr: true
     useRadarr: true
@@ -32,8 +32,8 @@ spec:
     host: arr-sonarr.arr.svc.cluster.local
     port: 8989
     apiKeySecretRef:
-      name: arr-config-secrets
-      key: SONARR_API_KEY
+      name: sonarr-credentials
+      key: api-key
     httpTimeout: 300
     fullUpdate: Daily
     syncInterval: 60
@@ -41,8 +41,8 @@ spec:
     host: arr-radarr.arr.svc.cluster.local
     port: 7878
     apiKeySecretRef:
-      name: arr-config-secrets
-      key: RADARR_API_KEY
+      name: radarr-credentials
+      key: api-key
     httpTimeout: 300
     fullUpdate: Daily
     syncInterval: 60
@@ -59,13 +59,13 @@ spec:
         - name: username
           valueFrom:
             secretKeyRef:
-              name: arr-config-secrets
-              key: OPENSUBTITLES_USERNAME
+              name: opensubtitles-credentials
+              key: username
         - name: password
           valueFrom:
             secretKeyRef:
-              name: arr-config-secrets
-              key: OPENSUBTITLES_PASSWORD
+              name: opensubtitles-credentials
+              key: password
     - name: podnapisi
       enabled: true
     - name: yifysubtitles

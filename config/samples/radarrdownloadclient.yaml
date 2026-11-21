@@ -12,8 +12,8 @@ spec:
   port: 8080
   category: movies
   usernameSecretRef:
-    name: arr-config-secrets
-    key: QBITTORRENT_USERNAME
+    name: qbittorrent-credentials
+    key: username
   passwordSecretRef:
-    name: arr-config-secrets
-    key: QBITTORRENT_PASSWORD
+    name: qbittorrent-credentials
+    key: password

@@ -19,7 +19,7 @@ spec:
     - name: apiKey
       valueFrom:
         secretKeyRef:
-          name: arr-config-secrets
-          key: NZBGEEK_API_KEY
+          name: nzbgeek-credentials
+          key: api-key
     - name: categories
       value: "7000,7020"

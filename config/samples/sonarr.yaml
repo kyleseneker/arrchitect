@@ -6,8 +6,8 @@ spec:
   connection:
     url: http://arr-sonarr.arr.svc.cluster.local:8989
     apiKeySecretRef:
-      name: arr-config-secrets
-      key: SONARR_API_KEY
+      name: sonarr-credentials
+      key: api-key
   mediaManagement:
     copyUsingHardlinks: true
     deleteEmptyFolders: true

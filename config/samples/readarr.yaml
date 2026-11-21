@@ -6,8 +6,8 @@ spec:
   connection:
     url: http://readarr.media.svc.cluster.local:8787
     apiKeySecretRef:
-      name: arr-secrets
-      key: READARR_API_KEY
+      name: readarr-credentials
+      key: api-key
   mediaManagement:
     copyUsingHardlinks: true
     deleteEmptyFolders: true

@@ -12,5 +12,5 @@ spec:
   port: 8080
   category: books
   apiKeySecretRef:
-    name: arr-secrets
-    key: SABNZBD_API_KEY
+    name: sabnzbd-credentials
+    key: api-key
