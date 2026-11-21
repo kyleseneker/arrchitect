@@ -54,6 +54,8 @@ func TestJellyfin(t *testing.T) {
 
 	checkCompat(t, compatCase{
 		fixture: "jellyfin.yaml",
+		// Added in Jellyfin 12.0.
+		newerFields: []string{"/spec/encoding/subtitleExtractionTimeoutMinutes"},
 		update: `[
 			{"op": "replace", "path": "/spec/libraries/0/automaticRefreshIntervalDays", "value": 60}
 		]`,

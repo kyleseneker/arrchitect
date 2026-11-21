@@ -35,13 +35,41 @@ The [API reference](api.md) lists every kind and field.
 
 ## Apps
 
-Each app is supported at its current release and the newest release of the line
-before it, the versions in the README's table. CI reconciles a resource for
-every app against both versions, each running in a container, on every change.
-Other versions may work but aren't tested.
+An app is supported at every stable release that was its newest at some time
+in the 12 months before its range was last set, through its newest release.
+The README's [supported apps](../README.md#supported-apps) table lists each
+range. Arrchitect is the easy part of a stack to upgrade and the apps are not,
+so the operator spans app versions rather than asking for the newest.
 
-When an app releases a new version, Renovate opens a pull request that moves
-the tests to it, and the table moves with it.
+Some ranges start later, at the oldest release Arrchitect works with, and
+grow to 12 months as newer releases age:
+
+- Seerr starts at 3.5.0, the first release whose setup the operator can run.
+- Maintainerr starts at 3.30.0, which added the Sonarr and Radarr tag
+  exclusions the operator manages.
+- Tdarr starts at 3.00.00, the first release with the API keys the operator
+  signs in with.
+- Readarr is archived upstream, and supported at its final releases.
+
+How a range moves:
+
+- A new release joins once CI passes against it. Renovate opens a pull request
+  per app that moves its newest version.
+- The oldest supported releases move up only in a minor release, which says so
+  in its notes.
+- Pre-releases and development builds, such as Sonarr's v5 builds, aren't
+  supported.
+
+CI reconciles a resource for every app at both ends of its range, each app
+running in a container, on every change. While an app's newest release starts
+a major version, CI also tests the newest release of the major before it.
+Releases in between aren't tested one by one; apps rarely change their APIs
+within a range, and a fix for one is a patch release.
+
+A setting an older supported release doesn't have, where the operator knows of
+it, is left out and named in the resource's status with the release that added
+it. Jellyfin's `encoding.subtitleExtractionTimeoutMinutes`, added in 12.0, is
+one.
 
 ## Kubernetes
 

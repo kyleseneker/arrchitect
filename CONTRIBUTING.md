@@ -35,7 +35,7 @@ of the same name.
 | `make verify-crds` | That the chart carries the generated CRDs | |
 | `make verify-api-docs` | That `docs/api.md` matches the API types | |
 | `make verify-crd-compat` | crdify's report of CRD changes since the last release that existing resources could break on. In CI it shows as a warning, not a failure, while the API is v1alpha1 | git history |
-| `make test-compat` | Each app running in a container, reconciled from its fixture in `test/compat/testdata`. `COMPAT_VERSIONS=previous` runs each app's previous version | docker or podman |
+| `make test-compat` | Each app running in a container, reconciled from its fixture in `test/compat/testdata`. `COMPAT_VERSIONS=oldest` runs each app's oldest supported version, `previous-major` the newest of the major before its newest | docker or podman |
 | `make test-e2e` | The image and chart in a kind cluster, with the Chainsaw tests in `test/e2e`: install and upgrade from the last release, every controller, and a single-namespace install. `KIND_NODE_IMAGE=` picks the Kubernetes version; CI runs each one [the stability policy](docs/stability.md#kubernetes) supports | docker |
 
 `config/samples` holds one readable example per kind for users; envtest checks

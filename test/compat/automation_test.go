@@ -20,6 +20,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	automationv1alpha1 "github.com/kyleseneker/arrchitect/api/automation/v1alpha1"
+	autobrrclient "github.com/kyleseneker/arrchitect/internal/client/autobrr"
 	"github.com/kyleseneker/arrchitect/internal/controller/automation"
 	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
 	"github.com/kyleseneker/arrchitect/internal/engine"
@@ -57,7 +58,7 @@ func TestAutobrr(t *testing.T) {
 		verify: func(t *testing.T) {
 			hc := autobrrClient(t, ab.url(), key)
 			ctx := context.Background()
-			downloaders, err := hc.GetJSONList(ctx, "/api/downloaders")
+			downloaders, err := autobrrclient.NewClient(hc).ListDownloadClients(ctx)
 			require.NoError(t, err)
 			require.Len(t, downloaders, 2)
 			assert.Equal(t, "QBITTORRENT", named(downloaders, "qBittorrent")["type"])
@@ -102,7 +103,10 @@ func TestAutobrr(t *testing.T) {
 		},
 		cleanup: func(t *testing.T, _ map[string][]string) {
 			hc := autobrrClient(t, ab.url(), key)
-			for _, path := range []string{"/api/downloaders", "/api/indexer", "/api/feeds", "/api/irc", "/api/filters"} {
+			downloaders, err := autobrrclient.NewClient(hc).ListDownloadClients(context.Background())
+			require.NoError(t, err)
+			assert.Empty(t, downloaders, "Autobrr still has the download clients the operator created")
+			for _, path := range []string{"/api/indexer", "/api/feeds", "/api/irc", "/api/filters"} {
 				items, err := hc.GetJSONList(context.Background(), path)
 				require.NoError(t, err)
 				assert.Empty(t, items, "%s still has what the operator created", path)
@@ -146,7 +150,10 @@ func autobrrAPIKey(t *testing.T, base string) string {
 	c := &http.Client{Jar: jar}
 	_ = post(c, "/api/auth/onboard", creds).Body.Close()
 	_ = post(c, "/api/auth/login", creds).Body.Close()
-	resp := post(c, "/api/keys", []byte(`{"name":"compat","scopes":[]}`))
+	// The scopes docs/example-stack.md gives; Autobrr before 1.91 ignores them.
+	scopes := `"config:read","downloaders:write","indexers:write","irc:write","feeds:write","filters:write"`
+	key := []byte(`{"name":"compat","scopes":[` + scopes + `]}`)
+	resp := post(c, "/api/keys", key)
 	defer func() { _ = resp.Body.Close() }()
 	var created struct{ Key string }
 	require.NoError(t, json.NewDecoder(resp.Body).Decode(&created))

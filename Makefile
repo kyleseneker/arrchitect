@@ -67,7 +67,7 @@ test-chart: helm-unittest ## Run the chart's helm-unittest suites.
 	HELM_PLUGINS="$(HELM_PLUGINS)" helm unittest chart/arrchitect
 
 .PHONY: test-compat
-test-compat: manifests generate setup-envtest ## Reconcile every app running in a container (needs docker, or CONTAINER_TOOL=podman). COMPAT_VERSIONS=previous for the previous versions, COMPAT_RUN=TestSonarr to narrow.
+test-compat: manifests generate setup-envtest ## Reconcile every app running in a container (needs docker, or CONTAINER_TOOL=podman). COMPAT_VERSIONS=oldest or previous-major for the other supported versions, COMPAT_RUN=TestSonarr to narrow.
 	$(if $(filter podman,$(CONTAINER_TOOL)),DOCKER_HOST="unix://$$(podman machine inspect --format '{{.ConnectionInfo.PodmanSocket.Path}}')" TESTCONTAINERS_RYUK_DISABLED=true) \
 	KUBEBUILDER_ASSETS="$$('$(ENVTEST)' use $(ENVTEST_K8S_VERSION) --bin-dir '$(LOCALBIN)' -p path)" \
 		go test -tags=compat ./test/compat/... -count=1 -v -timeout 45m -run '$(COMPAT_RUN)'

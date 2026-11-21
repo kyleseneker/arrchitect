@@ -147,6 +147,10 @@ type compatCase struct {
 	// verifyUpdate reads the application after that reconcile.
 	update       string
 	verifyUpdate func(t *testing.T)
+	// newerFields are JSON pointers into the fixture's first document to
+	// fields an older supported release lacks; runs at older pins leave them
+	// out.
+	newerFields []string
 	// export names the app for arrchitect export, whose output must then
 	// describe the application exactly: observe mode finds nothing different.
 	export string
@@ -238,6 +242,9 @@ func checkCompat(t *testing.T, tc compatCase) {
 	require.NoError(t, k8s.Create(ctx, secret), "creating secret")
 
 	docs := loadFixture(t, tc.fixture, tc.vars)
+	if !atNewest() {
+		docs[0] = withoutFields(t, docs[0], tc.newerFields)
+	}
 	fixture := make([]client.Object, 0, len(docs))
 	resources := make([]resource, 0, len(docs))
 	for _, doc := range docs {
@@ -504,6 +511,31 @@ func loadFixture(t *testing.T, name string, vars map[string]string) []string {
 		}
 	}
 	return docs
+}
+
+// withoutFields removes the fields at JSON pointers from a YAML document.
+func withoutFields(t *testing.T, doc string, pointers []string) string {
+	t.Helper()
+	if len(pointers) == 0 {
+		return doc
+	}
+	var obj map[string]any
+	require.NoError(t, yaml.Unmarshal([]byte(doc), &obj))
+	for _, pointer := range pointers {
+		parts := strings.Split(strings.TrimPrefix(pointer, "/"), "/")
+		parent := obj
+		for _, part := range parts[:len(parts)-1] {
+			next, ok := parent[part].(map[string]any)
+			require.True(t, ok, "%s: no object at %s", pointer, part)
+			parent = next
+		}
+		last := parts[len(parts)-1]
+		require.Contains(t, parent, last, "%s isn't in the fixture", pointer)
+		delete(parent, last)
+	}
+	out, err := yaml.Marshal(obj)
+	require.NoError(t, err)
+	return string(out)
 }
 
 func formatRequests(rs []request) string {
