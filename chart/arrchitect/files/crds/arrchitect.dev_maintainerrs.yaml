@@ -163,7 +163,46 @@ spec:
                     type: object
                   plex:
                     description: plex connects Maintainerr to a Plex server.
+                    minProperties: 1
                     properties:
+                      appRef:
+                        description: |-
+                          appRef names the Plex resource whose connection URL and token are used in
+                          place of hostname, port, ssl and tokenSecretRef.
+                        properties:
+                          group:
+                            default: arrchitect.dev
+                            description: group is the resource's API group.
+                            enum:
+                            - arrchitect.dev
+                            type: string
+                          kind:
+                            description: kind is the resource's kind, such as Sonarr.
+                            enum:
+                            - Sonarr
+                            - Radarr
+                            - Lidarr
+                            - Readarr
+                            - Prowlarr
+                            - Seerr
+                            - Jellyfin
+                            - Plex
+                            - QBittorrent
+                            - Sabnzbd
+                            type: string
+                          name:
+                            description: name is the resource's name.
+                            maxLength: 253
+                            minLength: 1
+                            pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                            type: string
+                        required:
+                        - kind
+                        - name
+                        type: object
+                        x-kubernetes-validations:
+                        - message: plex refers to a Plex
+                          rule: self.kind == 'Plex'
                       hostname:
                         description: |-
                           hostname is the Plex host as Maintainerr reaches it, without a scheme
@@ -171,8 +210,7 @@ spec:
                         minLength: 1
                         type: string
                       port:
-                        default: 32400
-                        description: port is the Plex port.
+                        description: port is the Plex port. Defaults to 32400.
                         format: int32
                         maximum: 65535
                         minimum: 1
@@ -197,10 +235,12 @@ spec:
                         - key
                         - name
                         type: object
-                    required:
-                    - hostname
-                    - tokenSecretRef
                     type: object
+                    x-kubernetes-validations:
+                    - message: set appRef, or hostname and tokenSecretRef, not both
+                      rule: 'has(self.appRef) ? !has(self.hostname) && !has(self.port)
+                        && !has(self.ssl) && !has(self.tokenSecretRef) : has(self.hostname)
+                        && has(self.tokenSecretRef)'
                 type: object
                 x-kubernetes-validations:
                 - message: set exactly one of plex or jellyfin
@@ -336,6 +376,41 @@ spec:
                       - key
                       - name
                       type: object
+                    appRef:
+                      description: |-
+                        appRef names the server's resource, a Sonarr in sonarr or a Radarr in
+                        radarr, whose connection is used in place of url and apiKeySecretRef.
+                      properties:
+                        group:
+                          default: arrchitect.dev
+                          description: group is the resource's API group.
+                          enum:
+                          - arrchitect.dev
+                          type: string
+                        kind:
+                          description: kind is the resource's kind, such as Sonarr.
+                          enum:
+                          - Sonarr
+                          - Radarr
+                          - Lidarr
+                          - Readarr
+                          - Prowlarr
+                          - Seerr
+                          - Jellyfin
+                          - Plex
+                          - QBittorrent
+                          - Sabnzbd
+                          type: string
+                        name:
+                          description: name is the resource's name.
+                          maxLength: 253
+                          minLength: 1
+                          pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                          type: string
+                      required:
+                      - kind
+                      - name
+                      type: object
                     exclusionTag:
                       description: |-
                         exclusionTag is the tag tagExclusions looks for. Maintainerr uses "dnd"
@@ -366,14 +441,19 @@ spec:
                       pattern: ^https?://
                       type: string
                   required:
-                  - apiKeySecretRef
                   - name
-                  - url
                   type: object
+                  x-kubernetes-validations:
+                  - message: set appRef, or url and apiKeySecretRef, not both
+                    rule: 'has(self.appRef) ? !has(self.url) && !has(self.apiKeySecretRef)
+                      : has(self.url) && has(self.apiKeySecretRef)'
                 type: array
                 x-kubernetes-list-map-keys:
                 - name
                 x-kubernetes-list-type: map
+                x-kubernetes-validations:
+                - message: a radarr server refers to a Radarr
+                  rule: self.all(s, !has(s.appRef) || s.appRef.kind == 'Radarr')
               reconcile:
                 description: reconcile configures reconciliation behavior (e.g., sync
                   interval).
@@ -689,10 +769,11 @@ spec:
                 description: |-
                   seerr connects Maintainerr to Seerr (or Overseerr or Jellyseerr), which
                   rules can read and which Maintainerr clears requests in.
+                minProperties: 1
                 properties:
                   apiKeySecretRef:
-                    description: apiKeySecretRef references a Secret containing the
-                      service's API key.
+                    description: apiKeySecretRef references a Secret containing Seerr's
+                      API key.
                     properties:
                       key:
                         description: key is the key within the Secret.
@@ -706,15 +787,55 @@ spec:
                     - key
                     - name
                     type: object
+                  appRef:
+                    description: |-
+                      appRef names the Seerr resource whose connection URL and API key are used
+                      in place of url and apiKeySecretRef. That resource must set its
+                      connection's apiKeySecretRef.
+                    properties:
+                      group:
+                        default: arrchitect.dev
+                        description: group is the resource's API group.
+                        enum:
+                        - arrchitect.dev
+                        type: string
+                      kind:
+                        description: kind is the resource's kind, such as Sonarr.
+                        enum:
+                        - Sonarr
+                        - Radarr
+                        - Lidarr
+                        - Readarr
+                        - Prowlarr
+                        - Seerr
+                        - Jellyfin
+                        - Plex
+                        - QBittorrent
+                        - Sabnzbd
+                        type: string
+                      name:
+                        description: name is the resource's name.
+                        maxLength: 253
+                        minLength: 1
+                        pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                        type: string
+                    required:
+                    - kind
+                    - name
+                    type: object
+                    x-kubernetes-validations:
+                    - message: seerr refers to a Seerr
+                      rule: self.kind == 'Seerr'
                   url:
-                    description: url is the service URL as Maintainerr reaches it.
+                    description: url is Seerr's URL as Maintainerr reaches it.
                     minLength: 1
                     pattern: ^https?://
                     type: string
-                required:
-                - apiKeySecretRef
-                - url
                 type: object
+                x-kubernetes-validations:
+                - message: set appRef, or url and apiKeySecretRef, not both
+                  rule: 'has(self.appRef) ? !has(self.url) && !has(self.apiKeySecretRef)
+                    : has(self.url) && has(self.apiKeySecretRef)'
               sonarr:
                 description: sonarr lists the Sonarr servers rule groups can act through.
                 items:
@@ -735,6 +856,41 @@ spec:
                           type: string
                       required:
                       - key
+                      - name
+                      type: object
+                    appRef:
+                      description: |-
+                        appRef names the server's resource, a Sonarr in sonarr or a Radarr in
+                        radarr, whose connection is used in place of url and apiKeySecretRef.
+                      properties:
+                        group:
+                          default: arrchitect.dev
+                          description: group is the resource's API group.
+                          enum:
+                          - arrchitect.dev
+                          type: string
+                        kind:
+                          description: kind is the resource's kind, such as Sonarr.
+                          enum:
+                          - Sonarr
+                          - Radarr
+                          - Lidarr
+                          - Readarr
+                          - Prowlarr
+                          - Seerr
+                          - Jellyfin
+                          - Plex
+                          - QBittorrent
+                          - Sabnzbd
+                          type: string
+                        name:
+                          description: name is the resource's name.
+                          maxLength: 253
+                          minLength: 1
+                          pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                          type: string
+                      required:
+                      - kind
                       - name
                       type: object
                     exclusionTag:
@@ -767,14 +923,19 @@ spec:
                       pattern: ^https?://
                       type: string
                   required:
-                  - apiKeySecretRef
                   - name
-                  - url
                   type: object
+                  x-kubernetes-validations:
+                  - message: set appRef, or url and apiKeySecretRef, not both
+                    rule: 'has(self.appRef) ? !has(self.url) && !has(self.apiKeySecretRef)
+                      : has(self.url) && has(self.apiKeySecretRef)'
                 type: array
                 x-kubernetes-list-map-keys:
                 - name
                 x-kubernetes-list-type: map
+                x-kubernetes-validations:
+                - message: a sonarr server refers to a Sonarr
+                  rule: self.all(s, !has(s.appRef) || s.appRef.kind == 'Sonarr')
               tautulli:
                 description: |-
                   tautulli connects Maintainerr to Tautulli. Rules can read it only when

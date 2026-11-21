@@ -26,12 +26,9 @@ spec:
     locale: en
   sonarr:
     - name: Sonarr
-      hostname: ${HOST}
-      port: ${SONARR_PORT}
-      apiKeySecretRef:
-        name: compat-credentials
-        key: sonarr-api-key
-      useSsl: false
+      appRef:
+        kind: Sonarr
+        name: sonarr
       activeProfileName: HD-1080p
       activeDirectory: /data/media/tv
       is4k: false
@@ -94,3 +91,14 @@ spec:
             secretKeyRef:
               name: compat-credentials
               key: discord-webhook
+---
+apiVersion: arrchitect.dev/v1alpha1
+kind: Sonarr
+metadata:
+  name: sonarr
+spec:
+  connection:
+    url: http://${HOST}:${SONARR_PORT}
+    apiKeySecretRef:
+      name: compat-credentials
+      key: sonarr-api-key

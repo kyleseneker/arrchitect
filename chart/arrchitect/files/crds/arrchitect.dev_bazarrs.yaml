@@ -443,6 +443,7 @@ spec:
               radarrConnection:
                 description: radarrConnection configures the connection to a Radarr
                   instance.
+                minProperties: 1
                 properties:
                   apiKeySecretRef:
                     description: apiKeySecretRef references a Secret containing the
@@ -458,6 +459,41 @@ spec:
                         type: string
                     required:
                     - key
+                    - name
+                    type: object
+                  appRef:
+                    description: |-
+                      appRef names the application's resource, whose connection is used in
+                      place of host, port, basePath, ssl and apiKeySecretRef.
+                    properties:
+                      group:
+                        default: arrchitect.dev
+                        description: group is the resource's API group.
+                        enum:
+                        - arrchitect.dev
+                        type: string
+                      kind:
+                        description: kind is the resource's kind, such as Sonarr.
+                        enum:
+                        - Sonarr
+                        - Radarr
+                        - Lidarr
+                        - Readarr
+                        - Prowlarr
+                        - Seerr
+                        - Jellyfin
+                        - Plex
+                        - QBittorrent
+                        - Sabnzbd
+                        type: string
+                      name:
+                        description: name is the resource's name.
+                        maxLength: 253
+                        minLength: 1
+                        pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                        type: string
+                    required:
+                    - kind
                     - name
                     type: object
                   basePath:
@@ -526,11 +562,14 @@ spec:
                     - 10080
                     format: int32
                     type: integer
-                required:
-                - apiKeySecretRef
-                - host
-                - port
                 type: object
+                x-kubernetes-validations:
+                - message: radarrConnection refers to a Radarr
+                  rule: '!has(self.appRef) || self.appRef.kind == ''Radarr'''
+                - message: set appRef, or host, port and apiKeySecretRef, not both
+                  rule: 'has(self.appRef) ? !has(self.host) && !has(self.port) &&
+                    !has(self.basePath) && !has(self.ssl) && !has(self.apiKeySecretRef)
+                    : has(self.host) && has(self.port) && has(self.apiKeySecretRef)'
               reconcile:
                 description: reconcile configures reconciliation behavior (e.g., sync
                   interval).
@@ -581,6 +620,7 @@ spec:
               sonarrConnection:
                 description: sonarrConnection configures the connection to a Sonarr
                   instance.
+                minProperties: 1
                 properties:
                   apiKeySecretRef:
                     description: apiKeySecretRef references a Secret containing the
@@ -596,6 +636,41 @@ spec:
                         type: string
                     required:
                     - key
+                    - name
+                    type: object
+                  appRef:
+                    description: |-
+                      appRef names the application's resource, whose connection is used in
+                      place of host, port, basePath, ssl and apiKeySecretRef.
+                    properties:
+                      group:
+                        default: arrchitect.dev
+                        description: group is the resource's API group.
+                        enum:
+                        - arrchitect.dev
+                        type: string
+                      kind:
+                        description: kind is the resource's kind, such as Sonarr.
+                        enum:
+                        - Sonarr
+                        - Radarr
+                        - Lidarr
+                        - Readarr
+                        - Prowlarr
+                        - Seerr
+                        - Jellyfin
+                        - Plex
+                        - QBittorrent
+                        - Sabnzbd
+                        type: string
+                      name:
+                        description: name is the resource's name.
+                        maxLength: 253
+                        minLength: 1
+                        pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                        type: string
+                    required:
+                    - kind
                     - name
                     type: object
                   basePath:
@@ -664,11 +739,14 @@ spec:
                     - 10080
                     format: int32
                     type: integer
-                required:
-                - apiKeySecretRef
-                - host
-                - port
                 type: object
+                x-kubernetes-validations:
+                - message: sonarrConnection refers to a Sonarr
+                  rule: '!has(self.appRef) || self.appRef.kind == ''Sonarr'''
+                - message: set appRef, or host, port and apiKeySecretRef, not both
+                  rule: 'has(self.appRef) ? !has(self.host) && !has(self.port) &&
+                    !has(self.basePath) && !has(self.ssl) && !has(self.apiKeySecretRef)
+                    : has(self.host) && has(self.port) && has(self.apiKeySecretRef)'
               subSync:
                 description: subSync configures subtitle synchronization settings.
                 properties:

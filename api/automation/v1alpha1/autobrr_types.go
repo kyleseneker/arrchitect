@@ -63,11 +63,19 @@ type AutobrrSpec struct {
 }
 
 // AutobrrDownloadClient defines a download client connection in Autobrr.
+// +kubebuilder:validation:XValidation:rule="has(self.appRef) ? !has(self.type) && !has(self.host) && !has(self.port) && !has(self.tls) && !has(self.usernameSecretRef) && !has(self.passwordSecretRef) && !has(self.apiKeySecretRef) : has(self.type) && has(self.host)",message="set appRef, or type and host, not both"
 type AutobrrDownloadClient struct {
 	// name is the display name of the download client.
 	// +required
 	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name,omitempty"`
+
+	// appRef names the download client's resource, a QBittorrent, Sabnzbd,
+	// Sonarr, Radarr, Lidarr or Readarr, whose kind and connection are used in
+	// place of type, host, port, tls and the credentials.
+	// +optional
+	// +kubebuilder:validation:XValidation:rule="self.kind in ['QBittorrent', 'Sabnzbd', 'Sonarr', 'Radarr', 'Lidarr', 'Readarr']",message="a download client refers to a QBittorrent, Sabnzbd, Sonarr, Radarr, Lidarr or Readarr"
+	AppRef *commonv1alpha1.AppRef `json:"appRef,omitempty"`
 
 	// enable controls whether this download client is active. A new download
 	// client is enabled unless this is false.
@@ -75,12 +83,12 @@ type AutobrrDownloadClient struct {
 	Enable *bool `json:"enable,omitempty"`
 
 	// type is the download client type. Deluge means Deluge 2 (Autobrr's DELUGE_V2).
-	// +required
+	// +optional
 	// +kubebuilder:validation:Enum=qBittorrent;Deluge;Transmission;rTorrent;SABnzbd;Sonarr;Radarr;Lidarr;Readarr;Whisparr
 	Type string `json:"type,omitempty"`
 
 	// host is the hostname or URL of the download client.
-	// +required
+	// +optional
 	// +kubebuilder:validation:MinLength=1
 	Host string `json:"host,omitempty"`
 

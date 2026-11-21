@@ -27,6 +27,8 @@ import (
 
 	automationv1alpha1 "github.com/kyleseneker/arrchitect/api/automation/v1alpha1"
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
+	downloadsv1alpha1 "github.com/kyleseneker/arrchitect/api/downloads/v1alpha1"
+	pvrv1alpha1 "github.com/kyleseneker/arrchitect/api/pvr/v1alpha1"
 )
 
 const conditionTrue = "True"
@@ -119,13 +121,15 @@ func autobrrConfig(url string) *automationv1alpha1.Autobrr {
 	}
 }
 
-func runAutobrr(t *testing.T, cfg *automationv1alpha1.Autobrr, withSecret bool) client.Client {
+func runAutobrr(t *testing.T, cfg *automationv1alpha1.Autobrr, withSecret bool, objs ...client.Object) client.Client {
 	t.Helper()
 	scheme := runtime.NewScheme()
 	require.NoError(t, clientgoscheme.AddToScheme(scheme), "adding client-go scheme")
 	require.NoError(t, automationv1alpha1.AddToScheme(scheme), "adding automation scheme")
+	require.NoError(t, pvrv1alpha1.AddToScheme(scheme), "adding pvr scheme")
+	require.NoError(t, downloadsv1alpha1.AddToScheme(scheme), "adding downloads scheme")
 	b := fake.NewClientBuilder().WithScheme(scheme).
-		WithStatusSubresource(&automationv1alpha1.Autobrr{}).WithObjects(cfg)
+		WithStatusSubresource(&automationv1alpha1.Autobrr{}).WithObjects(append(objs, cfg)...)
 	if withSecret {
 		b = b.WithObjects(autobrrSecret())
 	}
@@ -506,4 +510,69 @@ func TestAutobrrCoversAZeroValueAutobrrLeftOut(t *testing.T) {
 	assert.True(t, autobrrCovers(current, map[string]any{"name": "Send", "category": "tv", "paused": false, "limit_seed_time": float64(0)}))
 	assert.False(t, autobrrCovers(current, map[string]any{"paused": true}))
 	assert.False(t, autobrrCovers(map[string]any{"paused": true}, map[string]any{"paused": false}), "a stored true still differs")
+}
+
+func TestAutobrrDownloadClientAppRefsUseTheReferencedConnections(t *testing.T) {
+	app := &fakeAutobrr{}
+	cfg := autobrrConfig(app.serve(t))
+	cfg.Spec.DownloadClients = []automationv1alpha1.AutobrrDownloadClient{
+		{Name: "qBittorrent", AppRef: &commonv1alpha1.AppRef{Kind: "QBittorrent", Name: "qbittorrent"}},
+	}
+	secret := autobrrSecret()
+	secret.Data["username"], secret.Data["password"] = []byte("admin"), []byte("hunter2")
+	creds := func(key string) commonv1alpha1.SecretKeyRef {
+		return commonv1alpha1.SecretKeyRef{Name: "autobrr-credentials", Key: key}
+	}
+
+	runAutobrr(t, cfg, false, secret, &downloadsv1alpha1.QBittorrent{Name: "qbittorrent", Namespace: "media", Spec: downloadsv1alpha1.QBittorrentSpec{
+		Connection: downloadsv1alpha1.QBittorrentConnection{URL: "https://qbittorrent.media.svc:8443/qbt/",
+			UsernameSecretRef: creds("username"), PasswordSecretRef: creds("password")},
+	}})
+
+	body := app.posted("/api/downloaders")
+	require.NotNil(t, body)
+	assert.Equal(t, "QBITTORRENT", body["type"])
+	assert.Equal(t, "https://qbittorrent.media.svc:8443/qbt", body["host"])
+	assert.EqualValues(t, 0, body["port"], "a stored port would be appended to the URL")
+	assert.Equal(t, true, body["tls"])
+	assert.Equal(t, "admin", body["username"])
+	assert.Equal(t, "hunter2", body["password"])
+}
+
+func TestAutobrrDownloadClientAppRefTakesAnArrsAPIKey(t *testing.T) {
+	app := &fakeAutobrr{}
+	cfg := autobrrConfig(app.serve(t))
+	cfg.Spec.DownloadClients = []automationv1alpha1.AutobrrDownloadClient{
+		{Name: "Radarr", AppRef: &commonv1alpha1.AppRef{Kind: "Radarr", Name: "radarr"}},
+	}
+
+	runAutobrr(t, cfg, true, &pvrv1alpha1.Radarr{Name: "radarr", Namespace: "media", Spec: pvrv1alpha1.RadarrSpec{
+		Connection: commonv1alpha1.AppConnection{URL: "http://radarr.media.svc:7878",
+			APIKeySecretRef: commonv1alpha1.SecretKeyRef{Name: "autobrr-credentials", Key: "api-key"}},
+	}})
+
+	body := app.posted("/api/downloaders")
+	require.NotNil(t, body)
+	assert.Equal(t, "RADARR", body["type"])
+	assert.Equal(t, "http://radarr.media.svc:7878", body["host"])
+	assert.Equal(t, false, body["tls"])
+	assert.Equal(t, map[string]any{"apikey": "test-key"}, body["settings"])
+	assert.NotContains(t, body, "username")
+}
+
+func TestAutobrrMissingDownloadClientAppRefIsReported(t *testing.T) {
+	app := &fakeAutobrr{}
+	cfg := autobrrConfig(app.serve(t))
+	cfg.Spec.DownloadClients = []automationv1alpha1.AutobrrDownloadClient{
+		{Name: "qBittorrent", AppRef: &commonv1alpha1.AppRef{Kind: "QBittorrent", Name: "qbittorrent"}},
+	}
+
+	c := runAutobrr(t, cfg, true)
+
+	assert.Nil(t, app.posted("/api/downloaders"))
+	var got automationv1alpha1.Autobrr
+	require.NoError(t, c.Get(context.Background(), types.NamespacedName{Name: "autobrr", Namespace: "media"}, &got))
+	synced := meta.FindStatusCondition(got.Status.Conditions, "Synced")
+	require.NotNil(t, synced)
+	assert.Contains(t, synced.Message, `downloadClient(qBittorrent): appRef: QBittorrent "qbittorrent" not found`)
 }

@@ -52,6 +52,7 @@ type SeerrSpec struct {
 	// +optional
 	// +listType=map
 	// +listMapKey=name
+	// +kubebuilder:validation:XValidation:rule="self.all(s, !has(s.appRef) || s.appRef.kind == 'Sonarr')",message="a sonarr server refers to a Sonarr"
 	Sonarr []SeerrServiceConnection `json:"sonarr,omitempty"`
 
 	// radarr lists the Radarr servers Seerr sends movie requests to, matched by
@@ -60,6 +61,7 @@ type SeerrSpec struct {
 	// +optional
 	// +listType=map
 	// +listMapKey=name
+	// +kubebuilder:validation:XValidation:rule="self.all(s, !has(s.appRef) || s.appRef.kind == 'Radarr')",message="a radarr server refers to a Radarr"
 	Radarr []SeerrServiceConnection `json:"radarr,omitempty"`
 
 	// notifications configures notification agents (Discord, Slack, Telegram, etc.).
@@ -118,15 +120,22 @@ type SeerrConnection struct {
 }
 
 // SeerrPlexAuth defines Plex authentication for Seerr setup.
+// +kubebuilder:validation:MinProperties=1
+// +kubebuilder:validation:XValidation:rule="has(self.appRef) ? !has(self.hostname) && !has(self.port) && !has(self.useSsl) && !has(self.tokenSecretRef) : has(self.hostname) && has(self.tokenSecretRef)",message="set appRef, or hostname and tokenSecretRef, not both"
 type SeerrPlexAuth struct {
+	// appRef names the Plex resource whose connection URL and token are used in
+	// place of hostname, port, useSsl and tokenSecretRef.
+	// +optional
+	// +kubebuilder:validation:XValidation:rule="self.kind == 'Plex'",message="plexAuth refers to a Plex"
+	AppRef *commonv1alpha1.AppRef `json:"appRef,omitempty"`
+
 	// hostname is the Plex server hostname.
-	// +required
+	// +optional
 	// +kubebuilder:validation:MinLength=1
 	Hostname string `json:"hostname,omitempty"`
 
-	// port is the Plex server port.
+	// port is the Plex server port. Defaults to 32400.
 	// +optional
-	// +kubebuilder:default=32400
 	Port *int32 `json:"port,omitempty"`
 
 	// useSsl enables SSL for the Plex connection.
@@ -134,19 +143,28 @@ type SeerrPlexAuth struct {
 	UseSsl *bool `json:"useSsl,omitempty"`
 
 	// tokenSecretRef references a Secret containing the Plex auth token.
-	// +required
-	TokenSecretRef commonv1alpha1.SecretKeyRef `json:"tokenSecretRef,omitempty"`
+	// +optional
+	TokenSecretRef *commonv1alpha1.SecretKeyRef `json:"tokenSecretRef,omitempty"`
 }
 
 // SeerrJellyfinAuth defines the Jellyfin authentication configuration for Seerr.
+// +kubebuilder:validation:MinProperties=1
+// +kubebuilder:validation:XValidation:rule="has(self.appRef) ? !has(self.hostname) && !has(self.port) && !has(self.useSsl) && !has(self.urlBase) && !has(self.usernameSecretRef) && !has(self.passwordSecretRef) : has(self.hostname) && has(self.port) && has(self.usernameSecretRef) && has(self.passwordSecretRef)",message="set appRef, or hostname, port, usernameSecretRef and passwordSecretRef, not both"
 type SeerrJellyfinAuth struct {
+	// appRef names the Jellyfin resource whose connection URL and admin user are
+	// used in place of hostname, port, useSsl, urlBase, usernameSecretRef and
+	// passwordSecretRef.
+	// +optional
+	// +kubebuilder:validation:XValidation:rule="self.kind == 'Jellyfin'",message="jellyfinAuth refers to a Jellyfin"
+	AppRef *commonv1alpha1.AppRef `json:"appRef,omitempty"`
+
 	// hostname is the Jellyfin server hostname.
-	// +required
+	// +optional
 	// +kubebuilder:validation:MinLength=1
 	Hostname string `json:"hostname,omitempty"`
 
 	// port is the Jellyfin server port.
-	// +required
+	// +optional
 	Port *int32 `json:"port,omitempty"`
 
 	// useSsl enables SSL for the Jellyfin connection.
@@ -159,12 +177,12 @@ type SeerrJellyfinAuth struct {
 	UrlBase string `json:"urlBase,omitempty"`
 
 	// usernameSecretRef references a Secret containing the Jellyfin username.
-	// +required
-	UsernameSecretRef commonv1alpha1.SecretKeyRef `json:"usernameSecretRef,omitempty"`
+	// +optional
+	UsernameSecretRef *commonv1alpha1.SecretKeyRef `json:"usernameSecretRef,omitempty"`
 
 	// passwordSecretRef references a Secret containing the Jellyfin password.
-	// +required
-	PasswordSecretRef commonv1alpha1.SecretKeyRef `json:"passwordSecretRef,omitempty"`
+	// +optional
+	PasswordSecretRef *commonv1alpha1.SecretKeyRef `json:"passwordSecretRef,omitempty"`
 }
 
 // SeerrMain configures general Seerr application settings.
@@ -206,24 +224,31 @@ type SeerrMain struct {
 }
 
 // SeerrServiceConnection defines a connection to a Sonarr or Radarr instance.
+// +kubebuilder:validation:XValidation:rule="has(self.appRef) ? !has(self.hostname) && !has(self.port) && !has(self.useSsl) && !has(self.baseUrl) && !has(self.apiKeySecretRef) : has(self.hostname) && has(self.port) && has(self.apiKeySecretRef)",message="set appRef, or hostname, port and apiKeySecretRef, not both"
 type SeerrServiceConnection struct {
 	// name is the display name for this service connection.
 	// +required
 	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name,omitempty"`
 
+	// appRef names the server's resource, a Sonarr in sonarr or a Radarr in
+	// radarr, whose connection is used in place of hostname, port, useSsl,
+	// baseUrl and apiKeySecretRef.
+	// +optional
+	AppRef *commonv1alpha1.AppRef `json:"appRef,omitempty"`
+
 	// hostname is the service hostname.
-	// +required
+	// +optional
 	// +kubebuilder:validation:MinLength=1
 	Hostname string `json:"hostname,omitempty"`
 
 	// port is the service port.
-	// +required
+	// +optional
 	Port *int32 `json:"port,omitempty"`
 
 	// apiKeySecretRef references a Secret containing the service API key.
-	// +required
-	APIKeySecretRef commonv1alpha1.SecretKeyRef `json:"apiKeySecretRef,omitempty"`
+	// +optional
+	APIKeySecretRef *commonv1alpha1.SecretKeyRef `json:"apiKeySecretRef,omitempty"`
 
 	// useSsl enables SSL for the service connection.
 	// +optional

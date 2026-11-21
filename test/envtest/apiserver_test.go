@@ -12,6 +12,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -58,6 +59,35 @@ func startAPIServerWith(t *testing.T, adders ...func(*runtime.Scheme) error) cli
 // because the HTTP client refuses to dial loopback.
 func fakeAppServer(t *testing.T) string {
 	t.Helper()
+	return serveApp(t, func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{"status": "ok"})
+	})
+}
+
+// fakeListAppServer answers as a PVR-style API with nothing configured: an
+// empty list for each collection, and the created item for each write.
+func fakeListAppServer(t *testing.T) string {
+	t.Helper()
+	return serveApp(t, func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.HasSuffix(r.URL.Path, "/system/status"):
+			_ = json.NewEncoder(w).Encode(map[string]any{"version": "1.0.0"})
+		case r.Method == http.MethodGet:
+			_ = json.NewEncoder(w).Encode([]any{})
+		default:
+			var body map[string]any
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			if body == nil {
+				body = map[string]any{}
+			}
+			body["id"] = 1
+			_ = json.NewEncoder(w).Encode(body)
+		}
+	})
+}
+
+func serveApp(t *testing.T, handle http.HandlerFunc) string {
+	t.Helper()
 	addrs, err := net.InterfaceAddrs()
 	if err != nil {
 		t.Skipf("cannot enumerate interfaces: %v", err)
@@ -83,7 +113,7 @@ func fakeAppServer(t *testing.T) string {
 	}
 	srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]any{"status": "ok"})
+		handle(w, r)
 	}))
 	_ = srv.Listener.Close()
 	srv.Listener = ln

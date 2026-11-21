@@ -1,0 +1,172 @@
+package common
+
+import (
+	"context"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes/scheme"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
+	downloadsv1alpha1 "github.com/kyleseneker/arrchitect/api/downloads/v1alpha1"
+	indexersv1alpha1 "github.com/kyleseneker/arrchitect/api/indexers/v1alpha1"
+	mediaserversv1alpha1 "github.com/kyleseneker/arrchitect/api/mediaservers/v1alpha1"
+	pvrv1alpha1 "github.com/kyleseneker/arrchitect/api/pvr/v1alpha1"
+	requestsv1alpha1 "github.com/kyleseneker/arrchitect/api/requests/v1alpha1"
+)
+
+func appRefClient(t *testing.T, objs ...client.Object) client.Client {
+	t.Helper()
+	s := runtime.NewScheme()
+	require.NoError(t, scheme.AddToScheme(s))
+	require.NoError(t, pvrv1alpha1.AddToScheme(s))
+	require.NoError(t, indexersv1alpha1.AddToScheme(s))
+	require.NoError(t, downloadsv1alpha1.AddToScheme(s))
+	require.NoError(t, mediaserversv1alpha1.AddToScheme(s))
+	require.NoError(t, requestsv1alpha1.AddToScheme(s))
+	return fake.NewClientBuilder().WithScheme(s).WithObjects(objs...).
+		WithIndex(&indexersv1alpha1.Prowlarr{}, appRefIndex, func(o client.Object) []string { return appRefKeys(prowlarrRefs(o)) }).
+		Build()
+}
+
+func ref(name, key string) *commonv1alpha1.SecretKeyRef {
+	return &commonv1alpha1.SecretKeyRef{Name: name, Key: key}
+}
+
+func TestSplitURL(t *testing.T) {
+	tests := []struct {
+		raw  string
+		want Address
+	}{
+		{"http://sonarr.media.svc:8989", Address{Host: "sonarr.media.svc", Port: 8989}},
+		{"http://sonarr:8989/", Address{Host: "sonarr", Port: 8989}},
+		{"https://media.example.com/sonarr/", Address{Host: "media.example.com", Port: 443, TLS: true, Base: "/sonarr"}},
+		{"http://sonarr", Address{Host: "sonarr", Port: 80}},
+		{"http://[fd00::1]:8080/base", Address{Host: "fd00::1", Port: 8080, Base: "/base"}},
+	}
+	for _, tt := range tests {
+		got, err := SplitURL(tt.raw)
+		require.NoError(t, err, tt.raw)
+		assert.Equal(t, tt.want, got, tt.raw)
+	}
+	for _, raw := range []string{"", "sonarr:8989", "http://", "http://sonarr:0", "http://sonarr:65536", "://bad"} {
+		_, err := SplitURL(raw)
+		assert.Error(t, err, raw)
+	}
+}
+
+func TestResolveAppRefTakesEachKindsConnection(t *testing.T) {
+	c := appRefClient(t,
+		&pvrv1alpha1.Sonarr{Name: "sonarr", Namespace: "media", Spec: pvrv1alpha1.SonarrSpec{
+			Connection: commonv1alpha1.AppConnection{URL: "http://sonarr:8989", APIKeySecretRef: *ref("keys", "sonarr")},
+		}},
+		&requestsv1alpha1.Seerr{Name: "seerr", Namespace: "media", Spec: requestsv1alpha1.SeerrSpec{
+			Connection: requestsv1alpha1.SeerrConnection{URL: "http://seerr:5055", APIKeySecretRef: ref("keys", "seerr")},
+		}},
+		&mediaserversv1alpha1.Jellyfin{Name: "jellyfin", Namespace: "media", Spec: mediaserversv1alpha1.JellyfinSpec{
+			Connection: mediaserversv1alpha1.JellyfinConnection{URL: "http://jellyfin:8096"},
+			AdminUser:  mediaserversv1alpha1.JellyfinAdminUser{UsernameSecretRef: *ref("admin", "user"), PasswordSecretRef: *ref("admin", "pass")},
+		}},
+		&mediaserversv1alpha1.Plex{Name: "plex", Namespace: "media", Spec: mediaserversv1alpha1.PlexSpec{
+			Connection: mediaserversv1alpha1.PlexConnection{URL: "http://plex:32400", TokenSecretRef: *ref("keys", "plex")},
+		}},
+		&downloadsv1alpha1.QBittorrent{Name: "qbittorrent", Namespace: "media", Spec: downloadsv1alpha1.QBittorrentSpec{
+			Connection: downloadsv1alpha1.QBittorrentConnection{URL: "http://qbittorrent:8080",
+				UsernameSecretRef: *ref("qbit", "user"), PasswordSecretRef: *ref("qbit", "pass")},
+		}},
+	)
+	tests := []struct {
+		ref  commonv1alpha1.AppRef
+		want App
+	}{
+		{commonv1alpha1.AppRef{Kind: "Sonarr", Name: "sonarr"},
+			App{Kind: "Sonarr", URL: "http://sonarr:8989", APIKeySecretRef: ref("keys", "sonarr")}},
+		{commonv1alpha1.AppRef{Kind: "Seerr", Name: "seerr"},
+			App{Kind: "Seerr", URL: "http://seerr:5055", APIKeySecretRef: ref("keys", "seerr")}},
+		{commonv1alpha1.AppRef{Kind: "Jellyfin", Name: "jellyfin"},
+			App{Kind: "Jellyfin", URL: "http://jellyfin:8096", UsernameSecretRef: ref("admin", "user"), PasswordSecretRef: ref("admin", "pass")}},
+		{commonv1alpha1.AppRef{Kind: "Plex", Name: "plex"},
+			App{Kind: "Plex", URL: "http://plex:32400", TokenSecretRef: ref("keys", "plex")}},
+		{commonv1alpha1.AppRef{Kind: "QBittorrent", Name: "qbittorrent"},
+			App{Kind: "QBittorrent", URL: "http://qbittorrent:8080", UsernameSecretRef: ref("qbit", "user"), PasswordSecretRef: ref("qbit", "pass")}},
+	}
+	for _, tt := range tests {
+		got, err := ResolveAppRef(context.Background(), c, "media", tt.ref)
+		require.NoError(t, err, tt.ref.Kind)
+		assert.Equal(t, tt.want, got, tt.ref.Kind)
+	}
+}
+
+func TestResolveAppRefNamesOnlyTheReference(t *testing.T) {
+	c := appRefClient(t, &pvrv1alpha1.Sonarr{Name: "sonarr", Namespace: "other", Spec: pvrv1alpha1.SonarrSpec{
+		Connection: commonv1alpha1.AppConnection{URL: "http://sonarr.other:8989"},
+	}})
+
+	_, err := ResolveAppRef(context.Background(), c, "media", commonv1alpha1.AppRef{Kind: "Sonarr", Name: "sonarr"})
+	require.EqualError(t, err, `Sonarr "sonarr" not found`, "a resource in another namespace was used")
+
+	_, err = ResolveAppRef(context.Background(), c, "media", commonv1alpha1.AppRef{Kind: "Tdarr", Name: "tdarr"})
+	require.EqualError(t, err, `Tdarr "tdarr": unsupported kind`)
+}
+
+func TestReferrersOfMatchesKindNameAndNamespace(t *testing.T) {
+	withApp := func(name, namespace string, refs ...commonv1alpha1.AppRef) *indexersv1alpha1.Prowlarr {
+		p := &indexersv1alpha1.Prowlarr{Name: name, Namespace: namespace}
+		for _, r := range refs {
+			p.Spec.Applications = append(p.Spec.Applications, indexersv1alpha1.ProwlarrApplication{Name: r.Name, AppRef: &r})
+		}
+		return p
+	}
+	sonarr := commonv1alpha1.AppRef{Kind: "Sonarr", Name: "main"}
+	c := appRefClient(t,
+		withApp("refers", "media", commonv1alpha1.AppRef{Kind: "Radarr", Name: "movies"}, sonarr),
+		withApp("same-name-other-kind", "media", commonv1alpha1.AppRef{Kind: "Radarr", Name: "main"}),
+		withApp("other-namespace", "other", sonarr),
+		withApp("explicit", "media"),
+	)
+	referrers := referrersOf(c, &indexersv1alpha1.ProwlarrList{}, "Sonarr")
+
+	reqs := referrers(context.Background(), &pvrv1alpha1.Sonarr{Name: "main", Namespace: "media"})
+	assert.Equal(t, []reconcile.Request{{Name: "refers", Namespace: "media"}}, reqs)
+}
+
+func TestSecretReferrersFollowReferences(t *testing.T) {
+	c := appRefClient(t,
+		&pvrv1alpha1.Sonarr{Name: "sonarr", Namespace: "media", Spec: pvrv1alpha1.SonarrSpec{
+			Connection: commonv1alpha1.AppConnection{URL: "http://sonarr:8989", APIKeySecretRef: *ref("sonarr-key", "api-key")},
+		}},
+		&indexersv1alpha1.Prowlarr{Name: "through-ref", Namespace: "media", Spec: indexersv1alpha1.ProwlarrSpec{
+			Applications: []indexersv1alpha1.ProwlarrApplication{{Name: "Sonarr", AppRef: &commonv1alpha1.AppRef{Kind: "Sonarr", Name: "sonarr"}}},
+		}},
+		&indexersv1alpha1.Prowlarr{Name: "direct", Namespace: "media", Spec: indexersv1alpha1.ProwlarrSpec{
+			Applications: []indexersv1alpha1.ProwlarrApplication{{Name: "Sonarr", APIKeySecretRef: ref("sonarr-key", "api-key")}},
+		}},
+		&indexersv1alpha1.Prowlarr{Name: "dangling", Namespace: "media", Spec: indexersv1alpha1.ProwlarrSpec{
+			Applications: []indexersv1alpha1.ProwlarrApplication{{Name: "Radarr", AppRef: &commonv1alpha1.AppRef{Kind: "Radarr", Name: "radarr"}}},
+		}},
+		&indexersv1alpha1.Prowlarr{Name: "unrelated", Namespace: "media"},
+	)
+	referrers := secretReferrers(c, &indexersv1alpha1.ProwlarrList{}, prowlarrRefs)
+
+	reqs := referrers(context.Background(), &metav1.PartialObjectMetadata{Name: "sonarr-key", Namespace: "media"})
+	assert.ElementsMatch(t, []reconcile.Request{
+		{Name: "through-ref", Namespace: "media"},
+		{Name: "direct", Namespace: "media"},
+	}, reqs)
+}
+
+func prowlarrRefs(o client.Object) []commonv1alpha1.AppRef {
+	var refs []commonv1alpha1.AppRef
+	for _, app := range o.(*indexersv1alpha1.Prowlarr).Spec.Applications {
+		if app.AppRef != nil {
+			refs = append(refs, *app.AppRef)
+		}
+	}
+	return refs
+}

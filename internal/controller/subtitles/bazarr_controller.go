@@ -21,6 +21,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
+	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
 	subtitlesv1alpha1 "github.com/kyleseneker/arrchitect/api/subtitles/v1alpha1"
 	bazarrclient "github.com/kyleseneker/arrchitect/internal/client/bazarr"
 	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
@@ -40,6 +41,7 @@ type BazarrReconciler struct {
 // +kubebuilder:rbac:groups=arrchitect.dev,resources=bazarrs/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=arrchitect.dev,resources=bazarrs/finalizers,verbs=update
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
+// +kubebuilder:rbac:groups=arrchitect.dev,resources=sonarrs;radarrs,verbs=get;list;watch
 
 func (r *BazarrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
@@ -175,12 +177,20 @@ func (r *BazarrReconciler) bazarrDesired(ctx context.Context, config *subtitlesv
 		if reflect.ValueOf(c.conn).IsZero() {
 			continue
 		}
-		key, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, c.conn.APIKeySecretRef)
+		conn, err := r.resolveConnection(ctx, config.Namespace, c.conn)
+		if err != nil {
+			problems = append(problems, fmt.Sprintf("%sConnection: %v", c.section, err))
+			continue
+		}
+		key, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, *conn.APIKeySecretRef)
 		if err != nil {
 			problems = append(problems, fmt.Sprintf("%sConnection: resolving apiKeySecretRef: %v", c.section, err))
 			continue
 		}
-		merge(bazarrclient.StructToFormData(c.section, c.conn))
+		merge(bazarrclient.StructToFormData(c.section, conn))
+		if conn.AppRef != nil {
+			form.Set(fmt.Sprintf("settings-%s-%s", c.section, bazarrclient.SettingName(c.section, "basePath")), conn.BasePath)
+		}
 		form.Set(fmt.Sprintf("settings-%s-apikey", c.section), key)
 	}
 	if len(spec.Providers) > 0 {
@@ -200,6 +210,37 @@ func (r *BazarrReconciler) bazarrDesired(ctx context.Context, config *subtitlesv
 		}
 	}
 	return form, problems
+}
+
+// resolveConnection returns conn with its appRef, if any, replaced by the
+// referenced resource's address and API key Secret. A reference sets the whole
+// address, so its caller sends the base path even when it is the root's "",
+// which is how Bazarr stores "/" once it has used it.
+func (r *BazarrReconciler) resolveConnection(
+	ctx context.Context, namespace string, conn subtitlesv1alpha1.BazarrAppConnection,
+) (subtitlesv1alpha1.BazarrAppConnection, error) {
+	if conn.AppRef != nil {
+		app, addr, err := ctrlcommon.ResolveAppAddress(ctx, r.Client, namespace, *conn.AppRef)
+		if err != nil {
+			return conn, fmt.Errorf("appRef: %w", err)
+		}
+		conn.Host, conn.Port, conn.SSL, conn.BasePath, conn.APIKeySecretRef = addr.Host, &addr.Port, &addr.TLS, addr.Base, app.APIKeySecretRef
+	}
+	if conn.APIKeySecretRef == nil {
+		return conn, fmt.Errorf("no API key Secret")
+	}
+	return conn, nil
+}
+
+func bazarrAppRefs(o client.Object) []commonv1alpha1.AppRef {
+	spec := o.(*subtitlesv1alpha1.Bazarr).Spec
+	var refs []commonv1alpha1.AppRef
+	for _, ref := range []*commonv1alpha1.AppRef{spec.SonarrConnection.AppRef, spec.RadarrConnection.AppRef} {
+		if ref != nil {
+			refs = append(refs, *ref)
+		}
+	}
+	return refs
 }
 
 // bazarrPathMappings sends each mapping as Bazarr's form does, "from,to".
@@ -418,9 +459,14 @@ func sameBazarrProfiles(current []map[string]any, desiredJSON string) bool {
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *BazarrReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
+	b := ctrl.NewControllerManagedBy(mgr).
 		For(&subtitlesv1alpha1.Bazarr{}, builder.WithPredicates(ctrlcommon.ConfigChangedPredicate())).
-		WatchesMetadata(&corev1.Secret{}, ctrlcommon.EnqueueForSecret(r.Client, &subtitlesv1alpha1.BazarrList{})).
+		WatchesMetadata(&corev1.Secret{}, ctrlcommon.EnqueueForSecretThroughRefs(r.Client, &subtitlesv1alpha1.BazarrList{}, bazarrAppRefs))
+	b, err := ctrlcommon.WatchAppRefs(mgr, b, &subtitlesv1alpha1.Bazarr{}, &subtitlesv1alpha1.BazarrList{}, bazarrAppRefs, "Sonarr", "Radarr")
+	if err != nil {
+		return err
+	}
+	return b.
 		Named("bazarr").
 		Complete(r)
 }

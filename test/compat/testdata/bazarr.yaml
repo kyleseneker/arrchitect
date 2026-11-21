@@ -47,11 +47,9 @@ spec:
     usePostprocessingThresholdMovie: false
     postprocessingThresholdMovie: 60
   sonarrConnection:
-    host: ${HOST}
-    port: ${SONARR_PORT}
-    apiKeySecretRef:
-      name: compat-credentials
-      key: sonarr-api-key
+    appRef:
+      kind: Sonarr
+      name: sonarr
     httpTimeout: 300
     fullUpdate: Daily
     onlyMonitored: false
@@ -98,3 +96,14 @@ spec:
             hi: false
             forced: false
             audioExclude: false
+---
+apiVersion: arrchitect.dev/v1alpha1
+kind: Sonarr
+metadata:
+  name: sonarr
+spec:
+  connection:
+    url: http://${HOST}:${SONARR_PORT}
+    apiKeySecretRef:
+      name: compat-credentials
+      key: sonarr-api-key

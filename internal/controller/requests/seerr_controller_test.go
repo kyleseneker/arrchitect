@@ -27,9 +27,12 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
+	mediaserversv1alpha1 "github.com/kyleseneker/arrchitect/api/mediaservers/v1alpha1"
+	pvrv1alpha1 "github.com/kyleseneker/arrchitect/api/pvr/v1alpha1"
 	requestsv1alpha1 "github.com/kyleseneker/arrchitect/api/requests/v1alpha1"
 	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
 	"github.com/kyleseneker/arrchitect/internal/controller/internal/contract"
@@ -73,8 +76,8 @@ func TestSeerrObserveReportsMissingSetupWithoutLoggingIn(t *testing.T) {
 	cfg := seerrConfig(app.serve(t))
 	cfg.Spec.JellyfinAuth = requestsv1alpha1.SeerrJellyfinAuth{
 		Hostname:          "jellyfin",
-		UsernameSecretRef: commonv1alpha1.SecretKeyRef{Name: "seerr-secrets", Key: "username"},
-		PasswordSecretRef: commonv1alpha1.SecretKeyRef{Name: "seerr-secrets", Key: "password"},
+		UsernameSecretRef: &commonv1alpha1.SecretKeyRef{Name: "seerr-secrets", Key: "username"},
+		PasswordSecretRef: &commonv1alpha1.SecretKeyRef{Name: "seerr-secrets", Key: "password"},
 	}
 	synced := observeSeerr(t, cfg)
 	assert.Empty(t, app.writes())
@@ -384,14 +387,16 @@ func seerrConfig(addr string) *requestsv1alpha1.Seerr {
 	}
 }
 
-func runSeerr(t *testing.T, cfg *requestsv1alpha1.Seerr) *requestsv1alpha1.Seerr {
+func runSeerr(t *testing.T, cfg *requestsv1alpha1.Seerr, objs ...client.Object) *requestsv1alpha1.Seerr {
 	t.Helper()
 	scheme := runtime.NewScheme()
 	require.NoError(t, clientgoscheme.AddToScheme(scheme), "adding client-go scheme")
 	require.NoError(t, requestsv1alpha1.AddToScheme(scheme), "adding requests scheme")
+	require.NoError(t, pvrv1alpha1.AddToScheme(scheme), "adding pvr scheme")
+	require.NoError(t, mediaserversv1alpha1.AddToScheme(scheme), "adding mediaservers scheme")
 	c := fake.NewClientBuilder().WithScheme(scheme).
 		WithStatusSubresource(&requestsv1alpha1.Seerr{}).
-		WithObjects(cfg, seerrSecret()).Build()
+		WithObjects(append(objs, cfg, seerrSecret())...).Build()
 	r := &SeerrReconciler{Client: c, Scheme: scheme, Recorder: events.NewFakeRecorder(50)}
 	_, err := r.Reconcile(context.Background(), ctrl.Request{
 		Name: "seerr", Namespace: "media",
@@ -432,8 +437,8 @@ func TestSeerrWithoutAPIKeyLogsInAndFetchesKey(t *testing.T) {
 		Hostname:          "jellyfin",
 		Port:              &port,
 		UrlBase:           "/jf",
-		UsernameSecretRef: commonv1alpha1.SecretKeyRef{Name: "seerr-secrets", Key: "username"},
-		PasswordSecretRef: commonv1alpha1.SecretKeyRef{Name: "seerr-secrets", Key: "password"},
+		UsernameSecretRef: &commonv1alpha1.SecretKeyRef{Name: "seerr-secrets", Key: "username"},
+		PasswordSecretRef: &commonv1alpha1.SecretKeyRef{Name: "seerr-secrets", Key: "password"},
 	}
 	runSeerr(t, cfg)
 
@@ -454,8 +459,8 @@ func TestSeerrJellyfinLoginCarriesServerTypeAndURLBase(t *testing.T) {
 		Hostname:          "jellyfin",
 		Port:              &port,
 		UrlBase:           "/jf",
-		UsernameSecretRef: commonv1alpha1.SecretKeyRef{Name: "seerr-secrets", Key: "username"},
-		PasswordSecretRef: commonv1alpha1.SecretKeyRef{Name: "seerr-secrets", Key: "password"},
+		UsernameSecretRef: &commonv1alpha1.SecretKeyRef{Name: "seerr-secrets", Key: "username"},
+		PasswordSecretRef: &commonv1alpha1.SecretKeyRef{Name: "seerr-secrets", Key: "password"},
 	}
 	runSeerr(t, cfg)
 
@@ -473,7 +478,7 @@ func TestSeerrPlexLoginSendsToken(t *testing.T) {
 	cfg := seerrConfig(addr)
 	cfg.Spec.PlexAuth = requestsv1alpha1.SeerrPlexAuth{
 		Hostname:       "plex",
-		TokenSecretRef: commonv1alpha1.SecretKeyRef{Name: "seerr-secrets", Key: "token"},
+		TokenSecretRef: &commonv1alpha1.SecretKeyRef{Name: "seerr-secrets", Key: "token"},
 	}
 	runSeerr(t, cfg)
 
@@ -489,8 +494,8 @@ func firstRunJellyfinConfig(addr string) *requestsv1alpha1.Seerr {
 	cfg.Spec.JellyfinAuth = requestsv1alpha1.SeerrJellyfinAuth{
 		Hostname:          "jellyfin",
 		Port:              &port,
-		UsernameSecretRef: commonv1alpha1.SecretKeyRef{Name: "seerr-secrets", Key: "username"},
-		PasswordSecretRef: commonv1alpha1.SecretKeyRef{Name: "seerr-secrets", Key: "password"},
+		UsernameSecretRef: &commonv1alpha1.SecretKeyRef{Name: "seerr-secrets", Key: "username"},
+		PasswordSecretRef: &commonv1alpha1.SecretKeyRef{Name: "seerr-secrets", Key: "password"},
 	}
 	return cfg
 }
@@ -526,7 +531,7 @@ func TestSeerrRetriedSetupDoesNotDuplicateConnections(t *testing.T) {
 	addr := app.serve(t)
 	port := int32(8989)
 	cfg := firstRunJellyfinConfig(addr)
-	key := commonv1alpha1.SecretKeyRef{Name: "seerr-secrets", Key: "api-key"}
+	key := &commonv1alpha1.SecretKeyRef{Name: "seerr-secrets", Key: "api-key"}
 	cfg.Spec.Sonarr = []requestsv1alpha1.SeerrServiceConnection{{Name: "Sonarr", Hostname: "sonarr", Port: &port, APIKeySecretRef: key}}
 	cfg.Spec.Radarr = []requestsv1alpha1.SeerrServiceConnection{{Name: "Radarr", Hostname: "radarr", Port: &port, APIKeySecretRef: key}}
 
@@ -556,7 +561,7 @@ func TestSeerrFailedSetupKeepsTrackOfTheServersItCreated(t *testing.T) {
 	cfg := firstRunJellyfinConfig(app.serve(t))
 	port := int32(8989)
 	cfg.Spec.Sonarr = []requestsv1alpha1.SeerrServiceConnection{{
-		Name: "Sonarr", Hostname: "sonarr", Port: &port, APIKeySecretRef: commonv1alpha1.SecretKeyRef{Name: "seerr-secrets", Key: "api-key"},
+		Name: "Sonarr", Hostname: "sonarr", Port: &port, APIKeySecretRef: &commonv1alpha1.SecretKeyRef{Name: "seerr-secrets", Key: "api-key"},
 	}}
 
 	got := runSeerr(t, cfg)
@@ -648,7 +653,7 @@ func TestSeerrSendsWhatANewServerRequires(t *testing.T) {
 	cfg := seerrWithAPIKey(app.serve(t))
 	port := int32(8989)
 	cfg.Spec.Sonarr = []requestsv1alpha1.SeerrServiceConnection{{
-		Name: "Sonarr", Hostname: "sonarr", Port: &port, APIKeySecretRef: commonv1alpha1.SecretKeyRef{Name: "seerr-secrets", Key: "api-key"},
+		Name: "Sonarr", Hostname: "sonarr", Port: &port, APIKeySecretRef: &commonv1alpha1.SecretKeyRef{Name: "seerr-secrets", Key: "api-key"},
 	}}
 
 	runSeerr(t, cfg)
@@ -678,7 +683,7 @@ func TestSeerrServerUpdateKeepsWhatTheResourceLeavesOut(t *testing.T) {
 	cfg := seerrWithAPIKey(app.serve(t))
 	port := int32(8989)
 	cfg.Spec.Sonarr = []requestsv1alpha1.SeerrServiceConnection{{
-		Name: "Sonarr", Hostname: "sonarr", Port: &port, APIKeySecretRef: commonv1alpha1.SecretKeyRef{Name: "seerr-secrets", Key: "api-key"},
+		Name: "Sonarr", Hostname: "sonarr", Port: &port, APIKeySecretRef: &commonv1alpha1.SecretKeyRef{Name: "seerr-secrets", Key: "api-key"},
 	}}
 
 	runSeerr(t, cfg)
@@ -739,7 +744,7 @@ func TestSeerrPrunesTheConnectionItCreatedUnderAnOldName(t *testing.T) {
 	port := int32(8989)
 	cfg.Spec.Sonarr = []requestsv1alpha1.SeerrServiceConnection{{
 		Name: "New", Hostname: "sonarr", Port: &port,
-		APIKeySecretRef: commonv1alpha1.SecretKeyRef{Name: "seerr-secrets", Key: "api-key"},
+		APIKeySecretRef: &commonv1alpha1.SecretKeyRef{Name: "seerr-secrets", Key: "api-key"},
 	}}
 	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{Prune: new(true)}
 	cfg.SetManagedResources(map[string][]string{"sonarr": {"Old"}})
@@ -774,7 +779,7 @@ func TestSeerrObserveReportsAConnectionPruneWouldDelete(t *testing.T) {
 	port := int32(8989)
 	cfg.Spec.Sonarr = []requestsv1alpha1.SeerrServiceConnection{{
 		Name: "New", Hostname: "sonarr", Port: &port,
-		APIKeySecretRef: commonv1alpha1.SecretKeyRef{Name: "seerr-secrets", Key: "api-key"},
+		APIKeySecretRef: &commonv1alpha1.SecretKeyRef{Name: "seerr-secrets", Key: "api-key"},
 	}}
 	observe := "observe"
 	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{Prune: new(true), DriftPolicy: observe}
@@ -794,7 +799,7 @@ func plexServerConfig(addr string, initialized bool) *requestsv1alpha1.Seerr {
 		cfg.Spec.Connection.APIKeySecretRef = &commonv1alpha1.SecretKeyRef{Name: "seerr-secrets", Key: "api-key"}
 	}
 	cfg.Spec.PlexAuth = requestsv1alpha1.SeerrPlexAuth{
-		Hostname: "plex", TokenSecretRef: commonv1alpha1.SecretKeyRef{Name: "seerr-secrets", Key: "token"},
+		Hostname: "plex", TokenSecretRef: &commonv1alpha1.SecretKeyRef{Name: "seerr-secrets", Key: "token"},
 	}
 	return cfg
 }
@@ -841,7 +846,7 @@ func TestSeerrManagesEveryDeclaredServer(t *testing.T) {
 	}}
 	cfg := seerrWithAPIKey(app.serve(t))
 	port := int32(8989)
-	key := commonv1alpha1.SecretKeyRef{Name: "seerr-secrets", Key: "api-key"}
+	key := &commonv1alpha1.SecretKeyRef{Name: "seerr-secrets", Key: "api-key"}
 	cfg.Spec.Sonarr = []requestsv1alpha1.SeerrServiceConnection{
 		{Name: "Sonarr", Hostname: "sonarr", Port: &port, APIKeySecretRef: key, IsDefault: new(true)},
 		{Name: "Sonarr 4K", Hostname: "sonarr-4k", Port: &port, APIKeySecretRef: key, Is4k: new(true), IsDefault: new(true)},
@@ -878,4 +883,108 @@ func TestSeerrNotificationOptionsKeepTheirTypeAndReadSecrets(t *testing.T) {
 	body := app.authBodies["/api/v1/settings/notifications/discord"]
 	require.NotNil(t, body, "the agent was never saved")
 	assert.Equal(t, map[string]any{"botUsername": "Seerr", "enableMentions": false, "webhookUrl": "plex-token"}, body["options"])
+}
+
+func seerrSecretRef(key string) commonv1alpha1.SecretKeyRef {
+	return commonv1alpha1.SecretKeyRef{Name: "seerr-secrets", Key: key}
+}
+
+func TestSeerrServerAppRefUsesTheReferencedConnection(t *testing.T) {
+	app := &fakeSeerr{initialized: true}
+	cfg := seerrWithAPIKey(app.serve(t))
+	cfg.Spec.Sonarr = []requestsv1alpha1.SeerrServiceConnection{{
+		Name: "Sonarr", AppRef: &commonv1alpha1.AppRef{Kind: "Sonarr", Name: "sonarr"},
+	}}
+	sonarr := &pvrv1alpha1.Sonarr{Name: "sonarr", Namespace: "media", Spec: pvrv1alpha1.SonarrSpec{
+		Connection: commonv1alpha1.AppConnection{URL: "https://media.example.com:8443/sonarr/", APIKeySecretRef: seerrSecretRef("api-key")},
+	}}
+
+	runSeerr(t, cfg, sonarr)
+
+	app.mu.Lock()
+	defer app.mu.Unlock()
+	require.Len(t, app.services["sonarr"], 1)
+	created := app.services["sonarr"][0]
+	assert.Equal(t, "media.example.com", created["hostname"])
+	assert.Equal(t, float64(8443), created["port"])
+	assert.Equal(t, true, created["useSsl"])
+	assert.Equal(t, "/sonarr", created["baseUrl"])
+	assert.Equal(t, "supplied-key", created["apiKey"])
+}
+
+func TestSeerrJellyfinAppRefLogsInAsTheJellyfinAdmin(t *testing.T) {
+	app := &fakeSeerr{initialized: true}
+	cfg := seerrConfig(app.serve(t))
+	cfg.Spec.JellyfinAuth = requestsv1alpha1.SeerrJellyfinAuth{AppRef: &commonv1alpha1.AppRef{Kind: "Jellyfin", Name: "jellyfin"}}
+	jellyfin := &mediaserversv1alpha1.Jellyfin{Name: "jellyfin", Namespace: "media", Spec: mediaserversv1alpha1.JellyfinSpec{
+		Connection: mediaserversv1alpha1.JellyfinConnection{URL: "http://jellyfin.media.svc:8096/jf"},
+		AdminUser:  mediaserversv1alpha1.JellyfinAdminUser{UsernameSecretRef: seerrSecretRef("username"), PasswordSecretRef: seerrSecretRef("password")},
+	}}
+
+	runSeerr(t, cfg, jellyfin)
+
+	body := app.authBody("/api/v1/auth/jellyfin")
+	require.NotNil(t, body, "never logged in")
+	assert.Equal(t, "admin", body["username"])
+	assert.Equal(t, "hunter2", body["password"])
+	assert.Equal(t, "/jf", body["urlBase"])
+	server := app.jellyfinServer()
+	assert.Equal(t, "jellyfin.media.svc", server["ip"])
+	assert.Equal(t, float64(8096), server["port"])
+}
+
+func TestSeerrPlexAppRefUsesThePlexToken(t *testing.T) {
+	app := &fakeSeerr{initialized: true}
+	cfg := seerrConfig(app.serve(t))
+	cfg.Spec.PlexAuth = requestsv1alpha1.SeerrPlexAuth{AppRef: &commonv1alpha1.AppRef{Kind: "Plex", Name: "plex"}}
+	plex := &mediaserversv1alpha1.Plex{Name: "plex", Namespace: "media", Spec: mediaserversv1alpha1.PlexSpec{
+		Connection: mediaserversv1alpha1.PlexConnection{URL: "http://plex.media.svc:32400", TokenSecretRef: seerrSecretRef("token")},
+	}}
+
+	runSeerr(t, cfg, plex)
+
+	body := app.authBody("/api/v1/auth/plex")
+	require.NotNil(t, body, "never logged in")
+	assert.Equal(t, "plex-token", body["authToken"])
+	assert.Equal(t, "plex.media.svc", app.plexServer()["ip"])
+}
+
+// Without an API key, the media server is how the operator signs in, so a
+// missing reference stops the pass before anything is sent.
+func TestSeerrMissingMediaServerAppRefStopsBeforeSigningIn(t *testing.T) {
+	app := &fakeSeerr{initialized: true}
+	cfg := seerrConfig(app.serve(t))
+	cfg.Spec.JellyfinAuth = requestsv1alpha1.SeerrJellyfinAuth{AppRef: &commonv1alpha1.AppRef{Kind: "Jellyfin", Name: "jellyfin"}}
+
+	got := runSeerr(t, cfg)
+
+	assert.False(t, app.saw("POST", "/api/v1/auth/jellyfin"))
+	assert.Empty(t, app.writes())
+	synced := meta.FindStatusCondition(got.Status.Conditions, "Synced")
+	require.NotNil(t, synced)
+	assert.Equal(t, "ReferenceNotFound", synced.Reason)
+	assert.Equal(t, `jellyfinAuth appRef: Jellyfin "jellyfin" not found`, synced.Message)
+}
+
+// With an API key the rest of Seerr still syncs, and a server whose reference
+// is missing holds back pruning that kind.
+func TestSeerrMissingServerAppRefSkipsOnlyThatServer(t *testing.T) {
+	app := &fakeSeerr{initialized: true, services: map[string][]map[string]any{
+		"sonarr": {{"id": float64(0), "name": "Old", "hostname": "old", "port": float64(8989), "apiKey": "k"}},
+	}}
+	cfg := seerrWithAPIKey(app.serve(t))
+	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{Prune: new(true)}
+	cfg.Status.ManagedResources = []commonv1alpha1.ManagedResource{{Type: "sonarr", Names: []string{"Old"}}}
+	cfg.Spec.Main = &requestsv1alpha1.SeerrMain{ApplicationTitle: "Requests"}
+	cfg.Spec.Sonarr = []requestsv1alpha1.SeerrServiceConnection{{
+		Name: "Sonarr", AppRef: &commonv1alpha1.AppRef{Kind: "Sonarr", Name: "sonarr"},
+	}}
+
+	got := runSeerr(t, cfg)
+
+	assert.True(t, app.saw("POST", "/api/v1/settings/main"), "main settings were held back too")
+	assert.Equal(t, []string{"Old"}, seerrServiceNames(app, "sonarr"), "a server was pruned or created while its reference was missing")
+	synced := meta.FindStatusCondition(got.Status.Conditions, "Synced")
+	require.NotNil(t, synced)
+	assert.Contains(t, synced.Message, `sonarr(Sonarr): appRef: Sonarr "sonarr" not found`)
 }

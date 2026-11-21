@@ -31,6 +31,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -125,7 +126,7 @@ func outboundIP() (string, error) {
 type compatCase struct {
 	// fixture is a file under testdata/; ${VAR} references are filled from
 	// vars. Its first document is the case's own kind, and any others are
-	// objects of a kind in objects.
+	// objects of a kind in objects, or app resources the others refer to.
 	fixture string
 	vars    map[string]string
 	// secrets become one Secret named "compat-credentials" in the test namespace.
@@ -199,6 +200,24 @@ func (tc compatCase) decode(t *testing.T, doc string) ctrlcommon.ConfigResource 
 	return obj
 }
 
+// reference decodes a document of a kind the case neither is nor reconciles:
+// an app resource for the case's resources to refer to. It is created but
+// never reconciled, since the test has already set that app up.
+func (tc compatCase) reference(t *testing.T, doc string) (client.Object, bool) {
+	t.Helper()
+	var meta metav1.TypeMeta
+	require.NoError(t, yaml.Unmarshal([]byte(doc), &meta))
+	if _, ok := tc.objects[meta.Kind]; ok || meta.Kind == reflect.TypeOf(tc.newObj()).Elem().Name() {
+		return nil, false
+	}
+	o, err := k8s.Scheme().New(schema.FromAPIVersionAndKind(meta.APIVersion, meta.Kind))
+	require.NoError(t, err, "a %s document", meta.Kind)
+	obj, ok := o.(client.Object)
+	require.True(t, ok)
+	require.NoError(t, yaml.UnmarshalStrict([]byte(doc), obj), "decoding a %s", meta.Kind)
+	return obj, true
+}
+
 func checkCompat(t *testing.T, tc compatCase) {
 	t.Helper()
 	ctx := context.Background()
@@ -216,6 +235,12 @@ func checkCompat(t *testing.T, tc compatCase) {
 	fixture := make([]client.Object, 0, len(docs))
 	resources := make([]resource, 0, len(docs))
 	for _, doc := range docs {
+		if ref, ok := tc.reference(t, doc); ok {
+			ref.SetNamespace(ns.Name)
+			require.NoError(t, k8s.Create(ctx, ref),
+				"creating %s %s", ref.GetObjectKind().GroupVersionKind().Kind, ref.GetName())
+			continue
+		}
 		obj := tc.decode(t, doc)
 		obj.SetNamespace(ns.Name)
 		fixture = append(fixture, obj.DeepCopyObject().(client.Object))
@@ -345,6 +370,11 @@ func checkExport(t *testing.T, tc compatCase, fixture []client.Object, read isRe
 		fields, ok := value.(map[string]any)
 		exported, _ := exportedSpec[section].(map[string]any)
 		for field := range fields {
+			// Export can't tell which resource describes an app, so it writes
+			// the address a reference stands for.
+			if field == "appRef" {
+				continue
+			}
 			if ok && !slices.Contains(res.Unreadable, section+"."+field) {
 				assert.Contains(t, exported, field, "export left out %s.%s, which the fixture configures:\n%s", section, field, out)
 			}

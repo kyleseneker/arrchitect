@@ -15,6 +15,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
+	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
 	curationv1alpha1 "github.com/kyleseneker/arrchitect/api/curation/v1alpha1"
 	maintainerrclient "github.com/kyleseneker/arrchitect/internal/client/maintainerr"
 	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
@@ -39,6 +40,7 @@ type MaintainerrReconciler struct {
 // +kubebuilder:rbac:groups=arrchitect.dev,resources=maintainerrs/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=arrchitect.dev,resources=maintainerrs/finalizers,verbs=update
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
+// +kubebuilder:rbac:groups=arrchitect.dev,resources=sonarrs;radarrs;seerrs;plexes,verbs=get;list;watch
 
 func (r *MaintainerrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
@@ -161,15 +163,18 @@ func (s *maintainerrSync) run(ctx context.Context, spec *curationv1alpha1.Mainta
 		servers[arr.kind] = ids
 	}
 
-	for _, svc := range []struct {
-		name maintainerrclient.Service
-		conn curationv1alpha1.MaintainerrServiceConnection
-	}{{maintainerrclient.Seerr, spec.Seerr}, {maintainerrclient.Tautulli, spec.Tautulli}} {
-		if svc.conn == (curationv1alpha1.MaintainerrServiceConnection{}) {
-			continue
+	if spec.Seerr != (curationv1alpha1.MaintainerrSeerrConnection{}) {
+		conn, err := s.seerrConnection(ctx, spec.Seerr)
+		if err == nil {
+			err = s.service(ctx, maintainerrclient.Seerr, &conn)
 		}
-		if err := s.service(ctx, svc.name, &svc.conn); err != nil {
-			fail(string(svc.name), err)
+		if err != nil {
+			fail(string(maintainerrclient.Seerr), err)
+		}
+	}
+	if spec.Tautulli != (curationv1alpha1.MaintainerrServiceConnection{}) {
+		if err := s.service(ctx, maintainerrclient.Tautulli, &spec.Tautulli); err != nil {
+			fail(string(maintainerrclient.Tautulli), err)
 		}
 	}
 
@@ -216,7 +221,15 @@ func (s *maintainerrSync) mediaServer(ctx context.Context, ms *curationv1alpha1.
 	if ms.Jellyfin != (curationv1alpha1.MaintainerrJellyfin{}) {
 		return s.jellyfin(ctx, &ms.Jellyfin)
 	}
-	return s.plex(ctx, &ms.Plex, settings, current == "")
+	plex := ms.Plex
+	if plex.AppRef != nil {
+		app, addr, err := ctrlcommon.ResolveAppAddress(ctx, s.c, s.namespace, *plex.AppRef)
+		if err != nil {
+			return fmt.Errorf("plex appRef: %w", err)
+		}
+		plex = curationv1alpha1.MaintainerrPlex{Hostname: addr.Host, Port: addr.Port, SSL: &addr.TLS, TokenSecretRef: app.TokenSecretRef}
+	}
+	return s.plex(ctx, &plex, settings, current == "")
 }
 
 func (s *maintainerrSync) jellyfin(ctx context.Context, jf *curationv1alpha1.MaintainerrJellyfin) error {
@@ -241,7 +254,10 @@ func (s *maintainerrSync) jellyfin(ctx context.Context, jf *curationv1alpha1.Mai
 }
 
 func (s *maintainerrSync) plex(ctx context.Context, plex *curationv1alpha1.MaintainerrPlex, settings map[string]any, fresh bool) error {
-	token, err := reconciler.ResolveSecretKeyRef(ctx, s.c, s.namespace, plex.TokenSecretRef)
+	if plex.TokenSecretRef == nil {
+		return fmt.Errorf("no Plex token Secret")
+	}
+	token, err := reconciler.ResolveSecretKeyRef(ctx, s.c, s.namespace, *plex.TokenSecretRef)
 	if err != nil {
 		return fmt.Errorf("resolving Plex token: %w", err)
 	}
@@ -330,7 +346,17 @@ func (s *maintainerrSync) arrServers(
 func (s *maintainerrSync) arrServer(
 	ctx context.Context, kind maintainerrclient.Arr, server curationv1alpha1.MaintainerrArrServer, stored []map[string]any,
 ) (bool, error) {
-	key, err := reconciler.ResolveSecretKeyRef(ctx, s.c, s.namespace, server.APIKeySecretRef)
+	if server.AppRef != nil {
+		app, err := ctrlcommon.ResolveAppRef(ctx, s.c, s.namespace, *server.AppRef)
+		if err != nil {
+			return false, fmt.Errorf("appRef: %w", err)
+		}
+		server.URL, server.APIKeySecretRef = app.URL, app.APIKeySecretRef
+	}
+	if server.APIKeySecretRef == nil {
+		return false, fmt.Errorf("no API key Secret")
+	}
+	key, err := reconciler.ResolveSecretKeyRef(ctx, s.c, s.namespace, *server.APIKeySecretRef)
 	if err != nil {
 		return false, fmt.Errorf("resolving API key: %w", err)
 	}
@@ -388,6 +414,43 @@ func (s *maintainerrSync) service(
 	return s.Apply(string(svc), string(svc), func() error { return s.mc.SaveService(ctx, svc, desired) })
 }
 
+// seerrConnection returns the Seerr connection, following its appRef.
+func (s *maintainerrSync) seerrConnection(
+	ctx context.Context, conn curationv1alpha1.MaintainerrSeerrConnection,
+) (curationv1alpha1.MaintainerrServiceConnection, error) {
+	if conn.AppRef != nil {
+		app, err := ctrlcommon.ResolveAppRef(ctx, s.c, s.namespace, *conn.AppRef)
+		if err != nil {
+			return curationv1alpha1.MaintainerrServiceConnection{}, fmt.Errorf("appRef: %w", err)
+		}
+		if app.APIKeySecretRef == nil {
+			return curationv1alpha1.MaintainerrServiceConnection{}, fmt.Errorf("appRef: Seerr %q sets no API key Secret", conn.AppRef.Name)
+		}
+		conn.URL, conn.APIKeySecretRef = app.URL, app.APIKeySecretRef
+	}
+	if conn.APIKeySecretRef == nil {
+		return curationv1alpha1.MaintainerrServiceConnection{}, fmt.Errorf("no API key Secret")
+	}
+	return curationv1alpha1.MaintainerrServiceConnection{URL: conn.URL, APIKeySecretRef: *conn.APIKeySecretRef}, nil
+}
+
+func maintainerrAppRefs(o client.Object) []commonv1alpha1.AppRef {
+	spec := o.(*curationv1alpha1.Maintainerr).Spec
+	var refs []commonv1alpha1.AppRef
+	for _, server := range append(append([]curationv1alpha1.MaintainerrArrServer{}, spec.Sonarr...), spec.Radarr...) {
+		if server.AppRef != nil {
+			refs = append(refs, *server.AppRef)
+		}
+	}
+	if spec.Seerr.AppRef != nil {
+		refs = append(refs, *spec.Seerr.AppRef)
+	}
+	if spec.MediaServer != nil && spec.MediaServer.Plex.AppRef != nil {
+		refs = append(refs, *spec.MediaServer.Plex.AppRef)
+	}
+	return refs
+}
+
 func (s *maintainerrSync) jobs(ctx context.Context, jobs *curationv1alpha1.MaintainerrJobs, settings map[string]any) error {
 	desired := buildMaintainerrJobs(jobs)
 	if len(desired) == 0 || reconciler.Covers(settings, mustJSON(desired)) {
@@ -415,9 +478,14 @@ func serviceURL(url string) string {
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *MaintainerrReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
+	b := ctrl.NewControllerManagedBy(mgr).
 		For(&curationv1alpha1.Maintainerr{}, builder.WithPredicates(ctrlcommon.ConfigChangedPredicate())).
-		WatchesMetadata(&corev1.Secret{}, ctrlcommon.EnqueueForSecret(r.Client, &curationv1alpha1.MaintainerrList{})).
+		WatchesMetadata(&corev1.Secret{}, ctrlcommon.EnqueueForSecretThroughRefs(r.Client, &curationv1alpha1.MaintainerrList{}, maintainerrAppRefs))
+	b, err := ctrlcommon.WatchAppRefs(mgr, b, &curationv1alpha1.Maintainerr{}, &curationv1alpha1.MaintainerrList{}, maintainerrAppRefs, "Sonarr", "Radarr", "Seerr", "Plex")
+	if err != nil {
+		return err
+	}
+	return b.
 		Named("maintainerr").
 		Complete(r)
 }

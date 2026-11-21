@@ -44,18 +44,20 @@ type MaintainerrSpec struct {
 	// +optional
 	// +listType=map
 	// +listMapKey=name
+	// +kubebuilder:validation:XValidation:rule="self.all(s, !has(s.appRef) || s.appRef.kind == 'Sonarr')",message="a sonarr server refers to a Sonarr"
 	Sonarr []MaintainerrArrServer `json:"sonarr,omitempty"`
 
 	// radarr lists the Radarr servers rule groups can act through.
 	// +optional
 	// +listType=map
 	// +listMapKey=name
+	// +kubebuilder:validation:XValidation:rule="self.all(s, !has(s.appRef) || s.appRef.kind == 'Radarr')",message="a radarr server refers to a Radarr"
 	Radarr []MaintainerrArrServer `json:"radarr,omitempty"`
 
 	// seerr connects Maintainerr to Seerr (or Overseerr or Jellyseerr), which
 	// rules can read and which Maintainerr clears requests in.
 	// +optional
-	Seerr MaintainerrServiceConnection `json:"seerr,omitzero"`
+	Seerr MaintainerrSeerrConnection `json:"seerr,omitzero"`
 
 	// tautulli connects Maintainerr to Tautulli. Rules can read it only when
 	// Plex is the media server.
@@ -150,16 +152,23 @@ type MaintainerrMediaServer struct {
 // MaintainerrPlex connects Maintainerr to a Plex server. The operator turns on
 // Maintainerr's manual mode, so Maintainerr does not replace these values with
 // another address it discovers through plex.tv.
+// +kubebuilder:validation:MinProperties=1
+// +kubebuilder:validation:XValidation:rule="has(self.appRef) ? !has(self.hostname) && !has(self.port) && !has(self.ssl) && !has(self.tokenSecretRef) : has(self.hostname) && has(self.tokenSecretRef)",message="set appRef, or hostname and tokenSecretRef, not both"
 type MaintainerrPlex struct {
+	// appRef names the Plex resource whose connection URL and token are used in
+	// place of hostname, port, ssl and tokenSecretRef.
+	// +optional
+	// +kubebuilder:validation:XValidation:rule="self.kind == 'Plex'",message="plex refers to a Plex"
+	AppRef *commonv1alpha1.AppRef `json:"appRef,omitempty"`
+
 	// hostname is the Plex host as Maintainerr reaches it, without a scheme
 	// (e.g., plex.media.svc.cluster.local).
-	// +required
+	// +optional
 	// +kubebuilder:validation:MinLength=1
 	Hostname string `json:"hostname,omitempty"`
 
-	// port is the Plex port.
+	// port is the Plex port. Defaults to 32400.
 	// +optional
-	// +kubebuilder:default=32400
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=65535
 	Port int32 `json:"port,omitempty"`
@@ -170,8 +179,8 @@ type MaintainerrPlex struct {
 
 	// tokenSecretRef references a Secret containing a Plex token for an account
 	// with access to the server.
-	// +required
-	TokenSecretRef commonv1alpha1.SecretKeyRef `json:"tokenSecretRef,omitempty"`
+	// +optional
+	TokenSecretRef *commonv1alpha1.SecretKeyRef `json:"tokenSecretRef,omitempty"`
 }
 
 // MaintainerrJellyfin connects Maintainerr to a Jellyfin server.
@@ -194,6 +203,7 @@ type MaintainerrJellyfin struct {
 }
 
 // MaintainerrArrServer is a Sonarr or Radarr server in Maintainerr.
+// +kubebuilder:validation:XValidation:rule="has(self.appRef) ? !has(self.url) && !has(self.apiKeySecretRef) : has(self.url) && has(self.apiKeySecretRef)",message="set appRef, or url and apiKeySecretRef, not both"
 type MaintainerrArrServer struct {
 	// name identifies the server here and in ruleGroups[].sonarrServer and
 	// ruleGroups[].radarrServer. It is the server name Maintainerr shows.
@@ -201,15 +211,20 @@ type MaintainerrArrServer struct {
 	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name,omitempty"`
 
+	// appRef names the server's resource, a Sonarr in sonarr or a Radarr in
+	// radarr, whose connection is used in place of url and apiKeySecretRef.
+	// +optional
+	AppRef *commonv1alpha1.AppRef `json:"appRef,omitempty"`
+
 	// url is the server URL as Maintainerr reaches it (e.g., http://radarr:7878).
-	// +required
+	// +optional
 	// +kubebuilder:validation:Pattern=`^https?://`
 	// +kubebuilder:validation:MinLength=1
 	URL string `json:"url,omitempty"`
 
 	// apiKeySecretRef references a Secret containing the server's API key.
-	// +required
-	APIKeySecretRef commonv1alpha1.SecretKeyRef `json:"apiKeySecretRef,omitempty"`
+	// +optional
+	APIKeySecretRef *commonv1alpha1.SecretKeyRef `json:"apiKeySecretRef,omitempty"`
 
 	// tagExclusions excludes media carrying exclusionTag in this server from
 	// every rule group.
@@ -227,6 +242,28 @@ type MaintainerrArrServer struct {
 	// excluded in Maintainerr.
 	// +optional
 	UntagOnUnexclude *bool `json:"untagOnUnexclude,omitempty"`
+}
+
+// MaintainerrSeerrConnection connects Maintainerr to Seerr.
+// +kubebuilder:validation:MinProperties=1
+// +kubebuilder:validation:XValidation:rule="has(self.appRef) ? !has(self.url) && !has(self.apiKeySecretRef) : has(self.url) && has(self.apiKeySecretRef)",message="set appRef, or url and apiKeySecretRef, not both"
+type MaintainerrSeerrConnection struct {
+	// appRef names the Seerr resource whose connection URL and API key are used
+	// in place of url and apiKeySecretRef. That resource must set its
+	// connection's apiKeySecretRef.
+	// +optional
+	// +kubebuilder:validation:XValidation:rule="self.kind == 'Seerr'",message="seerr refers to a Seerr"
+	AppRef *commonv1alpha1.AppRef `json:"appRef,omitempty"`
+
+	// url is Seerr's URL as Maintainerr reaches it.
+	// +optional
+	// +kubebuilder:validation:Pattern=`^https?://`
+	// +kubebuilder:validation:MinLength=1
+	URL string `json:"url,omitempty"`
+
+	// apiKeySecretRef references a Secret containing Seerr's API key.
+	// +optional
+	APIKeySecretRef *commonv1alpha1.SecretKeyRef `json:"apiKeySecretRef,omitempty"`
 }
 
 // MaintainerrServiceConnection connects Maintainerr to a service by URL and API key.

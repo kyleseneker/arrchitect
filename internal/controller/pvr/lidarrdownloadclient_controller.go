@@ -26,6 +26,7 @@ type LidarrDownloadClientReconciler struct {
 // +kubebuilder:rbac:groups=arrchitect.dev,resources=lidarrdownloadclients,verbs=get;list;watch;update;patch
 // +kubebuilder:rbac:groups=arrchitect.dev,resources=lidarrdownloadclients/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=arrchitect.dev,resources=lidarrdownloadclients/finalizers,verbs=update
+// +kubebuilder:rbac:groups=arrchitect.dev,resources=qbittorrents;sabnzbds,verbs=get;list;watch
 
 func (r *LidarrDownloadClientReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	var obj pvrv1alpha1.LidarrDownloadClient
@@ -46,7 +47,11 @@ func (r *LidarrDownloadClientReconciler) Reconcile(ctx context.Context, req ctrl
 			return other.Spec.LidarrRef.Name, other.Spec.Name
 		},
 		options: func(ctx context.Context) (pvrclient.Options, error) {
-			dcs := []commonv1alpha1.DownloadClient{s.DownloadClient}
+			dc, err := ctrlcommon.ResolveDownloadClient(ctx, r.Client, obj.Namespace, s.DownloadClient)
+			if err != nil {
+				return pvrclient.Options{}, err
+			}
+			dcs := []commonv1alpha1.DownloadClient{dc}
 			secrets, err := ctrlcommon.ResolveDownloadClientSecrets(ctx, r.Client, obj.Namespace, dcs)
 			return pvrclient.Options{DownloadClients: dcs, DCSecrets: secrets}, err
 		},
@@ -62,11 +67,15 @@ func (r *LidarrDownloadClientReconciler) SetupWithManager(mgr ctrl.Manager) erro
 	if err != nil {
 		return err
 	}
-	return ctrl.NewControllerManagedBy(mgr).
+	b := ctrl.NewControllerManagedBy(mgr).
 		For(&pvrv1alpha1.LidarrDownloadClient{}, builder.WithPredicates(ctrlcommon.ConfigChangedPredicate())).
 		Watches(&pvrv1alpha1.Lidarr{}, handler.EnqueueRequestsFromMapFunc(objectsOf(r.Client, &pvrv1alpha1.LidarrDownloadClientList{})),
 			builder.WithPredicates(instanceChanged())).
-		WatchesMetadata(&corev1.Secret{}, ctrlcommon.EnqueueForSecret(r.Client, &pvrv1alpha1.LidarrDownloadClientList{})).
-		Named("lidarrdownloadclient").
-		Complete(r)
+		WatchesMetadata(&corev1.Secret{}, ctrlcommon.EnqueueForSecretThroughRefs(r.Client, &pvrv1alpha1.LidarrDownloadClientList{}, downloadClientAppRefs))
+	b, err = ctrlcommon.WatchAppRefs(mgr, b, &pvrv1alpha1.LidarrDownloadClient{}, &pvrv1alpha1.LidarrDownloadClientList{},
+		downloadClientAppRefs, "QBittorrent", "Sabnzbd")
+	if err != nil {
+		return err
+	}
+	return b.Named("lidarrdownloadclient").Complete(r)
 }

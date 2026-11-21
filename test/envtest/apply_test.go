@@ -209,6 +209,79 @@ func TestAdmissionRules(t *testing.T) {
     hostname: plex
     tokenSecretRef: {name: app, key: token}`,
 			rejected: "jellyfinAuth and plexAuth are mutually exclusive"},
+		{name: "a Prowlarr application by reference", kind: "Prowlarr", spec: conn + `
+  applications: [{name: Sonarr, appRef: {kind: Sonarr, name: sonarr}}]`},
+		{name: "a Prowlarr application by reference and address", kind: "Prowlarr", spec: conn + `
+  applications: [{name: Sonarr, appRef: {kind: Sonarr, name: sonarr}, baseUrl: http://sonarr:8989}]`,
+			rejected: "set appRef, or implementation, baseUrl and apiKeySecretRef, not both"},
+		{name: "a Prowlarr application with neither", kind: "Prowlarr", spec: conn + `
+  applications: [{name: Sonarr, implementation: Sonarr}]`,
+			rejected: "set appRef, or implementation, baseUrl and apiKeySecretRef, not both"},
+		{name: "a Prowlarr application referring to Seerr", kind: "Prowlarr", spec: conn + `
+  applications: [{name: Seerr, appRef: {kind: Seerr, name: seerr}}]`,
+			rejected: "an application refers to a Sonarr, Radarr, Lidarr or Readarr"},
+		{name: "a reference to an unknown kind", kind: "Prowlarr", spec: conn + `
+  applications: [{name: Whisparr, appRef: {kind: Whisparr, name: whisparr}}]`,
+			rejected: "Unsupported value"},
+		{name: "a reference to another group", kind: "Prowlarr", spec: conn + `
+  applications: [{name: Sonarr, appRef: {group: example.com, kind: Sonarr, name: sonarr}}]`,
+			rejected: "Unsupported value"},
+		{name: "a reference by an invalid name", kind: "Prowlarr", spec: conn + `
+  applications: [{name: Sonarr, appRef: {kind: Sonarr, name: Not_A_Name}}]`,
+			rejected: "should match"},
+		{name: "Seerr servers and media server by reference", kind: "Seerr", spec: `
+  connection: {url: http://seerr:5055}
+  jellyfinAuth: {appRef: {kind: Jellyfin, name: jellyfin}}
+  sonarr: [{name: Sonarr, appRef: {kind: Sonarr, name: sonarr}}]
+  radarr: [{name: Radarr, appRef: {kind: Radarr, name: radarr}}]`},
+		{name: "a Seerr sonarr server referring to Radarr", kind: "Seerr", spec: `
+  connection: {url: http://seerr:5055}
+  sonarr: [{name: Sonarr, appRef: {kind: Radarr, name: radarr}}]`,
+			rejected: "a sonarr server refers to a Sonarr"},
+		{name: "an empty Seerr jellyfinAuth", kind: "Seerr", spec: `
+  connection: {url: http://seerr:5055}
+  jellyfinAuth: {}`,
+			rejected: "should have at least 1 properties"},
+		{name: "a Seerr plexAuth by reference and hostname", kind: "Seerr", spec: `
+  connection: {url: http://seerr:5055}
+  plexAuth: {appRef: {kind: Plex, name: plex}, hostname: plex}`,
+			rejected: "set appRef, or hostname and tokenSecretRef, not both"},
+		{name: "Bazarr connections by reference", kind: "Bazarr", spec: conn + `
+  sonarrConnection: {appRef: {kind: Sonarr, name: sonarr}}
+  radarrConnection: {appRef: {kind: Radarr, name: radarr}, syncInterval: 60}`},
+		{name: "a Bazarr sonarrConnection referring to Radarr", kind: "Bazarr", spec: conn + `
+  sonarrConnection: {appRef: {kind: Radarr, name: radarr}}`,
+			rejected: "sonarrConnection refers to a Sonarr"},
+		{name: "Maintainerr connections by reference", kind: "Maintainerr", spec: `
+  connection: {url: http://maintainerr:6246}
+  mediaServer: {plex: {appRef: {kind: Plex, name: plex}}}
+  radarr: [{name: Radarr, appRef: {kind: Radarr, name: radarr}}]
+  seerr: {appRef: {kind: Seerr, name: seerr}}`},
+		{name: "a Maintainerr radarr server referring to Sonarr", kind: "Maintainerr", spec: `
+  connection: {url: http://maintainerr:6246}
+  radarr: [{name: Radarr, appRef: {kind: Sonarr, name: sonarr}}]`,
+			rejected: "a radarr server refers to a Radarr"},
+		{name: "a download client by reference", kind: "SonarrDownloadClient", spec: `
+  sonarrRef: {name: tv}
+  name: qBittorrent
+  category: tv
+  appRef: {kind: QBittorrent, name: qbittorrent}`},
+		{name: "a download client by reference and host", kind: "SonarrDownloadClient", spec: `
+  sonarrRef: {name: tv}
+  name: qBittorrent
+  appRef: {kind: QBittorrent, name: qbittorrent}
+  host: qbittorrent`,
+			rejected: "set appRef, or implementation, protocol, host and port, not both"},
+		{name: "a download client referring to Sonarr", kind: "SonarrDownloadClient", spec: `
+  sonarrRef: {name: tv}
+  name: Sonarr
+  appRef: {kind: Sonarr, name: sonarr}`,
+			rejected: "a download client refers to a QBittorrent or Sabnzbd"},
+		{name: "an Autobrr download client by reference", kind: "Autobrr", spec: conn + `
+  downloadClients: [{name: Radarr, appRef: {kind: Radarr, name: radarr}}]`},
+		{name: "an Autobrr download client referring to Plex", kind: "Autobrr", spec: conn + `
+  downloadClients: [{name: Plex, appRef: {kind: Plex, name: plex}}]`,
+			rejected: "a download client refers to a QBittorrent, Sabnzbd, Sonarr, Radarr, Lidarr or Readarr"},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			obj := &unstructured.Unstructured{}

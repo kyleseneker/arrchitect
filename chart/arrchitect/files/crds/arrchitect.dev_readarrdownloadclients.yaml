@@ -71,6 +71,45 @@ spec:
                 - key
                 - name
                 type: object
+              appRef:
+                description: |-
+                  appRef names the download client's resource, a QBittorrent or Sabnzbd,
+                  whose kind and connection are used in place of implementation, protocol,
+                  host, port, useSsl, urlBase and the credentials.
+                properties:
+                  group:
+                    default: arrchitect.dev
+                    description: group is the resource's API group.
+                    enum:
+                    - arrchitect.dev
+                    type: string
+                  kind:
+                    description: kind is the resource's kind, such as Sonarr.
+                    enum:
+                    - Sonarr
+                    - Radarr
+                    - Lidarr
+                    - Readarr
+                    - Prowlarr
+                    - Seerr
+                    - Jellyfin
+                    - Plex
+                    - QBittorrent
+                    - Sabnzbd
+                    type: string
+                  name:
+                    description: name is the resource's name.
+                    maxLength: 253
+                    minLength: 1
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                    type: string
+                required:
+                - kind
+                - name
+                type: object
+                x-kubernetes-validations:
+                - message: a download client refers to a QBittorrent or Sabnzbd
+                  rule: self.kind in ['QBittorrent', 'Sabnzbd']
               category:
                 description: category is the download category to use.
                 minLength: 1
@@ -247,13 +286,17 @@ spec:
                 - name
                 type: object
             required:
-            - host
-            - implementation
             - name
-            - port
-            - protocol
             - readarrRef
             type: object
+            x-kubernetes-validations:
+            - message: set appRef, or implementation, protocol, host and port, not
+                both
+              rule: 'has(self.appRef) ? !has(self.implementation) && !has(self.protocol)
+                && !has(self.host) && !has(self.port) && !has(self.useSsl) && !has(self.urlBase)
+                && !has(self.usernameSecretRef) && !has(self.passwordSecretRef) &&
+                !has(self.apiKeySecretRef) : has(self.implementation) && has(self.protocol)
+                && has(self.host) && has(self.port)'
           status:
             description: status is the observed state of the ReadarrDownloadClient.
             minProperties: 1

@@ -142,8 +142,12 @@ func BuildProwlarrApplicationPayload(app indexersv1alpha1.ProwlarrApplication, a
 	if app.SyncCategories != nil {
 		fields = append(fields, map[string]any{"name": "syncCategories", "value": intSliceToInterface(app.SyncCategories)})
 	}
+	configContract := app.ConfigContract
+	if configContract == "" {
+		configContract = app.Implementation + "Settings"
+	}
 	payload := map[string]any{
-		"name": app.Name, "implementation": app.Implementation, "configContract": app.ConfigContract,
+		"name": app.Name, "implementation": app.Implementation, "configContract": configContract,
 		"fields": fields,
 	}
 	if app.SyncLevel != "" {

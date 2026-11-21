@@ -183,11 +183,19 @@ type RootFolder struct {
 }
 
 // DownloadClient defines a download client connection.
+// +kubebuilder:validation:XValidation:rule="has(self.appRef) ? !has(self.implementation) && !has(self.protocol) && !has(self.host) && !has(self.port) && !has(self.useSsl) && !has(self.urlBase) && !has(self.usernameSecretRef) && !has(self.passwordSecretRef) && !has(self.apiKeySecretRef) : has(self.implementation) && has(self.protocol) && has(self.host) && has(self.port)",message="set appRef, or implementation, protocol, host and port, not both"
 type DownloadClient struct {
 	// name is the display name of the download client.
 	// +required
 	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name,omitempty"`
+
+	// appRef names the download client's resource, a QBittorrent or Sabnzbd,
+	// whose kind and connection are used in place of implementation, protocol,
+	// host, port, useSsl, urlBase and the credentials.
+	// +optional
+	// +kubebuilder:validation:XValidation:rule="self.kind in ['QBittorrent', 'Sabnzbd']",message="a download client refers to a QBittorrent or Sabnzbd"
+	AppRef AppRef `json:"appRef,omitzero"`
 
 	// enable controls whether this download client is active. A new download
 	// client is enabled unless this is false.
@@ -195,12 +203,12 @@ type DownloadClient struct {
 	Enable *bool `json:"enable,omitempty"`
 
 	// protocol is the download protocol.
-	// +required
+	// +optional
 	// +kubebuilder:validation:Enum=torrent;usenet
 	Protocol string `json:"protocol,omitempty"`
 
 	// implementation is the download client type (e.g., QBittorrent, Sabnzbd, NzbGet, Transmission, Deluge).
-	// +required
+	// +optional
 	// +kubebuilder:validation:MinLength=1
 	Implementation string `json:"implementation,omitempty"`
 
@@ -211,12 +219,12 @@ type DownloadClient struct {
 	ConfigContract string `json:"configContract,omitempty"`
 
 	// host is the hostname or IP of the download client.
-	// +required
+	// +optional
 	// +kubebuilder:validation:MinLength=1
 	Host string `json:"host,omitempty"`
 
 	// port is the port of the download client.
-	// +required
+	// +optional
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=65535
 	Port int32 `json:"port,omitempty"`
@@ -924,4 +932,26 @@ func ManagedList(m map[string][]string) []ManagedResource {
 		}
 	}
 	return out
+}
+
+// AppRef names another app's resource in the same namespace, whose connection
+// is used in place of an address and credentials.
+type AppRef struct {
+	// group is the resource's API group.
+	// +optional
+	// +kubebuilder:default=arrchitect.dev
+	// +kubebuilder:validation:Enum=arrchitect.dev
+	Group string `json:"group,omitempty"`
+
+	// kind is the resource's kind, such as Sonarr.
+	// +required
+	// +kubebuilder:validation:Enum=Sonarr;Radarr;Lidarr;Readarr;Prowlarr;Seerr;Jellyfin;Plex;QBittorrent;Sabnzbd
+	Kind string `json:"kind,omitempty"`
+
+	// name is the resource's name.
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=253
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`
+	Name string `json:"name,omitempty"`
 }

@@ -1,0 +1,15 @@
+apiVersion: arrchitect.dev/v1alpha1
+kind: Prowlarr
+metadata:
+  name: prowlarr
+spec:
+  connection:
+    url: (join('', ['http://prowlarr.', $namespace, '.svc.cluster.local:9696']))
+    apiKeySecretRef:
+      name: prowlarr
+      key: api-key
+  applications:
+    - name: Sonarr
+      appRef:
+        kind: Sonarr
+        name: sonarr

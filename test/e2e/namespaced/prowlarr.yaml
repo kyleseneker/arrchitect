@@ -1,0 +1,55 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: prowlarr
+stringData:
+  api-key: 3b8e1f4a7c2d49e6b0a5d8c1f7e2a9b4
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prowlarr
+spec:
+  selector:
+    matchLabels:
+      app: prowlarr
+  template:
+    metadata:
+      labels:
+        app: prowlarr
+    spec:
+      containers:
+        - name: prowlarr
+          image: (env('PROWLARR_IMAGE'))
+          env:
+            - name: PUID
+              value: "1000"
+            - name: PGID
+              value: "1000"
+            - name: PROWLARR__AUTH__APIKEY
+              valueFrom:
+                secretKeyRef:
+                  name: prowlarr
+                  key: api-key
+          ports:
+            - containerPort: 9696
+          readinessProbe:
+            httpGet:
+              path: /ping
+              port: 9696
+          volumeMounts:
+            - name: config
+              mountPath: /config
+      volumes:
+        - name: config
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prowlarr
+spec:
+  selector:
+    app: prowlarr
+  ports:
+    - port: 9696

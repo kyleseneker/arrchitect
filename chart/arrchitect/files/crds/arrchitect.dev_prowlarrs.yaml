@@ -113,13 +113,55 @@ spec:
                       - key
                       - name
                       type: object
+                    appRef:
+                      description: |-
+                        appRef names the application's resource, a Sonarr, Radarr, Lidarr or
+                        Readarr, whose kind and connection are used in place of implementation,
+                        baseUrl and apiKeySecretRef. prowlarrUrl then defaults to this resource's
+                        connection URL.
+                      properties:
+                        group:
+                          default: arrchitect.dev
+                          description: group is the resource's API group.
+                          enum:
+                          - arrchitect.dev
+                          type: string
+                        kind:
+                          description: kind is the resource's kind, such as Sonarr.
+                          enum:
+                          - Sonarr
+                          - Radarr
+                          - Lidarr
+                          - Readarr
+                          - Prowlarr
+                          - Seerr
+                          - Jellyfin
+                          - Plex
+                          - QBittorrent
+                          - Sabnzbd
+                          type: string
+                        name:
+                          description: name is the resource's name.
+                          maxLength: 253
+                          minLength: 1
+                          pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                          type: string
+                      required:
+                      - kind
+                      - name
+                      type: object
+                      x-kubernetes-validations:
+                      - message: an application refers to a Sonarr, Radarr, Lidarr
+                          or Readarr
+                        rule: self.kind in ['Sonarr', 'Radarr', 'Lidarr', 'Readarr']
                     baseUrl:
                       description: baseUrl is the base URL of the application.
                       minLength: 1
                       type: string
                     configContract:
-                      description: configContract is the configuration contract name
-                        for the implementation.
+                      description: |-
+                        configContract is the configuration contract name for the implementation.
+                        Defaults to "<implementation>Settings" if not set.
                       minLength: 1
                       type: string
                     implementation:
@@ -162,12 +204,14 @@ spec:
                       type: array
                       x-kubernetes-list-type: set
                   required:
-                  - apiKeySecretRef
-                  - baseUrl
-                  - configContract
-                  - implementation
                   - name
                   type: object
+                  x-kubernetes-validations:
+                  - message: set appRef, or implementation, baseUrl and apiKeySecretRef,
+                      not both
+                    rule: 'has(self.appRef) ? !has(self.implementation) && !has(self.baseUrl)
+                      && !has(self.apiKeySecretRef) : has(self.implementation) &&
+                      has(self.baseUrl) && has(self.apiKeySecretRef)'
                 type: array
                 x-kubernetes-list-map-keys:
                 - name

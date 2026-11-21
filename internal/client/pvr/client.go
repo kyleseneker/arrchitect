@@ -406,7 +406,7 @@ func BuildDownloadClientPayload(
 	if dc.Category != "" {
 		fields = append(fields, map[string]any{"name": categoryField, "value": dc.Category})
 	}
-	if dc.UrlBase != "" {
+	if dc.UrlBase != "" || dc.AppRef != (commonv1alpha1.AppRef{}) {
 		fields = append(fields, map[string]any{"name": "urlBase", "value": dc.UrlBase})
 	}
 	if secrets.Username != "" {

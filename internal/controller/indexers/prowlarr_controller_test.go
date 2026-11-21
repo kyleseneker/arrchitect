@@ -15,6 +15,7 @@ import (
 
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
 	indexersv1alpha1 "github.com/kyleseneker/arrchitect/api/indexers/v1alpha1"
+	pvrv1alpha1 "github.com/kyleseneker/arrchitect/api/pvr/v1alpha1"
 	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -134,6 +135,7 @@ func runProwlarr(t *testing.T, cfg *indexersv1alpha1.Prowlarr, objs ...client.Ob
 	scheme := runtime.NewScheme()
 	require.NoError(t, clientgoscheme.AddToScheme(scheme), "adding client-go scheme")
 	require.NoError(t, indexersv1alpha1.AddToScheme(scheme), "adding indexers scheme")
+	require.NoError(t, pvrv1alpha1.AddToScheme(scheme), "adding pvr scheme")
 	b := fake.NewClientBuilder().WithScheme(scheme).
 		WithStatusSubresource(&indexersv1alpha1.Prowlarr{}).WithObjects(cfg)
 	for _, o := range objs {
@@ -370,4 +372,65 @@ func TestProwlarrMissingItemSecretSkipsOnlyItsKind(t *testing.T) {
 	require.NotNil(t, synced)
 	assert.Equal(t, "SyncFailed", synced.Reason)
 	assert.Contains(t, synced.Message, `downloadClients: download client qBittorrent field "password": secret "missing" not found`)
+}
+
+func TestProwlarrApplicationAppRefUsesTheReferencedConnection(t *testing.T) {
+	app := &fakeProwlarr{}
+	url := app.serve(t)
+
+	cfg := prowlarrConfig(url)
+	cfg.Spec.Applications = []indexersv1alpha1.ProwlarrApplication{{
+		Name: "Sonarr", AppRef: &commonv1alpha1.AppRef{Kind: "Sonarr", Name: "sonarr"},
+	}}
+	sonarr := &pvrv1alpha1.Sonarr{Name: "sonarr", Namespace: "media", Spec: pvrv1alpha1.SonarrSpec{
+		Connection: commonv1alpha1.AppConnection{
+			URL:             "http://sonarr.media.svc:8989",
+			APIKeySecretRef: commonv1alpha1.SecretKeyRef{Name: "prowlarr-credentials", Key: "sonarr-key"},
+		},
+	}}
+	secret := prowlarrSecret()
+	secret.Data["sonarr-key"] = []byte("sonarr-api-key")
+	runProwlarr(t, cfg, secret, sonarr)
+
+	posts := app.postsTo("/api/v1/applications")
+	require.Len(t, posts, 1)
+	assert.Equal(t, "Sonarr", posts[0]["implementation"])
+	assert.Equal(t, "SonarrSettings", posts[0]["configContract"])
+	fields := map[string]any{}
+	for _, f := range posts[0]["fields"].([]any) {
+		m := f.(map[string]any)
+		fields[m["name"].(string)] = m["value"]
+	}
+	assert.Equal(t, map[string]any{
+		"baseUrl": "http://sonarr.media.svc:8989", "apiKey": "sonarr-api-key", "prowlarrUrl": url,
+	}, fields)
+}
+
+// A missing reference holds back applications, not the rest of Prowlarr, and
+// the status names the reference.
+func TestProwlarrMissingAppRefSkipsOnlyApplications(t *testing.T) {
+	app := &fakeProwlarr{}
+	url := app.serve(t)
+
+	cfg := prowlarrConfig(url)
+	cfg.Spec.Indexers = []indexersv1alpha1.ProwlarrIndexer{{Name: "nzbgeek", Implementation: "Newznab"}}
+	cfg.Spec.Applications = []indexersv1alpha1.ProwlarrApplication{
+		{Name: "Sonarr", Implementation: "Sonarr", BaseUrl: "http://sonarr:8989",
+			APIKeySecretRef: &commonv1alpha1.SecretKeyRef{Name: "prowlarr-credentials", Key: "api-key"}},
+		{Name: "Radarr", AppRef: &commonv1alpha1.AppRef{Kind: "Radarr", Name: "radarr"}},
+	}
+	cfg.Status.ManagedResources = []commonv1alpha1.ManagedResource{{Type: "applications", Names: []string{"Radarr"}}}
+	app.existing = map[string][]map[string]any{"applications": {{"id": float64(7), "name": "Radarr"}}}
+	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{Prune: new(true)}
+	c := runProwlarr(t, cfg, prowlarrSecret())
+
+	assert.NotEmpty(t, app.postsTo("/api/v1/indexer"), "the indexer was held back too")
+	assert.Empty(t, app.postsTo("/api/v1/applications"), "applications were written without the one whose reference is missing")
+	assert.False(t, app.sawPrefix("DELETE", "/api/v1/applications"), "an application was pruned while its reference was missing")
+	var got indexersv1alpha1.Prowlarr
+	require.NoError(t, c.Get(context.Background(), types.NamespacedName{Name: "prowlarr", Namespace: "media"}, &got))
+	synced := meta.FindStatusCondition(got.Status.Conditions, "Synced")
+	require.NotNil(t, synced)
+	assert.Equal(t, "SyncFailed", synced.Reason)
+	assert.Contains(t, synced.Message, `applications: application "Radarr" appRef: Radarr "radarr" not found`)
 }

@@ -18,6 +18,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	automationv1alpha1 "github.com/kyleseneker/arrchitect/api/automation/v1alpha1"
+	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
 	autobrrclient "github.com/kyleseneker/arrchitect/internal/client/autobrr"
 	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
 	"github.com/kyleseneker/arrchitect/internal/engine"
@@ -35,6 +36,7 @@ type AutobrrReconciler struct {
 // +kubebuilder:rbac:groups=arrchitect.dev,resources=autobrrs/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=arrchitect.dev,resources=autobrrs/finalizers,verbs=update
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
+// +kubebuilder:rbac:groups=arrchitect.dev,resources=qbittorrents;sabnzbds;sonarrs;radarrs;lidarrs;readarrs,verbs=get;list;watch
 
 func (r *AutobrrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
@@ -183,7 +185,36 @@ func (s *autobrrSync) run(ctx context.Context, spec *automationv1alpha1.AutobrrS
 	return syncErrors
 }
 
+// autobrrClientTypes is the download client type for each kind an appRef can name.
+var autobrrClientTypes = map[string]string{
+	"QBittorrent": "qBittorrent", "Sabnzbd": "SABnzbd",
+	"Sonarr": "Sonarr", "Radarr": "Radarr", "Lidarr": "Lidarr", "Readarr": "Readarr",
+}
+
+// resolveDownloadClient returns dc with its appRef, if any, replaced by the
+// referenced resource's type, URL and credentials. Autobrr takes the whole URL
+// as the host for every type, so the port is sent as 0: a stored one would be
+// appended to it.
+func (s *autobrrSync) resolveDownloadClient(
+	ctx context.Context, dc automationv1alpha1.AutobrrDownloadClient,
+) (automationv1alpha1.AutobrrDownloadClient, error) {
+	if dc.AppRef == nil {
+		return dc, nil
+	}
+	app, addr, err := ctrlcommon.ResolveAppAddress(ctx, s.c, s.namespace, *dc.AppRef)
+	if err != nil {
+		return dc, fmt.Errorf("appRef: %w", err)
+	}
+	dc.Type, dc.Host, dc.Port, dc.TLS = autobrrClientTypes[app.Kind], strings.TrimRight(app.URL, "/"), new(int32(0)), &addr.TLS
+	dc.UsernameSecretRef, dc.PasswordSecretRef, dc.APIKeySecretRef = app.UsernameSecretRef, app.PasswordSecretRef, app.APIKeySecretRef
+	return dc, nil
+}
+
 func (s *autobrrSync) downloadClient(ctx context.Context, dc automationv1alpha1.AutobrrDownloadClient) error {
+	dc, err := s.resolveDownloadClient(ctx, dc)
+	if err != nil {
+		return err
+	}
 	existing, err := s.ac.ListDownloadClients(ctx)
 	if err != nil {
 		return fmt.Errorf("listing download clients: %w", err)
@@ -657,11 +688,25 @@ func (s *autobrrSync) actions(
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *AutobrrReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
+	b := ctrl.NewControllerManagedBy(mgr).
 		For(&automationv1alpha1.Autobrr{}, builder.WithPredicates(ctrlcommon.ConfigChangedPredicate())).
-		WatchesMetadata(&corev1.Secret{}, ctrlcommon.EnqueueForSecret(r.Client, &automationv1alpha1.AutobrrList{})).
-		Named("autobrr").
-		Complete(r)
+		WatchesMetadata(&corev1.Secret{}, ctrlcommon.EnqueueForSecretThroughRefs(r.Client, &automationv1alpha1.AutobrrList{}, autobrrAppRefs))
+	b, err := ctrlcommon.WatchAppRefs(mgr, b, &automationv1alpha1.Autobrr{}, &automationv1alpha1.AutobrrList{}, autobrrAppRefs,
+		"QBittorrent", "Sabnzbd", "Sonarr", "Radarr", "Lidarr", "Readarr")
+	if err != nil {
+		return err
+	}
+	return b.Named("autobrr").Complete(r)
+}
+
+func autobrrAppRefs(o client.Object) []commonv1alpha1.AppRef {
+	var refs []commonv1alpha1.AppRef
+	for _, dc := range o.(*automationv1alpha1.Autobrr).Spec.DownloadClients {
+		if dc.AppRef != nil {
+			refs = append(refs, *dc.AppRef)
+		}
+	}
+	return refs
 }
 
 // autobrrFields renders the spec fields a table names under Autobrr's keys,

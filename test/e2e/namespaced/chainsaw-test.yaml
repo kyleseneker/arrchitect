@@ -7,12 +7,22 @@ spec:
     Installs the chart the way a single-namespace setup runs it: one watched namespace, only some
     apps on, and the operator's namespace at the restricted Pod Security level.
   steps:
-    - name: start Sonarr
+    - name: start Sonarr and Prowlarr
       try:
         - apply:
             file: ../resources/sonarr.yaml
+        - apply:
+            file: prowlarr.yaml
         - assert:
             file: ../resources/sonarr-ready.yaml
+        - assert:
+            resource:
+              apiVersion: apps/v1
+              kind: Deployment
+              metadata:
+                name: prowlarr
+              status:
+                availableReplicas: 1
     - name: install under restricted Pod Security
       try:
         - script:
@@ -59,6 +69,30 @@ spec:
         - describe:
             apiVersion: arrchitect.dev/v1alpha1
             kind: SonarrDownloadClient
+    - name: wire an application by reference
+      description: >-
+        Prowlarr's Sonarr application names the Sonarr resource instead of repeating its address and
+        API key. Prowlarr tests an application before saving it, so Synced shows the reference
+        resolved to a Sonarr it could reach.
+      try:
+        - apply:
+            file: arrchitect-prowlarr.yaml
+        - assert:
+            resource:
+              apiVersion: arrchitect.dev/v1alpha1
+              kind: Prowlarr
+              metadata:
+                name: prowlarr
+              status:
+                (conditions[?type == 'Ready'] | [0].status): "True"
+                (conditions[?type == 'Synced'] | [0].status): "True"
+      catch:
+        - podLogs:
+            namespace: arrchitect
+            selector: app.kubernetes.io/name=arrchitect
+        - describe:
+            apiVersion: arrchitect.dev/v1alpha1
+            kind: Prowlarr
     - name: leave turned-off apps and other namespaces alone
       try:
         - apply:

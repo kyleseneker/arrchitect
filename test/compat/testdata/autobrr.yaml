@@ -10,16 +10,10 @@ spec:
       key: api-key
   downloadClients:
     - name: qBittorrent
-      type: qBittorrent
       enable: true
-      host: http://${HOST}
-      port: ${QBITTORRENT_PORT}
-      usernameSecretRef:
-        name: compat-credentials
-        key: qbittorrent-username
-      passwordSecretRef:
-        name: compat-credentials
-        key: qbittorrent-password
+      appRef:
+        kind: QBittorrent
+        name: qbittorrent
     - name: Sonarr
       type: Sonarr
       enable: true
@@ -105,3 +99,17 @@ spec:
           reannounceSkip: false
           reannounceInterval: 7
           reannounceMaxAttempts: 50
+---
+apiVersion: arrchitect.dev/v1alpha1
+kind: QBittorrent
+metadata:
+  name: qbittorrent
+spec:
+  connection:
+    url: http://${HOST}:${QBITTORRENT_PORT}
+    usernameSecretRef:
+      name: compat-credentials
+      key: qbittorrent-username
+    passwordSecretRef:
+      name: compat-credentials
+      key: qbittorrent-password
