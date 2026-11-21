@@ -20,7 +20,8 @@ type Client struct {
 	hc *engine.HTTPClient
 }
 
-// ArrActions are Maintainerr's ServarrAction names, in id order.
+// ArrActions are the names of the actions Maintainerr takes in Sonarr and
+// Radarr, in id order.
 var ArrActions = []string{
 	"delete", "unmonitorDeleteAll", "unmonitorDeleteExisting", "unmonitor",
 	"doNothing", "deleteShowIfEmpty", "unmonitorShowIfEmpty", "changeQualityProfile",

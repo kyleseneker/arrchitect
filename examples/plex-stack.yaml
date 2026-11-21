@@ -1,4 +1,4 @@
-# Common homelab stack: Sonarr + Radarr + Prowlarr + qBittorrent + Plex + Overseerr
+# Common homelab stack: Sonarr + Radarr + Prowlarr + qBittorrent + Plex + Seerr
 # This is the Plex-based variant (vs Jellyfin). Adjust URLs to match your cluster.
 #
 # Prerequisites:

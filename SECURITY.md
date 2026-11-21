@@ -22,9 +22,10 @@ Worth understanding before you deploy it:
   whatever namespaces it watches. Set `watchNamespace` to one or more namespaces,
   comma-separated, to narrow that down. It reads a Secret only when a resource
   uses it and doesn't keep Secret contents in memory.
-- **It can delete things in those apps.** `prune` and
-  `deletionPolicy: delete` are both opt-in and both scoped to resources the
-  operator created, but they are real delete calls.
+- **It can delete things in those apps.** Only items the operator created, and
+  only when you ask: `prune`, `deletionPolicy: delete` on an app's resource, or
+  deleting an indexer or download client resource, whose `deletionPolicy`
+  defaults to `delete`. They are real delete calls.
 - **`insecureSkipVerify` does what it says.** It disables certificate
   verification for that app's connection. Fine on a LAN you trust, not fine over
   anything you don't. Prefer `caSecretRef` with your own CA.
