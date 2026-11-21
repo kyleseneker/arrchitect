@@ -56,6 +56,30 @@ func TestListDownloadClients(t *testing.T) {
 	assert.Len(t, dcs, 1)
 }
 
+func TestDownloadClientsBefore186UseTheOldPath(t *testing.T) {
+	var paths []string
+	c := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		if !strings.HasPrefix(r.URL.Path, "/api/download_clients") {
+			http.NotFound(w, r)
+			return
+		}
+		paths = append(paths, r.Method+" "+r.URL.Path)
+		if r.Method == http.MethodGet {
+			_ = json.NewEncoder(w).Encode([]map[string]any{{"id": 3, "name": "qBit"}})
+		}
+	})
+	ctx := context.Background()
+	dcs, err := c.ListDownloadClients(ctx)
+	require.NoError(t, err)
+	assert.Len(t, dcs, 1)
+	require.NoError(t, c.CreateDownloadClient(ctx, map[string]any{"name": "SAB"}))
+	require.NoError(t, c.UpdateDownloadClient(ctx, 3, map[string]any{"name": "qBit"}))
+	require.NoError(t, c.DeleteDownloadClient(ctx, 3))
+	assert.Equal(t, []string{
+		"GET /api/download_clients", "POST /api/download_clients", "PUT /api/download_clients", "DELETE /api/download_clients/3",
+	}, paths)
+}
+
 func TestCreateDownloadClient(t *testing.T) {
 	c := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, http.MethodPost, r.Method)
