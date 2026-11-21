@@ -30,6 +30,7 @@ type AutobrrReconciler struct {
 	client.Client
 	Scheme   *runtime.Scheme
 	Recorder events.EventRecorder
+	Apps     ctrlcommon.Apps
 }
 
 // +kubebuilder:rbac:groups=arrchitect.dev,resources=autobrrs,verbs=get;list;watch;update;patch
@@ -77,7 +78,7 @@ func (r *AutobrrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	sync := &autobrrSync{
 		App: "autobrr", Observe: ctrlcommon.ObserveOnly(config.Spec.Reconcile),
-		c: r.Client, ac: ac, namespace: config.Namespace, owner: config.Namespace + "/" + config.Name,
+		c: r.Client, apps: r.Apps, ac: ac, namespace: config.Namespace, owner: config.Namespace + "/" + config.Name,
 		prune: ctrlcommon.PruneEnabled(config.Spec.Reconcile), owned: engine.NewOwnership("autobrr", config.GetManagedResources()),
 	}
 	syncErrors := sync.run(ctx, &config.Spec)
@@ -113,6 +114,7 @@ func (r *AutobrrReconciler) autobrrClient(ctx context.Context, config *automatio
 type autobrrSync struct {
 	engine.Writes
 	c         client.Reader
+	apps      ctrlcommon.Apps
 	ac        *autobrrclient.Client
 	namespace string
 	owner     string
@@ -201,7 +203,7 @@ func (s *autobrrSync) resolveDownloadClient(
 	if dc.AppRef == nil {
 		return dc, nil
 	}
-	app, addr, err := ctrlcommon.ResolveAppAddress(ctx, s.c, s.namespace, *dc.AppRef)
+	app, addr, err := ctrlcommon.ResolveAppAddress(ctx, s.c, s.apps, s.namespace, *dc.AppRef)
 	if err != nil {
 		return dc, fmt.Errorf("appRef: %w", err)
 	}
@@ -691,7 +693,7 @@ func (r *AutobrrReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	b := ctrl.NewControllerManagedBy(mgr).
 		For(&automationv1alpha1.Autobrr{}, builder.WithPredicates(ctrlcommon.ConfigChangedPredicate())).
 		WatchesMetadata(&corev1.Secret{}, ctrlcommon.EnqueueForSecretThroughRefs(r.Client, &automationv1alpha1.AutobrrList{}, autobrrAppRefs))
-	b, err := ctrlcommon.WatchAppRefs(mgr, b, &automationv1alpha1.Autobrr{}, &automationv1alpha1.AutobrrList{}, autobrrAppRefs,
+	b, err := ctrlcommon.WatchAppRefs(mgr, b, r.Apps, &automationv1alpha1.Autobrr{}, &automationv1alpha1.AutobrrList{}, autobrrAppRefs,
 		"QBittorrent", "Sabnzbd", "Sonarr", "Radarr", "Lidarr", "Readarr")
 	if err != nil {
 		return err

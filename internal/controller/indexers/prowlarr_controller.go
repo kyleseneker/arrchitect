@@ -24,6 +24,7 @@ type ProwlarrReconciler struct {
 	client.Client
 	Scheme   *runtime.Scheme
 	Recorder events.EventRecorder
+	Apps     ctrlcommon.Apps
 }
 
 // +kubebuilder:rbac:groups=arrchitect.dev,resources=prowlarrs,verbs=get;list;watch;update;patch
@@ -152,7 +153,7 @@ func (r *ProwlarrReconciler) buildApplicationPayloads(ctx context.Context, confi
 	payloads := make([]map[string]any, 0, len(config.Spec.Applications))
 	for _, app := range config.Spec.Applications {
 		if app.AppRef != nil {
-			ref, err := ctrlcommon.ResolveAppRef(ctx, r.Client, config.Namespace, *app.AppRef)
+			ref, err := ctrlcommon.ResolveAppRef(ctx, r.Client, r.Apps, config.Namespace, *app.AppRef)
 			if err != nil {
 				return nil, fmt.Errorf("application %q appRef: %w", app.Name, err)
 			}
@@ -187,7 +188,7 @@ func (r *ProwlarrReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	b := ctrl.NewControllerManagedBy(mgr).
 		For(&indexersv1alpha1.Prowlarr{}, builder.WithPredicates(ctrlcommon.ConfigChangedPredicate())).
 		WatchesMetadata(&corev1.Secret{}, ctrlcommon.EnqueueForSecretThroughRefs(r.Client, &indexersv1alpha1.ProwlarrList{}, prowlarrAppRefs))
-	b, err := ctrlcommon.WatchAppRefs(mgr, b, &indexersv1alpha1.Prowlarr{}, &indexersv1alpha1.ProwlarrList{}, prowlarrAppRefs, "Sonarr", "Radarr", "Lidarr", "Readarr")
+	b, err := ctrlcommon.WatchAppRefs(mgr, b, r.Apps, &indexersv1alpha1.Prowlarr{}, &indexersv1alpha1.ProwlarrList{}, prowlarrAppRefs, "Sonarr", "Radarr", "Lidarr", "Readarr")
 	if err != nil {
 		return err
 	}

@@ -113,6 +113,10 @@ spec:
   from the operator's, set the fields.
 - The resource must be in the same namespace. The operator only reads it, and
   copies nothing from it into the resource that refers to it.
+- The referenced app must be turned on, as `apps.<app>` in the chart, since the
+  operator reads and watches only the kinds of the apps it runs. A reference to
+  an app that's off reports `SyncFailed`, saying the operator doesn't run that
+  app's controller.
 - Until the resource exists, that connection is neither written nor pruned and
   the `SyncFailed` message names the reference; the rest still syncs. A
   download client resource, and a Seerr that signs in through the media server

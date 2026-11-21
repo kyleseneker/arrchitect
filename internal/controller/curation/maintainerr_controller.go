@@ -34,6 +34,7 @@ type MaintainerrReconciler struct {
 	client.Client
 	Scheme   *runtime.Scheme
 	Recorder events.EventRecorder
+	Apps     ctrlcommon.Apps
 }
 
 // +kubebuilder:rbac:groups=arrchitect.dev,resources=maintainerrs,verbs=get;list;watch;update;patch
@@ -79,7 +80,7 @@ func (r *MaintainerrReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	sync := &maintainerrSync{
 		App: maintainerrApp, Observe: ctrlcommon.ObserveOnly(config.Spec.Reconcile),
-		c: r.Client, mc: mc, namespace: config.Namespace,
+		c: r.Client, apps: r.Apps, mc: mc, namespace: config.Namespace,
 		prune: ctrlcommon.PruneEnabled(config.Spec.Reconcile), owned: engine.NewOwnership(maintainerrApp, config.GetManagedResources()),
 	}
 	syncErrors := sync.run(ctx, &config.Spec)
@@ -113,6 +114,7 @@ func (r *MaintainerrReconciler) maintainerrClient(
 type maintainerrSync struct {
 	engine.Writes
 	c         client.Reader
+	apps      ctrlcommon.Apps
 	mc        *maintainerrclient.Client
 	namespace string
 	prune     bool
@@ -223,7 +225,7 @@ func (s *maintainerrSync) mediaServer(ctx context.Context, ms *curationv1alpha1.
 	}
 	plex := ms.Plex
 	if plex.AppRef != nil {
-		app, addr, err := ctrlcommon.ResolveAppAddress(ctx, s.c, s.namespace, *plex.AppRef)
+		app, addr, err := ctrlcommon.ResolveAppAddress(ctx, s.c, s.apps, s.namespace, *plex.AppRef)
 		if err != nil {
 			return fmt.Errorf("plex appRef: %w", err)
 		}
@@ -234,7 +236,7 @@ func (s *maintainerrSync) mediaServer(ctx context.Context, ms *curationv1alpha1.
 
 func (s *maintainerrSync) jellyfin(ctx context.Context, jf *curationv1alpha1.MaintainerrJellyfin) error {
 	if jf.AppRef != nil {
-		app, err := ctrlcommon.ResolveAppRef(ctx, s.c, s.namespace, *jf.AppRef)
+		app, err := ctrlcommon.ResolveAppRef(ctx, s.c, s.apps, s.namespace, *jf.AppRef)
 		if err != nil {
 			return fmt.Errorf("jellyfin appRef: %w", err)
 		}
@@ -362,7 +364,7 @@ func (s *maintainerrSync) arrServer(
 	ctx context.Context, kind maintainerrclient.Arr, server curationv1alpha1.MaintainerrArrServer, stored []map[string]any,
 ) (bool, error) {
 	if server.AppRef != nil {
-		app, err := ctrlcommon.ResolveAppRef(ctx, s.c, s.namespace, *server.AppRef)
+		app, err := ctrlcommon.ResolveAppRef(ctx, s.c, s.apps, s.namespace, *server.AppRef)
 		if err != nil {
 			return false, fmt.Errorf("appRef: %w", err)
 		}
@@ -434,7 +436,7 @@ func (s *maintainerrSync) seerrConnection(
 	ctx context.Context, conn curationv1alpha1.MaintainerrSeerrConnection,
 ) (curationv1alpha1.MaintainerrServiceConnection, error) {
 	if conn.AppRef != nil {
-		app, err := ctrlcommon.ResolveAppRef(ctx, s.c, s.namespace, *conn.AppRef)
+		app, err := ctrlcommon.ResolveAppRef(ctx, s.c, s.apps, s.namespace, *conn.AppRef)
 		if err != nil {
 			return curationv1alpha1.MaintainerrServiceConnection{}, fmt.Errorf("appRef: %w", err)
 		}
@@ -500,7 +502,7 @@ func (r *MaintainerrReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	b := ctrl.NewControllerManagedBy(mgr).
 		For(&curationv1alpha1.Maintainerr{}, builder.WithPredicates(ctrlcommon.ConfigChangedPredicate())).
 		WatchesMetadata(&corev1.Secret{}, ctrlcommon.EnqueueForSecretThroughRefs(r.Client, &curationv1alpha1.MaintainerrList{}, maintainerrAppRefs))
-	b, err := ctrlcommon.WatchAppRefs(mgr, b, &curationv1alpha1.Maintainerr{}, &curationv1alpha1.MaintainerrList{}, maintainerrAppRefs, "Sonarr", "Radarr", "Seerr", "Plex", "Jellyfin")
+	b, err := ctrlcommon.WatchAppRefs(mgr, b, r.Apps, &curationv1alpha1.Maintainerr{}, &curationv1alpha1.MaintainerrList{}, maintainerrAppRefs, "Sonarr", "Radarr", "Seerr", "Plex", "Jellyfin")
 	if err != nil {
 		return err
 	}
