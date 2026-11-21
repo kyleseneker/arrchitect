@@ -72,9 +72,9 @@ never a production database.
 
 CI checks the same on every change: `make test-compat` reconciles every app
 against fresh containers of the versions pinned in
-[test/compat/images_test.go](../test/compat/images_test.go), current and
-previous, reads the settings back and checks that a second pass writes
-nothing.
+[test/compat/images_test.go](../test/compat/images_test.go), the oldest and
+newest each app is supported at, reads the settings back and checks that a
+second pass writes nothing.
 
 ## Limits
 

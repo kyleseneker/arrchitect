@@ -19,26 +19,29 @@ each other; it doesn't deploy them.
 
 ## Supported apps
 
-Every release is tested against each app's current version and the newest
-release of the line before it.
+Each app is supported at every release from the oldest to the newest in its
+range, and every Arrchitect release is tested against both ends. A range
+covers the releases of the last 12 months; see the
+[stability policy](docs/stability.md#apps) for how it moves and the
+exceptions.
 
-| App | Resource | Tested versions |
+| App | Resource | Supported versions |
 | --- | --- | --- |
-| Sonarr | `Sonarr`, `SonarrIndexer`, `SonarrDownloadClient` | 4.0.20, 4.0.19 |
-| Radarr | `Radarr`, `RadarrIndexer`, `RadarrDownloadClient` | 6.4.4, 6.3.0 |
-| Lidarr | `Lidarr`, `LidarrIndexer`, `LidarrDownloadClient` | 3.1.6, 3.0.1 |
-| Readarr | `Readarr`, `ReadarrIndexer`, `ReadarrDownloadClient` | 0.4.18, 0.4.17 |
-| Prowlarr | `Prowlarr` | 2.7.0, 2.6.5 |
-| FlareSolverr | `FlareSolverr` | 3.5.2, 3.4.6 |
-| Bazarr | `Bazarr` | 1.6.2, 1.5.6 |
-| qBittorrent | `QBittorrent` | 5.3.0, 5.2.4 |
-| SABnzbd | `Sabnzbd` | 5.1.3, 5.0.4 |
-| Jellyfin | `Jellyfin` | 12.4, 12.3 |
-| Plex | `Plex` | 1.43.5, 1.42.2 |
-| Seerr | `Seerr` | 3.5.1, 3.5.0 |
-| Maintainerr | `Maintainerr` | 3.32.0, 3.31.0 |
-| Tdarr | `Tdarr` | 3.06.00, 3.05.00 |
-| Autobrr | `Autobrr` | 1.90.0, 1.89.0 |
+| Sonarr | `Sonarr`, `SonarrIndexer`, `SonarrDownloadClient` | 4.0.16 to 4.0.20 |
+| Radarr | `Radarr`, `RadarrIndexer`, `RadarrDownloadClient` | 6.0.4 to 7.0.3 |
+| Lidarr | `Lidarr`, `LidarrIndexer`, `LidarrDownloadClient` | 3.1.0 to 3.1.6 |
+| Readarr | `Readarr`, `ReadarrIndexer`, `ReadarrDownloadClient` | 0.4.17 to 0.4.18 |
+| Prowlarr | `Prowlarr` | 2.3.0 to 3.0.2 |
+| FlareSolverr | `FlareSolverr` | 3.4.5 to 3.5.2 |
+| Bazarr | `Bazarr` | 1.5.3 to 1.6.2 |
+| qBittorrent | `QBittorrent` | 5.1.4 to 5.3.0 |
+| SABnzbd | `Sabnzbd` | 4.5.5 to 5.1.3 |
+| Jellyfin | `Jellyfin` | 10.11.3 to 12.4 |
+| Plex | `Plex` | 1.42.2 to 1.43.5 |
+| Seerr | `Seerr` | 3.5.0 to 3.5.2 |
+| Maintainerr | `Maintainerr` | 3.30.0 to 3.33.0 |
+| Tdarr | `Tdarr` | 3.00.00 to 3.08.00 |
+| Autobrr | `Autobrr` | 1.69.0 to 1.91.1 |
 
 ## Getting started
 
