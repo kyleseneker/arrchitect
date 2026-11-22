@@ -2714,6 +2714,29 @@ _Appears in:_
 | `anonymousMode` _boolean_ | anonymousMode hides the client's identity from peers and trackers. |  | Optional: \{\} <br /> |
 | `maxInactiveSeedingTimeEnabled` _boolean_ | maxInactiveSeedingTimeEnabled enables the global limit on seeding time<br />without uploads. |  | Optional: \{\} <br /> |
 | `maxInactiveSeedingTime` _integer_ | maxInactiveSeedingTime is the global inactive seeding time limit in<br />minutes. It applies while maxInactiveSeedingTimeEnabled is true, here or<br />in qBittorrent. |  | Optional: \{\} <br /> |
+| `proxyType` _string_ | proxyType is the kind of proxy qBittorrent connects through. None turns<br />the proxy off. |  | Enum: [None HTTP SOCKS5 SOCKS4] <br />Optional: \{\} <br /> |
+| `proxyIp` _string_ | proxyIp is the proxy's host name or address. |  | MinLength: 1 <br />Optional: \{\} <br /> |
+| `proxyPort` _integer_ | proxyPort is the proxy's port. |  | Maximum: 65535 <br />Minimum: 1 <br />Optional: \{\} <br /> |
+| `proxyAuthEnabled` _boolean_ | proxyAuthEnabled signs in to the proxy with proxyUsernameSecretRef and<br />proxyPasswordSecretRef. SOCKS4 has no sign-in. |  | Optional: \{\} <br /> |
+| `proxyUsernameSecretRef` _[SecretKeyRef](#secretkeyref)_ | proxyUsernameSecretRef is the Secret key holding the proxy's user name. |  | Optional: \{\} <br /> |
+| `proxyPasswordSecretRef` _[SecretKeyRef](#secretkeyref)_ | proxyPasswordSecretRef is the Secret key holding the proxy's password. |  | Optional: \{\} <br /> |
+| `proxyHostnameLookup` _boolean_ | proxyHostnameLookup has the proxy, rather than qBittorrent, resolve host<br />names. |  | Optional: \{\} <br /> |
+| `proxyBittorrent` _boolean_ | proxyBittorrent sends BitTorrent traffic through the proxy. |  | Optional: \{\} <br /> |
+| `proxyPeerConnections` _boolean_ | proxyPeerConnections sends connections to peers, not only to trackers,<br />through the proxy. |  | Optional: \{\} <br /> |
+| `proxyRss` _boolean_ | proxyRss sends RSS feed requests through the proxy. |  | Optional: \{\} <br /> |
+| `proxyMisc` _boolean_ | proxyMisc sends qBittorrent's other requests, such as update checks and<br />tracker lists, through the proxy. |  | Optional: \{\} <br /> |
+| `ipFilterEnabled` _boolean_ | ipFilterEnabled blocks the peers ipFilterPath lists. |  | Optional: \{\} <br /> |
+| `ipFilterPath` _string_ | ipFilterPath is the blocklist file, in .dat, .p2p or .p2b format, as<br />qBittorrent sees it. |  | MinLength: 1 <br />Optional: \{\} <br /> |
+| `ipFilterTrackers` _boolean_ | ipFilterTrackers applies the IP filter to trackers as well as peers. |  | Optional: \{\} <br /> |
+| `bannedIps` _string array_ | bannedIps are peer addresses qBittorrent refuses, IPv4 or IPv6. |  | MaxItems: 1000 <br />MinItems: 1 <br />items:MaxLength: 45 <br />Optional: \{\} <br /> |
+| `autorunOnTorrentAddedEnabled` _boolean_ | autorunOnTorrentAddedEnabled runs autorunOnTorrentAddedProgram when a<br />torrent is added. |  | Optional: \{\} <br /> |
+| `autorunOnTorrentAddedProgram` _string_ | autorunOnTorrentAddedProgram is the command run when a torrent is added,<br />with qBittorrent's parameters such as %N for its name and %I for its hash. |  | MinLength: 1 <br />Optional: \{\} <br /> |
+| `autorunEnabled` _boolean_ | autorunEnabled runs autorunProgram when a torrent finishes. |  | Optional: \{\} <br /> |
+| `autorunProgram` _string_ | autorunProgram is the command run when a torrent finishes, with the same<br />parameters as autorunOnTorrentAddedProgram. |  | MinLength: 1 <br />Optional: \{\} <br /> |
+| `addTrackersEnabled` _boolean_ | addTrackersEnabled adds addTrackers to every new torrent. |  | Optional: \{\} <br /> |
+| `addTrackers` _string array_ | addTrackers are tracker URLs added to new torrents, each in its own tier. |  | MinItems: 1 <br />items:MinLength: 1 <br />items:Pattern: `^\S+$` <br />Optional: \{\} <br /> |
+| `addTrackersFromUrlEnabled` _boolean_ | addTrackersFromUrlEnabled adds the trackers listed at addTrackersUrl to<br />every new torrent. |  | Optional: \{\} <br /> |
+| `addTrackersUrl` _string_ | addTrackersUrl is a tracker list qBittorrent downloads, one tracker a<br />line. |  | MinLength: 1 <br />Pattern: `^https?://` <br />Optional: \{\} <br /> |
 
 
 #### QBittorrentSpec
@@ -3901,6 +3924,7 @@ _Appears in:_
 - [ProwlarrApplication](#prowlarrapplication)
 - [ProwlarrProxy](#prowlarrproxy)
 - [QBittorrentConnection](#qbittorrentconnection)
+- [QBittorrentPreferences](#qbittorrentpreferences)
 - [RadarrDownloadClientSpec](#radarrdownloadclientspec)
 - [ReadarrDownloadClientSpec](#readarrdownloadclientspec)
 - [SabnzbdApprise](#sabnzbdapprise)

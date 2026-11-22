@@ -38,7 +38,8 @@ var SchedulerDays = map[string]int{
 
 // Preferences maps the preferences qBittorrent stores as written to their keys.
 // Paths, the share ratio and its action, speed limits, schedule days, excluded
-// file names and the Web UI's domain and proxy lists need converting.
+// file names, the Web UI's domain and proxy lists, banned IPs, added trackers
+// and the proxy's credentials need converting.
 var Preferences = map[string]string{
 	"locale":                             "locale",
 	"tempPathEnabled":                    "temp_path_enabled",
@@ -94,6 +95,25 @@ var Preferences = map[string]string{
 	"anonymousMode":                      "anonymous_mode",
 	"maxInactiveSeedingTimeEnabled":      "max_inactive_seeding_time_enabled",
 	"maxInactiveSeedingTime":             "max_inactive_seeding_time",
+	"proxyType":                          "proxy_type",
+	"proxyIp":                            "proxy_ip",
+	"proxyPort":                          "proxy_port",
+	"proxyAuthEnabled":                   "proxy_auth_enabled",
+	"proxyHostnameLookup":                "proxy_hostname_lookup",
+	"proxyBittorrent":                    "proxy_bittorrent",
+	"proxyPeerConnections":               "proxy_peer_connections",
+	"proxyRss":                           "proxy_rss",
+	"proxyMisc":                          "proxy_misc",
+	"ipFilterEnabled":                    "ip_filter_enabled",
+	"ipFilterPath":                       "ip_filter_path",
+	"ipFilterTrackers":                   "ip_filter_trackers",
+	"autorunOnTorrentAddedEnabled":       "autorun_on_torrent_added_enabled",
+	"autorunOnTorrentAddedProgram":       "autorun_on_torrent_added_program",
+	"autorunEnabled":                     "autorun_enabled",
+	"autorunProgram":                     "autorun_program",
+	"addTrackersEnabled":                 "add_trackers_enabled",
+	"addTrackersFromUrlEnabled":          "add_trackers_from_url_enabled",
+	"addTrackersUrl":                     "add_trackers_url",
 }
 
 // SpeedLimits are the preferences the spec takes in KiB/s and qBittorrent

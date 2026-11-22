@@ -78,6 +78,7 @@ func exportQBittorrent(r *reader) (map[string]any, error) {
 		}
 	}
 
+	r.qbExtraPreferences(preferences, prefs)
 	categories, err := qb.ListCategories(r.ctx)
 	if err != nil {
 		return nil, err
@@ -99,4 +100,29 @@ func exportQBittorrent(r *reader) (map[string]any, error) {
 		spec["categories"] = cats
 	}
 	return spec, nil
+}
+
+// qbExtraPreferences exports the banned addresses, added trackers and proxy
+// credentials, which qBittorrent keeps in its own forms.
+func (r *reader) qbExtraPreferences(preferences, prefs map[string]any) {
+	if ips, _ := prefs["banned_IPs"].(string); ips != "" {
+		preferences["bannedIps"] = strings.Fields(ips)
+	}
+	if trackers, _ := prefs["add_trackers"].(string); strings.TrimSpace(trackers) != "" {
+		var urls []string
+		for line := range strings.SplitSeq(trackers, "\n") {
+			if line = strings.TrimSpace(line); line != "" && !slices.Contains(urls, line) {
+				urls = append(urls, line)
+			}
+		}
+		if strings.Join(urls, "\n\n") != strings.TrimSpace(trackers) {
+			r.warn("qBittorrent's added trackers aren't each in their own tier, which is how the config writes them")
+		}
+		preferences["addTrackers"] = urls
+	}
+	for field, key := range map[string]string{"proxyUsernameSecretRef": "proxy_username", "proxyPasswordSecretRef": "proxy_password"} {
+		if v, _ := prefs[key].(string); v != "" {
+			preferences[field] = r.creds.ref(v, strings.ReplaceAll(key, "_", "-"))
+		}
+	}
 }
