@@ -39,7 +39,8 @@ func TestAutobrr(t *testing.T) {
 			{"op": "replace", "path": "/spec/downloadClients/1/enable", "value": false},
 			{"op": "replace", "path": "/spec/feeds/0/interval", "value": 45},
 			{"op": "replace", "path": "/spec/ircNetworks/0/nick", "value": "compat-bot2"},
-			{"op": "replace", "path": "/spec/filters/0/priority", "value": 2}
+			{"op": "replace", "path": "/spec/filters/0/priority", "value": 2},
+			{"op": "replace", "path": "/spec/notifications/0/events", "value": ["pushApproved"]}
 		]`,
 		export: "autobrr",
 		vars: map[string]string{
@@ -48,6 +49,7 @@ func TestAutobrr(t *testing.T) {
 		secrets: map[string]string{
 			"api-key": key, "qbittorrent-username": qbittorrentUser, "qbittorrent-password": qbitPassword,
 			"sonarr-api-key": randomKey(), "ipt-passkey": randomKey(), "torznab-api-key": randomKey(),
+			"gotify-token": randomKey(),
 		},
 		newObj: func() ctrlcommon.ConfigResource { return &automationv1alpha1.Autobrr{} },
 		reconciler: func(c client.Client) reconcile.Reconciler {
@@ -151,7 +153,8 @@ func autobrrAPIKey(t *testing.T, base string) string {
 	_ = post(c, "/api/auth/onboard", creds).Body.Close()
 	_ = post(c, "/api/auth/login", creds).Body.Close()
 	// The scopes docs/example-stack.md gives; Autobrr before 1.91 ignores them.
-	scopes := `"config:read","downloaders:write","indexers:write","irc:write","feeds:write","filters:write"`
+	scopes := `"config:read","downloaders:write","indexers:write","irc:write","feeds:write","filters:write",` +
+		`"notifications:write"`
 	key := []byte(`{"name":"compat","scopes":[` + scopes + `]}`)
 	resp := post(c, "/api/keys", key)
 	defer func() { _ = resp.Body.Close() }()

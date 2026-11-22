@@ -29,6 +29,7 @@ import (
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
 	downloadsv1alpha1 "github.com/kyleseneker/arrchitect/api/downloads/v1alpha1"
 	pvrv1alpha1 "github.com/kyleseneker/arrchitect/api/pvr/v1alpha1"
+	autobrrclient "github.com/kyleseneker/arrchitect/internal/client/autobrr"
 )
 
 const conditionTrue = "True"
@@ -575,4 +576,48 @@ func TestAutobrrMissingDownloadClientAppRefIsReported(t *testing.T) {
 	synced := meta.FindStatusCondition(got.Status.Conditions, "Synced")
 	require.NotNil(t, synced)
 	assert.Contains(t, synced.Message, `downloadClient(qBittorrent): appRef: QBittorrent "qbittorrent" not found`)
+}
+
+func TestAutobrrNotificationTakesItsEventsAndOptions(t *testing.T) {
+	app := &fakeAutobrr{}
+	cfg := autobrrConfig(app.serve(t))
+	cfg.Spec.Notifications = []automationv1alpha1.AutobrrNotification{{
+		Name: "Discord", Type: "Discord", Events: []string{"pushApproved", "ircDisconnected"},
+		Options: []commonv1alpha1.ConfigField{
+			{Name: "webhook", ValueFrom: commonv1alpha1.ValueSource{SecretKeyRef: commonv1alpha1.SecretKeyRef{Name: "hooks", Key: "discord"}}},
+			{Name: "title", Value: &commonv1alpha1.FieldValue{Raw: []byte(`"autobrr"`)}},
+		},
+	}}
+	hooks := &corev1.Secret{Name: "hooks", Namespace: "media", Data: map[string][]byte{"discord": []byte("https://discord.example/hook")}}
+	runAutobrr(t, cfg, true, hooks)
+
+	body := app.posted("/api/notification")
+	require.NotNil(t, body, "the notification was never created")
+	assert.Equal(t, "DISCORD", body["type"])
+	assert.Equal(t, []any{"PUSH_APPROVED", "IRC_DISCONNECTED"}, body["events"])
+	assert.Equal(t, "https://discord.example/hook", body["webhook"])
+	assert.Equal(t, "autobrr", body["title"])
+	assert.Equal(t, true, body["enabled"], "a new notification is enabled")
+}
+
+func TestAutobrrNotificationRefusesAnUnknownOption(t *testing.T) {
+	app := &fakeAutobrr{}
+	cfg := autobrrConfig(app.serve(t))
+	cfg.Spec.Notifications = []automationv1alpha1.AutobrrNotification{{
+		Name: "Discord", Type: "Discord",
+		Options: []commonv1alpha1.ConfigField{{Name: "webhookUrl", Value: &commonv1alpha1.FieldValue{Raw: []byte(`"x"`)}}},
+	}}
+	runAutobrr(t, cfg, true)
+
+	assert.False(t, app.saw(http.MethodPost, "/api/notification"), "wrote a notification with a setting Autobrr would drop")
+}
+
+func TestAutobrrEventNames(t *testing.T) {
+	for name, want := range map[string]string{
+		"pushApproved": "PUSH_APPROVED", "ircDisconnected": "IRC_DISCONNECTED",
+		"appUpdateAvailable": "APP_UPDATE_AVAILABLE", "releaseNew": "RELEASE_NEW",
+	} {
+		assert.Equal(t, want, autobrrclient.NotificationEvent(name))
+		assert.Equal(t, name, autobrrclient.NotificationEventName(want))
+	}
 }
