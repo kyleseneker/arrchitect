@@ -301,6 +301,17 @@ spec:
                     description: autoRedownloadFailed automatically searches when
                       a download fails.
                     type: boolean
+                  autoRedownloadFailedFromInteractiveSearch:
+                    description: autoRedownloadFailedFromInteractiveSearch auto-searches
+                      failed interactive searches.
+                    type: boolean
+                  downloadClientWorkingFolders:
+                    description: |-
+                      downloadClientWorkingFolders lists, separated by |, the folders download
+                      clients unpack and fail into, which imports skip. The app's default is
+                      _UNPACK_|_FAILED_.
+                    minLength: 1
+                    type: string
                   enableCompletedDownloadHandling:
                     description: enableCompletedDownloadHandling auto-imports completed
                       downloads.
@@ -654,6 +665,16 @@ spec:
                     description: artistFolderFormat is the naming format for artist
                       folders.
                     minLength: 1
+                    type: string
+                  colonReplacementFormat:
+                    description: colonReplacementFormat defines how colons are replaced
+                      in filenames.
+                    enum:
+                    - delete
+                    - dash
+                    - spaceDash
+                    - spaceDashSpace
+                    - smart
                     type: string
                   multiDiscTrackFormat:
                     description: multiDiscTrackFormat is the naming format for multi-disc

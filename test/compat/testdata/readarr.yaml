@@ -29,6 +29,7 @@ spec:
     replaceIllegalCharacters: true
     standardBookFormat: "{Book Title}/{Author Name} - {Book Title}{ (PartNumber)}"
     authorFolderFormat: "{Author Name}"
+    colonReplacementFormat: dash
   indexerConfig:
     minimumAge: 0
     retention: 0
@@ -37,6 +38,8 @@ spec:
   downloadClientConfig:
     enableCompletedDownloadHandling: true
     autoRedownloadFailed: true
+    autoRedownloadFailedFromInteractiveSearch: false
+    downloadClientWorkingFolders: "_UNPACK_|_FAILED_|_TEMP_"
   ui:
     firstDayOfWeek: 1
     shortDateFormat: "MMM D YYYY"

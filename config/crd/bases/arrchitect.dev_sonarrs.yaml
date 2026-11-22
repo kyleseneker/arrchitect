@@ -304,6 +304,13 @@ spec:
                     description: autoRedownloadFailedFromInteractiveSearch auto-searches
                       failed interactive searches.
                     type: boolean
+                  downloadClientWorkingFolders:
+                    description: |-
+                      downloadClientWorkingFolders lists, separated by |, the folders download
+                      clients unpack and fail into, which imports skip. The app's default is
+                      _UNPACK_|_FAILED_.
+                    minLength: 1
+                    type: string
                   enableCompletedDownloadHandling:
                     description: enableCompletedDownloadHandling auto-imports completed
                       downloads.
@@ -610,14 +617,22 @@ spec:
                     minLength: 1
                     type: string
                   colonReplacementFormat:
-                    description: colonReplacementFormat defines how colons are replaced
-                      in filenames.
+                    description: |-
+                      colonReplacementFormat defines how colons are replaced in filenames:
+                      custom uses customColonReplacementFormat.
                     enum:
                     - delete
                     - dash
                     - spaceDash
                     - spaceDashSpace
                     - smart
+                    - custom
+                    type: string
+                  customColonReplacementFormat:
+                    description: |-
+                      customColonReplacementFormat replaces each colon when
+                      colonReplacementFormat is custom.
+                    minLength: 1
                     type: string
                   dailyEpisodeFormat:
                     description: dailyEpisodeFormat is the naming format for daily

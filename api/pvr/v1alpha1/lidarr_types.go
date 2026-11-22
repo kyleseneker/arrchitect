@@ -264,6 +264,11 @@ type LidarrNaming struct {
 	// +optional
 	// +kubebuilder:validation:MinLength=1
 	ArtistFolderFormat string `json:"artistFolderFormat,omitempty"`
+
+	// colonReplacementFormat defines how colons are replaced in filenames.
+	// +optional
+	// +kubebuilder:validation:Enum=delete;dash;spaceDash;spaceDashSpace;smart
+	ColonReplacementFormat string `json:"colonReplacementFormat,omitempty"`
 }
 
 // LidarrIndexerConfig configures global indexer settings.
@@ -294,6 +299,17 @@ type LidarrDownloadClientConfig struct {
 	// autoRedownloadFailed automatically searches when a download fails.
 	// +optional
 	AutoRedownloadFailed *bool `json:"autoRedownloadFailed,omitempty"`
+
+	// autoRedownloadFailedFromInteractiveSearch auto-searches failed interactive searches.
+	// +optional
+	AutoRedownloadFailedFromInteractiveSearch *bool `json:"autoRedownloadFailedFromInteractiveSearch,omitempty"`
+
+	// downloadClientWorkingFolders lists, separated by |, the folders download
+	// clients unpack and fail into, which imports skip. The app's default is
+	// _UNPACK_|_FAILED_.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	DownloadClientWorkingFolders string `json:"downloadClientWorkingFolders,omitempty"`
 }
 
 // LidarrUI configures UI display settings.

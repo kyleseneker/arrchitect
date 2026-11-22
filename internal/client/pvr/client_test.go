@@ -130,8 +130,21 @@ func TestSectionsNumberSonarrNamingChoices(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, map[string]any{"colonReplacementFormat": 4, "multiEpisodeStyle": 5}, sections["naming"])
 
-	_, err = Sections(pvrv1alpha1.SonarrSpec{Naming: &pvrv1alpha1.SonarrNaming{ColonReplacementFormat: "custom"}}, Sonarr.Choices)
-	assert.ErrorContains(t, err, `naming.colonReplacementFormat: unknown value "custom"`)
+	sections, err = Sections(pvrv1alpha1.SonarrSpec{Naming: &pvrv1alpha1.SonarrNaming{
+		ColonReplacementFormat: "custom", CustomColonReplacementFormat: " -",
+	}}, Sonarr.Choices)
+	require.NoError(t, err)
+	assert.Equal(t, map[string]any{"colonReplacementFormat": 5, "customColonReplacementFormat": " -"}, sections["naming"])
+
+	_, err = Sections(pvrv1alpha1.SonarrSpec{Naming: &pvrv1alpha1.SonarrNaming{ColonReplacementFormat: "underscore"}}, Sonarr.Choices)
+	assert.ErrorContains(t, err, `naming.colonReplacementFormat: unknown value "underscore"`)
+}
+
+func TestSectionsNumberLidarrAndReadarrColonReplacement(t *testing.T) {
+	sections, err := Sections(pvrv1alpha1.LidarrSpec{Naming: &pvrv1alpha1.LidarrNaming{ColonReplacementFormat: "dash"}}, Lidarr.Choices)
+	require.NoError(t, err)
+	assert.Equal(t, map[string]any{"colonReplacementFormat": 1}, sections["naming"])
+	assert.Equal(t, Lidarr.Choices, Readarr.Choices)
 }
 
 func TestBuildDownloadClientPayload(t *testing.T) {

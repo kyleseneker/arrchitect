@@ -43,6 +43,7 @@ spec:
     enableCompletedDownloadHandling: true
     autoRedownloadFailed: true
     checkForFinishedDownloadInterval: 1
+    downloadClientWorkingFolders: "_UNPACK_|_FAILED_|_TEMP_"
   ui:
     firstDayOfWeek: 1
     shortDateFormat: "MMM D YYYY"

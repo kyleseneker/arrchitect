@@ -1354,6 +1354,8 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `enableCompletedDownloadHandling` _boolean_ | enableCompletedDownloadHandling auto-imports completed downloads. |  | Optional: \{\} <br /> |
 | `autoRedownloadFailed` _boolean_ | autoRedownloadFailed automatically searches when a download fails. |  | Optional: \{\} <br /> |
+| `autoRedownloadFailedFromInteractiveSearch` _boolean_ | autoRedownloadFailedFromInteractiveSearch auto-searches failed interactive searches. |  | Optional: \{\} <br /> |
+| `downloadClientWorkingFolders` _string_ | downloadClientWorkingFolders lists, separated by \|, the folders download<br />clients unpack and fail into, which imports skip. The app's default is<br />_UNPACK_\|_FAILED_. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 
 
 #### LidarrDownloadClientSpec
@@ -1576,6 +1578,7 @@ _Appears in:_
 | `standardTrackFormat` _string_ | standardTrackFormat is the naming format for standard tracks. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `multiDiscTrackFormat` _string_ | multiDiscTrackFormat is the naming format for multi-disc tracks. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `artistFolderFormat` _string_ | artistFolderFormat is the naming format for artist folders. |  | MinLength: 1 <br />Optional: \{\} <br /> |
+| `colonReplacementFormat` _string_ | colonReplacementFormat defines how colons are replaced in filenames. |  | Enum: [delete dash spaceDash spaceDashSpace smart] <br />Optional: \{\} <br /> |
 
 
 #### LidarrSpec
@@ -2844,6 +2847,7 @@ _Appears in:_
 | `autoRedownloadFailed` _boolean_ | autoRedownloadFailed automatically searches when a download fails. |  | Optional: \{\} <br /> |
 | `autoRedownloadFailedFromInteractiveSearch` _boolean_ | autoRedownloadFailedFromInteractiveSearch auto-searches failed interactive searches. |  | Optional: \{\} <br /> |
 | `checkForFinishedDownloadInterval` _integer_ | checkForFinishedDownloadInterval is the interval in minutes to check for finished downloads. |  | Optional: \{\} <br /> |
+| `downloadClientWorkingFolders` _string_ | downloadClientWorkingFolders lists, separated by \|, the folders download<br />clients unpack and fail into, which imports skip. The app's default is<br />_UNPACK_\|_FAILED_. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 
 
 #### RadarrDownloadClientSpec
@@ -3181,6 +3185,8 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `enableCompletedDownloadHandling` _boolean_ | enableCompletedDownloadHandling auto-imports completed downloads. |  | Optional: \{\} <br /> |
 | `autoRedownloadFailed` _boolean_ | autoRedownloadFailed automatically searches when a download fails. |  | Optional: \{\} <br /> |
+| `autoRedownloadFailedFromInteractiveSearch` _boolean_ | autoRedownloadFailedFromInteractiveSearch auto-searches failed interactive searches. |  | Optional: \{\} <br /> |
+| `downloadClientWorkingFolders` _string_ | downloadClientWorkingFolders lists, separated by \|, the folders download<br />clients unpack and fail into, which imports skip. The app's default is<br />_UNPACK_\|_FAILED_. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 
 
 #### ReadarrDownloadClientSpec
@@ -3403,6 +3409,7 @@ _Appears in:_
 | `replaceIllegalCharacters` _boolean_ | replaceIllegalCharacters replaces illegal characters in filenames. |  | Optional: \{\} <br /> |
 | `standardBookFormat` _string_ | standardBookFormat is the naming format for book files. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `authorFolderFormat` _string_ | authorFolderFormat is the naming format for author folders. |  | MinLength: 1 <br />Optional: \{\} <br /> |
+| `colonReplacementFormat` _string_ | colonReplacementFormat defines how colons are replaced in filenames. |  | Enum: [delete dash spaceDash spaceDashSpace smart] <br />Optional: \{\} <br /> |
 
 
 #### ReadarrSpec
@@ -4099,6 +4106,7 @@ _Appears in:_
 | `enableCompletedDownloadHandling` _boolean_ | enableCompletedDownloadHandling auto-imports completed downloads. |  | Optional: \{\} <br /> |
 | `autoRedownloadFailed` _boolean_ | autoRedownloadFailed automatically searches when a download fails. |  | Optional: \{\} <br /> |
 | `autoRedownloadFailedFromInteractiveSearch` _boolean_ | autoRedownloadFailedFromInteractiveSearch auto-searches failed interactive searches. |  | Optional: \{\} <br /> |
+| `downloadClientWorkingFolders` _string_ | downloadClientWorkingFolders lists, separated by \|, the folders download<br />clients unpack and fail into, which imports skip. The app's default is<br />_UNPACK_\|_FAILED_. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 
 
 #### SonarrDownloadClientSpec
@@ -4296,7 +4304,8 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `renameEpisodes` _boolean_ | renameEpisodes enables automatic episode file renaming. |  | Optional: \{\} <br /> |
 | `replaceIllegalCharacters` _boolean_ | replaceIllegalCharacters replaces illegal characters in filenames. |  | Optional: \{\} <br /> |
-| `colonReplacementFormat` _string_ | colonReplacementFormat defines how colons are replaced in filenames. |  | Enum: [delete dash spaceDash spaceDashSpace smart] <br />Optional: \{\} <br /> |
+| `colonReplacementFormat` _string_ | colonReplacementFormat defines how colons are replaced in filenames:<br />custom uses customColonReplacementFormat. |  | Enum: [delete dash spaceDash spaceDashSpace smart custom] <br />Optional: \{\} <br /> |
+| `customColonReplacementFormat` _string_ | customColonReplacementFormat replaces each colon when<br />colonReplacementFormat is custom. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `multiEpisodeStyle` _string_ | multiEpisodeStyle defines how multi-episode files are named: extend<br />(S01E01-02-03), duplicate (S01E01.S01E02), repeat (S01E01E02E03), scene<br />(S01E01-E02-E03), range (S01E01-03) or prefixedRange (S01E01-E03). |  | Enum: [extend duplicate repeat scene range prefixedRange] <br />Optional: \{\} <br /> |
 | `standardEpisodeFormat` _string_ | standardEpisodeFormat is the naming format for standard episodes. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `dailyEpisodeFormat` _string_ | dailyEpisodeFormat is the naming format for daily episodes. |  | MinLength: 1 <br />Optional: \{\} <br /> |
