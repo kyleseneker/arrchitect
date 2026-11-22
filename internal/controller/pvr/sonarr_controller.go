@@ -46,6 +46,7 @@ func (r *SonarrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 			ImportLists:        s.ImportLists,
 			QualityDefinitions: s.QualityDefinitions,
 			DelayProfiles:      s.DelayProfiles,
+			ReleaseProfiles:    s.ReleaseProfiles,
 		},
 	})
 }

@@ -58,7 +58,8 @@ func TestSonarr(t *testing.T) {
 			{"op": "replace", "path": "/spec/qualityProfiles/0/minUpgradeFormatScore", "value": 10},
 			{"op": "replace", "path": "/spec/notifications/0/onRename", "value": false},
 			{"op": "replace", "path": "/spec/importLists/0/seasonFolder", "value": false},
-			{"op": "replace", "path": "/spec/delayProfiles/0/usenetDelay", "value": 90}
+			{"op": "replace", "path": "/spec/delayProfiles/0/usenetDelay", "value": 90},
+			{"op": "add", "path": "/spec/releaseProfiles/0/indexerName", "value": "Compat Torznab"}
 		]`,
 		export: "sonarr",
 		vars: map[string]string{
@@ -143,7 +144,8 @@ func TestRadarr(t *testing.T) {
 			{"op": "replace", "path": "/spec/qualityProfiles/0/minUpgradeFormatScore", "value": 10},
 			{"op": "replace", "path": "/spec/notifications/0/onRename", "value": false},
 			{"op": "replace", "path": "/spec/importLists/0/minimumAvailability", "value": "announced"},
-			{"op": "replace", "path": "/spec/delayProfiles/0/usenetDelay", "value": 180}
+			{"op": "replace", "path": "/spec/delayProfiles/0/usenetDelay", "value": 180},
+			{"op": "add", "path": "/spec/releaseProfiles/0/indexerName", "value": "Compat Torznab"}
 		]`,
 		export: "radarr",
 		vars: map[string]string{

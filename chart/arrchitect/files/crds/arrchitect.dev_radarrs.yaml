@@ -1043,6 +1043,69 @@ spec:
                 - message: deletionPolicy delete conflicts with driftPolicy observe
                   rule: '!has(self.deletionPolicy) || self.deletionPolicy != ''delete''
                     || !has(self.driftPolicy) || self.driftPolicy != ''observe'''
+              releaseProfiles:
+                description: |-
+                  releaseProfiles defines release profiles: terms a release must or must not
+                  contain, matched by name.
+                items:
+                  description: |-
+                    ReleaseProfile defines a release profile in Sonarr or Radarr: terms a
+                    release must or must not contain.
+                  properties:
+                    enabled:
+                      description: |-
+                        enabled turns the profile on. A new profile is enabled unless this is
+                        false.
+                      type: boolean
+                    ignored:
+                      description: |-
+                        ignored are terms a release must not contain. A term between slashes is a
+                        regular expression.
+                      items:
+                        minLength: 1
+                        type: string
+                      type: array
+                      x-kubernetes-list-type: set
+                    indexerName:
+                      description: |-
+                        indexerName limits the profile to releases from one indexer, resolved by
+                        name against the app on each reconciliation. Left out, the profile applies
+                        to every indexer.
+                      minLength: 1
+                      type: string
+                    name:
+                      description: name identifies the profile.
+                      minLength: 1
+                      type: string
+                    required:
+                      description: |-
+                        required are terms a release must contain at least one of. A term between
+                        slashes is a regular expression.
+                      items:
+                        minLength: 1
+                        type: string
+                      type: array
+                      x-kubernetes-list-type: set
+                    tagLabels:
+                      description: |-
+                        tagLabels references tags by label, resolved against the app on each
+                        reconciliation; the profile applies to series or movies with any of them.
+                        A missing or ambiguous label blocks writes, and an empty list clears the
+                        tags.
+                      items:
+                        type: string
+                      type: array
+                      x-kubernetes-list-type: set
+                  required:
+                  - name
+                  type: object
+                  x-kubernetes-validations:
+                  - message: set required, ignored or both
+                    rule: has(self.required) || has(self.ignored)
+                type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
               remotePathMappings:
                 description: |-
                   remotePathMappings translates paths reported by remote download clients.

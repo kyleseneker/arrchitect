@@ -201,7 +201,7 @@ prune, removing an item from the resource only stops managing it.
 
 | App | Pruned |
 |---|---|
-| Sonarr, Radarr, Lidarr, Readarr | notifications, import lists, custom formats, quality profiles, remote path mappings, delay profiles |
+| Sonarr, Radarr, Lidarr, Readarr | notifications, import lists, custom formats, quality profiles, remote path mappings, delay profiles; release profiles in Sonarr and Radarr |
 | Prowlarr | applications, indexers, proxies, download clients, notifications |
 | FlareSolverr | sessions |
 | Tdarr | library variables |
@@ -284,6 +284,8 @@ references can use names instead:
 - `appProfileName` on Prowlarr indexers.
 - `downloadClientName` on Sonarr, Radarr, Lidarr and Readarr indexers, which
   sends the indexer's releases to that download client.
+- `indexerName` on Sonarr and Radarr release profiles, which limits the profile
+  to that indexer.
 - `activeProfileName` on Seerr's Sonarr and Radarr connections, looked up from
   that Sonarr or Radarr.
 

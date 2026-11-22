@@ -27,6 +27,9 @@ type App struct {
 	CategoryField    string
 	ImportListFields ImportListFields
 	MetadataProfiles bool
+	// ReleaseProfiles marks apps whose release profiles have names (Sonarr,
+	// Radarr), so the operator can match them.
+	ReleaseProfiles bool
 	// Choices are settings, by section and field, that the resource names and
 	// the app stores as numbers.
 	Choices map[string]map[string]map[string]int
@@ -34,7 +37,7 @@ type App struct {
 
 var (
 	Sonarr = App{
-		Name: "sonarr", Kind: "Sonarr", APIVersion: "v3", CategoryField: "tvCategory",
+		Name: "sonarr", Kind: "Sonarr", APIVersion: "v3", CategoryField: "tvCategory", ReleaseProfiles: true,
 		ImportListFields: ImportListFields{AutomaticAdd: "enableAutomaticAdd", Monitor: "shouldMonitor"},
 		Choices: map[string]map[string]map[string]int{"naming": {
 			"colonReplacementFormat": {"delete": 0, "dash": 1, "spaceDash": 2, "spaceDashSpace": 3, "smart": 4},
@@ -42,7 +45,7 @@ var (
 		}},
 	}
 	Radarr = App{
-		Name: "radarr", Kind: "Radarr", APIVersion: "v3", CategoryField: "movieCategory",
+		Name: "radarr", Kind: "Radarr", APIVersion: "v3", CategoryField: "movieCategory", ReleaseProfiles: true,
 		ImportListFields: ImportListFields{Enable: "enabled", AutomaticAdd: "enableAuto", Monitor: "monitor"},
 	}
 	Lidarr = App{
@@ -99,6 +102,10 @@ func Definition(apiVersion string) engine.AppDefinition {
 			{
 				Name: "notifications", Path: prefix + "/notification", MatchField: "name", Policy: engine.CreateOrUpdate, Prunable: true,
 				CreateDefaults: map[string]any{"fields": []any{}, "tags": []any{}},
+			},
+			{
+				Name: "releaseProfiles", Path: prefix + "/releaseprofile", MatchField: "name", Policy: engine.CreateOrUpdate, Prunable: true,
+				CreateDefaults: map[string]any{"enabled": true, "required": []any{}, "ignored": []any{}, "indexerId": 0, "tags": []any{}},
 			},
 			// importLists last — may reference quality profiles by name.
 			{
@@ -177,6 +184,7 @@ type Options struct {
 	Indexers         []commonv1alpha1.Indexer
 	Notifications    []commonv1alpha1.Notification
 	ImportLists      []commonv1alpha1.ImportList
+	ReleaseProfiles  []commonv1alpha1.ReleaseProfile
 	// QualityDefinitions and DelayProfiles change items the app already has as
 	// well as adding to them.
 	QualityDefinitions []commonv1alpha1.QualityDefinition
@@ -244,6 +252,9 @@ func Resources(ctx context.Context, client *engine.HTTPClient, apiVersion string
 		}},
 		{"importLists", len(opts.ImportLists), func() ([]map[string]any, error) {
 			return importListResources(ctx, client, apiVersion, opts, tagIDs)
+		}},
+		{"releaseProfiles", len(opts.ReleaseProfiles), func() ([]map[string]any, error) {
+			return releaseProfileResources(ctx, client, apiVersion, opts.ReleaseProfiles, tagIDs)
 		}},
 	}
 
@@ -335,6 +346,47 @@ func indexerResources(
 		idxs = append(idxs, payload)
 	}
 	return idxs, nil
+}
+
+func releaseProfileResources(
+	ctx context.Context, client *engine.HTTPClient, apiVersion string, declared []commonv1alpha1.ReleaseProfile, tagIDs engine.NamedIDs,
+) ([]map[string]any, error) {
+	var indexers engine.NamedIDs
+	profiles := make([]map[string]any, 0, len(declared))
+	for _, rp := range declared {
+		payload := map[string]any{"name": rp.Name}
+		if rp.Enabled != nil {
+			payload["enabled"] = *rp.Enabled
+		}
+		if rp.Required != nil {
+			payload["required"] = rp.Required
+		}
+		if rp.Ignored != nil {
+			payload["ignored"] = rp.Ignored
+		}
+		if rp.TagLabels != nil {
+			tags, err := tagIDs.ResolveTags(rp.TagLabels)
+			if err != nil {
+				return nil, fmt.Errorf("releaseProfiles(%s): %w", rp.Name, err)
+			}
+			payload["tags"] = BuildTagsPayload(tags)
+		}
+		if rp.IndexerName != "" {
+			if indexers == nil {
+				var err error
+				if indexers, err = engine.FetchNamedIDs(ctx, client, fmt.Sprintf("/api/%s/indexer", apiVersion), "name"); err != nil {
+					return nil, err
+				}
+			}
+			id, err := indexers.Resolve(rp.IndexerName)
+			if err != nil {
+				return nil, fmt.Errorf("releaseProfiles(%s): indexer: %w", rp.Name, err)
+			}
+			payload["indexerId"] = id
+		}
+		profiles = append(profiles, payload)
+	}
+	return profiles, nil
 }
 
 func notificationResources(

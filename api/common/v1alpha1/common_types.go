@@ -633,6 +633,50 @@ type Indexer struct {
 	Fields []ConfigField `json:"fields,omitempty"`
 }
 
+// ReleaseProfile defines a release profile in Sonarr or Radarr: terms a
+// release must or must not contain.
+// +kubebuilder:validation:XValidation:rule="has(self.required) || has(self.ignored)",message="set required, ignored or both"
+type ReleaseProfile struct {
+	// name identifies the profile.
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name,omitempty"`
+
+	// enabled turns the profile on. A new profile is enabled unless this is
+	// false.
+	// +optional
+	Enabled *bool `json:"enabled,omitempty"`
+
+	// required are terms a release must contain at least one of. A term between
+	// slashes is a regular expression.
+	// +optional
+	// +listType=set
+	// +kubebuilder:validation:items:MinLength=1
+	Required []string `json:"required,omitempty"`
+
+	// ignored are terms a release must not contain. A term between slashes is a
+	// regular expression.
+	// +optional
+	// +listType=set
+	// +kubebuilder:validation:items:MinLength=1
+	Ignored []string `json:"ignored,omitempty"`
+
+	// indexerName limits the profile to releases from one indexer, resolved by
+	// name against the app on each reconciliation. Left out, the profile applies
+	// to every indexer.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	IndexerName string `json:"indexerName,omitempty"`
+
+	// tagLabels references tags by label, resolved against the app on each
+	// reconciliation; the profile applies to series or movies with any of them.
+	// A missing or ambiguous label blocks writes, and an empty list clears the
+	// tags.
+	// +optional
+	// +listType=set
+	TagLabels []string `json:"tagLabels,omitempty"`
+}
+
 // Notification defines a notification (a "Connect" entry) in Sonarr, Radarr, Lidarr, Readarr or Prowlarr.
 type Notification struct {
 	// name is the display name of the notification.

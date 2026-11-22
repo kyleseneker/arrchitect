@@ -2949,6 +2949,7 @@ _Appears in:_
 | `customFormats` _[CustomFormat](#customformat) array_ | customFormats defines custom format scoring rules for release selection. |  | Optional: \{\} <br /> |
 | `qualityDefinitions` _[QualityDefinition](#qualitydefinition) array_ | qualityDefinitions sets the size limits of the app's qualities. The app<br />has a fixed set of qualities, so none is created or pruned, and qualities<br />left out keep their limits. |  | Optional: \{\} <br /> |
 | `delayProfiles` _[DelayProfile](#delayprofile) array_ | delayProfiles defines delay profiles. The app checks tagged profiles in<br />the order listed, and the default profile, the one without tags, last.<br />Only operator-created profiles can be pruned, so the default never is. |  | MaxItems: 50 <br />Optional: \{\} <br /> |
+| `releaseProfiles` _[ReleaseProfile](#releaseprofile) array_ | releaseProfiles defines release profiles: terms a release must or must not<br />contain, matched by name. |  | Optional: \{\} <br /> |
 | `tags` _[Tag](#tag) array_ | tags defines tags for linking resources together. |  | Optional: \{\} <br /> |
 | `notifications` _[Notification](#notification) array_ | notifications defines notification/connection configurations. |  | Optional: \{\} <br /> |
 
@@ -3346,6 +3347,29 @@ _Appears in:_
 | `prune` _boolean_ | prune deletes resources the operator created, tracked in<br />status.managedResources, once they are removed from this spec. Resources<br />it did not create are never deleted, and a resource type with nothing<br />declared is left alone. Root folders and tags are never pruned.<br />Not every integration supports prune; one that does not rejects it with<br />InvalidConfig rather than ignoring it.<br />Default: false (only create/update, never delete). |  | Optional: \{\} <br /> |
 | `driftPolicy` _string_ | driftPolicy controls whether drift is corrected or only recorded.<br />"enforce" rewrites a resource whose live state differs from this CR.<br />"observe" leaves the app untouched and only counts the difference, which<br />makes drift measurable before handing the operator write authority.<br />Default: enforce. |  | Enum: [enforce observe] <br />Optional: \{\} <br /> |
 | `deletionPolicy` _string_ | deletionPolicy controls what happens to resources in the app when this CR<br />is deleted. "orphan" leaves them in place, "delete" removes the resources<br />the operator created.<br />Default: orphan. |  | Enum: [orphan delete] <br />Optional: \{\} <br /> |
+
+
+#### ReleaseProfile
+
+
+
+ReleaseProfile defines a release profile in Sonarr or Radarr: terms a
+release must or must not contain.
+
+
+
+_Appears in:_
+- [RadarrSpec](#radarrspec)
+- [SonarrSpec](#sonarrspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `name` _string_ | name identifies the profile. |  | MinLength: 1 <br />Required: \{\} <br /> |
+| `enabled` _boolean_ | enabled turns the profile on. A new profile is enabled unless this is<br />false. |  | Optional: \{\} <br /> |
+| `required` _string array_ | required are terms a release must contain at least one of. A term between<br />slashes is a regular expression. |  | items:MinLength: 1 <br />Optional: \{\} <br /> |
+| `ignored` _string array_ | ignored are terms a release must not contain. A term between slashes is a<br />regular expression. |  | items:MinLength: 1 <br />Optional: \{\} <br /> |
+| `indexerName` _string_ | indexerName limits the profile to releases from one indexer, resolved by<br />name against the app on each reconciliation. Left out, the profile applies<br />to every indexer. |  | MinLength: 1 <br />Optional: \{\} <br /> |
+| `tagLabels` _string array_ | tagLabels references tags by label, resolved against the app on each<br />reconciliation; the profile applies to series or movies with any of them.<br />A missing or ambiguous label blocks writes, and an empty list clears the<br />tags. |  | Optional: \{\} <br /> |
 
 
 #### RemotePathMapping
@@ -4097,6 +4121,7 @@ _Appears in:_
 | `customFormats` _[CustomFormat](#customformat) array_ | customFormats defines custom format scoring rules for release selection. |  | Optional: \{\} <br /> |
 | `qualityDefinitions` _[QualityDefinition](#qualitydefinition) array_ | qualityDefinitions sets the size limits of the app's qualities. The app<br />has a fixed set of qualities, so none is created or pruned, and qualities<br />left out keep their limits. |  | Optional: \{\} <br /> |
 | `delayProfiles` _[DelayProfile](#delayprofile) array_ | delayProfiles defines delay profiles. The app checks tagged profiles in<br />the order listed, and the default profile, the one without tags, last.<br />Only operator-created profiles can be pruned, so the default never is. |  | MaxItems: 50 <br />Optional: \{\} <br /> |
+| `releaseProfiles` _[ReleaseProfile](#releaseprofile) array_ | releaseProfiles defines release profiles: terms a release must or must not<br />contain, matched by name. |  | Optional: \{\} <br /> |
 | `tags` _[Tag](#tag) array_ | tags defines tags for linking resources together. |  | Optional: \{\} <br /> |
 | `notifications` _[Notification](#notification) array_ | notifications defines notification/connection configurations. |  | Optional: \{\} <br /> |
 
