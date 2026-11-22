@@ -19,15 +19,18 @@ type autobrrList struct {
 }
 
 // lists returns the kinds in the order they are deleted, each before what it
-// refers to: filters before the download clients their actions use.
+// refers to: lists before the filters and download clients they name, and
+// filters before the download clients their actions use.
 func (s *autobrrSync) lists() []autobrrList {
 	return []autobrrList{
+		{"lists", s.ac.ListLists, s.ac.DeleteList},
 		{"filters", s.ac.ListFilters, s.ac.DeleteFilter},
 		{"notifications", s.ac.ListNotifications, s.ac.DeleteNotification},
 		{"feeds", s.ac.ListFeeds, s.ac.DeleteFeed},
 		{"ircNetworks", s.ac.ListIRCNetworks, s.ac.DeleteIRCNetwork},
 		{"indexers", s.ac.ListIndexers, s.ac.DeleteIndexer},
 		{"downloadClients", s.ac.ListDownloadClients, s.ac.DeleteDownloadClient},
+		{"proxies", s.ac.ListProxies, s.ac.DeleteProxy},
 	}
 }
 
@@ -50,6 +53,12 @@ func declaredNames(spec *automationv1alpha1.AutobrrSpec) map[string][]string {
 	}
 	for _, n := range spec.Notifications {
 		declared["notifications"] = append(declared["notifications"], n.Name)
+	}
+	for _, l := range spec.Lists {
+		declared["lists"] = append(declared["lists"], l.Name)
+	}
+	for _, p := range spec.Proxies {
+		declared["proxies"] = append(declared["proxies"], p.Name)
 	}
 	return declared
 }

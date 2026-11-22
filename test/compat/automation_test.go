@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/cookiejar"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -33,23 +34,31 @@ func TestAutobrr(t *testing.T) {
 	qbit, qbitPassword := startQBittorrent(t)
 	proxy := newRecordingProxy(t, ab.url())
 
+	update := []string{
+		`{"op": "replace", "path": "/spec/downloadClients/1/enable", "value": false}`,
+		`{"op": "replace", "path": "/spec/feeds/0/interval", "value": 45}`,
+		`{"op": "replace", "path": "/spec/ircNetworks/0/nick", "value": "compat-bot2"}`,
+		`{"op": "replace", "path": "/spec/filters/0/priority", "value": 2}`,
+		`{"op": "replace", "path": "/spec/notifications/0/events", "value": ["pushApproved"]}`,
+		`{"op": "replace", "path": "/spec/proxies/0/timeout", "value": 60}`,
+	}
+	if atNewest() {
+		// Autobrr before 1.84.0 answers a change to a list that has never
+		// refreshed with a 500.
+		update = append(update, `{"op": "add", "path": "/spec/lists/0/includeYear", "value": true}`)
+	}
+
 	checkCompat(t, compatCase{
 		fixture: "autobrr.yaml",
-		update: `[
-			{"op": "replace", "path": "/spec/downloadClients/1/enable", "value": false},
-			{"op": "replace", "path": "/spec/feeds/0/interval", "value": 45},
-			{"op": "replace", "path": "/spec/ircNetworks/0/nick", "value": "compat-bot2"},
-			{"op": "replace", "path": "/spec/filters/0/priority", "value": 2},
-			{"op": "replace", "path": "/spec/notifications/0/events", "value": ["pushApproved"]}
-		]`,
-		export: "autobrr",
+		update:  "[" + strings.Join(update, ",") + "]",
+		export:  "autobrr",
 		vars: map[string]string{
 			"URL": proxy.url(), "HOST": hostIP, "QBITTORRENT_PORT": strconv.Itoa(qbit.port),
 		},
 		secrets: map[string]string{
 			"api-key": key, "qbittorrent-username": qbittorrentUser, "qbittorrent-password": qbitPassword,
 			"sonarr-api-key": randomKey(), "ipt-passkey": randomKey(), "torznab-api-key": randomKey(),
-			"gotify-token": randomKey(),
+			"gotify-token": randomKey(), "proxy-username": "compat", "proxy-password": randomKey(),
 		},
 		newObj: func() ctrlcommon.ConfigResource { return &automationv1alpha1.Autobrr{} },
 		reconciler: func(c client.Client) reconcile.Reconciler {
@@ -85,6 +94,14 @@ func TestAutobrr(t *testing.T) {
 			require.NoError(t, err)
 			require.Len(t, networks, 1)
 			assert.Equal(t, map[string]any{"mechanism": "NONE"}, networks[0]["auth"])
+			proxies, err := hc.GetJSONList(ctx, "/api/proxy")
+			require.NoError(t, err)
+			require.Len(t, proxies, 1)
+			assert.Equal(t, "SOCKS5", proxies[0]["type"])
+			assert.Equal(t, "compat", proxies[0]["user"])
+			assert.Equal(t, true, networks[0]["use_proxy"])
+			assert.Equal(t, proxies[0]["id"], networks[0]["proxy_id"], "the network does not use the proxy")
+			assert.Equal(t, proxies[0]["id"], ipt["proxy_id"], "the indexer does not use the proxy")
 			filters, err := hc.GetJSONList(ctx, "/api/filters")
 			require.NoError(t, err)
 			require.Len(t, filters, 1)
@@ -102,13 +119,20 @@ func TestAutobrr(t *testing.T) {
 			assert.Equal(t, "DAY", filter["max_downloads_unit"])
 			assert.InDelta(t, 1.5, actions[0]["limit_ratio"], 0)
 			assert.Equal(t, "SUBFOLDER_CREATE", actions[0]["content_layout"])
+			lists, err := hc.GetJSONList(ctx, "/api/lists")
+			require.NoError(t, err)
+			require.Len(t, lists, 1)
+			assert.Equal(t, named(downloaders, "Sonarr")["id"], lists[0]["client_id"])
+			listFilters, _ := lists[0]["filters"].([]any)
+			require.Len(t, listFilters, 1, "the list does not feed its filter")
+			assert.Equal(t, true, lists[0]["include_alternate_titles"])
 		},
 		cleanup: func(t *testing.T, _ map[string][]string) {
 			hc := autobrrClient(t, ab.url(), key)
 			downloaders, err := autobrrclient.NewClient(hc).ListDownloadClients(context.Background())
 			require.NoError(t, err)
 			assert.Empty(t, downloaders, "Autobrr still has the download clients the operator created")
-			for _, path := range []string{"/api/indexer", "/api/feeds", "/api/irc", "/api/filters"} {
+			for _, path := range []string{"/api/indexer", "/api/feeds", "/api/irc", "/api/filters", "/api/lists", "/api/proxy"} {
 				items, err := hc.GetJSONList(context.Background(), path)
 				require.NoError(t, err)
 				assert.Empty(t, items, "%s still has what the operator created", path)
@@ -154,7 +178,7 @@ func autobrrAPIKey(t *testing.T, base string) string {
 	_ = post(c, "/api/auth/login", creds).Body.Close()
 	// The scopes docs/example-stack.md gives; Autobrr before 1.91 ignores them.
 	scopes := `"config:read","downloaders:write","indexers:write","irc:write","feeds:write","filters:write",` +
-		`"notifications:write"`
+		`"notifications:write","lists:write","proxies:write"`
 	key := []byte(`{"name":"compat","scopes":[` + scopes + `]}`)
 	resp := post(c, "/api/keys", key)
 	defer func() { _ = resp.Body.Close() }()

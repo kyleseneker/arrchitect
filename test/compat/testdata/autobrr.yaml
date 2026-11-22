@@ -8,6 +8,17 @@ spec:
     apiKeySecretRef:
       name: compat-credentials
       key: api-key
+  proxies:
+    - name: Compat Proxy
+      type: Socks5
+      addr: socks5://proxy.example.invalid:1080
+      timeout: 30
+      usernameSecretRef:
+        name: compat-credentials
+        key: proxy-username
+      passwordSecretRef:
+        name: compat-credentials
+        key: proxy-password
   downloadClients:
     - name: qBittorrent
       enable: true
@@ -25,6 +36,7 @@ spec:
     - name: IPTorrents
       identifier: ipt
       enable: false
+      proxyName: Compat Proxy
       settings:
         - name: passkey
           valueFrom:
@@ -52,6 +64,7 @@ spec:
       tls: true
       nick: compat-bot
       authMechanism: None
+      proxyName: Compat Proxy
       channels:
         - name: "#announce"
   filters:
@@ -113,6 +126,16 @@ spec:
             secretKeyRef:
               name: compat-credentials
               key: gotify-token
+  lists:
+    - name: Compat Sonarr
+      type: Sonarr
+      enable: false
+      downloadClientName: Sonarr
+      filters:
+        - TV - 1080p
+      includeAlternateTitles: true
+      tagsExcluded:
+        - anime
 ---
 apiVersion: arrchitect.dev/v1alpha1
 kind: QBittorrent

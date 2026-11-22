@@ -290,6 +290,40 @@ func (c *Client) DeleteFeed(ctx context.Context, id int) error {
 	return c.hc.DeleteJSON(ctx, fmt.Sprintf("/api/feeds/%d", id))
 }
 
+// --- Lists and proxies ---
+
+func (c *Client) ListLists(ctx context.Context) ([]map[string]any, error) {
+	return c.hc.GetJSONList(ctx, "/api/lists")
+}
+
+func (c *Client) CreateList(ctx context.Context, list map[string]any) error {
+	return c.hc.PostJSON(ctx, "/api/lists", list)
+}
+
+func (c *Client) UpdateList(ctx context.Context, id int, list map[string]any) error {
+	return c.hc.PutJSON(ctx, fmt.Sprintf("/api/lists/%d", id), list)
+}
+
+func (c *Client) DeleteList(ctx context.Context, id int) error {
+	return c.hc.DeleteJSON(ctx, fmt.Sprintf("/api/lists/%d", id))
+}
+
+func (c *Client) ListProxies(ctx context.Context) ([]map[string]any, error) {
+	return c.hc.GetJSONList(ctx, "/api/proxy")
+}
+
+func (c *Client) CreateProxy(ctx context.Context, proxy map[string]any) error {
+	return c.hc.PostJSON(ctx, "/api/proxy", proxy)
+}
+
+func (c *Client) UpdateProxy(ctx context.Context, id int, proxy map[string]any) error {
+	return c.hc.PutJSON(ctx, fmt.Sprintf("/api/proxy/%d", id), proxy)
+}
+
+func (c *Client) DeleteProxy(ctx context.Context, id int) error {
+	return c.hc.DeleteJSON(ctx, fmt.Sprintf("/api/proxy/%d", id))
+}
+
 // --- Notifications ---
 
 // NotificationOptions are the notification settings Autobrr stores besides
