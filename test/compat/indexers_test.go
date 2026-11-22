@@ -39,7 +39,8 @@ func TestProwlarr(t *testing.T) {
 			{"op": "replace", "path": "/spec/applications/0/syncCategories", "value": [5000, 5030, 5040]},
 			{"op": "replace", "path": "/spec/indexers/0/priority", "value": 25},
 			{"op": "replace", "path": "/spec/downloadClients/0/priority", "value": 2},
-			{"op": "replace", "path": "/spec/notifications/0/onGrab", "value": false}
+			{"op": "replace", "path": "/spec/notifications/0/onGrab", "value": false},
+			{"op": "replace", "path": "/spec/proxies/0/port", "value": 3129}
 		]`,
 		export: "prowlarr",
 		vars: map[string]string{
@@ -49,6 +50,7 @@ func TestProwlarr(t *testing.T) {
 		secrets: map[string]string{
 			"api-key": key, "sonarr-api-key": sonarrKey,
 			"qbittorrent-username": qbittorrentUser, "qbittorrent-password": qbitPassword,
+			"proxy-username": "compat", "proxy-password": randomKey(),
 		},
 		newObj: func() ctrlcommon.ConfigResource { return &indexersv1alpha1.Prowlarr{} },
 		reconciler: func(c client.Client) reconcile.Reconciler {

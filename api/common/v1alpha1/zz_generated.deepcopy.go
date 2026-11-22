@@ -463,6 +463,11 @@ func (in *Notification) DeepCopyInto(out *Notification) {
 		*out = new(bool)
 		**out = **in
 	}
+	if in.IncludeManualGrabs != nil {
+		in, out := &in.IncludeManualGrabs, &out.IncludeManualGrabs
+		*out = new(bool)
+		**out = **in
+	}
 	if in.OnSeriesAdd != nil {
 		in, out := &in.OnSeriesAdd, &out.OnSeriesAdd
 		*out = new(bool)

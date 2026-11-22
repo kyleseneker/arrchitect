@@ -761,6 +761,11 @@ spec:
                       description: includeHealthWarnings includes health warnings
                         (not just errors) in notifications.
                       type: boolean
+                    includeManualGrabs:
+                      description: |-
+                        includeManualGrabs also notifies of grabs made in Prowlarr's UI
+                        (Prowlarr).
+                      type: boolean
                     name:
                       description: name is the display name of the notification.
                       minLength: 1

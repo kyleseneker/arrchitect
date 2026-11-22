@@ -42,6 +42,11 @@ func (e *prowlarrExport) application(item map[string]any, defaults map[string]ma
 	a["prowlarrUrl"] = values["prowlarrUrl"]
 	a["baseUrl"] = values["baseUrl"]
 	a["syncCategories"] = values["syncCategories"]
+	for _, field := range []string{"animeSyncCategories", "syncAnimeStandardFormatSearch", "syncRejectBlocklistedTorrentHashesWhileGrabbing"} {
+		if v, ok := values[field]; ok {
+			a[field] = v
+		}
+	}
 	key, _ := values["apiKey"].(string)
 	if reconciler.IsMasked(key) {
 		key = ""
@@ -50,7 +55,8 @@ func (e *prowlarrExport) application(item map[string]any, defaults map[string]ma
 	impl, _ := item["implementation"].(string)
 	for field, value := range values {
 		switch field {
-		case "prowlarrUrl", "baseUrl", "syncCategories", "apiKey":
+		case "prowlarrUrl", "baseUrl", "syncCategories", "apiKey", "animeSyncCategories", "syncAnimeStandardFormatSearch",
+			"syncRejectBlocklistedTorrentHashesWhileGrabbing":
 		default:
 			if !reflect.DeepEqual(value, defaults[impl][field]) {
 				e.warn("application %q: the config has no %s, so it stays as set in Prowlarr", name, field)
@@ -78,9 +84,22 @@ func (e *prowlarrExport) proxy(item map[string]any, _ map[string]map[string]any)
 		switch field {
 		case "host", "requestTimeout":
 			p[field] = value
+		case "port":
+			if num(value) != 0 {
+				p[field] = value
+			}
+		case "username", "password":
+			text, _ := value.(string)
+			if text == "" {
+				continue
+			}
+			if reconciler.IsMasked(text) {
+				text = ""
+			}
+			p[field+"SecretRef"] = e.creds.ref(text, "proxy", name, field)
 		default:
 			if value != nil && value != "" {
-				e.warn("proxy %q: the config's proxies have only host and requestTimeout, so %s stays as set in Prowlarr", name, field)
+				e.warn("proxy %q: the config has no %s, so it stays as set in Prowlarr", name, field)
 			}
 		}
 	}

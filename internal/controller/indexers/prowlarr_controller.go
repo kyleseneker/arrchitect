@@ -125,11 +125,15 @@ func (r *ProwlarrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	if aerr != nil {
 		unresolved = append(unresolved, fmt.Sprintf("applications: %v", aerr))
 	}
+	proxyPayloads, perr := r.buildProxyPayloads(ctx, &config, tagIDs)
+	if perr != nil {
+		unresolved = append(unresolved, fmt.Sprintf("proxies: %v", perr))
+	}
 
 	resources := prowlarrclient.ProwlarrResources(prowlarrclient.ProwlarrOptions{
 		Applications:    appPayloads,
 		Indexers:        indexers,
-		Proxies:         config.Spec.Proxies,
+		Proxies:         proxyPayloads,
 		DownloadClients: downloadClients,
 		Notifications:   notifications,
 	}, tagIDs)
@@ -170,6 +174,27 @@ func (r *ProwlarrReconciler) buildApplicationPayloads(ctx context.Context, confi
 			return nil, fmt.Errorf("application %q apiKeySecretRef: %w", app.Name, err)
 		}
 		payloads = append(payloads, prowlarrclient.BuildProwlarrApplicationPayload(app, appAPIKey, tagIDs))
+	}
+	return payloads, nil
+}
+
+// buildProxyPayloads resolves each proxy's credential Secrets and builds its
+// payload.
+func (r *ProwlarrReconciler) buildProxyPayloads(ctx context.Context, config *indexersv1alpha1.Prowlarr, tagIDs map[string]int) ([]map[string]any, error) {
+	payloads := make([]map[string]any, 0, len(config.Spec.Proxies))
+	for _, p := range config.Spec.Proxies {
+		credentials := map[string]string{}
+		for name, ref := range map[string]*commonv1alpha1.SecretKeyRef{"username": p.UsernameSecretRef, "password": p.PasswordSecretRef} {
+			if ref == nil {
+				continue
+			}
+			value, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, *ref)
+			if err != nil {
+				return nil, fmt.Errorf("proxy %q %s: %w", p.Name, name, err)
+			}
+			credentials[name] = value
+		}
+		payloads = append(payloads, prowlarrclient.BuildProwlarrProxyPayload(p, credentials, tagIDs))
 	}
 	return payloads, nil
 }
