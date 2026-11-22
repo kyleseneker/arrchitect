@@ -118,6 +118,9 @@ spec:
       qualityProfileName: Music
       metadataProfileName: Albums Only
       rootFolderPath: /data/media/music
+      searchOnAdd: false
+      monitorNewItems: new
+      monitorExisting: true
       fields:
         - name: baseUrl
           value: ${FAKES}/lists/lidarr

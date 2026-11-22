@@ -406,6 +406,21 @@ spec:
                         Lidarr: entireArtist, specificAlbum, none; Readarr: entireAuthor, specificBook, none).
                       minLength: 1
                       type: string
+                    monitorExisting:
+                      description: |-
+                        monitorExisting also applies monitor to artists or authors already in the
+                        library (Lidarr's and Readarr's shouldMonitorExisting).
+                      type: boolean
+                    monitorNewItems:
+                      description: |-
+                        monitorNewItems monitors seasons, albums or books added later to what the
+                        list added: all or none, or in Lidarr and Readarr new. Sonarr, Lidarr and
+                        Readarr only.
+                      enum:
+                      - all
+                      - none
+                      - new
+                      type: string
                     name:
                       description: name is the display name of the import list.
                       minLength: 1
@@ -422,8 +437,9 @@ spec:
                       minLength: 1
                       type: string
                     searchOnAdd:
-                      description: searchOnAdd searches for items immediately after
-                        adding (Radarr).
+                      description: |-
+                        searchOnAdd searches for what the list adds (Sonarr's
+                        searchForMissingEpisodes, Lidarr's and Readarr's shouldSearch).
                       type: boolean
                     seasonFolder:
                       description: seasonFolder enables season folders for imported

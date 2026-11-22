@@ -167,6 +167,8 @@ spec:
       rootFolderPath: /data/media/tv
       seriesType: standard
       seasonFolder: true
+      searchOnAdd: false
+      monitorNewItems: none
       fields:
         - name: baseUrl
           value: ${FAKES}/lists/sonarr

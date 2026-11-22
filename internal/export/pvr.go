@@ -216,14 +216,19 @@ func (e *pvrExport) indexer(item map[string]any, defaults map[string]map[string]
 }
 
 func (e *pvrExport) importList(item map[string]any, defaults map[string]map[string]any) map[string]any {
-	il := pick(item, "name", "implementation", "seasonFolder", "searchOnAdd", "rootFolderPath", "seriesType",
+	il := pick(item, "name", "implementation", "seasonFolder", "rootFolderPath", "seriesType",
 		"minimumAvailability", "listOrder")
 	names := e.app.ImportListFields
-	if names.Enable != "" {
-		il["enable"] = item[names.Enable]
+	for field, name := range map[string]string{
+		"enable": names.Enable, "enableAutomaticAdd": names.AutomaticAdd, "searchOnAdd": names.Search,
+		"monitorExisting": names.MonitorExisting,
+	} {
+		if v, ok := item[name].(bool); ok && name != "" {
+			il[field] = v
+		}
 	}
-	if names.AutomaticAdd != "" {
-		il["enableAutomaticAdd"] = item[names.AutomaticAdd]
+	if v, ok := item[names.MonitorNewItems].(string); ok && names.MonitorNewItems != "" {
+		il["monitorNewItems"] = v
 	}
 	if v, ok := item[names.Monitor].(string); ok && names.Monitor != "" {
 		il["monitor"] = v

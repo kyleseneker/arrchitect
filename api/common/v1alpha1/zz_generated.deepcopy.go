@@ -287,6 +287,11 @@ func (in *ImportList) DeepCopyInto(out *ImportList) {
 		*out = new(bool)
 		**out = **in
 	}
+	if in.MonitorExisting != nil {
+		in, out := &in.MonitorExisting, &out.MonitorExisting
+		*out = new(bool)
+		**out = **in
+	}
 	if in.ListOrder != nil {
 		in, out := &in.ListOrder, &out.ListOrder
 		*out = new(int32)
