@@ -275,12 +275,12 @@ func (s *autobrrSync) downloadClient(ctx context.Context, dc automationv1alpha1.
 		}
 		obj["password"] = val
 	}
-	if dc.APIKeySecretRef != nil {
-		val, err := reconciler.ResolveSecretKeyRef(ctx, s.c, s.namespace, *dc.APIKeySecretRef)
-		if err != nil {
-			return fmt.Errorf("resolving API key: %w", err)
-		}
-		obj["settings"] = map[string]any{"apikey": val}
+	settings, err := s.downloadClientSettings(ctx, dc)
+	if err != nil {
+		return err
+	}
+	if len(settings) > 0 {
+		obj["settings"] = settings
 	}
 
 	return s.upsert(ctx, "download client", dc.Name, existing, obj,
@@ -294,6 +294,53 @@ func (s *autobrrSync) downloadClient(ctx context.Context, dc automationv1alpha1.
 			}
 			return s.ac.UpdateDownloadClient(ctx, id, body)
 		}, s.ac.ListDownloadClients)
+}
+
+func (s *autobrrSync) downloadClientSettings(
+	ctx context.Context, dc automationv1alpha1.AutobrrDownloadClient,
+) (map[string]any, error) {
+	settings := map[string]any{}
+	if dc.APIKeySecretRef != nil {
+		val, err := reconciler.ResolveSecretKeyRef(ctx, s.c, s.namespace, *dc.APIKeySecretRef)
+		if err != nil {
+			return nil, fmt.Errorf("resolving API key: %w", err)
+		}
+		settings["apikey"] = val
+	}
+	if a := dc.HTTPAuth; a != (automationv1alpha1.AutobrrHTTPAuth{}) {
+		user, err := reconciler.ResolveSecretKeyRef(ctx, s.c, s.namespace, a.UsernameSecretRef)
+		if err != nil {
+			return nil, fmt.Errorf("resolving httpAuth username: %w", err)
+		}
+		pass, err := reconciler.ResolveSecretKeyRef(ctx, s.c, s.namespace, a.PasswordSecretRef)
+		if err != nil {
+			return nil, fmt.Errorf("resolving httpAuth password: %w", err)
+		}
+		// Autobrr reads the deprecated basic block over auth whenever it holds a
+		// username, and its web UI still edits basic for most clients.
+		basic := map[string]any{"auth": true, "username": user, "password": pass}
+		authType := "BASIC_AUTH"
+		if a.Type == "Digest" {
+			basic, authType = map[string]any{"auth": false, "username": "", "password": ""}, "DIGEST_AUTH"
+		}
+		settings["basic"] = basic
+		settings["auth"] = map[string]any{"enabled": true, "type": authType, "username": user, "password": pass}
+	}
+	if r := dc.Rules; r != nil {
+		rules, err := autobrrFields(r, autobrrclient.RuleFields)
+		if err != nil {
+			return nil, err
+		}
+		rules["enabled"] = r.Enable == nil || *r.Enable
+		if c, ok := autobrrclient.SlowTorrentConditions[r.IgnoreSlowTorrentsCondition]; ok {
+			rules["ignore_slow_torrents_condition"] = c
+		}
+		settings["rules"] = rules
+	}
+	if dc.ExternalDownloadClient != "" {
+		settings["external_download_client"] = dc.ExternalDownloadClient
+	}
+	return settings, nil
 }
 
 func (s *autobrrSync) indexer(ctx context.Context, idx automationv1alpha1.AutobrrIndexer) error {
@@ -461,6 +508,19 @@ func (s *autobrrSync) ircNetwork(ctx context.Context, irc automationv1alpha1.Aut
 	if irc.InviteCommand != "" {
 		obj["invite_command"] = irc.InviteCommand
 	}
+	if irc.BouncerAddress != "" {
+		obj["use_bouncer"], obj["bouncer_addr"] = true, irc.BouncerAddress
+	}
+	if irc.BotMode != nil {
+		obj["bot_mode"] = *irc.BotMode
+	}
+	if irc.ServerPasswordSecretRef != nil {
+		val, err := reconciler.ResolveSecretKeyRef(ctx, s.c, s.namespace, *irc.ServerPasswordSecretRef)
+		if err != nil {
+			return fmt.Errorf("resolving server password: %w", err)
+		}
+		obj["pass"] = val
+	}
 	switch ok, err := s.useProxy(ctx, obj, irc.ProxyName); {
 	case err != nil:
 		return err
@@ -522,38 +582,46 @@ func (s *autobrrSync) ircNetwork(ctx context.Context, irc automationv1alpha1.Aut
 			if _, ok := auth["mechanism"]; !ok {
 				body["auth"] = createBody(auth, map[string]any{"mechanism": autobrrIRCAuth("None")})
 			}
-			if _, proxied := obj["use_proxy"]; proxied {
-				return s.createProxiedNetwork(ctx, body, update)
+			if _, proxied := obj["use_proxy"]; !proxied {
+				return s.ac.CreateIRCNetwork(ctx, body)
 			}
-			return s.ac.CreateIRCNetwork(ctx, body)
+			// Autobrr before 1.86.0 ignores a new network's proxy, so the network
+			// is created off, then turned on with its proxy: an enabled network
+			// would connect without it.
+			enabled := body["enabled"]
+			body["enabled"] = false
+			return createThenUpdate(ctx, "IRC network", body, s.ac.CreateIRCNetwork, s.ac.ListIRCNetworks,
+				func(id int, current map[string]any) error {
+					current["enabled"] = enabled
+					return update(id, current)
+				})
 		}),
 		update, s.ac.ListIRCNetworks)
 }
 
-// createProxiedNetwork creates a network off, then turns it on with its
-// proxy: Autobrr before 1.86.0 ignores a new network's proxy, and an enabled
-// network would connect without it.
-func (s *autobrrSync) createProxiedNetwork(
-	ctx context.Context, body map[string]any, update func(id int, current map[string]any) error,
+// createThenUpdate creates an item, then updates it with what Autobrr leaves
+// out of a create.
+func createThenUpdate(
+	ctx context.Context, kind string, body map[string]any,
+	create func(context.Context, map[string]any) error,
+	list func(context.Context) ([]map[string]any, error),
+	update func(id int, current map[string]any) error,
 ) error {
-	enabled := body["enabled"]
-	body["enabled"] = false
-	if err := s.ac.CreateIRCNetwork(ctx, body); err != nil {
+	if err := create(ctx, body); err != nil {
 		return err
 	}
-	networks, err := s.ac.ListIRCNetworks(ctx)
+	items, err := list(ctx)
 	if err != nil {
-		return fmt.Errorf("listing IRC networks: %w", err)
+		return fmt.Errorf("listing %ss: %w", kind, err)
 	}
-	for _, n := range networks {
-		if n["name"] != body["name"] {
+	for _, item := range items {
+		if item["name"] != body["name"] {
 			continue
 		}
-		id, _ := n["id"].(float64)
-		n["enabled"] = enabled
-		return update(int(id), n)
+		id, _ := item["id"].(float64)
+		return update(int(id), item)
 	}
-	return fmt.Errorf("IRC network %q was not created", body["name"])
+	return fmt.Errorf("%s %q was not created", kind, body["name"])
 }
 
 func (s *autobrrSync) feed(ctx context.Context, feed automationv1alpha1.AutobrrFeed) error {
@@ -586,12 +654,28 @@ func (s *autobrrSync) feed(ctx context.Context, feed automationv1alpha1.AutobrrF
 	if feed.Interval != nil {
 		obj["interval"] = *feed.Interval
 	}
+	if feed.Timeout != 0 {
+		obj["timeout"] = feed.Timeout
+	}
+	if feed.MaxAge != nil {
+		obj["max_age"] = *feed.MaxAge
+	}
+	if t, ok := autobrrclient.FeedDownloadTypes[feed.DownloadType]; ok {
+		obj["settings"] = map[string]any{"download_type": t}
+	}
 	if feed.APIKeySecretRef != nil {
 		val, err := reconciler.ResolveSecretKeyRef(ctx, s.c, s.namespace, *feed.APIKeySecretRef)
 		if err != nil {
 			return fmt.Errorf("resolving API key: %w", err)
 		}
 		obj["api_key"] = val
+	}
+	if feed.CookieSecretRef != nil {
+		val, err := reconciler.ResolveSecretKeyRef(ctx, s.c, s.namespace, *feed.CookieSecretRef)
+		if err != nil {
+			return fmt.Errorf("resolving cookie: %w", err)
+		}
+		obj["cookie"] = val
 	}
 	// Autobrr links a feed to its indexer by indexer_id and reads it back as an
 	// indexer object.
@@ -601,20 +685,27 @@ func (s *autobrrSync) feed(ctx context.Context, feed automationv1alpha1.AutobrrF
 		return body
 	}
 
+	update := func(id int, current map[string]any) error {
+		body, err := mergedOver(current, obj)
+		if err != nil {
+			return err
+		}
+		return s.ac.UpdateFeed(ctx, id, withIndexer(body))
+	}
 	return s.upsert(ctx, "feed", feed.Name, existing, obj,
 		s.created("feeds", feed.Name, func() error {
 			body := withIndexer(createBody(obj, map[string]any{
 				"enabled": true, "interval": defaultFeedInterval, "timeout": defaultFeedTimeout,
 			}))
-			return s.ac.CreateFeed(ctx, body)
-		}),
-		func(id int, current map[string]any) error {
-			body, err := mergedOver(current, obj)
-			if err != nil {
-				return err
+			// Autobrr leaves a feed's max age and cookie out of a create.
+			_, maxAge := obj["max_age"]
+			_, cookie := obj["cookie"]
+			if !maxAge && !cookie {
+				return s.ac.CreateFeed(ctx, body)
 			}
-			return s.ac.UpdateFeed(ctx, id, withIndexer(body))
-		}, s.ac.ListFeeds)
+			return createThenUpdate(ctx, "feed", body, s.ac.CreateFeed, s.ac.ListFeeds, update)
+		}),
+		update, s.ac.ListFeeds)
 }
 
 // useProxy points obj at the named proxy. It reports false for a proxy the
@@ -1095,38 +1186,50 @@ func onlyNamed(list any, channels []automationv1alpha1.AutobrrIRCChannel) []any 
 }
 
 // autobrrCovers compares as reconciler.Covers does, except that a declared
-// false, 0 or empty value matches a key Autobrr left out: it omits zero values
-// from what it returns.
+// false, 0 or empty value, at any depth, matches a key Autobrr left out: it
+// omits zero values from what it returns.
 func autobrrCovers(current map[string]any, desired any) bool {
+	return reconciler.Covers(withZeros(current, desired), desired)
+}
+
+func withZeros(current, desired any) any {
 	fields, ok := desired.(map[string]any)
 	if !ok {
-		return reconciler.Covers(current, desired)
+		return current
 	}
-	filled := maps.Clone(current)
+	c, isMap := current.(map[string]any)
+	if !isMap && current != nil {
+		return current
+	}
+	filled := maps.Clone(c)
+	if filled == nil {
+		filled = map[string]any{}
+	}
 	for key, value := range fields {
-		if _, present := filled[key]; present {
+		existing, present := filled[key]
+		if _, nested := value.(map[string]any); nested {
+			filled[key] = withZeros(existing, value)
 			continue
 		}
-		switch v := value.(type) {
-		case bool:
-			if !v {
-				filled[key] = v
-			}
-		case float64:
-			if v == 0 {
-				filled[key] = v
-			}
-		case string:
-			if v == "" {
-				filled[key] = v
-			}
-		case []any:
-			if len(v) == 0 {
-				filled[key] = v
-			}
+		if !present && isZero(value) {
+			filled[key] = value
 		}
 	}
-	return reconciler.Covers(filled, desired)
+	return filled
+}
+
+func isZero(value any) bool {
+	switch v := value.(type) {
+	case bool:
+		return !v
+	case float64:
+		return v == 0
+	case string:
+		return v == ""
+	case []any:
+		return len(v) == 0
+	}
+	return false
 }
 
 // upsertFilter compares against the full stored filter, since the list

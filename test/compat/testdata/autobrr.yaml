@@ -25,6 +25,11 @@ spec:
       appRef:
         kind: QBittorrent
         name: qbittorrent
+      rules:
+        maxActiveDownloads: 3
+        ignoreSlowTorrents: true
+        ignoreSlowTorrentsCondition: MaxDownloadsReached
+        downloadSpeedThreshold: 2048
     - name: Sonarr
       type: Sonarr
       enable: true
@@ -32,6 +37,14 @@ spec:
       apiKeySecretRef:
         name: compat-credentials
         key: sonarr-api-key
+      httpAuth:
+        usernameSecretRef:
+          name: compat-credentials
+          key: edge-username
+        passwordSecretRef:
+          name: compat-credentials
+          key: edge-password
+      externalDownloadClient: qBittorrent
   indexers:
     - name: IPTorrents
       identifier: ipt
@@ -52,10 +65,16 @@ spec:
       enable: false
       url: http://${HOST}:9117/api
       interval: 30
+      timeout: 30
+      maxAge: 86400
+      downloadType: Magnet
       indexerRef: Compat Torznab
       apiKeySecretRef:
         name: compat-credentials
         key: torznab-api-key
+      cookieSecretRef:
+        name: compat-credentials
+        key: feed-cookie
   ircNetworks:
     - name: Compat IRC
       enable: false
@@ -65,6 +84,11 @@ spec:
       nick: compat-bot
       authMechanism: None
       proxyName: Compat Proxy
+      serverPasswordSecretRef:
+        name: compat-credentials
+        key: irc-server-password
+      bouncerAddress: znc.example.invalid:6697
+      botMode: true
       channels:
         - name: "#announce"
   filters:

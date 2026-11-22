@@ -184,10 +184,65 @@ spec:
                         enable controls whether this download client is active. A new download
                         client is enabled unless this is false.
                       type: boolean
+                    externalDownloadClient:
+                      description: |-
+                        externalDownloadClient is the name of the download client in Sonarr,
+                        Radarr, Lidarr, Readarr or Whisparr that releases sent through this client
+                        go to, unless a filter action names another.
+                      minLength: 1
+                      type: string
                     host:
                       description: host is the hostname or URL of the download client.
                       minLength: 1
                       type: string
+                    httpAuth:
+                      description: |-
+                        httpAuth is the HTTP authentication in front of the client, such as a
+                        reverse proxy's. Deluge and Transmission clients don't use it.
+                      properties:
+                        passwordSecretRef:
+                          description: passwordSecretRef references a Secret containing
+                            the password.
+                          properties:
+                            key:
+                              description: key is the key within the Secret.
+                              minLength: 1
+                              type: string
+                            name:
+                              description: name is the name of the Secret.
+                              minLength: 1
+                              type: string
+                          required:
+                          - key
+                          - name
+                          type: object
+                        type:
+                          description: type is Basic, or Digest for an rTorrent client.
+                            Basic unless set.
+                          enum:
+                          - Basic
+                          - Digest
+                          type: string
+                        usernameSecretRef:
+                          description: usernameSecretRef references a Secret containing
+                            the username.
+                          properties:
+                            key:
+                              description: key is the key within the Secret.
+                              minLength: 1
+                              type: string
+                            name:
+                              description: name is the name of the Secret.
+                              minLength: 1
+                              type: string
+                          required:
+                          - key
+                          - name
+                          type: object
+                      required:
+                      - passwordSecretRef
+                      - usernameSecretRef
+                      type: object
                     name:
                       description: name is the display name of the download client.
                       minLength: 1
@@ -212,6 +267,54 @@ spec:
                       description: port is the port of the download client.
                       format: int32
                       type: integer
+                    rules:
+                      description: rules make Autobrr skip a release while the client
+                        is busy.
+                      properties:
+                        downloadSpeedThreshold:
+                          description: |-
+                            downloadSpeedThreshold is the total download speed, in KiB/s, at or above
+                            which the client counts as busy. 0 doesn't check it.
+                          format: int32
+                          minimum: 0
+                          type: integer
+                        enable:
+                          description: enable controls whether the rules apply. They
+                            apply unless this is false.
+                          type: boolean
+                        ignoreSlowTorrents:
+                          description: |-
+                            ignoreSlowTorrents checks the client's transfer speeds against the
+                            thresholds, sending a release only while they are below them.
+                          type: boolean
+                        ignoreSlowTorrentsCondition:
+                          description: |-
+                            ignoreSlowTorrentsCondition is when the speeds are checked: Always, for
+                            every release, or MaxDownloadsReached, once maxActiveDownloads torrents
+                            are downloading.
+                          enum:
+                          - Always
+                          - MaxDownloadsReached
+                          type: string
+                        maxActiveDownloads:
+                          description: |-
+                            maxActiveDownloads is how many torrents may download at once before
+                            Autobrr skips new releases. 0 means no limit.
+                          format: int32
+                          minimum: 0
+                          type: integer
+                        uploadSpeedThreshold:
+                          description: |-
+                            uploadSpeedThreshold is the total upload speed, in KiB/s, at or above
+                            which the client counts as busy. 0 doesn't check it.
+                          format: int32
+                          minimum: 0
+                          type: integer
+                      type: object
+                      x-kubernetes-validations:
+                      - message: ignoreSlowTorrents needs ignoreSlowTorrentsCondition
+                        rule: '!has(self.ignoreSlowTorrents) || !self.ignoreSlowTorrents
+                          || has(self.ignoreSlowTorrentsCondition)'
                     tls:
                       description: tls enables TLS for the connection.
                       type: boolean
@@ -255,6 +358,28 @@ spec:
                       !has(self.port) && !has(self.tls) && !has(self.usernameSecretRef)
                       && !has(self.passwordSecretRef) && !has(self.apiKeySecretRef)
                       : has(self.type) && has(self.host)'
+                  - message: only qBittorrent, Deluge and Transmission clients take
+                      rules
+                    rule: '!has(self.rules) || (has(self.appRef) ? self.appRef.kind
+                      == ''QBittorrent'' : has(self.type) && self.type in [''qBittorrent'',
+                      ''Deluge'', ''Transmission''])'
+                  - message: only qBittorrent clients take the slow torrent rules
+                    rule: '!has(self.rules) || !(has(self.rules.ignoreSlowTorrents)
+                      || has(self.rules.ignoreSlowTorrentsCondition) || has(self.rules.downloadSpeedThreshold)
+                      || has(self.rules.uploadSpeedThreshold)) || has(self.appRef)
+                      || has(self.type) && self.type == ''qBittorrent'''
+                  - message: Deluge and Transmission clients don't take httpAuth
+                    rule: '!has(self.httpAuth) || has(self.appRef) || has(self.type)
+                      && !(self.type in [''Deluge'', ''Transmission''])'
+                  - message: only rTorrent clients take Digest authentication
+                    rule: '!has(self.httpAuth) || !has(self.httpAuth.type) || self.httpAuth.type
+                      == ''Basic'' || has(self.type) && self.type == ''rTorrent'''
+                  - message: only Sonarr, Radarr, Lidarr, Readarr and Whisparr clients
+                      take externalDownloadClient
+                    rule: '!has(self.externalDownloadClient) || (has(self.appRef)
+                      ? self.appRef.kind in [''Sonarr'', ''Radarr'', ''Lidarr'', ''Readarr'']
+                      : has(self.type) && self.type in [''Sonarr'', ''Radarr'', ''Lidarr'',
+                      ''Readarr'', ''Whisparr''])'
                 type: array
                 x-kubernetes-list-map-keys:
                 - name
@@ -280,6 +405,31 @@ spec:
                       - key
                       - name
                       type: object
+                    cookieSecretRef:
+                      description: |-
+                        cookieSecretRef references a Secret containing the cookie sent with feed
+                        requests, for feeds behind a login.
+                      properties:
+                        key:
+                          description: key is the key within the Secret.
+                          minLength: 1
+                          type: string
+                        name:
+                          description: name is the name of the Secret.
+                          minLength: 1
+                          type: string
+                      required:
+                      - key
+                      - name
+                      type: object
+                    downloadType:
+                      description: |-
+                        downloadType is whether the feed's releases are fetched as Torrent files
+                        or Magnet links. Some feeds need Magnet.
+                      enum:
+                      - Torrent
+                      - Magnet
+                      type: string
                     enable:
                       description: |-
                         enable controls whether this feed is active. A new feed is enabled unless
@@ -297,10 +447,24 @@ spec:
                         15 minutes unless this is set.
                       format: int32
                       type: integer
+                    maxAge:
+                      description: |-
+                        maxAge is the age, in seconds, past which feed items are skipped. 0
+                        processes every item.
+                      format: int32
+                      minimum: 0
+                      type: integer
                     name:
                       description: name is the display name of the feed.
                       minLength: 1
                       type: string
+                    timeout:
+                      description: |-
+                        timeout is how long, in seconds, a feed request may take. A new feed
+                        waits 60 seconds unless this is set.
+                      format: int32
+                      minimum: 1
+                      type: integer
                     type:
                       description: type is the feed type.
                       enum:
@@ -1026,6 +1190,17 @@ spec:
                       - key
                       - name
                       type: object
+                    botMode:
+                      description: |-
+                        botMode marks the connection as a bot, IRCv3 bot mode, on networks that
+                        support it.
+                      type: boolean
+                    bouncerAddress:
+                      description: |-
+                        bouncerAddress is the host:port of a bouncer, such as ZNC, that the
+                        network connects through instead of server and port.
+                      minLength: 1
+                      type: string
                     channels:
                       description: channels defines the IRC channels to join.
                       items:
@@ -1091,6 +1266,23 @@ spec:
                       description: server is the IRC server address (e.g., "irc.example.com").
                       minLength: 1
                       type: string
+                    serverPasswordSecretRef:
+                      description: |-
+                        serverPasswordSecretRef references a Secret containing the server
+                        password, which some networks and bouncers ask for when connecting.
+                      properties:
+                        key:
+                          description: key is the key within the Secret.
+                          minLength: 1
+                          type: string
+                        name:
+                          description: name is the name of the Secret.
+                          minLength: 1
+                          type: string
+                      required:
+                      - key
+                      - name
+                      type: object
                     tls:
                       description: tls enables TLS for the IRC connection.
                       type: boolean

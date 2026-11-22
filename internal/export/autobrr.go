@@ -42,18 +42,7 @@ func exportAutobrr(r *reader) (map[string]any, error) {
 	var dcs []any
 	for _, c := range clients {
 		clientNames[num(c["id"])] = c["name"]
-		name, _ := c["name"].(string)
-		dc := pick(c, "name", "host", "tls")
-		dc["enable"] = c["enabled"]
-		dc["type"] = crdName(autobrrclient.Types, c["type"])
-		if port := num(c["port"]); port != 0 {
-			dc["port"] = port
-		}
-		r.autobrrSecret(dc, "usernameSecretRef", c["username"], "download-client", name, "username")
-		r.autobrrSecret(dc, "passwordSecretRef", c["password"], "download-client", name, "password")
-		settings, _ := c["settings"].(map[string]any)
-		r.autobrrSecret(dc, "apiKeySecretRef", settings["apikey"], "download-client", name, "api-key")
-		dcs = append(dcs, dc)
+		dcs = append(dcs, r.autobrrDownloadClient(c))
 	}
 	setList(spec, "downloadClients", dcs)
 
@@ -79,28 +68,7 @@ func exportAutobrr(r *reader) (map[string]any, error) {
 	}
 	var ircs []any
 	for _, n := range networks {
-		name, _ := n["name"].(string)
-		irc := pick(n, "name", "server", "port", "tls", "nick")
-		irc["enable"] = n["enabled"]
-		setText(irc, "inviteCommand", n["invite_command"])
-		setProxy(irc, n, proxyNames)
-		auth, _ := n["auth"].(map[string]any)
-		if mechanism, _ := auth["mechanism"].(string); mechanism != "" {
-			irc["authMechanism"] = crdName(autobrrclient.IRCAuthMechanisms, mechanism)
-		}
-		r.autobrrSecret(irc, "authAccountSecretRef", auth["account"], "irc", name, "account")
-		r.autobrrSecret(irc, "authPasswordSecretRef", auth["password"], "irc", name, "password")
-		var channels []any
-		for _, ch := range list(n["channels"]) {
-			channel := pick(ch, "name")
-			chName, _ := ch["name"].(string)
-			r.autobrrSecret(channel, "passwordSecretRef", ch["password"], "irc", name, chName, "password")
-			channels = append(channels, channel)
-		}
-		if len(channels) > 0 {
-			irc["channels"] = channels
-		}
-		ircs = append(ircs, irc)
+		ircs = append(ircs, r.autobrrIRCNetwork(n, proxyNames))
 	}
 	setList(spec, "ircNetworks", ircs)
 
@@ -110,17 +78,7 @@ func exportAutobrr(r *reader) (map[string]any, error) {
 	}
 	var fs []any
 	for _, f := range feeds {
-		name, _ := f["name"].(string)
-		feed := pick(f, "name", "url")
-		feed["type"] = crdName(autobrrFeedTypes, f["type"])
-		feed["enable"] = f["enabled"]
-		if interval := num(f["interval"]); interval != 0 {
-			feed["interval"] = interval
-		}
-		indexer, _ := f["indexer"].(map[string]any)
-		setText(feed, "indexerRef", indexer["name"])
-		r.autobrrSecret(feed, "apiKeySecretRef", f["api_key"], "feed", name, "api-key")
-		fs = append(fs, feed)
+		fs = append(fs, r.autobrrFeed(f))
 	}
 	setList(spec, "feeds", fs)
 
@@ -167,6 +125,84 @@ func exportAutobrr(r *reader) (map[string]any, error) {
 	return spec, nil
 }
 
+func (r *reader) autobrrDownloadClient(c map[string]any) map[string]any {
+	name, _ := c["name"].(string)
+	dc := pick(c, "name", "host", "tls")
+	dc["enable"] = c["enabled"]
+	dc["type"] = crdName(autobrrclient.Types, c["type"])
+	if port := num(c["port"]); port != 0 {
+		dc["port"] = port
+	}
+	r.autobrrSecret(dc, "usernameSecretRef", c["username"], "download-client", name, "username")
+	r.autobrrSecret(dc, "passwordSecretRef", c["password"], "download-client", name, "password")
+	settings, _ := c["settings"].(map[string]any)
+	r.autobrrSecret(dc, "apiKeySecretRef", settings["apikey"], "download-client", name, "api-key")
+	if auth := r.autobrrHTTPAuth(settings, name); auth != nil {
+		dc["httpAuth"] = auth
+	}
+	if rules := autobrrRules(settings); rules != nil {
+		dc["rules"] = rules
+	}
+	setText(dc, "externalDownloadClient", settings["external_download_client"])
+	return dc
+}
+
+func (r *reader) autobrrIRCNetwork(n map[string]any, proxyNames map[float64]any) map[string]any {
+	name, _ := n["name"].(string)
+	irc := pick(n, "name", "server", "port", "tls", "nick")
+	irc["enable"] = n["enabled"]
+	setText(irc, "inviteCommand", n["invite_command"])
+	setProxy(irc, n, proxyNames)
+	if bouncer, _ := n["use_bouncer"].(bool); bouncer {
+		setText(irc, "bouncerAddress", n["bouncer_addr"])
+	}
+	if botMode, _ := n["bot_mode"].(bool); botMode {
+		irc["botMode"] = true
+	}
+	r.autobrrSecret(irc, "serverPasswordSecretRef", n["pass"], "irc", name, "server-password")
+	auth, _ := n["auth"].(map[string]any)
+	if mechanism, _ := auth["mechanism"].(string); mechanism != "" {
+		irc["authMechanism"] = crdName(autobrrclient.IRCAuthMechanisms, mechanism)
+	}
+	r.autobrrSecret(irc, "authAccountSecretRef", auth["account"], "irc", name, "account")
+	r.autobrrSecret(irc, "authPasswordSecretRef", auth["password"], "irc", name, "password")
+	chs := list(n["channels"])
+	channels := make([]any, 0, len(chs))
+	for _, ch := range chs {
+		channel := pick(ch, "name")
+		chName, _ := ch["name"].(string)
+		r.autobrrSecret(channel, "passwordSecretRef", ch["password"], "irc", name, chName, "password")
+		channels = append(channels, channel)
+	}
+	if len(channels) > 0 {
+		irc["channels"] = channels
+	}
+	return irc
+}
+
+func (r *reader) autobrrFeed(f map[string]any) map[string]any {
+	name, _ := f["name"].(string)
+	feed := pick(f, "name", "url")
+	feed["type"] = crdName(autobrrFeedTypes, f["type"])
+	feed["enable"] = f["enabled"]
+	if interval := num(f["interval"]); interval != 0 {
+		feed["interval"] = interval
+	}
+	if timeout := num(f["timeout"]); timeout != 0 {
+		feed["timeout"] = timeout
+	}
+	if maxAge := num(f["max_age"]); maxAge != 0 {
+		feed["maxAge"] = maxAge
+	}
+	settings, _ := f["settings"].(map[string]any)
+	setText(feed, "downloadType", crdName(autobrrclient.FeedDownloadTypes, settings["download_type"]))
+	r.autobrrSecret(feed, "cookieSecretRef", f["cookie"], "feed", name, "cookie")
+	indexer, _ := f["indexer"].(map[string]any)
+	setText(feed, "indexerRef", indexer["name"])
+	r.autobrrSecret(feed, "apiKeySecretRef", f["api_key"], "feed", name, "api-key")
+	return feed
+}
+
 var autobrrListTypes = []string{
 	"Sonarr", "Radarr", "Lidarr", "Readarr", "Whisparr", "MDBList", "Metacritic", "Plaintext", "Trakt", "Steam", "AniList",
 }
@@ -194,6 +230,43 @@ func (r *reader) autobrrList(l map[string]any, clientNames map[float64]any) map[
 	}
 	if len(filters) > 0 {
 		out["filters"] = filters
+	}
+	return out
+}
+
+// autobrrHTTPAuth reads a download client's HTTP authentication from auth, or
+// from the deprecated basic block Autobrr's web UI still writes for most
+// clients.
+func (r *reader) autobrrHTTPAuth(settings map[string]any, name string) map[string]any {
+	auth, _ := settings["auth"].(map[string]any)
+	if enabled, _ := auth["enabled"].(bool); !enabled {
+		basic, _ := settings["basic"].(map[string]any)
+		if on, _ := basic["auth"].(bool); !on {
+			return nil
+		}
+		auth = map[string]any{"username": basic["username"], "password": basic["password"]}
+	}
+	out := map[string]any{}
+	if auth["type"] == "DIGEST_AUTH" {
+		out["type"] = "Digest"
+	}
+	r.autobrrSecret(out, "usernameSecretRef", auth["username"], "download-client", name, "http-username")
+	r.autobrrSecret(out, "passwordSecretRef", auth["password"], "download-client", name, "http-password")
+	return out
+}
+
+func autobrrRules(settings map[string]any) map[string]any {
+	rules, _ := settings["rules"].(map[string]any)
+	out := map[string]any{}
+	autobrrSetFields(out, rules, autobrrclient.RuleFields)
+	setText(out, "ignoreSlowTorrentsCondition",
+		crdName(autobrrclient.SlowTorrentConditions, rules["ignore_slow_torrents_condition"]))
+	enabled, _ := rules["enabled"].(bool)
+	switch {
+	case !enabled && len(out) == 0:
+		return nil
+	case !enabled:
+		out["enable"] = false
 	}
 	return out
 }

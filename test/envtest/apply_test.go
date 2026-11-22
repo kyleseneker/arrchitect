@@ -339,6 +339,44 @@ func TestAdmissionRules(t *testing.T) {
 		{name: "an Autobrr Socks5 proxy with an HTTP address", kind: "Autobrr", spec: conn + `
   proxies: [{name: VPN, type: Socks5, addr: "http://vpn:8080"}]`,
 			rejected: "a Socks5 proxy's addr starts with socks5:// or socks5h://"},
+		{name: "Autobrr download client rules and HTTP auth", kind: "Autobrr", spec: conn + `
+  downloadClients:
+    - name: qBittorrent
+      appRef: {kind: QBittorrent, name: qbittorrent}
+      rules: {maxActiveDownloads: 3, ignoreSlowTorrents: true, ignoreSlowTorrentsCondition: Always}
+      httpAuth: {usernameSecretRef: {name: s, key: u}, passwordSecretRef: {name: s, key: p}}
+    - {name: Deluge, type: Deluge, host: deluge, rules: {maxActiveDownloads: 2}}
+    - name: rTorrent
+      type: rTorrent
+      host: "http://rtorrent/RPC2"
+      httpAuth: {type: Digest, usernameSecretRef: {name: s, key: u}, passwordSecretRef: {name: s, key: p}}
+    - {name: Sonarr, appRef: {kind: Sonarr, name: sonarr}, externalDownloadClient: qBittorrent}`},
+		{name: "Autobrr rules on a SABnzbd client", kind: "Autobrr", spec: conn + `
+  downloadClients: [{name: SABnzbd, appRef: {kind: Sabnzbd, name: sabnzbd}, rules: {maxActiveDownloads: 3}}]`,
+			rejected: "only qBittorrent, Deluge and Transmission clients take rules"},
+		{name: "Autobrr slow torrent rules on a Deluge client", kind: "Autobrr", spec: conn + `
+  downloadClients: [{name: Deluge, type: Deluge, host: deluge, rules: {downloadSpeedThreshold: 100}}]`,
+			rejected: "only qBittorrent clients take the slow torrent rules"},
+		{name: "Autobrr slow torrent rules without a condition", kind: "Autobrr", spec: conn + `
+  downloadClients: [{name: qBit, type: qBittorrent, host: qbit, rules: {ignoreSlowTorrents: true}}]`,
+			rejected: "ignoreSlowTorrents needs ignoreSlowTorrentsCondition"},
+		{name: "Autobrr HTTP auth on a Transmission client", kind: "Autobrr", spec: conn + `
+  downloadClients:
+    - name: Transmission
+      type: Transmission
+      host: transmission
+      httpAuth: {usernameSecretRef: {name: s, key: u}, passwordSecretRef: {name: s, key: p}}`,
+			rejected: "Deluge and Transmission clients don't take httpAuth"},
+		{name: "Autobrr Digest auth on a qBittorrent client", kind: "Autobrr", spec: conn + `
+  downloadClients:
+    - name: qBit
+      type: qBittorrent
+      host: qbit
+      httpAuth: {type: Digest, usernameSecretRef: {name: s, key: u}, passwordSecretRef: {name: s, key: p}}`,
+			rejected: "only rTorrent clients take Digest authentication"},
+		{name: "Autobrr external download client on a qBittorrent client", kind: "Autobrr", spec: conn + `
+  downloadClients: [{name: qBit, type: qBittorrent, host: qbit, externalDownloadClient: qBittorrent}]`,
+			rejected: "only Sonarr, Radarr, Lidarr, Readarr and Whisparr clients take externalDownloadClient"},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			obj := &unstructured.Unstructured{}

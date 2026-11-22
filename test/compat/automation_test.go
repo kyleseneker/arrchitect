@@ -41,6 +41,8 @@ func TestAutobrr(t *testing.T) {
 		`{"op": "replace", "path": "/spec/filters/0/priority", "value": 2}`,
 		`{"op": "replace", "path": "/spec/notifications/0/events", "value": ["pushApproved"]}`,
 		`{"op": "replace", "path": "/spec/proxies/0/timeout", "value": 60}`,
+		`{"op": "replace", "path": "/spec/downloadClients/0/rules/maxActiveDownloads", "value": 5}`,
+		`{"op": "replace", "path": "/spec/feeds/0/maxAge", "value": 3600}`,
 	}
 	if atNewest() {
 		// Autobrr before 1.84.0 answers a change to a list that has never
@@ -59,6 +61,8 @@ func TestAutobrr(t *testing.T) {
 			"api-key": key, "qbittorrent-username": qbittorrentUser, "qbittorrent-password": qbitPassword,
 			"sonarr-api-key": randomKey(), "ipt-passkey": randomKey(), "torznab-api-key": randomKey(),
 			"gotify-token": randomKey(), "proxy-username": "compat", "proxy-password": randomKey(),
+			"edge-username": "compat", "edge-password": randomKey(), "feed-cookie": "session=" + randomKey(),
+			"irc-server-password": randomKey(),
 		},
 		newObj: func() ctrlcommon.ConfigResource { return &automationv1alpha1.Autobrr{} },
 		reconciler: func(c client.Client) reconcile.Reconciler {
@@ -75,6 +79,15 @@ func TestAutobrr(t *testing.T) {
 			assert.Equal(t, "QBITTORRENT", named(downloaders, "qBittorrent")["type"])
 			sonarr, _ := named(downloaders, "Sonarr")["settings"].(map[string]any)
 			assert.Equal(t, "<redacted>", sonarr["apikey"], "the Sonarr client has no API key")
+			sonarrAuth, _ := sonarr["auth"].(map[string]any)
+			assert.Equal(t, "BASIC_AUTH", sonarrAuth["type"])
+			assert.Equal(t, "compat", sonarrAuth["username"])
+			assert.Equal(t, "qBittorrent", sonarr["external_download_client"])
+			qbitSettings, _ := named(downloaders, "qBittorrent")["settings"].(map[string]any)
+			qbitRules, _ := qbitSettings["rules"].(map[string]any)
+			assert.Equal(t, true, qbitRules["enabled"])
+			assert.Equal(t, "MAX_DOWNLOADS_REACHED", qbitRules["ignore_slow_torrents_condition"])
+			assert.InDelta(t, 2048, qbitRules["download_speed_threshold"], 0)
 			indexers, err := hc.GetJSONList(ctx, "/api/indexer")
 			require.NoError(t, err)
 			require.Len(t, indexers, 2)
@@ -90,10 +103,17 @@ func TestAutobrr(t *testing.T) {
 			require.Len(t, feeds, 1)
 			feedIndexer, _ := feeds[0]["indexer"].(map[string]any)
 			assert.Equal(t, "Compat Torznab", feedIndexer["name"])
+			assert.Equal(t, "<redacted>", feeds[0]["cookie"], "the feed has no cookie")
+			assert.InDelta(t, 30, feeds[0]["timeout"], 0)
+			feedSettings, _ := feeds[0]["settings"].(map[string]any)
+			assert.Equal(t, "MAGNET", feedSettings["download_type"])
 			networks, err := hc.GetJSONList(ctx, "/api/irc")
 			require.NoError(t, err)
 			require.Len(t, networks, 1)
 			assert.Equal(t, map[string]any{"mechanism": "NONE"}, networks[0]["auth"])
+			assert.Equal(t, "<redacted>", networks[0]["pass"], "the network has no server password")
+			assert.Equal(t, "znc.example.invalid:6697", networks[0]["bouncer_addr"])
+			assert.Equal(t, true, networks[0]["bot_mode"])
 			proxies, err := hc.GetJSONList(ctx, "/api/proxy")
 			require.NoError(t, err)
 			require.Len(t, proxies, 1)

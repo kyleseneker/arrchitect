@@ -384,6 +384,45 @@ func TestAutobrrFeedLinksItsIndexerByID(t *testing.T) {
 	assert.NotContains(t, body, "indexer")
 }
 
+func TestAutobrrFeedGetsWhatAutobrrLeavesOutOfACreate(t *testing.T) {
+	app := &fakeAutobrr{existing: map[string][]map[string]any{
+		"indexer": {{"id": float64(5), "name": "Generic", "implementation": "torznab"}},
+	}, stores: true}
+	cfg := autobrrConfig(app.serve(t))
+	cfg.Spec.Feeds = []automationv1alpha1.AutobrrFeed{{
+		Name: "Generic", Type: "Torznab", URL: "http://feed", IndexerRef: "Generic",
+		Timeout: 30, MaxAge: new(int32(86400)), DownloadType: "Magnet",
+		CookieSecretRef: &commonv1alpha1.SecretKeyRef{Name: "autobrr-credentials", Key: "api-key"},
+	}}
+
+	runAutobrr(t, cfg, true)
+
+	created := app.posted("/api/feeds")
+	require.NotNil(t, created, "the feed was never created")
+	assert.Equal(t, float64(30), created["timeout"])
+	assert.Equal(t, map[string]any{"download_type": "MAGNET"}, created["settings"])
+	app.mu.Lock()
+	updated := app.bodies[http.MethodPut+" /api/feeds/1"]
+	app.mu.Unlock()
+	require.NotNil(t, updated, "the new feed was never given its max age and cookie")
+	assert.Equal(t, float64(86400), updated["max_age"])
+	assert.Equal(t, "test-key", updated["cookie"])
+	assert.Equal(t, float64(5), updated["indexer_id"])
+}
+
+func TestAutobrrFeedWithoutMaxAgeOrCookieIsOnlyCreated(t *testing.T) {
+	app := &fakeAutobrr{existing: map[string][]map[string]any{
+		"indexer": {{"id": float64(5), "name": "Generic", "implementation": "torznab"}},
+	}, stores: true}
+	cfg := autobrrConfig(app.serve(t))
+	cfg.Spec.Feeds = []automationv1alpha1.AutobrrFeed{{Name: "Generic", Type: "Torznab", URL: "http://feed", IndexerRef: "Generic"}}
+
+	runAutobrr(t, cfg, true)
+
+	require.NotNil(t, app.posted("/api/feeds"))
+	assert.False(t, app.saw(http.MethodPut, "/api/feeds/1"))
+}
+
 func TestAutobrrRefusesAnIndexerNameTwoIndexersShare(t *testing.T) {
 	app := &fakeAutobrr{existing: map[string][]map[string]any{
 		"indexer": {
@@ -518,6 +557,88 @@ func TestAutobrrCoversAZeroValueAutobrrLeftOut(t *testing.T) {
 	assert.True(t, autobrrCovers(current, map[string]any{"name": "Send", "category": "tv", "paused": false, "limit_seed_time": float64(0)}))
 	assert.False(t, autobrrCovers(current, map[string]any{"paused": true}))
 	assert.False(t, autobrrCovers(map[string]any{"paused": true}, map[string]any{"paused": false}), "a stored true still differs")
+}
+
+func TestAutobrrCoversNestedZeroValuesAutobrrLeftOut(t *testing.T) {
+	current := map[string]any{"settings": map[string]any{"basic": map[string]any{}, "rules": map[string]any{"enabled": true}}}
+	assert.True(t, autobrrCovers(current, map[string]any{"settings": map[string]any{
+		"basic": map[string]any{"auth": false, "username": ""}, "rules": map[string]any{"enabled": true, "max_active_downloads": float64(0)},
+	}}))
+	assert.True(t, autobrrCovers(map[string]any{}, map[string]any{"settings": map[string]any{"basic": map[string]any{"auth": false}}}),
+		"a nested block Autobrr left out holds only zero values")
+	assert.False(t, autobrrCovers(current, map[string]any{"settings": map[string]any{"rules": map[string]any{"max_active_downloads": float64(3)}}}))
+}
+
+func autobrrHTTPAuthSecret() *corev1.Secret {
+	return &corev1.Secret{
+		Name: "edge", Namespace: "media",
+		Data: map[string][]byte{"username": []byte("user"), "password": []byte("pass")},
+	}
+}
+
+func TestAutobrrDownloadClientSendsHTTPAuthWhereAutobrrAndItsWebUIReadIt(t *testing.T) {
+	for authType, want := range map[string]map[string]any{
+		"": {
+			"basic": map[string]any{"auth": true, "username": "user", "password": "pass"},
+			"auth":  map[string]any{"enabled": true, "type": "BASIC_AUTH", "username": "user", "password": "pass"},
+		},
+		"Digest": {
+			"basic": map[string]any{"auth": false, "username": "", "password": ""},
+			"auth":  map[string]any{"enabled": true, "type": "DIGEST_AUTH", "username": "user", "password": "pass"},
+		},
+	} {
+		app := &fakeAutobrr{}
+		cfg := autobrrConfig(app.serve(t))
+		cfg.Spec.DownloadClients = []automationv1alpha1.AutobrrDownloadClient{{
+			Name: "rTorrent", Type: "rTorrent", Host: "http://rtorrent/RPC2",
+			HTTPAuth: automationv1alpha1.AutobrrHTTPAuth{
+				Type:              authType,
+				UsernameSecretRef: commonv1alpha1.SecretKeyRef{Name: "edge", Key: "username"},
+				PasswordSecretRef: commonv1alpha1.SecretKeyRef{Name: "edge", Key: "password"},
+			},
+		}}
+
+		runAutobrr(t, cfg, true, autobrrHTTPAuthSecret())
+
+		body := app.posted("/api/downloaders")
+		require.NotNil(t, body)
+		assert.Equal(t, want, body["settings"], "auth type %q", authType)
+	}
+}
+
+func TestAutobrrDownloadClientRulesApplyUnlessDisabled(t *testing.T) {
+	app := &fakeAutobrr{}
+	cfg := autobrrConfig(app.serve(t))
+	cfg.Spec.DownloadClients = []automationv1alpha1.AutobrrDownloadClient{{
+		Name: "qBit", Type: "qBittorrent", Host: "http://qbit:8080",
+		Rules: &automationv1alpha1.AutobrrDownloadClientRules{
+			MaxActiveDownloads: new(int32(3)), IgnoreSlowTorrents: new(true),
+			IgnoreSlowTorrentsCondition: "MaxDownloadsReached", DownloadSpeedThreshold: new(int32(0)),
+		},
+	}}
+
+	runAutobrr(t, cfg, true)
+
+	body := app.posted("/api/downloaders")
+	require.NotNil(t, body)
+	assert.Equal(t, map[string]any{"rules": map[string]any{
+		"enabled": true, "max_active_downloads": float64(3), "ignore_slow_torrents": true,
+		"ignore_slow_torrents_condition": "MAX_DOWNLOADS_REACHED", "download_speed_threshold": float64(0),
+	}}, body["settings"])
+}
+
+func TestAutobrrDownloadClientNamesTheArrsDownloadClient(t *testing.T) {
+	app := &fakeAutobrr{}
+	cfg := autobrrConfig(app.serve(t))
+	cfg.Spec.DownloadClients = []automationv1alpha1.AutobrrDownloadClient{{
+		Name: "Sonarr", Type: "Sonarr", Host: "http://sonarr:8989", ExternalDownloadClient: "qBittorrent",
+	}}
+
+	runAutobrr(t, cfg, true)
+
+	body := app.posted("/api/downloaders")
+	require.NotNil(t, body)
+	assert.Equal(t, map[string]any{"external_download_client": "qBittorrent"}, body["settings"])
 }
 
 func TestAutobrrDownloadClientAppRefsUseTheReferencedConnections(t *testing.T) {
@@ -698,6 +819,25 @@ func TestAutobrrIRCNetworkConnectsThroughItsProxyByID(t *testing.T) {
 	assert.Equal(t, true, updated["use_proxy"])
 	assert.Equal(t, float64(3), updated["proxy_id"])
 	assert.Equal(t, true, updated["enabled"], "a new network is enabled")
+}
+
+func TestAutobrrIRCNetworkTakesItsBouncerAndServerPassword(t *testing.T) {
+	app := &fakeAutobrr{}
+	cfg := autobrrConfig(app.serve(t))
+	cfg.Spec.IRCNetworks = []automationv1alpha1.AutobrrIRCNetwork{{
+		Name: "Net", Server: "irc.example", Port: 6697, Nick: "bot",
+		BouncerAddress: "znc:6697", BotMode: new(true),
+		ServerPasswordSecretRef: &commonv1alpha1.SecretKeyRef{Name: "autobrr-credentials", Key: "api-key"},
+	}}
+
+	runAutobrr(t, cfg, true)
+
+	body := app.posted("/api/irc")
+	require.NotNil(t, body)
+	assert.Equal(t, true, body["use_bouncer"])
+	assert.Equal(t, "znc:6697", body["bouncer_addr"])
+	assert.Equal(t, true, body["bot_mode"])
+	assert.Equal(t, "test-key", body["pass"])
 }
 
 func TestAutobrrObserveTellsADeclaredProxyFromATypo(t *testing.T) {
