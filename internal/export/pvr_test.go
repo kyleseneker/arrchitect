@@ -41,7 +41,7 @@ var fakeSonarrAPI = map[string]string{
 		{"name":"rpcToken","value":"********","privacy":"password"}]}]`,
 	"/downloadclient/schema": `[{"implementation":"QBittorrent","fields":[{"name":"initialState","value":0},{"name":"sequentialOrder","value":false}]}]`,
 	"/indexer": `[{"id":1,"name":"Torznab","protocol":"TorrentDownloadProtocol","implementation":"Torznab","configContract":"TorznabSettings",
-		"enableRss":true,"enableAutomaticSearch":true,"enableInteractiveSearch":false,"priority":25,"tags":[],"fields":[
+		"enableRss":true,"enableAutomaticSearch":true,"enableInteractiveSearch":false,"priority":25,"downloadClientId":1,"tags":[],"fields":[
 		{"name":"baseUrl","value":"http://jackett"},{"name":"apiKey","value":"********","privacy":"apiKey"},{"name":"minimumSeeders","value":1}]}]`,
 	"/indexer/schema": `[{"implementation":"Torznab","fields":[{"name":"baseUrl","value":""},{"name":"minimumSeeders","value":1}]}]`,
 	"/notification": `[{"id":1,"name":"Hook","implementation":"Webhook","configContract":"WebhookSettings","onGrab":true,
@@ -158,6 +158,7 @@ func TestPVRIndexerNormalizesProtocolAndReferencesMaskedFields(t *testing.T) {
 	require.Len(t, idx.Fields, 2)
 	assert.Equal(t, `"http://jackett"`, string(idx.Fields[0].Value.Raw))
 	assert.Equal(t, "indexer-torznab-apikey", idx.Fields[1].ValueFrom.SecretKeyRef.Key)
+	assert.Equal(t, "qBit", idx.DownloadClientName, "the pinned client is exported by name")
 }
 
 func TestPVRNotificationSkipsEventsTheImplementationLacks(t *testing.T) {

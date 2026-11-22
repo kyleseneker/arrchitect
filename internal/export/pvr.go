@@ -30,6 +30,7 @@ type pvrExport struct {
 	app              pvrclient.App
 	qualityProfiles  map[float64]string
 	metadataProfiles map[float64]string
+	downloadClients  map[float64]string
 	preferredSizes   bool
 }
 
@@ -50,6 +51,9 @@ func (e *pvrExport) spec() (map[string]any, error) {
 		return nil, err
 	}
 	if e.qualityProfiles, err = e.names("/qualityprofile", "name"); err != nil {
+		return nil, err
+	}
+	if e.downloadClients, err = e.names("/downloadclient", "name"); err != nil {
 		return nil, err
 	}
 	if e.app.MetadataProfiles {
@@ -136,6 +140,9 @@ func (e *pvrExport) indexer(item map[string]any, defaults map[string]map[string]
 	protocol(idx)
 	idx["fields"] = e.fields(item, defaults, nil, "indexer", true)
 	idx["tagLabels"] = e.tagLabels(item)
+	if name, ok := e.downloadClients[num(item["downloadClientId"])]; ok {
+		idx["downloadClientName"] = name
+	}
 	return idx
 }
 

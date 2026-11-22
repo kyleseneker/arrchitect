@@ -937,6 +937,7 @@ _Appears in:_
 | `enableRss` _boolean_ | enableRss enables RSS feed polling for this indexer. A new indexer<br />polls unless this or enable is false. |  | Optional: \{\} <br /> |
 | `enableAutomaticSearch` _boolean_ | enableAutomaticSearch enables automatic search for this indexer. A new<br />indexer searches unless this or enable is false. |  | Optional: \{\} <br /> |
 | `enableInteractiveSearch` _boolean_ | enableInteractiveSearch enables interactive (manual) search for this<br />indexer. A new indexer allows it unless this or enable is false. |  | Optional: \{\} <br /> |
+| `downloadClientName` _string_ | downloadClientName names the download client that gets this indexer's<br />releases, resolved against the app on each reconciliation. Left out, the<br />app picks a client for the release's protocol. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `tagLabels` _string array_ | tagLabels references tags by label, resolved against the app on each<br />reconciliation. A missing or ambiguous label blocks writes, and an empty<br />list clears the tags. |  | Optional: \{\} <br /> |
 | `fields` _[ConfigField](#configfield) array_ | fields defines the indexer's configuration fields (e.g., baseUrl, apiKey, categories). |  | MaxProperties: 2 <br />Optional: \{\} <br /> |
 
@@ -1389,6 +1390,7 @@ _Appears in:_
 | `enableRss` _boolean_ | enableRss enables RSS feed polling for this indexer. A new indexer<br />polls unless this or enable is false. |  | Optional: \{\} <br /> |
 | `enableAutomaticSearch` _boolean_ | enableAutomaticSearch enables automatic search for this indexer. A new<br />indexer searches unless this or enable is false. |  | Optional: \{\} <br /> |
 | `enableInteractiveSearch` _boolean_ | enableInteractiveSearch enables interactive (manual) search for this<br />indexer. A new indexer allows it unless this or enable is false. |  | Optional: \{\} <br /> |
+| `downloadClientName` _string_ | downloadClientName names the download client that gets this indexer's<br />releases, resolved against the app on each reconciliation. Left out, the<br />app picks a client for the release's protocol. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `tagLabels` _string array_ | tagLabels references tags by label, resolved against the app on each<br />reconciliation. A missing or ambiguous label blocks writes, and an empty<br />list clears the tags. |  | Optional: \{\} <br /> |
 | `fields` _[ConfigField](#configfield) array_ | fields defines the indexer's configuration fields (e.g., baseUrl, apiKey, categories). |  | MaxProperties: 2 <br />Optional: \{\} <br /> |
 
@@ -2843,6 +2845,7 @@ _Appears in:_
 | `enableRss` _boolean_ | enableRss enables RSS feed polling for this indexer. A new indexer<br />polls unless this or enable is false. |  | Optional: \{\} <br /> |
 | `enableAutomaticSearch` _boolean_ | enableAutomaticSearch enables automatic search for this indexer. A new<br />indexer searches unless this or enable is false. |  | Optional: \{\} <br /> |
 | `enableInteractiveSearch` _boolean_ | enableInteractiveSearch enables interactive (manual) search for this<br />indexer. A new indexer allows it unless this or enable is false. |  | Optional: \{\} <br /> |
+| `downloadClientName` _string_ | downloadClientName names the download client that gets this indexer's<br />releases, resolved against the app on each reconciliation. Left out, the<br />app picks a client for the release's protocol. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `tagLabels` _string array_ | tagLabels references tags by label, resolved against the app on each<br />reconciliation. A missing or ambiguous label blocks writes, and an empty<br />list clears the tags. |  | Optional: \{\} <br /> |
 | `fields` _[ConfigField](#configfield) array_ | fields defines the indexer's configuration fields (e.g., baseUrl, apiKey, categories). |  | MaxProperties: 2 <br />Optional: \{\} <br /> |
 
@@ -3169,6 +3172,7 @@ _Appears in:_
 | `enableRss` _boolean_ | enableRss enables RSS feed polling for this indexer. A new indexer<br />polls unless this or enable is false. |  | Optional: \{\} <br /> |
 | `enableAutomaticSearch` _boolean_ | enableAutomaticSearch enables automatic search for this indexer. A new<br />indexer searches unless this or enable is false. |  | Optional: \{\} <br /> |
 | `enableInteractiveSearch` _boolean_ | enableInteractiveSearch enables interactive (manual) search for this<br />indexer. A new indexer allows it unless this or enable is false. |  | Optional: \{\} <br /> |
+| `downloadClientName` _string_ | downloadClientName names the download client that gets this indexer's<br />releases, resolved against the app on each reconciliation. Left out, the<br />app picks a client for the release's protocol. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `tagLabels` _string array_ | tagLabels references tags by label, resolved against the app on each<br />reconciliation. A missing or ambiguous label blocks writes, and an empty<br />list clears the tags. |  | Optional: \{\} <br /> |
 | `fields` _[ConfigField](#configfield) array_ | fields defines the indexer's configuration fields (e.g., baseUrl, apiKey, categories). |  | MaxProperties: 2 <br />Optional: \{\} <br /> |
 
@@ -3986,6 +3990,7 @@ _Appears in:_
 | `enableRss` _boolean_ | enableRss enables RSS feed polling for this indexer. A new indexer<br />polls unless this or enable is false. |  | Optional: \{\} <br /> |
 | `enableAutomaticSearch` _boolean_ | enableAutomaticSearch enables automatic search for this indexer. A new<br />indexer searches unless this or enable is false. |  | Optional: \{\} <br /> |
 | `enableInteractiveSearch` _boolean_ | enableInteractiveSearch enables interactive (manual) search for this<br />indexer. A new indexer allows it unless this or enable is false. |  | Optional: \{\} <br /> |
+| `downloadClientName` _string_ | downloadClientName names the download client that gets this indexer's<br />releases, resolved against the app on each reconciliation. Left out, the<br />app picks a client for the release's protocol. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `tagLabels` _string array_ | tagLabels references tags by label, resolved against the app on each<br />reconciliation. A missing or ambiguous label blocks writes, and an empty<br />list clears the tags. |  | Optional: \{\} <br /> |
 | `fields` _[ConfigField](#configfield) array_ | fields defines the indexer's configuration fields (e.g., baseUrl, apiKey, categories). |  | MaxProperties: 2 <br />Optional: \{\} <br /> |
 

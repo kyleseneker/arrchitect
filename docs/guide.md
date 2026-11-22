@@ -282,6 +282,8 @@ references can use names instead:
   are created first.
 - Custom formats in quality profiles, and quality profiles in import lists.
 - `appProfileName` on Prowlarr indexers.
+- `downloadClientName` on Sonarr, Radarr, Lidarr and Readarr indexers, which
+  sends the indexer's releases to that download client.
 - `activeProfileName` on Seerr's Sonarr and Radarr connections, looked up from
   that Sonarr or Radarr.
 

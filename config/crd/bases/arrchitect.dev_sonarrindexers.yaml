@@ -70,6 +70,13 @@ spec:
                 - delete
                 - orphan
                 type: string
+              downloadClientName:
+                description: |-
+                  downloadClientName names the download client that gets this indexer's
+                  releases, resolved against the app on each reconciliation. Left out, the
+                  app picks a client for the release's protocol.
+                minLength: 1
+                type: string
               enable:
                 description: |-
                   enable controls whether this indexer is active. False turns off RSS,
