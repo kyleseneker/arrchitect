@@ -200,6 +200,41 @@ func (in *QBittorrentPreferences) DeepCopyInto(out *QBittorrentPreferences) {
 		*out = new(bool)
 		**out = **in
 	}
+	if in.WebUIHostHeaderValidationEnabled != nil {
+		in, out := &in.WebUIHostHeaderValidationEnabled, &out.WebUIHostHeaderValidationEnabled
+		*out = new(bool)
+		**out = **in
+	}
+	if in.WebUIDomainList != nil {
+		in, out := &in.WebUIDomainList, &out.WebUIDomainList
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
+	if in.WebUICsrfProtectionEnabled != nil {
+		in, out := &in.WebUICsrfProtectionEnabled, &out.WebUICsrfProtectionEnabled
+		*out = new(bool)
+		**out = **in
+	}
+	if in.WebUIClickjackingProtectionEnabled != nil {
+		in, out := &in.WebUIClickjackingProtectionEnabled, &out.WebUIClickjackingProtectionEnabled
+		*out = new(bool)
+		**out = **in
+	}
+	if in.WebUISecureCookieEnabled != nil {
+		in, out := &in.WebUISecureCookieEnabled, &out.WebUISecureCookieEnabled
+		*out = new(bool)
+		**out = **in
+	}
+	if in.WebUIReverseProxyEnabled != nil {
+		in, out := &in.WebUIReverseProxyEnabled, &out.WebUIReverseProxyEnabled
+		*out = new(bool)
+		**out = **in
+	}
+	if in.WebUIReverseProxiesList != nil {
+		in, out := &in.WebUIReverseProxiesList, &out.WebUIReverseProxiesList
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	if in.IncompleteFilesExt != nil {
 		in, out := &in.IncompleteFilesExt, &out.IncompleteFilesExt
 		*out = new(bool)

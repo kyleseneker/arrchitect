@@ -94,7 +94,19 @@ func TestQBPreferencePayloadCoversEverySpecField(t *testing.T) {
 			p.MaxInactiveSeedingTimeEnabled = new(true)
 			p.SchedulerDays = "weekends"
 			p.ExcludedFileNames = []string{"*.lnk"}
+			p.WebUIDomainList = []string{"qbittorrent.example.com"}
+			p.WebUIReverseProxiesList = []string{"10.0.0.0/8"}
 		})
+}
+
+func TestQBPreferencePayloadJoinsTheWebUILists(t *testing.T) {
+	got, err := qbPreferencePayload(&downloadsv1alpha1.QBittorrentPreferences{
+		WebUIDomainList:         []string{"qbittorrent.example.com", "qbittorrent.media.svc.cluster.local"},
+		WebUIReverseProxiesList: []string{"10.0.0.0/8", "192.168.1.1"},
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "qbittorrent.example.com;qbittorrent.media.svc.cluster.local", got["web_ui_domain_list"])
+	assert.Equal(t, "10.0.0.0/8;192.168.1.1", got["web_ui_reverse_proxies_list"])
 }
 
 func TestQBPreferencePayloadRejectsBadValues(t *testing.T) {

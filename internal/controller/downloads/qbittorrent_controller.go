@@ -131,6 +131,12 @@ func qbPreferencePayload(prefs *downloadsv1alpha1.QBittorrentPreferences) (map[s
 	if len(prefs.ExcludedFileNames) > 0 {
 		out["excluded_file_names"] = strings.Join(prefs.ExcludedFileNames, "\n")
 	}
+	if len(prefs.WebUIDomainList) > 0 {
+		out["web_ui_domain_list"] = strings.Join(prefs.WebUIDomainList, ";")
+	}
+	if len(prefs.WebUIReverseProxiesList) > 0 {
+		out["web_ui_reverse_proxies_list"] = strings.Join(prefs.WebUIReverseProxiesList, ";")
+	}
 	if prefs.SchedulerDays != "" {
 		days, ok := qbclient.SchedulerDays[prefs.SchedulerDays]
 		if !ok {

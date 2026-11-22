@@ -264,6 +264,17 @@ spec:
                       requests.
                     type: boolean
                 type: object
+              network:
+                description: network configures how Seerr treats the network in front
+                  of it.
+                minProperties: 1
+                properties:
+                  trustProxy:
+                    description: |-
+                      trustProxy has Seerr take client addresses from the proxy in front of it,
+                      such as an ingress controller. Seerr applies it when it restarts.
+                    type: boolean
+                type: object
               notifications:
                 description: |-
                   notifications configures notification agents (Discord, Slack, Telegram, etc.).

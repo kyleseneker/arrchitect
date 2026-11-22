@@ -141,6 +141,9 @@ type fakeSeerr struct {
 	notifications map[string]map[string]any
 	// refuseKey answers every request but the public settings with 401.
 	refuseKey bool
+	// network is the stored network settings. Like Seerr, a POST merges the
+	// body into it.
+	network map[string]any
 }
 
 func (f *fakeSeerr) jellyfinServer() map[string]any {
@@ -269,6 +272,14 @@ func (f *fakeSeerr) serve(t *testing.T) string {
 		switch {
 		case r.URL.Path == "/api/v1/settings/public":
 			_ = json.NewEncoder(w).Encode(map[string]any{"initialized": f.initialized})
+		case r.URL.Path == "/api/v1/settings/network":
+			if f.network == nil {
+				f.network = map[string]any{"csrfProtection": false, "trustProxy": false}
+			}
+			if r.Method == http.MethodPost {
+				maps.Copy(f.network, body)
+			}
+			_ = json.NewEncoder(w).Encode(f.network)
 		case r.URL.Path == "/api/v1/settings/main":
 			_ = json.NewEncoder(w).Encode(map[string]any{"apiKey": "seerr-generated-key"})
 		case r.URL.Path == "/api/v1/settings/sonarr" || r.URL.Path == "/api/v1/settings/radarr":
@@ -1078,4 +1089,28 @@ func TestSeerrSetupEnablesOnlyTheDeclaredLibraries(t *testing.T) {
 	require.True(t, app.saw("POST", "/api/v1/settings/initialize"), "setup never completed")
 	assert.True(t, app.libraryEnabled("movies"))
 	assert.False(t, app.libraryEnabled("home"), "setup enabled a library left out")
+}
+
+func TestSeerrTrustsTheProxyInFrontOfIt(t *testing.T) {
+	app := &fakeSeerr{initialized: true}
+	cfg := seerrWithAPIKey(app.serve(t))
+	cfg.Spec.Network = requestsv1alpha1.SeerrNetwork{TrustProxy: new(true)}
+
+	runSeerr(t, cfg)
+
+	app.mu.Lock()
+	defer app.mu.Unlock()
+	assert.Equal(t, true, app.network["trustProxy"])
+	assert.Equal(t, false, app.network["csrfProtection"], "CSRF protection would lock the operator out")
+}
+
+func TestSeerrLeavesMatchingNetworkSettingsAlone(t *testing.T) {
+	app := &fakeSeerr{initialized: true, network: map[string]any{"csrfProtection": false, "trustProxy": true}}
+	cfg := seerrWithAPIKey(app.serve(t))
+	cfg.Spec.Network = requestsv1alpha1.SeerrNetwork{TrustProxy: new(true)}
+
+	runSeerr(t, cfg)
+
+	require.True(t, app.saw("GET", "/api/v1/settings/network"), "never read the network settings")
+	assert.False(t, app.saw("POST", "/api/v1/settings/network"), "rewrote network settings that already matched")
 }

@@ -15,6 +15,7 @@ import (
 var fakeSeerrAPI = map[string]string{
 	"/api/v1/settings/main": `{"applicationTitle":"Requests","hideAvailable":true,"defaultPermissions":32,
 		"mediaServerType":2,"apiKey":"seerr-key"}`,
+	"/api/v1/settings/network":          `{"csrfProtection":false,"forceIpv4First":false,"trustProxy":true}`,
 	"/api/v1/settings/jellyfin":         `{"ip":"jellyfin","port":8096,"useSsl":false,"urlBase":"","name":"home"}`,
 	"/api/v1/settings/jellyfin/library": `[{"id":"m","name":"Movies","enabled":true},{"id":"h","name":"Home Videos","enabled":false}]`,
 	"/api/v1/settings/sonarr": `[
@@ -50,6 +51,8 @@ func TestSeerrExportsSettingsServicesAndNotifications(t *testing.T) {
 	assert.Equal(t, int32(8096), *cfg.Spec.JellyfinAuth.Port)
 	assert.ElementsMatch(t, []string{"jellyfin-username", "jellyfin-password"}, res.Unfilled)
 	assert.Equal(t, []string{"Movies"}, cfg.Spec.Libraries, "only the enabled libraries are exported")
+	require.NotNil(t, cfg.Spec.Network.TrustProxy)
+	assert.True(t, *cfg.Spec.Network.TrustProxy)
 
 	require.Len(t, cfg.Spec.Sonarr, 2, "every server is exported")
 	fourK, sonarr := cfg.Spec.Sonarr[0], cfg.Spec.Sonarr[1]

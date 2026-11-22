@@ -57,6 +57,10 @@ type SeerrSpec struct {
 	// +optional
 	Main *SeerrMain `json:"main,omitempty"`
 
+	// network configures how Seerr treats the network in front of it.
+	// +optional
+	Network SeerrNetwork `json:"network,omitzero"`
+
 	// sonarr lists the Sonarr servers Seerr sends TV requests to, matched by
 	// name. Seerr uses the default server, and the default 4K server for 4K
 	// requests.
@@ -194,6 +198,17 @@ type SeerrJellyfinAuth struct {
 	// passwordSecretRef references a Secret containing the Jellyfin password.
 	// +optional
 	PasswordSecretRef *commonv1alpha1.SecretKeyRef `json:"passwordSecretRef,omitempty"`
+}
+
+// SeerrNetwork configures Seerr's network settings. CSRF protection is left
+// out: Seerr then blocks API writes from other applications, the operator's
+// included, and requires HTTPS.
+// +kubebuilder:validation:MinProperties=1
+type SeerrNetwork struct {
+	// trustProxy has Seerr take client addresses from the proxy in front of it,
+	// such as an ingress controller. Seerr applies it when it restarts.
+	// +optional
+	TrustProxy *bool `json:"trustProxy,omitempty"`
 }
 
 // SeerrMain configures general Seerr application settings.

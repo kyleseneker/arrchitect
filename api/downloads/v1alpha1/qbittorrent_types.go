@@ -157,6 +157,46 @@ type QBittorrentPreferences struct {
 	// +kubebuilder:validation:MinLength=1
 	BypassAuthSubnetWhitelist string `json:"bypassAuthSubnetWhitelist,omitempty"`
 
+	// webUiHostHeaderValidationEnabled has the Web UI refuse requests whose
+	// Host header isn't in webUiDomainList. List the Service name the operator
+	// connects through there as well, or its requests are refused too.
+	// +optional
+	WebUIHostHeaderValidationEnabled *bool `json:"webUiHostHeaderValidationEnabled,omitempty"`
+
+	// webUiDomainList are the host names the Web UI accepts when Host header
+	// validation is on; * accepts any.
+	// +optional
+	// +listType=set
+	// +kubebuilder:validation:items:MinLength=1
+	WebUIDomainList []string `json:"webUiDomainList,omitempty"`
+
+	// webUiCsrfProtectionEnabled has the Web UI refuse requests made from
+	// another site.
+	// +optional
+	WebUICsrfProtectionEnabled *bool `json:"webUiCsrfProtectionEnabled,omitempty"`
+
+	// webUiClickjackingProtectionEnabled has the Web UI refuse to be shown in a
+	// frame on another site.
+	// +optional
+	WebUIClickjackingProtectionEnabled *bool `json:"webUiClickjackingProtectionEnabled,omitempty"`
+
+	// webUiSecureCookieEnabled marks the Web UI's session cookie Secure, so
+	// browsers only send it over HTTPS.
+	// +optional
+	WebUISecureCookieEnabled *bool `json:"webUiSecureCookieEnabled,omitempty"`
+
+	// webUiReverseProxyEnabled has the Web UI take client addresses from the
+	// proxies in webUiReverseProxiesList, such as an ingress controller.
+	// +optional
+	WebUIReverseProxyEnabled *bool `json:"webUiReverseProxyEnabled,omitempty"`
+
+	// webUiReverseProxiesList are the addresses or subnets of the proxies the
+	// Web UI trusts when webUiReverseProxyEnabled is on.
+	// +optional
+	// +listType=set
+	// +kubebuilder:validation:items:MinLength=1
+	WebUIReverseProxiesList []string `json:"webUiReverseProxiesList,omitempty"`
+
 	// tempPath is where incomplete downloads go while tempPathEnabled is on.
 	// +optional
 	// +kubebuilder:validation:MinLength=1

@@ -48,6 +48,18 @@ func exportQBittorrent(r *reader) (map[string]any, error) {
 	if names, _ := prefs["excluded_file_names"].(string); names != "" {
 		preferences["excludedFileNames"] = strings.Split(names, "\n")
 	}
+	for field, key := range map[string]string{"webUiDomainList": "web_ui_domain_list", "webUiReverseProxiesList": "web_ui_reverse_proxies_list"} {
+		var entries []any
+		list, _ := prefs[key].(string)
+		for entry := range strings.SplitSeq(list, ";") {
+			if entry = strings.TrimSpace(entry); entry != "" {
+				entries = append(entries, entry)
+			}
+		}
+		if len(entries) > 0 {
+			preferences[field] = entries
+		}
+	}
 	if ratio, ok := prefs["max_ratio"].(float64); ok {
 		preferences["maxRatio"] = strconv.FormatFloat(ratio, 'f', -1, 64)
 	}

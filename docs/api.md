@@ -2481,6 +2481,13 @@ _Appears in:_
 | `webUiPort` _integer_ | webUiPort is the Web UI listening port. |  | Optional: \{\} <br /> |
 | `bypassAuthSubnetWhitelistEnabled` _boolean_ | bypassAuthSubnetWhitelistEnabled lets clients in the whitelisted subnets skip<br />the WebUI login, so an authenticating proxy does not produce a second prompt. |  | Optional: \{\} <br /> |
 | `bypassAuthSubnetWhitelist` _string_ | bypassAuthSubnetWhitelist is the comma-separated list of subnets allowed to<br />skip the WebUI login. |  | MinLength: 1 <br />Optional: \{\} <br /> |
+| `webUiHostHeaderValidationEnabled` _boolean_ | webUiHostHeaderValidationEnabled has the Web UI refuse requests whose<br />Host header isn't in webUiDomainList. List the Service name the operator<br />connects through there as well, or its requests are refused too. |  | Optional: \{\} <br /> |
+| `webUiDomainList` _string array_ | webUiDomainList are the host names the Web UI accepts when Host header<br />validation is on; * accepts any. |  | items:MinLength: 1 <br />Optional: \{\} <br /> |
+| `webUiCsrfProtectionEnabled` _boolean_ | webUiCsrfProtectionEnabled has the Web UI refuse requests made from<br />another site. |  | Optional: \{\} <br /> |
+| `webUiClickjackingProtectionEnabled` _boolean_ | webUiClickjackingProtectionEnabled has the Web UI refuse to be shown in a<br />frame on another site. |  | Optional: \{\} <br /> |
+| `webUiSecureCookieEnabled` _boolean_ | webUiSecureCookieEnabled marks the Web UI's session cookie Secure, so<br />browsers only send it over HTTPS. |  | Optional: \{\} <br /> |
+| `webUiReverseProxyEnabled` _boolean_ | webUiReverseProxyEnabled has the Web UI take client addresses from the<br />proxies in webUiReverseProxiesList, such as an ingress controller. |  | Optional: \{\} <br /> |
+| `webUiReverseProxiesList` _string array_ | webUiReverseProxiesList are the addresses or subnets of the proxies the<br />Web UI trusts when webUiReverseProxyEnabled is on. |  | items:MinLength: 1 <br />Optional: \{\} <br /> |
 | `tempPath` _string_ | tempPath is where incomplete downloads go while tempPathEnabled is on. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `incompleteFilesExt` _boolean_ | incompleteFilesExt adds .!qB to the names of files still downloading. |  | Optional: \{\} <br /> |
 | `autoTmmEnabled` _boolean_ | autoTmmEnabled puts new torrents in automatic management, which saves<br />them under their category's path. |  | Optional: \{\} <br /> |
@@ -3764,6 +3771,25 @@ _Appears in:_
 | `locale` _string_ | locale is the application locale (e.g., "en"). |  | MinLength: 1 <br />Optional: \{\} <br /> |
 
 
+#### SeerrNetwork
+
+
+
+SeerrNetwork configures Seerr's network settings. CSRF protection is left
+out: Seerr then blocks API writes from other applications, the operator's
+included, and requires HTTPS.
+
+_Validation:_
+- MinProperties: 1
+
+_Appears in:_
+- [SeerrSpec](#seerrspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `trustProxy` _boolean_ | trustProxy has Seerr take client addresses from the proxy in front of it,<br />such as an ingress controller. Seerr applies it when it restarts. |  | Optional: \{\} <br /> |
+
+
 #### SeerrNotificationAgent
 
 
@@ -3861,6 +3887,7 @@ _Appears in:_
 | `plexAuth` _[SeerrPlexAuth](#seerrplexauth)_ | plexAuth defines Plex authentication settings.<br />Set this for Plex-based Seerr instances. Mutually exclusive with jellyfinAuth. |  | MinProperties: 1 <br />Optional: \{\} <br /> |
 | `libraries` _string array_ | libraries names the media server's libraries Seerr shows and takes<br />requests for. Those are enabled and the rest disabled, on every pass.<br />Left out, first-time setup enables every library and later passes leave<br />them as they are. |  | MinItems: 1 <br />items:MinLength: 1 <br />Optional: \{\} <br /> |
 | `main` _[SeerrMain](#seerrmain)_ | main configures general application settings. |  | Optional: \{\} <br /> |
+| `network` _[SeerrNetwork](#seerrnetwork)_ | network configures how Seerr treats the network in front of it. |  | MinProperties: 1 <br />Optional: \{\} <br /> |
 | `sonarr` _[SeerrServiceConnection](#seerrserviceconnection) array_ | sonarr lists the Sonarr servers Seerr sends TV requests to, matched by<br />name. Seerr uses the default server, and the default 4K server for 4K<br />requests. |  | Optional: \{\} <br /> |
 | `radarr` _[SeerrServiceConnection](#seerrserviceconnection) array_ | radarr lists the Radarr servers Seerr sends movie requests to, matched by<br />name. Seerr uses the default server, and the default 4K server for 4K<br />requests. |  | Optional: \{\} <br /> |
 | `notifications` _[SeerrNotificationAgent](#seerrnotificationagent) array_ | notifications configures notification agents (Discord, Slack, Telegram, etc.).<br />Each agent is a singleton — only one configuration per agent type. |  | Optional: \{\} <br /> |
