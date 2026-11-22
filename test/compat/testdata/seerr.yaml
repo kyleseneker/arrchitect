@@ -17,6 +17,8 @@ spec:
       key: jellyfin-password
   libraries:
     - Movies
+  network:
+    trustProxy: true
   main:
     applicationTitle: Compat Requests
     applicationUrl: https://requests.example.com

@@ -131,6 +131,9 @@ func (r *SeerrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 			syncErrors = append(syncErrors, fmt.Sprintf("main: %v", err))
 		}
 	}
+	if err := reconcileSeerrNetwork(ctx, sc, writes, config.Spec.Network); err != nil {
+		syncErrors = append(syncErrors, fmt.Sprintf("network: %v", err))
+	}
 
 	// Reconcile notification agents
 	for _, agent := range config.Spec.Notifications {
@@ -628,6 +631,24 @@ func reconcileSeerrMainSettings(ctx context.Context, sc *seerrclient.Client, w *
 	}
 	return w.Apply("settings", "main", func() error {
 		_, err := sc.Post(ctx, "/api/v1/settings/main", payload)
+		return err
+	})
+}
+
+func reconcileSeerrNetwork(ctx context.Context, sc *seerrclient.Client, w *engine.Writes, network requestsv1alpha1.SeerrNetwork) error {
+	if network.TrustProxy == nil {
+		return nil
+	}
+	payload := map[string]any{"trustProxy": *network.TrustProxy}
+	current, err := sc.Get(ctx, "/api/v1/settings/network")
+	if err != nil {
+		return fmt.Errorf("reading network settings: %w", err)
+	}
+	if !seerrDiffers(current, payload) {
+		return nil
+	}
+	return w.Apply("settings", "network", func() error {
+		_, err := sc.Post(ctx, "/api/v1/settings/network", payload)
 		return err
 	})
 }

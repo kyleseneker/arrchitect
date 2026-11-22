@@ -39,6 +39,13 @@ func exportSeerr(r *reader) (map[string]any, error) {
 		return nil, err
 	}
 	spec := map[string]any{"main": seerrFields(main, reflect.TypeFor[requestsv1alpha1.SeerrMain]())}
+	network, err := sc.Get(r.ctx, "/api/v1/settings/network")
+	if err != nil {
+		return nil, err
+	}
+	if trust, ok := network["trustProxy"].(bool); ok {
+		spec["network"] = map[string]any{"trustProxy": trust}
+	}
 
 	switch int(num(main["mediaServerType"])) {
 	case seerrJellyfin:

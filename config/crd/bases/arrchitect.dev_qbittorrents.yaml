@@ -478,10 +478,54 @@ spec:
                     description: upnp forwards the listening port on the router with
                       UPnP or NAT-PMP.
                     type: boolean
+                  webUiClickjackingProtectionEnabled:
+                    description: |-
+                      webUiClickjackingProtectionEnabled has the Web UI refuse to be shown in a
+                      frame on another site.
+                    type: boolean
+                  webUiCsrfProtectionEnabled:
+                    description: |-
+                      webUiCsrfProtectionEnabled has the Web UI refuse requests made from
+                      another site.
+                    type: boolean
+                  webUiDomainList:
+                    description: |-
+                      webUiDomainList are the host names the Web UI accepts when Host header
+                      validation is on; * accepts any.
+                    items:
+                      minLength: 1
+                      type: string
+                    type: array
+                    x-kubernetes-list-type: set
+                  webUiHostHeaderValidationEnabled:
+                    description: |-
+                      webUiHostHeaderValidationEnabled has the Web UI refuse requests whose
+                      Host header isn't in webUiDomainList. List the Service name the operator
+                      connects through there as well, or its requests are refused too.
+                    type: boolean
                   webUiPort:
                     description: webUiPort is the Web UI listening port.
                     format: int32
                     type: integer
+                  webUiReverseProxiesList:
+                    description: |-
+                      webUiReverseProxiesList are the addresses or subnets of the proxies the
+                      Web UI trusts when webUiReverseProxyEnabled is on.
+                    items:
+                      minLength: 1
+                      type: string
+                    type: array
+                    x-kubernetes-list-type: set
+                  webUiReverseProxyEnabled:
+                    description: |-
+                      webUiReverseProxyEnabled has the Web UI take client addresses from the
+                      proxies in webUiReverseProxiesList, such as an ingress controller.
+                    type: boolean
+                  webUiSecureCookieEnabled:
+                    description: |-
+                      webUiSecureCookieEnabled marks the Web UI's session cookie Secure, so
+                      browsers only send it over HTTPS.
+                    type: boolean
                 type: object
               reconcile:
                 description: reconcile configures reconciliation behavior (e.g., sync
