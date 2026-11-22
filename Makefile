@@ -74,15 +74,19 @@ test-compat: manifests generate setup-envtest ## Reconcile every app running in 
 
 .PHONY: test-e2e
 test-e2e: IMG = arrchitect:e2e
-test-e2e: kind chainsaw docker-build ## Run the Chainsaw tests in a throwaway kind cluster (needs docker). Its kubeconfig is a temporary file. KIND_NODE_IMAGE= picks the Kubernetes version.
+test-e2e: kind chainsaw docker-build ## Run the Chainsaw tests in a throwaway kind cluster (needs docker). Its kubeconfig is a temporary file. KIND_NODE_IMAGE= picks the Kubernetes version. App images are pulled once and loaded into the cluster.
 	@dir="$$(mktemp -d)"; export KUBECONFIG="$$dir/kubeconfig"; \
 	trap '"$(KIND)" delete cluster --name $(KIND_CLUSTER); rm -rf "$$dir"' EXIT; \
 	"$(KIND)" create cluster --name $(KIND_CLUSTER) --wait 120s $(if $(KIND_NODE_IMAGE),--image $(KIND_NODE_IMAGE)); \
 	"$(KIND)" load docker-image $(IMG) --name $(KIND_CLUSTER); \
-	SONARR_IMAGE="$$(sed -n 's/^[[:space:]]*sonarrImage = "\(.*\)"$$/\1/p' test/compat/images_test.go)" \
-	PROWLARR_IMAGE="$$(sed -n 's/^[[:space:]]*prowlarrImage = "\(.*\)"$$/\1/p' test/compat/images_test.go)" \
-	PREVIOUS_RELEASE="$$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null)" \
-		"$(CHAINSAW)" test --config test/e2e/.chainsaw.yaml --test-dir test/e2e
+	export SONARR_IMAGE="$$(sed -n 's/^[[:space:]]*sonarrImage = "\(.*\)"$$/\1/p' test/compat/images_test.go)"; \
+	export PROWLARR_IMAGE="$$(sed -n 's/^[[:space:]]*prowlarrImage = "\(.*\)"$$/\1/p' test/compat/images_test.go)"; \
+	export PREVIOUS_RELEASE="$$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null)"; \
+	for image in "$$SONARR_IMAGE" "$$PROWLARR_IMAGE" $${PREVIOUS_RELEASE:+ghcr.io/kyleseneker/arrchitect:$${PREVIOUS_RELEASE#v}}; do \
+		for attempt in 1 2 3; do $(CONTAINER_TOOL) pull -q "$$image" && break; [ $$attempt = 3 ] && exit 1; sleep 15; done; \
+		"$(KIND)" load docker-image "$$image" --name $(KIND_CLUSTER); \
+	done; \
+	"$(CHAINSAW)" test --config test/e2e/.chainsaw.yaml --test-dir test/e2e
 
 .PHONY: lint
 lint: golangci-lint ## Run golangci-lint linter
