@@ -225,6 +225,17 @@ func TestAdmissionRules(t *testing.T) {
 		{name: "a Prowlarr application with neither", kind: "Prowlarr", spec: conn + `
   applications: [{name: Sonarr, implementation: Sonarr}]`,
 			rejected: "set appRef, or implementation, baseUrl and apiKeySecretRef, not both"},
+		{name: "anime categories on a Sonarr application", kind: "Prowlarr", spec: conn + `
+  applications:
+    - {name: Sonarr, appRef: {kind: Sonarr, name: sonarr}, animeSyncCategories: [5070]}
+    - name: Anime
+      implementation: Sonarr
+      baseUrl: "http://anime:8989"
+      apiKeySecretRef: {name: app, key: k}
+      syncAnimeStandardFormatSearch: false`},
+		{name: "anime categories on a Radarr application", kind: "Prowlarr", spec: conn + `
+  applications: [{name: Radarr, appRef: {kind: Radarr, name: radarr}, animeSyncCategories: [5070]}]`,
+			rejected: "animeSyncCategories and syncAnimeStandardFormatSearch are for Sonarr applications"},
 		{name: "a Prowlarr application referring to Seerr", kind: "Prowlarr", spec: conn + `
   applications: [{name: Seerr, appRef: {kind: Seerr, name: seerr}}]`,
 			rejected: "an application refers to a Sonarr, Radarr, Lidarr or Readarr"},

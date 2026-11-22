@@ -24,6 +24,21 @@ spec:
         name: sonarr
       prowlarrUrl: ${PROWLARR_URL}
       syncCategories: [5000, 5040]
+      animeSyncCategories: [5070]
+      syncAnimeStandardFormatSearch: false
+      syncRejectBlocklistedTorrentHashesWhileGrabbing: true
+  proxies:
+    - name: Compat HTTP
+      implementation: Http
+      configContract: HttpSettings
+      host: proxy.example.invalid
+      port: 3128
+      usernameSecretRef:
+        name: compat-credentials
+        key: proxy-username
+      passwordSecretRef:
+        name: compat-credentials
+        key: proxy-password
   indexers:
     - name: Compat Torznab
       implementation: Torznab
@@ -73,6 +88,7 @@ spec:
       onHealthRestored: true
       onApplicationUpdate: true
       includeHealthWarnings: true
+      includeManualGrabs: true
       tagLabels: [tv]
       fields:
         - name: url

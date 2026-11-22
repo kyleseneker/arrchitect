@@ -18,7 +18,8 @@ var fakeProwlarrAPI = map[string]string{
 	"/appprofile": `[{"id":1,"name":"Standard","enableRss":true,"enableAutomaticSearch":true,"enableInteractiveSearch":true,"minimumSeeders":1}]`,
 	"/applications": `[{"id":1,"name":"Sonarr","syncLevel":"fullSync","implementation":"Sonarr","configContract":"SonarrSettings","tags":[],
 		"fields":[{"name":"prowlarrUrl","value":"http://prowlarr:9696"},{"name":"baseUrl","value":"http://sonarr:8989"},
-		{"name":"apiKey","value":"********"},{"name":"syncCategories","value":[5000,5040]},{"name":"animeSyncCategories","value":[5070]}]}]`,
+		{"name":"apiKey","value":"********"},{"name":"syncCategories","value":[5000,5040]},{"name":"animeSyncCategories","value":[5070]},
+		{"name":"syncRejectBlocklistedTorrentHashesWhileGrabbing","value":true},{"name":"authUsername","value":"me"}]}]`,
 	"/applications/schema": `[{"implementation":"Sonarr","fields":[{"name":"animeSyncCategories","value":[]}]}]`,
 	"/indexer": `[{"id":1,"name":"Tracker","implementation":"Cardigann","configContract":"CardigannSettings","enable":true,
 		"priority":25,"appProfileId":1,"tags":[1],"fields":[{"name":"definitionFile","value":"tracker"},
@@ -27,7 +28,8 @@ var fakeProwlarrAPI = map[string]string{
 	"/indexerproxy": `[{"id":1,"name":"FlareSolverr","implementation":"FlareSolverr","configContract":"FlareSolverrSettings","tags":[1],
 		"fields":[{"name":"host","value":"http://flaresolverr:8191/"},{"name":"requestTimeout","value":60}]},
 		{"id":2,"name":"Socks","implementation":"Socks5","configContract":"Socks5Settings","tags":[],
-		"fields":[{"name":"host","value":"socks"},{"name":"username","value":"me"}]}]`,
+		"fields":[{"name":"host","value":"socks"},{"name":"port","value":1080},{"name":"username","value":"me"},
+		{"name":"password","value":"********"}]}]`,
 	"/downloadclient": `[{"id":1,"name":"qBit","enable":true,"protocol":"torrent","implementation":"QBittorrent",
 		"configContract":"QBittorrentSettings","priority":1,"categories":[{"clientCategory":"tv","categories":[5000]}],"tags":[],
 		"fields":[{"name":"host","value":"qbit"},{"name":"port","value":8080},{"name":"initialState","value":0}]}]`,
@@ -85,16 +87,23 @@ func TestProwlarrApplicationReferencesItsKeyAndWarnsAboutUnmodelledFields(t *tes
 	assert.Equal(t, []int32{5000, 5040}, a.SyncCategories)
 	assert.Equal(t, "application-sonarr-api-key", a.APIKeySecretRef.Key)
 	assert.Contains(t, res.Unfilled, "application-sonarr-api-key")
-	assert.Contains(t, res.Warnings, `application "Sonarr": the config has no animeSyncCategories, so it stays as set in Prowlarr`)
+	assert.Equal(t, []int32{5070}, a.AnimeSyncCategories)
+	assert.True(t, *a.SyncRejectBlocklistedTorrentHashesWhileGrabbing)
+	assert.Contains(t, res.Warnings, `application "Sonarr": the config has no authUsername, so it stays as set in Prowlarr`)
 }
 
-func TestProwlarrProxyKeepsHostAndTimeoutOnly(t *testing.T) {
+func TestProwlarrProxyExportsPortAndCredentials(t *testing.T) {
 	cfg, res := exportProwlarrFrom(t)
 	require.Len(t, cfg.Spec.Proxies, 2)
 	assert.Equal(t, "http://flaresolverr:8191/", cfg.Spec.Proxies[0].Host)
 	assert.Equal(t, int32(60), *cfg.Spec.Proxies[0].RequestTimeout)
-	assert.Contains(t, res.Warnings,
-		`proxy "Socks": the config's proxies have only host and requestTimeout, so username stays as set in Prowlarr`)
+	socks := cfg.Spec.Proxies[1]
+	assert.Equal(t, int32(1080), socks.Port)
+	assert.Equal(t, "me", res.Secret.StringData[socks.UsernameSecretRef.Key])
+	assert.Contains(t, res.Unfilled, socks.PasswordSecretRef.Key, "a masked password is left for the user to fill in")
+	for _, w := range res.Warnings {
+		assert.NotContains(t, w, "proxy", "a proxy field was left unexported")
+	}
 }
 
 func TestProwlarrDownloadClientOmitsDefaultFields(t *testing.T) {

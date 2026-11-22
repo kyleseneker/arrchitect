@@ -42,7 +42,7 @@ func TestProwlarrResources(t *testing.T) {
 				Tags:         []commonv1alpha1.Tag{{Label: "test"}},
 				Applications: []map[string]any{{"name": "sonarr"}},
 				Indexers:     []indexersv1alpha1.ProwlarrIndexer{{Name: "idx"}},
-				Proxies:      []indexersv1alpha1.ProwlarrProxy{{Name: "proxy"}},
+				Proxies:      []map[string]any{{"name": "proxy"}},
 				DownloadClients: []indexersv1alpha1.ProwlarrDownloadClient{
 					{Name: "dc", Protocol: "torrent", Implementation: "QBittorrent"},
 				},
@@ -195,9 +195,17 @@ func TestBuildProwlarrProxyPayload(t *testing.T) {
 			},
 		},
 	}
+	t.Run("with port and credentials", func(t *testing.T) {
+		proxy := indexersv1alpha1.ProwlarrProxy{Name: "Proxy", Implementation: "Http", ConfigContract: "HttpSettings", Host: "proxy.local", Port: 8080}
+		p := BuildProwlarrProxyPayload(proxy, map[string]string{"username": "u", "password": "p"}, nil)
+		assert.Equal(t, []map[string]any{
+			{"name": "host", "value": "proxy.local"}, {"name": "port", "value": int32(8080)},
+			{"name": "username", "value": "u"}, {"name": "password", "value": "p"},
+		}, p["fields"])
+	})
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			p := BuildProwlarrProxyPayload(tt.proxy, nil)
+			p := BuildProwlarrProxyPayload(tt.proxy, nil, nil)
 			tt.check(t, p)
 		})
 	}

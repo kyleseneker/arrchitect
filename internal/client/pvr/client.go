@@ -621,6 +621,7 @@ func BuildNotificationPayload(n commonv1alpha1.Notification, tags []int) map[str
 	SetOptionalBool(payload, "onApplicationUpdate", n.OnApplicationUpdate)
 	SetOptionalBool(payload, "onManualInteractionRequired", n.OnManualInteractionRequired)
 	SetOptionalBool(payload, "includeHealthWarnings", n.IncludeHealthWarnings)
+	SetOptionalBool(payload, "includeManualGrabs", n.IncludeManualGrabs)
 	// Sonarr-specific
 	SetOptionalBool(payload, "onSeriesAdd", n.OnSeriesAdd)
 	SetOptionalBool(payload, "onSeriesDelete", n.OnSeriesDelete)

@@ -102,6 +102,7 @@ type ProwlarrAppProfile struct {
 
 // ProwlarrApplication defines an application connection managed by Prowlarr.
 // +kubebuilder:validation:XValidation:rule="has(self.appRef) ? !has(self.implementation) && !has(self.baseUrl) && !has(self.apiKeySecretRef) : has(self.implementation) && has(self.baseUrl) && has(self.apiKeySecretRef)",message="set appRef, or implementation, baseUrl and apiKeySecretRef, not both"
+// +kubebuilder:validation:XValidation:rule="!has(self.animeSyncCategories) && !has(self.syncAnimeStandardFormatSearch) || (has(self.appRef) ? self.appRef.kind == 'Sonarr' : has(self.implementation) && self.implementation == 'Sonarr')",message="animeSyncCategories and syncAnimeStandardFormatSearch are for Sonarr applications"
 type ProwlarrApplication struct {
 	// name is the display name of the application.
 	// +required
@@ -150,6 +151,23 @@ type ProwlarrApplication struct {
 	// +optional
 	// +listType=set
 	SyncCategories []int32 `json:"syncCategories,omitempty"`
+
+	// animeSyncCategories is the list of category IDs to sync as anime to a
+	// Sonarr application.
+	// +optional
+	// +listType=set
+	AnimeSyncCategories []int32 `json:"animeSyncCategories,omitempty"`
+
+	// syncAnimeStandardFormatSearch lets a Sonarr application also search for
+	// anime by standard numbering.
+	// +optional
+	SyncAnimeStandardFormatSearch *bool `json:"syncAnimeStandardFormatSearch,omitempty"`
+
+	// syncRejectBlocklistedTorrentHashesWhileGrabbing rejects a torrent the
+	// application blocklisted by hash after it is grabbed, for indexers that
+	// don't reject it during RSS or search.
+	// +optional
+	SyncRejectBlocklistedTorrentHashesWhileGrabbing *bool `json:"syncRejectBlocklistedTorrentHashesWhileGrabbing,omitempty"`
 
 	// tagLabels references tags by label, resolved against Prowlarr on each
 	// reconciliation. A missing or ambiguous label blocks writes, and an empty
@@ -227,12 +245,28 @@ type ProwlarrProxy struct {
 	// +kubebuilder:validation:MinLength=1
 	ConfigContract string `json:"configContract,omitempty"`
 
-	// host is the hostname or IP of the proxy.
+	// host is the hostname or IP of the proxy, or FlareSolverr's URL.
 	// +required
 	// +kubebuilder:validation:MinLength=1
 	Host string `json:"host,omitempty"`
 
-	// requestTimeout is the request timeout in seconds.
+	// port is the port of an Http, Socks4 or Socks5 proxy.
+	// +optional
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=65535
+	Port int32 `json:"port,omitempty"`
+
+	// usernameSecretRef is the Secret key holding an Http, Socks4 or Socks5
+	// proxy's user name.
+	// +optional
+	UsernameSecretRef *commonv1alpha1.SecretKeyRef `json:"usernameSecretRef,omitempty"`
+
+	// passwordSecretRef is the Secret key holding an Http, Socks4 or Socks5
+	// proxy's password.
+	// +optional
+	PasswordSecretRef *commonv1alpha1.SecretKeyRef `json:"passwordSecretRef,omitempty"`
+
+	// requestTimeout is FlareSolverr's request timeout in seconds.
 	// +optional
 	RequestTimeout *int32 `json:"requestTimeout,omitempty"`
 

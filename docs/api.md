@@ -2079,6 +2079,7 @@ _Appears in:_
 | `onApplicationUpdate` _boolean_ | onApplicationUpdate fires when the application is updated. |  | Optional: \{\} <br /> |
 | `onManualInteractionRequired` _boolean_ | onManualInteractionRequired fires when manual interaction is needed. |  | Optional: \{\} <br /> |
 | `includeHealthWarnings` _boolean_ | includeHealthWarnings includes health warnings (not just errors) in notifications. |  | Optional: \{\} <br /> |
+| `includeManualGrabs` _boolean_ | includeManualGrabs also notifies of grabs made in Prowlarr's UI<br />(Prowlarr). |  | Optional: \{\} <br /> |
 | `onSeriesAdd` _boolean_ | onSeriesAdd fires when a new series is added (Sonarr). |  | Optional: \{\} <br /> |
 | `onSeriesDelete` _boolean_ | onSeriesDelete fires when a series is deleted (Sonarr). |  | Optional: \{\} <br /> |
 | `onEpisodeFileDelete` _boolean_ | onEpisodeFileDelete fires when an episode file is deleted (Sonarr). |  | Optional: \{\} <br /> |
@@ -2357,6 +2358,9 @@ _Appears in:_
 | `baseUrl` _string_ | baseUrl is the base URL of the application. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `apiKeySecretRef` _[SecretKeyRef](#secretkeyref)_ | apiKeySecretRef references a Secret containing the application's API key. |  | Optional: \{\} <br /> |
 | `syncCategories` _integer array_ | syncCategories is the list of category IDs to sync to this application. |  | Optional: \{\} <br /> |
+| `animeSyncCategories` _integer array_ | animeSyncCategories is the list of category IDs to sync as anime to a<br />Sonarr application. |  | Optional: \{\} <br /> |
+| `syncAnimeStandardFormatSearch` _boolean_ | syncAnimeStandardFormatSearch lets a Sonarr application also search for<br />anime by standard numbering. |  | Optional: \{\} <br /> |
+| `syncRejectBlocklistedTorrentHashesWhileGrabbing` _boolean_ | syncRejectBlocklistedTorrentHashesWhileGrabbing rejects a torrent the<br />application blocklisted by hash after it is grabbed, for indexers that<br />don't reject it during RSS or search. |  | Optional: \{\} <br /> |
 | `tagLabels` _string array_ | tagLabels references tags by label, resolved against Prowlarr on each<br />reconciliation. A missing or ambiguous label blocks writes, and an empty<br />list clears the tags. |  | Optional: \{\} <br /> |
 
 
@@ -2441,8 +2445,11 @@ _Appears in:_
 | `name` _string_ | name is the display name of the proxy. |  | MinLength: 1 <br />Required: \{\} <br /> |
 | `implementation` _string_ | implementation is the proxy type (e.g., Http, Socks4, Socks5). |  | MinLength: 1 <br />Required: \{\} <br /> |
 | `configContract` _string_ | configContract is the configuration contract name for the implementation. |  | MinLength: 1 <br />Required: \{\} <br /> |
-| `host` _string_ | host is the hostname or IP of the proxy. |  | MinLength: 1 <br />Required: \{\} <br /> |
-| `requestTimeout` _integer_ | requestTimeout is the request timeout in seconds. |  | Optional: \{\} <br /> |
+| `host` _string_ | host is the hostname or IP of the proxy, or FlareSolverr's URL. |  | MinLength: 1 <br />Required: \{\} <br /> |
+| `port` _integer_ | port is the port of an Http, Socks4 or Socks5 proxy. |  | Maximum: 65535 <br />Minimum: 1 <br />Optional: \{\} <br /> |
+| `usernameSecretRef` _[SecretKeyRef](#secretkeyref)_ | usernameSecretRef is the Secret key holding an Http, Socks4 or Socks5<br />proxy's user name. |  | Optional: \{\} <br /> |
+| `passwordSecretRef` _[SecretKeyRef](#secretkeyref)_ | passwordSecretRef is the Secret key holding an Http, Socks4 or Socks5<br />proxy's password. |  | Optional: \{\} <br /> |
+| `requestTimeout` _integer_ | requestTimeout is FlareSolverr's request timeout in seconds. |  | Optional: \{\} <br /> |
 | `tagLabels` _string array_ | tagLabels references tags by label, resolved against Prowlarr on each<br />reconciliation. A missing or ambiguous label blocks writes, and an empty<br />list clears the tags. |  | Optional: \{\} <br /> |
 
 
@@ -3810,6 +3817,7 @@ _Appears in:_
 - [MaintainerrServiceConnection](#maintainerrserviceconnection)
 - [PlexConnection](#plexconnection)
 - [ProwlarrApplication](#prowlarrapplication)
+- [ProwlarrProxy](#prowlarrproxy)
 - [QBittorrentConnection](#qbittorrentconnection)
 - [RadarrDownloadClientSpec](#radarrdownloadclientspec)
 - [ReadarrDownloadClientSpec](#readarrdownloadclientspec)

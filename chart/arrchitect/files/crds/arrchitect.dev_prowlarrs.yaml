@@ -97,6 +97,15 @@ spec:
                   description: ProwlarrApplication defines an application connection
                     managed by Prowlarr.
                   properties:
+                    animeSyncCategories:
+                      description: |-
+                        animeSyncCategories is the list of category IDs to sync as anime to a
+                        Sonarr application.
+                      items:
+                        format: int32
+                        type: integer
+                      type: array
+                      x-kubernetes-list-type: set
                     apiKeySecretRef:
                       description: apiKeySecretRef references a Secret containing
                         the application's API key.
@@ -178,6 +187,11 @@ spec:
                         (for callbacks).
                       minLength: 1
                       type: string
+                    syncAnimeStandardFormatSearch:
+                      description: |-
+                        syncAnimeStandardFormatSearch lets a Sonarr application also search for
+                        anime by standard numbering.
+                      type: boolean
                     syncCategories:
                       description: syncCategories is the list of category IDs to sync
                         to this application.
@@ -194,6 +208,12 @@ spec:
                       - addOnly
                       - fullSync
                       type: string
+                    syncRejectBlocklistedTorrentHashesWhileGrabbing:
+                      description: |-
+                        syncRejectBlocklistedTorrentHashesWhileGrabbing rejects a torrent the
+                        application blocklisted by hash after it is grabbed, for indexers that
+                        don't reject it during RSS or search.
+                      type: boolean
                     tagLabels:
                       description: |-
                         tagLabels references tags by label, resolved against Prowlarr on each
@@ -212,6 +232,11 @@ spec:
                     rule: 'has(self.appRef) ? !has(self.implementation) && !has(self.baseUrl)
                       && !has(self.apiKeySecretRef) : has(self.implementation) &&
                       has(self.baseUrl) && has(self.apiKeySecretRef)'
+                  - message: animeSyncCategories and syncAnimeStandardFormatSearch
+                      are for Sonarr applications
+                    rule: '!has(self.animeSyncCategories) && !has(self.syncAnimeStandardFormatSearch)
+                      || (has(self.appRef) ? self.appRef.kind == ''Sonarr'' : has(self.implementation)
+                      && self.implementation == ''Sonarr'')'
                 type: array
                 x-kubernetes-list-map-keys:
                 - name
@@ -575,6 +600,11 @@ spec:
                       description: includeHealthWarnings includes health warnings
                         (not just errors) in notifications.
                       type: boolean
+                    includeManualGrabs:
+                      description: |-
+                        includeManualGrabs also notifies of grabs made in Prowlarr's UI
+                        (Prowlarr).
+                      type: boolean
                     name:
                       description: name is the display name of the notification.
                       minLength: 1
@@ -715,7 +745,8 @@ spec:
                       minLength: 1
                       type: string
                     host:
-                      description: host is the hostname or IP of the proxy.
+                      description: host is the hostname or IP of the proxy, or FlareSolverr's
+                        URL.
                       minLength: 1
                       type: string
                     implementation:
@@ -727,8 +758,32 @@ spec:
                       description: name is the display name of the proxy.
                       minLength: 1
                       type: string
+                    passwordSecretRef:
+                      description: |-
+                        passwordSecretRef is the Secret key holding an Http, Socks4 or Socks5
+                        proxy's password.
+                      properties:
+                        key:
+                          description: key is the key within the Secret.
+                          minLength: 1
+                          type: string
+                        name:
+                          description: name is the name of the Secret.
+                          minLength: 1
+                          type: string
+                      required:
+                      - key
+                      - name
+                      type: object
+                    port:
+                      description: port is the port of an Http, Socks4 or Socks5 proxy.
+                      format: int32
+                      maximum: 65535
+                      minimum: 1
+                      type: integer
                     requestTimeout:
-                      description: requestTimeout is the request timeout in seconds.
+                      description: requestTimeout is FlareSolverr's request timeout
+                        in seconds.
                       format: int32
                       type: integer
                     tagLabels:
@@ -740,6 +795,23 @@ spec:
                         type: string
                       type: array
                       x-kubernetes-list-type: set
+                    usernameSecretRef:
+                      description: |-
+                        usernameSecretRef is the Secret key holding an Http, Socks4 or Socks5
+                        proxy's user name.
+                      properties:
+                        key:
+                          description: key is the key within the Secret.
+                          minLength: 1
+                          type: string
+                        name:
+                          description: name is the name of the Secret.
+                          minLength: 1
+                          type: string
+                      required:
+                      - key
+                      - name
+                      type: object
                   required:
                   - configContract
                   - host

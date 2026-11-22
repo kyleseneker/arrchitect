@@ -771,6 +771,10 @@ type Notification struct {
 	// includeHealthWarnings includes health warnings (not just errors) in notifications.
 	// +optional
 	IncludeHealthWarnings *bool `json:"includeHealthWarnings,omitempty"`
+	// includeManualGrabs also notifies of grabs made in Prowlarr's UI
+	// (Prowlarr).
+	// +optional
+	IncludeManualGrabs *bool `json:"includeManualGrabs,omitempty"`
 
 	// Sonarr-specific triggers
 

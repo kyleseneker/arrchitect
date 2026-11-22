@@ -49,7 +49,7 @@ type ProwlarrOptions struct {
 	Tags            []commonv1alpha1.Tag
 	Applications    []map[string]any
 	Indexers        []indexersv1alpha1.ProwlarrIndexer
-	Proxies         []indexersv1alpha1.ProwlarrProxy
+	Proxies         []map[string]any
 	DownloadClients []indexersv1alpha1.ProwlarrDownloadClient
 	Notifications   []commonv1alpha1.Notification
 }
@@ -95,12 +95,9 @@ func ProwlarrResources(opts ProwlarrOptions, tagIDs map[string]int) map[string][
 		resources["indexers"] = idxs
 	}
 
+	// Proxies are pre-built by the controller, like applications.
 	if len(opts.Proxies) > 0 {
-		proxies := make([]map[string]any, 0, len(opts.Proxies))
-		for _, p := range opts.Proxies {
-			proxies = append(proxies, BuildProwlarrProxyPayload(p, tagIDs))
-		}
-		resources["proxies"] = proxies
+		resources["proxies"] = opts.Proxies
 	}
 
 	if len(opts.DownloadClients) > 0 {
@@ -141,6 +138,17 @@ func BuildProwlarrApplicationPayload(app indexersv1alpha1.ProwlarrApplication, a
 	}
 	if app.SyncCategories != nil {
 		fields = append(fields, map[string]any{"name": "syncCategories", "value": intSliceToInterface(app.SyncCategories)})
+	}
+	if app.AnimeSyncCategories != nil {
+		fields = append(fields, map[string]any{"name": "animeSyncCategories", "value": intSliceToInterface(app.AnimeSyncCategories)})
+	}
+	for name, value := range map[string]*bool{
+		"syncAnimeStandardFormatSearch":                   app.SyncAnimeStandardFormatSearch,
+		"syncRejectBlocklistedTorrentHashesWhileGrabbing": app.SyncRejectBlocklistedTorrentHashesWhileGrabbing,
+	} {
+		if value != nil {
+			fields = append(fields, map[string]any{"name": name, "value": *value})
+		}
 	}
 	configContract := app.ConfigContract
 	if configContract == "" {
@@ -183,8 +191,17 @@ func BuildProwlarrIndexerPayload(idx indexersv1alpha1.ProwlarrIndexer, tagIDs ma
 }
 
 // BuildProwlarrProxyPayload builds the API payload for a Prowlarr proxy.
-func BuildProwlarrProxyPayload(proxy indexersv1alpha1.ProwlarrProxy, tagIDs map[string]int) map[string]any {
+// credentials holds the resolved username and password, by field name.
+func BuildProwlarrProxyPayload(proxy indexersv1alpha1.ProwlarrProxy, credentials map[string]string, tagIDs map[string]int) map[string]any {
 	fields := []map[string]any{{"name": "host", "value": proxy.Host}}
+	if proxy.Port != 0 {
+		fields = append(fields, map[string]any{"name": "port", "value": proxy.Port})
+	}
+	for _, name := range []string{"username", "password"} {
+		if value, ok := credentials[name]; ok {
+			fields = append(fields, map[string]any{"name": name, "value": value})
+		}
+	}
 	if proxy.RequestTimeout != nil {
 		fields = append(fields, map[string]any{"name": "requestTimeout", "value": *proxy.RequestTimeout})
 	}
