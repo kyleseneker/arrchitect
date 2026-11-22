@@ -557,3 +557,14 @@ func TestDo_RecordsDurationHistogram(t *testing.T) {
 	after := testutil.CollectAndCount(metrics.AppAPIRequestDuration)
 	assert.GreaterOrEqual(t, after, before, "expected duration histogram to record the request")
 }
+
+// An app behind an HTTPS ingress marks its session cookie Secure, while the
+// operator reaches it over plain HTTP inside the cluster.
+func TestCookieJarKeepsSecureCookiesForAnHTTPApp(t *testing.T) {
+	c, err := NewHTTPClient("http://qbittorrent.media.svc.cluster.local:8080", AuthCookie)
+	require.NoError(t, err)
+	u, _ := url.Parse("http://qbittorrent.media.svc.cluster.local:8080/api/v2/auth/login")
+	c.httpClient.Jar.SetCookies(u, []*http.Cookie{{Name: "SID", Value: "abc", Path: "/", Secure: true, HttpOnly: true}})
+
+	assert.Equal(t, "abc", c.CookieValue("SID"))
+}
