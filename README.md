@@ -5,8 +5,8 @@
 
 Configure and wire Sonarr, Radarr, Prowlarr, Jellyfin, Plex and other
 self-hosted media apps as Kubernetes resources. Arrchitect configures the apps
-you already deploy, with app-template or any other chart, and connects them to
-each other; it doesn't deploy them.
+you already deploy, however you deploy them, and connects them to each other;
+it doesn't deploy them.
 
 ## Features
 
@@ -67,7 +67,7 @@ To start from an existing setup instead, see
 ## Documentation
 
 - [User guide](docs/guide.md)
-- [Example stack](docs/example-stack.md), deployed with app-template
+- [Example stack](docs/example-stack.md)
 - [Sharing apps with other tools](docs/other-tools.md) such as Recyclarr and Prowlarr
 - [API reference](docs/api.md)
 - [Stability and support](docs/stability.md)

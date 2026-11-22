@@ -1,11 +1,16 @@
 # Example stack
 
-Arrchitect configures apps you deploy yourself. This page deploys Sonarr,
-Prowlarr and qBittorrent with the
-[bjw-s app-template](https://bjw-s-labs.github.io/helm-charts/docs/app-template/)
-chart in a `media` namespace, then wires them together with Arrchitect
-resources. Other charts work the same way: what matters is that each app gets
-a known API key and a Service the operator can reach.
+Arrchitect configures apps however you deploy them. From each app it needs the
+same three things:
+
+- a Service it can reach
+- a known API key or credentials, in a Secret it can read
+- for apps that share files, the same paths in each
+
+This page deploys Sonarr, Prowlarr and qBittorrent in a `media` namespace with
+plain manifests, the objects any chart renders, then wires them together with
+Arrchitect resources. The end-to-end tests deploy Sonarr and Prowlarr the same
+way.
 
 ## API keys
 
@@ -25,67 +30,90 @@ Secret.
 
 ## Deploying the apps
 
-`sonarr.yaml`, for app-template 5.3.0:
-
 ```yaml
-controllers:
-  sonarr:
-    strategy: Recreate
-    containers:
-      app:
-        image:
-          repository: lscr.io/linuxserver/sonarr
-          tag: 4.0.20.3014-ls328
-        env:
-          SONARR__SERVER__PORT: &port 8989
-          SONARR__AUTH__APIKEY:
-            valueFrom:
-              secretKeyRef:
-                name: sonarr-credentials
-                key: api-key
-        probes:
-          liveness:
-            enabled: true
-            type: HTTP
-            path: /ping
-          readiness:
-            enabled: true
-            type: HTTP
-            path: /ping
-service:
-  app:
-    controller: sonarr
-    ports:
-      http:
-        port: *port
-persistence:
-  config:
-    type: persistentVolumeClaim
-    accessMode: ReadWriteOnce
-    size: 5Gi
-    globalMounts:
-      - path: /config
-  data:
-    existingClaim: data
-    globalMounts:
-      - path: /data
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: sonarr-config
+  namespace: media
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sonarr
+  namespace: media
+spec:
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: sonarr
+  template:
+    metadata:
+      labels:
+        app: sonarr
+    spec:
+      containers:
+        - name: sonarr
+          image: lscr.io/linuxserver/sonarr:4.0.20.3014-ls2
+          env:
+            - name: SONARR__AUTH__APIKEY
+              valueFrom:
+                secretKeyRef:
+                  name: sonarr-credentials
+                  key: api-key
+          ports:
+            - name: http
+              containerPort: 8989
+          readinessProbe:
+            httpGet:
+              path: /ping
+              port: http
+          volumeMounts:
+            - name: config
+              mountPath: /config
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: config
+          persistentVolumeClaim:
+            claimName: sonarr-config
+        - name: data
+          persistentVolumeClaim:
+            claimName: data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sonarr
+  namespace: media
+spec:
+  selector:
+    app: sonarr
+  ports:
+    - name: http
+      port: 8989
+      targetPort: http
 ```
 
-```bash
-helm install sonarr oci://ghcr.io/bjw-s-labs/helm/app-template --version 5.3.0 \
-  --namespace media --values sonarr.yaml
-```
-
-- With one Service, app-template names it after the release, so Sonarr is at
-  `http://sonarr.media.svc.cluster.local:8989`.
-- Prowlarr takes the same values with `prowlarr` in place of `sonarr`, port
+- Sonarr is then at `http://sonarr.media.svc.cluster.local:8989`.
+- Prowlarr takes the same manifests with `prowlarr` in place of `sonarr`, port
   9696, the `PROWLARR__` prefix and no `data` volume. Radarr uses port 7878,
   Lidarr 8686 and Readarr 8787, each with its own prefix.
+- `Recreate` keeps two pods from opening the app's database at once during a
+  rollout.
 - Mount one shared volume at `/data` in every app that handles files, with
   downloads under `/data/torrents` and the library under `/data/media`. A path
   then means the same thing to qBittorrent and Sonarr, no remote path mapping
   is needed, and imports can hardlink rather than copy, which needs both on
-  one mount.
+  one mount. The `data` claim is shared across pods, so it needs storage that
+  allows `ReadWriteMany`, such as NFS.
 - The API key is all the operator needs. Set the login for the web UI with the
   app's other variables; see Sonarr's
   [environment variables](https://wiki.servarr.com/sonarr/environment-variables).
@@ -101,6 +129,20 @@ password it logs on first start, set your own in the web UI, and store it:
 kubectl -n media create secret generic qbittorrent-credentials \
   --from-literal=username=admin --from-literal=password='<the password you set>'
 ```
+
+## Using a chart
+
+A chart renders the same objects. Set the API key variable from the Secret, and
+use the Service name the chart gives the app in the resource's URL.
+
+- Jellyfin, Plex and Seerr publish their own charts:
+  [jellyfin-helm](https://github.com/jellyfin/jellyfin-helm),
+  [plex-media-server](https://github.com/plexinc/pms-docker/tree/HEAD/charts/plex-media-server)
+  and [seerr-chart](https://github.com/seerr-team/seerr/tree/HEAD/charts/seerr-chart).
+- The other apps have no chart of their own. A generic chart, such as
+  [app-template](https://bjw-s-labs.github.io/helm-charts/docs/app-template/),
+  deploys any of them; with one Service, it names the Service after the
+  release.
 
 ## Wiring them up
 
