@@ -132,3 +132,24 @@ func TestLogin_NoContentWithoutCookie(t *testing.T) {
 	})
 	require.Error(t, c.Login(context.Background()))
 }
+
+// With web_ui_secure_cookie_enabled, qBittorrent marks its session cookie
+// Secure even when the Web UI is served over HTTP, as it is in-cluster.
+func TestLoginKeepsASecureSessionCookieOverHTTP(t *testing.T) {
+	c := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/v2/auth/login":
+			http.SetCookie(w, &http.Cookie{Name: "SID", Value: "abc", Path: "/", Secure: true, HttpOnly: true})
+			_, _ = w.Write([]byte("Ok."))
+		default:
+			if cookie, err := r.Cookie("SID"); err != nil || cookie.Value != "abc" {
+				w.WriteHeader(http.StatusForbidden)
+				return
+			}
+			_, _ = w.Write([]byte("{}"))
+		}
+	})
+	require.NoError(t, c.Login(context.Background()))
+	_, err := c.GetPreferences(context.Background())
+	assert.NoError(t, err, "the session cookie was dropped")
+}

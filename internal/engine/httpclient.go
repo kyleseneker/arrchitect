@@ -115,6 +115,22 @@ type HTTPClient struct {
 // HTTPClientOption configures an HTTPClient.
 type HTTPClientOption func(*HTTPClient)
 
+// secureAgnosticJar keeps the session cookies an app marks Secure. The
+// operator reaches an app over plain HTTP inside the cluster while browsers
+// reach it over HTTPS through an ingress, and the app sets Secure for the
+// browsers; a browser's jar would then drop the operator's session.
+type secureAgnosticJar struct{ http.CookieJar }
+
+func (j secureAgnosticJar) SetCookies(u *url.URL, cookies []*http.Cookie) {
+	kept := make([]*http.Cookie, 0, len(cookies))
+	for _, c := range cookies {
+		c := *c
+		c.Secure = false
+		kept = append(kept, &c)
+	}
+	j.CookieJar.SetCookies(u, kept)
+}
+
 // NewHTTPClient creates a new HTTPClient with the given auth type.
 // Returns an error if the URL scheme is not http/https.
 func NewHTTPClient(baseURL string, authType AuthType, opts ...HTTPClientOption) (*HTTPClient, error) {
@@ -133,7 +149,7 @@ func NewHTTPClient(baseURL string, authType AuthType, opts ...HTTPClientOption) 
 		appLabel:     "unknown",
 		httpClient: &http.Client{
 			Timeout:   30 * time.Second,
-			Jar:       jar,
+			Jar:       secureAgnosticJar{jar},
 			Transport: NewHTTPTransport(nil),
 		},
 	}
