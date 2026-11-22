@@ -89,7 +89,8 @@ func Definition(apiVersion string) engine.AppDefinition {
 			{Name: "tags", Path: prefix + "/tag", MatchField: "label", Policy: engine.CreateOrUpdate},
 			// Metadata profiles before root folders and import lists, which name them.
 			{Name: "metadataProfiles", Path: prefix + "/metadataprofile", MatchField: "name", Policy: engine.CreateOrUpdate, Prunable: true},
-			// Root folders not prunable (CreateOnly, destructive to remove).
+			// Root folders not prunable (destructive to remove); only Lidarr's and
+			// Readarr's have settings to update.
 			{Name: "rootFolders", Path: prefix + "/rootfolder", MatchField: "path", Policy: engine.CreateOnly},
 			// Delay profiles reconcile in their own stage; this entry drives cleanup.
 			{Name: delayProfilesKind, Path: prefix + "/delayprofile", MatchKey: delayProfileID, Policy: engine.CreateOrUpdate, Prunable: true},
@@ -255,7 +256,7 @@ func Resources(ctx context.Context, client *engine.HTTPClient, apiVersion string
 			return remotePathMappingResources(opts.RemotePathMappings)
 		}},
 		{"rootFolders", len(opts.RootFolders), func() ([]map[string]any, error) {
-			return rootFolderResources(ctx, client, apiVersion, opts)
+			return rootFolderResources(ctx, client, apiVersion, opts, tagIDs)
 		}},
 		{"downloadClients", len(opts.DownloadClients), func() ([]map[string]any, error) {
 			return downloadClientResources(ctx, client, apiVersion, opts, tagIDs)
@@ -912,6 +913,13 @@ func FindCutoffID(items []commonv1alpha1.QualityProfileItem, cutoffName string) 
 // Reconcile runs the full reconciliation for Sonarr, Radarr, Lidarr or Readarr.
 func Reconcile(ctx context.Context, client *engine.HTTPClient, apiVersion string, spec any, opts Options, policy engine.SyncPolicy, managed map[string][]string) (engine.ReconcileResult, error) {
 	def := Definition(apiVersion)
+	if opts.MetadataProfiles {
+		for i := range def.Resources {
+			if def.Resources[i].Name == "rootFolders" {
+				def.Resources[i].Policy = engine.CreateOrUpdate
+			}
+		}
+	}
 	if opts.ImportListFields.Enable != "" {
 		for i := range def.Resources {
 			if def.Resources[i].Name == "importLists" {
@@ -1344,11 +1352,23 @@ func CompleteQualityItems(items []map[string]any, declared []commonv1alpha1.Qual
 
 // rootFolderResources builds root folders. Lidarr and Readarr reject a folder
 // without a name and default quality and metadata profiles; those profiles are
-// referenced by name so a rebuilt app's new IDs are picked up.
-func rootFolderResources(ctx context.Context, client *engine.HTTPClient, apiVersion string, opts Options) ([]map[string]any, error) {
+// referenced by name so a rebuilt app's new IDs are picked up. A folder that
+// exists keeps its name unless the spec sets one.
+func rootFolderResources(
+	ctx context.Context, client *engine.HTTPClient, apiVersion string, opts Options, tagIDs engine.NamedIDs,
+) ([]map[string]any, error) {
 	var qualities, metadata engine.NamedIDs
+	existing := map[string]bool{}
 	if opts.MetadataProfiles {
-		var err error
+		folders, err := client.GetJSONList(ctx, fmt.Sprintf("/api/%s/rootfolder", apiVersion))
+		if err != nil {
+			return nil, err
+		}
+		for _, f := range folders {
+			if p, ok := f["path"].(string); ok {
+				existing[p] = true
+			}
+		}
 		if qualities, err = engine.FetchNamedIDs(ctx, client, fmt.Sprintf("/api/%s/qualityprofile", apiVersion), "name"); err != nil {
 			return nil, err
 		}
@@ -1373,13 +1393,27 @@ func rootFolderResources(ctx context.Context, client *engine.HTTPClient, apiVers
 			if err != nil {
 				return nil, fmt.Errorf("rootFolders(%s): %w", rf.Path, err)
 			}
-			name := rf.Name
-			if name == "" {
-				name = folderName(rf.Path)
+			switch {
+			case rf.Name != "":
+				item["name"] = rf.Name
+			case !existing[rf.Path]:
+				item["name"] = folderName(rf.Path)
 			}
-			item["name"] = name
 			item["defaultQualityProfileId"] = qualityID
 			item["defaultMetadataProfileId"] = metadataID
+			if rf.DefaultMonitorOption != "" {
+				item["defaultMonitorOption"] = rf.DefaultMonitorOption
+			}
+			if rf.DefaultNewItemMonitorOption != "" {
+				item["defaultNewItemMonitorOption"] = rf.DefaultNewItemMonitorOption
+			}
+			tags, err := tagIDs.ResolveTags(rf.DefaultTagLabels)
+			if err != nil {
+				return nil, fmt.Errorf("rootFolders(%s): %w", rf.Path, err)
+			}
+			if tags != nil {
+				item["defaultTags"] = BuildTagsPayload(tags)
+			}
 		}
 		rfs = append(rfs, item)
 	}

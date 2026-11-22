@@ -164,6 +164,11 @@ func (e *pvrExport) rootFolder(item map[string]any, _ map[string]map[string]any)
 		rf["name"] = item["name"]
 		rf["defaultQualityProfileName"] = e.qualityProfiles[num(item["defaultQualityProfileId"])]
 		rf["defaultMetadataProfileName"] = e.metadataProfiles[num(item["defaultMetadataProfileId"])]
+		setText(rf, "defaultMonitorOption", item["defaultMonitorOption"])
+		setText(rf, "defaultNewItemMonitorOption", item["defaultNewItemMonitorOption"])
+		if labels := e.tagLabels(map[string]any{"tags": item["defaultTags"]}); len(labels) > 0 {
+			rf["defaultTagLabels"] = labels
+		}
 	}
 	return rf
 }

@@ -26,5 +26,10 @@ func hasTagLabels(opts Options) bool {
 			return true
 		}
 	}
+	for _, item := range opts.RootFolders {
+		if len(item.DefaultTagLabels) > 0 {
+			return true
+		}
+	}
 	return false
 }

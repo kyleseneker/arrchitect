@@ -545,7 +545,9 @@ func (in *LidarrSpec) DeepCopyInto(out *LidarrSpec) {
 	if in.RootFolders != nil {
 		in, out := &in.RootFolders, &out.RootFolders
 		*out = make([]commonv1alpha1.RootFolder, len(*in))
-		copy(*out, *in)
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
 	}
 	if in.RemotePathMappings != nil {
 		in, out := &in.RemotePathMappings, &out.RemotePathMappings
@@ -1190,7 +1192,9 @@ func (in *RadarrSpec) DeepCopyInto(out *RadarrSpec) {
 	if in.RootFolders != nil {
 		in, out := &in.RootFolders, &out.RootFolders
 		*out = make([]commonv1alpha1.RootFolder, len(*in))
-		copy(*out, *in)
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
 	}
 	if in.RemotePathMappings != nil {
 		in, out := &in.RemotePathMappings, &out.RemotePathMappings
@@ -1870,7 +1874,9 @@ func (in *ReadarrSpec) DeepCopyInto(out *ReadarrSpec) {
 	if in.RootFolders != nil {
 		in, out := &in.RootFolders, &out.RootFolders
 		*out = make([]commonv1alpha1.RootFolder, len(*in))
-		copy(*out, *in)
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
 	}
 	if in.RemotePathMappings != nil {
 		in, out := &in.RemotePathMappings, &out.RemotePathMappings
@@ -2485,7 +2491,9 @@ func (in *SonarrSpec) DeepCopyInto(out *SonarrSpec) {
 	if in.RootFolders != nil {
 		in, out := &in.RootFolders, &out.RootFolders
 		*out = make([]commonv1alpha1.RootFolder, len(*in))
-		copy(*out, *in)
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
 	}
 	if in.RemotePathMappings != nil {
 		in, out := &in.RemotePathMappings, &out.RemotePathMappings

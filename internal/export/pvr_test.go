@@ -14,6 +14,7 @@ import (
 
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
 	pvrv1alpha1 "github.com/kyleseneker/arrchitect/api/pvr/v1alpha1"
+	pvrclient "github.com/kyleseneker/arrchitect/internal/client/pvr"
 )
 
 const fakeSonarrKey = "sonarr-key"
@@ -275,4 +276,19 @@ func TestPVRQualityProfileExportsRadarrsLanguageByName(t *testing.T) {
 	qp := qualityProfile(map[string]any{"name": "HD", "language": map[string]any{"id": float64(-2), "name": "Original"}}, nil)
 	assert.Equal(t, "Original", qp["language"])
 	assert.NotContains(t, qualityProfile(map[string]any{"name": "HD"}, nil), "language", "Sonarr's profiles have no language")
+}
+
+func TestPVRLidarrRootFolderExportsItsDefaults(t *testing.T) {
+	e := &pvrExport{
+		reader: &reader{tags: map[float64]string{7: "flac"}}, app: pvrclient.Lidarr,
+		qualityProfiles: map[float64]string{2: "Lossless"}, metadataProfiles: map[float64]string{3: "Standard"},
+	}
+	rf := e.rootFolder(map[string]any{
+		"path": "/music", "name": "Music", "defaultQualityProfileId": float64(2), "defaultMetadataProfileId": float64(3),
+		"defaultMonitorOption": "future", "defaultNewItemMonitorOption": "new", "defaultTags": []any{float64(7)},
+	}, nil)
+	assert.Equal(t, map[string]any{
+		"path": "/music", "name": "Music", "defaultQualityProfileName": "Lossless", "defaultMetadataProfileName": "Standard",
+		"defaultMonitorOption": "future", "defaultNewItemMonitorOption": "new", "defaultTagLabels": []any{"flac"},
+	}, rf)
 }

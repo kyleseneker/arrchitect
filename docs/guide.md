@@ -26,9 +26,11 @@ changes, and when a Secret the resource refers to changes.
 `spec.reconcile.intervalSeconds` changes the period, down to a minimum of 30.
 
 Download clients, indexers, notifications and other lists are matched by name.
-Root folders are created if missing and otherwise left alone. Jellyfin and
-Plex libraries are created if missing and otherwise kept as declared, folders
-included: a folder the resource doesn't list is removed from the library.
+Root folders are matched by path and created if missing. Lidarr's and
+Readarr's are kept as declared; Sonarr's and Radarr's have nothing else to
+keep. Jellyfin and Plex libraries are created if missing and otherwise kept as
+declared, folders included: a folder the resource doesn't list is removed from
+the library.
 Libraries are never deleted, changing a library's type means recreating it,
 and a name two libraries share is refused rather than guessed.
 
@@ -171,7 +173,7 @@ Some things can't be compared by reading:
   doesn't have fails, as it would when writing.
 - A new Maintainerr reports rule groups as different until the media server,
   the Sonarr and Radarr servers and the notifications they use exist.
-- Root folders are compared by existence.
+- Sonarr and Radarr root folders are compared by existence.
 - Passwords and API keys that an app masks count as different only if the
   operator wrote them and the Secret has changed since.
 - Plex preferences that Plex doesn't list are not compared.

@@ -1235,6 +1235,28 @@ spec:
                         reconciliation time.
                       minLength: 1
                       type: string
+                    defaultMonitorOption:
+                      description: |-
+                        defaultMonitorOption is what to monitor of an artist or author added to
+                        this folder (Lidarr, Readarr).
+                      enum:
+                      - all
+                      - future
+                      - missing
+                      - existing
+                      - latest
+                      - first
+                      - none
+                      type: string
+                    defaultNewItemMonitorOption:
+                      description: |-
+                        defaultNewItemMonitorOption is whether albums or books released later
+                        are monitored: all, none or new (Lidarr, Readarr).
+                      enum:
+                      - all
+                      - none
+                      - new
+                      type: string
                     defaultQualityProfileName:
                       description: |-
                         defaultQualityProfileName is the quality profile for content added to
@@ -1242,10 +1264,19 @@ spec:
                         reconciliation time, after declared quality profiles are applied.
                       minLength: 1
                       type: string
+                    defaultTagLabels:
+                      description: |-
+                        defaultTagLabels tags artists or authors added to this folder, by label
+                        (Lidarr, Readarr). An empty list clears the tags.
+                      items:
+                        minLength: 1
+                        type: string
+                      type: array
+                      x-kubernetes-list-type: set
                     name:
                       description: |-
-                        name labels the root folder (Lidarr, Readarr). Defaults to the last
-                        element of path.
+                        name labels the root folder (Lidarr, Readarr). A new folder is named
+                        after the last element of path unless this is set.
                       minLength: 1
                       type: string
                     path:
