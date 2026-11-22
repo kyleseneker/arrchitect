@@ -332,6 +332,9 @@ func customFormat(item map[string]any, _ map[string]map[string]any) map[string]a
 
 func qualityProfile(item map[string]any, _ map[string]map[string]any) map[string]any {
 	qp := pick(item, "name", "upgradeAllowed", "minFormatScore", "cutoffFormatScore", "minUpgradeFormatScore")
+	if language, ok := item["language"].(map[string]any); ok {
+		setText(qp, "language", language["name"])
+	}
 	cutoff := num(item["cutoff"])
 	var items []any
 	for _, it := range list(item["items"]) {

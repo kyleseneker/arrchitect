@@ -1886,3 +1886,32 @@ func TestDelayProfileCleanupDeletesOnlyOwnedProfiles(t *testing.T) {
 	require.Len(t, deleted, 1)
 	assert.Len(t, app.profiles, 2)
 }
+
+func TestQualityProfileLanguageIsLookedUpByName(t *testing.T) {
+	var paths []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		paths = append(paths, r.URL.Path)
+		if r.URL.Path == "/api/v3/language" {
+			_, _ = w.Write([]byte(`[{"id":-2,"name":"Original"},{"id":1,"name":"English"}]`))
+			return
+		}
+		_, _ = w.Write([]byte(`[]`))
+	}))
+	t.Cleanup(srv.Close)
+	hc, err := engine.NewHTTPClient(srv.URL, engine.AuthNone, engine.WithTransport(&http.Transport{}))
+	require.NoError(t, err)
+
+	qps, err := qualityProfileResources(context.Background(), hc, "v3", []commonv1alpha1.QualityProfile{{Name: "HD", Language: "Original"}}, nil)
+	require.NoError(t, err)
+	require.Len(t, qps, 1)
+	assert.Equal(t, map[string]any{"id": float64(-2), "name": "Original"}, qps[0]["language"])
+
+	_, err = qualityProfileResources(context.Background(), hc, "v3", []commonv1alpha1.QualityProfile{{Name: "HD", Language: "Klingon"}}, nil)
+	assert.ErrorContains(t, err, `qualityProfiles(HD): language "Klingon" does not exist`)
+
+	paths = nil
+	qps, err = qualityProfileResources(context.Background(), hc, "v3", []commonv1alpha1.QualityProfile{{Name: "HD"}}, nil)
+	require.NoError(t, err)
+	assert.NotContains(t, qps[0], "language")
+	assert.NotContains(t, paths, "/api/v3/language", "the languages are read only for a profile that names one")
+}

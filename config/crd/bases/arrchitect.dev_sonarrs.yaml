@@ -1045,6 +1045,12 @@ spec:
                           rule: (has(self.name)?1:0)+(has(self.quality)?1:0) == 1
                       type: array
                       x-kubernetes-list-type: atomic
+                    language:
+                      description: |-
+                        language is the language a release must be in, by the name Radarr gives
+                        it, such as English, Original or Any. Radarr only.
+                      minLength: 1
+                      type: string
                     minFormatScore:
                       description: minFormatScore is the minimum custom format score
                         required to grab a release.
@@ -1070,6 +1076,9 @@ spec:
                 x-kubernetes-list-map-keys:
                 - name
                 x-kubernetes-list-type: map
+                x-kubernetes-validations:
+                - message: only Radarr quality profiles take a language
+                  rule: self.all(p, !has(p.language))
               reconcile:
                 description: reconcile configures reconciliation behavior (e.g., sync
                   interval).

@@ -270,3 +270,9 @@ func TestPVRReleaseProfilesExportTheirIndexerAndTagsByName(t *testing.T) {
 	assert.Equal(t, "Torznab", rp.IndexerName)
 	assert.Equal(t, []string{"anime"}, rp.TagLabels)
 }
+
+func TestPVRQualityProfileExportsRadarrsLanguageByName(t *testing.T) {
+	qp := qualityProfile(map[string]any{"name": "HD", "language": map[string]any{"id": float64(-2), "name": "Original"}}, nil)
+	assert.Equal(t, "Original", qp["language"])
+	assert.NotContains(t, qualityProfile(map[string]any{"name": "HD"}, nil), "language", "Sonarr's profiles have no language")
+}
