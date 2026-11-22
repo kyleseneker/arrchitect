@@ -1,6 +1,7 @@
 package reconciler
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -68,6 +69,28 @@ func TestMergeDesiredRealDriftStillDetectedAlongsideMask(t *testing.T) {
 	out, err := MergeDesired(current, desired)
 	require.NoError(t, err)
 	assert.True(t, out.Changed, "a real field change must still be drift")
+}
+
+// The digest recorded after a write for another field must match the one the
+// next, unchanged pass computes, or that pass writes the secrets again.
+func TestMergeDesiredDigestsEverySecretAlongsideDrift(t *testing.T) {
+	current := map[string]any{"api_key": "<redacted>", "cookie": "<redacted>", "list": []any{"a"}}
+	desired := map[string]any{"api_key": "key", "cookie": "session", "list": []any{"a", "b"}}
+	settled := map[string]any{"api_key": "<redacted>", "cookie": "<redacted>", "list": []any{"a", "b"}}
+	for i := range 20 {
+		current[fmt.Sprint("field", i)] = float64(0)
+		desired[fmt.Sprint("field", i)] = 1
+		settled[fmt.Sprint("field", i)] = float64(1)
+	}
+	after, err := MergeDesired(settled, desired)
+	require.NoError(t, err)
+	require.False(t, after.Changed)
+	for range 10 {
+		out, err := MergeDesired(current, desired)
+		require.NoError(t, err)
+		require.True(t, out.Changed)
+		require.Equal(t, after.SecretDigest, out.SecretDigest)
+	}
 }
 
 func TestMergeDesiredNoMaskedFieldsHasNoDigest(t *testing.T) {
