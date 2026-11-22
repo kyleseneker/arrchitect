@@ -51,6 +51,9 @@ func exportSeerr(r *reader) (map[string]any, error) {
 		auth["usernameSecretRef"] = r.creds.ref("", "jellyfin", "username")
 		auth["passwordSecretRef"] = r.creds.ref("", "jellyfin", "password")
 		spec["jellyfinAuth"] = auth
+		if err := seerrLibraries(r, sc, spec, "jellyfin"); err != nil {
+			return nil, err
+		}
 	case seerrPlex:
 		plex, err := sc.Get(r.ctx, "/api/v1/settings/plex")
 		if err != nil {
@@ -60,6 +63,9 @@ func exportSeerr(r *reader) (map[string]any, error) {
 		auth["hostname"] = plex["ip"]
 		auth["tokenSecretRef"] = r.creds.ref("", "plex", "token")
 		spec["plexAuth"] = auth
+		if err := seerrLibraries(r, sc, spec, "plex"); err != nil {
+			return nil, err
+		}
 	}
 
 	for _, service := range []string{"sonarr", "radarr"} {
@@ -105,6 +111,24 @@ func exportSeerr(r *reader) (map[string]any, error) {
 		spec["notifications"] = notifications
 	}
 	return spec, nil
+}
+
+// seerrLibraries exports the libraries Seerr has enabled.
+func seerrLibraries(r *reader, sc *seerrclient.Client, spec map[string]any, server string) error {
+	libraries, err := sc.GetList(r.ctx, "/api/v1/settings/"+server+"/library")
+	if err != nil {
+		return err
+	}
+	var enabled []any
+	for _, lib := range libraries {
+		if lib["enabled"] == true {
+			enabled = append(enabled, lib["name"])
+		}
+	}
+	if len(enabled) > 0 {
+		spec["libraries"] = enabled
+	}
+	return nil
 }
 
 func (r *reader) seerrService(service string, s map[string]any) map[string]any {

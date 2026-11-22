@@ -338,6 +338,11 @@ func (in *SeerrSpec) DeepCopyInto(out *SeerrSpec) {
 	}
 	in.JellyfinAuth.DeepCopyInto(&out.JellyfinAuth)
 	in.PlexAuth.DeepCopyInto(&out.PlexAuth)
+	if in.Libraries != nil {
+		in, out := &in.Libraries, &out.Libraries
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	if in.Main != nil {
 		in, out := &in.Main, &out.Main
 		*out = new(SeerrMain)

@@ -5,6 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
+	"strconv"
+	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -105,7 +108,7 @@ func (r *SeerrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	initialized := true
 	config.Status.Initialized = &initialized
 
-	syncErrors := reconcileSeerrMediaServer(ctx, sc, writes, media, mediaErr)
+	syncErrors := reconcileSeerrMediaServer(ctx, sc, writes, media, mediaErr, config.Spec.Libraries)
 
 	for _, k := range seerrServers(config.Spec) {
 		kind, declared := k.kind, k.servers
@@ -252,13 +255,13 @@ func (r *SeerrReconciler) setup(
 
 	// Sync media server libraries
 	if media.jellyfin != nil {
-		if err := syncJellyfinLibraries(ctx, sc, writes, media.jellyfin); err != nil {
+		if err := syncJellyfinLibraries(ctx, sc, writes, media.jellyfin, config.Spec.Libraries); err != nil {
 			logger.Error(err, "failed to configure Jellyfin libraries")
 			initErrors = append(initErrors, err.Error())
 		}
 	}
 	if media.plex != nil {
-		if err := syncPlexLibraries(ctx, sc, writes, media.plex); err != nil {
+		if err := syncPlexLibraries(ctx, sc, writes, media.plex, config.Spec.Libraries); err != nil {
 			logger.Error(err, "failed to configure Plex libraries")
 			initErrors = append(initErrors, err.Error())
 		}
@@ -378,7 +381,9 @@ func (r *SeerrReconciler) reconcileServiceConnection(
 	})
 }
 
-func reconcileSeerrMediaServer(ctx context.Context, sc *seerrclient.Client, w *engine.Writes, media seerrMediaServer, mediaErr error) []string {
+func reconcileSeerrMediaServer(
+	ctx context.Context, sc *seerrclient.Client, w *engine.Writes, media seerrMediaServer, mediaErr error, libraries []string,
+) []string {
 	if mediaErr != nil {
 		return []string{mediaErr.Error()}
 	}
@@ -388,15 +393,75 @@ func reconcileSeerrMediaServer(ctx context.Context, sc *seerrclient.Client, w *e
 		if err := reconcileSeerrJellyfin(ctx, sc, w, media.jellyfin); err != nil {
 			logger.Error(err, "failed to reconcile Jellyfin server")
 			syncErrors = append(syncErrors, fmt.Sprintf("jellyfin: %v", err))
+		} else if err := reconcileSeerrLibraries(ctx, sc, w, "jellyfin", libraries); err != nil {
+			syncErrors = append(syncErrors, fmt.Sprintf("jellyfin libraries: %v", err))
 		}
 	}
 	if media.plex != nil {
 		if err := reconcileSeerrPlex(ctx, sc, w, media.plex); err != nil {
 			logger.Error(err, "failed to reconcile Plex server")
 			syncErrors = append(syncErrors, fmt.Sprintf("plex: %v", err))
+		} else if err := reconcileSeerrLibraries(ctx, sc, w, "plex", libraries); err != nil {
+			syncErrors = append(syncErrors, fmt.Sprintf("plex libraries: %v", err))
 		}
 	}
 	return syncErrors
+}
+
+// reconcileSeerrLibraries enables the declared libraries of Seerr's media
+// server and disables the rest. A declared library Seerr doesn't list yet
+// makes it sync the list from the server first.
+func reconcileSeerrLibraries(ctx context.Context, sc *seerrclient.Client, w *engine.Writes, server string, declared []string) error {
+	if len(declared) == 0 {
+		return nil
+	}
+	path := "/api/v1/settings/" + server + "/library"
+	libraries, err := sc.GetList(ctx, path)
+	if err != nil {
+		return fmt.Errorf("listing libraries: %w", err)
+	}
+	if len(missingLibraries(libraries, declared)) > 0 && !w.Observe {
+		if libraries, err = sc.PostList(ctx, path+"/sync", map[string]any{}); err != nil {
+			return fmt.Errorf("syncing libraries: %w", err)
+		}
+	}
+	if missing := missingLibraries(libraries, declared); len(missing) > 0 {
+		return fmt.Errorf("the media server has no library named %s", strings.Join(missing, ", "))
+	}
+	seen := map[string]bool{}
+	for _, lib := range libraries {
+		name, _ := lib["name"].(string)
+		if seen[name] {
+			return fmt.Errorf("two libraries are named %q", name)
+		}
+		seen[name] = true
+	}
+	for _, lib := range libraries {
+		name, _ := lib["name"].(string)
+		id, _ := lib["id"].(string)
+		enabled, _ := lib["enabled"].(bool)
+		want := slices.Contains(declared, name)
+		if id == "" || enabled == want {
+			continue
+		}
+		if err := w.Apply("libraries", name, func() error {
+			return sc.Put(ctx, path+"/"+id, map[string]any{"enabled": want})
+		}); err != nil {
+			return fmt.Errorf("library %q: %w", name, err)
+		}
+	}
+	return nil
+}
+
+// missingLibraries lists, quoted, the declared names libraries doesn't have.
+func missingLibraries(libraries []map[string]any, declared []string) []string {
+	var missing []string
+	for _, name := range declared {
+		if !slices.ContainsFunc(libraries, func(lib map[string]any) bool { return lib["name"] == name }) {
+			missing = append(missing, strconv.Quote(name))
+		}
+	}
+	return missing
 }
 
 // resolveService returns svc with its appRef, if any, replaced by the
@@ -635,11 +700,13 @@ func (r *SeerrReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func syncJellyfinLibraries(ctx context.Context, sc *seerrclient.Client, w *engine.Writes, auth *requestsv1alpha1.SeerrJellyfinAuth) error {
+func syncJellyfinLibraries(
+	ctx context.Context, sc *seerrclient.Client, w *engine.Writes, auth *requestsv1alpha1.SeerrJellyfinAuth, libraries []string,
+) error {
 	if err := reconcileSeerrJellyfin(ctx, sc, w, auth); err != nil {
 		return err
 	}
-	return enableLibraries(ctx, sc, "jellyfin")
+	return setUpLibraries(ctx, sc, w, "jellyfin", libraries)
 }
 
 // reconcileSeerrJellyfin keeps Seerr's Jellyfin server at the declared address.
@@ -670,11 +737,25 @@ func reconcileSeerrJellyfin(ctx context.Context, sc *seerrclient.Client, w *engi
 	})
 }
 
-func syncPlexLibraries(ctx context.Context, sc *seerrclient.Client, w *engine.Writes, auth *requestsv1alpha1.SeerrPlexAuth) error {
+func syncPlexLibraries(
+	ctx context.Context, sc *seerrclient.Client, w *engine.Writes, auth *requestsv1alpha1.SeerrPlexAuth, libraries []string,
+) error {
 	if err := reconcileSeerrPlex(ctx, sc, w, auth); err != nil {
 		return err
 	}
-	return enableLibraries(ctx, sc, "plex")
+	return setUpLibraries(ctx, sc, w, "plex", libraries)
+}
+
+// setUpLibraries enables the declared libraries during first-time setup, or
+// every library when none are declared.
+func setUpLibraries(ctx context.Context, sc *seerrclient.Client, w *engine.Writes, server string, libraries []string) error {
+	if len(libraries) == 0 {
+		return enableLibraries(ctx, sc, server)
+	}
+	if _, err := sc.PostList(ctx, fmt.Sprintf("/api/v1/settings/%s/library/sync", server), map[string]any{}); err != nil {
+		return fmt.Errorf("%s library sync: %w", server, err)
+	}
+	return reconcileSeerrLibraries(ctx, sc, w, server, libraries)
 }
 
 // reconcileSeerrPlex keeps Seerr's Plex server at the declared address. Seerr

@@ -23,6 +23,7 @@ import (
 
 // SeerrSpec defines the desired state of Seerr.
 // +kubebuilder:validation:XValidation:rule="!(has(self.jellyfinAuth) && has(self.plexAuth))",message="jellyfinAuth and plexAuth are mutually exclusive"
+// +kubebuilder:validation:XValidation:rule="!has(self.libraries) || has(self.jellyfinAuth) || has(self.plexAuth)",message="libraries needs jellyfinAuth or plexAuth"
 type SeerrSpec struct {
 	// connection defines how to connect to the Seerr instance.
 	// +required
@@ -41,6 +42,16 @@ type SeerrSpec struct {
 	// Set this for Plex-based Seerr instances. Mutually exclusive with jellyfinAuth.
 	// +optional
 	PlexAuth SeerrPlexAuth `json:"plexAuth,omitzero"`
+
+	// libraries names the media server's libraries Seerr shows and takes
+	// requests for. Those are enabled and the rest disabled, on every pass.
+	// Left out, first-time setup enables every library and later passes leave
+	// them as they are.
+	// +optional
+	// +listType=set
+	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:items:MinLength=1
+	Libraries []string `json:"libraries,omitempty"`
 
 	// main configures general application settings.
 	// +optional

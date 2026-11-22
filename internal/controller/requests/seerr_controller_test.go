@@ -126,6 +126,9 @@ type fakeSeerr struct {
 	// libraries is what a media server library sync finds, keyed by "id" with
 	// an "enabled" flag the library PUT updates.
 	libraries []map[string]any
+	// listed is whether Seerr already lists the libraries, as it does once it
+	// has synced them.
+	listed bool
 	// services holds the Sonarr and Radarr connections, keyed by "sonarr" or
 	// "radarr". Like Seerr, a POST appends one rather than replacing by name.
 	services map[string][]map[string]any
@@ -263,7 +266,6 @@ func (f *fakeSeerr) serve(t *testing.T) string {
 		if f.reject(w, r) {
 			return
 		}
-		libraryPrefix := mediaServerLibraries(r.URL.Path)
 		switch {
 		case r.URL.Path == "/api/v1/settings/public":
 			_ = json.NewEncoder(w).Encode(map[string]any{"initialized": f.initialized})
@@ -291,24 +293,7 @@ func (f *fakeSeerr) serve(t *testing.T) string {
 		case r.URL.Path == "/api/v1/settings/initialize" && r.Method == http.MethodPost:
 			f.initialized = true
 			_ = json.NewEncoder(w).Encode(map[string]any{"initialized": true})
-		case r.URL.Path == libraryPrefix+"sync" && r.Method == http.MethodPost:
-			if len(f.libraries) == 0 {
-				w.WriteHeader(http.StatusNotFound)
-				_ = json.NewEncoder(w).Encode(map[string]any{"message": "SYNC_ERROR_NO_LIBRARIES"})
-				return
-			}
-			_ = json.NewEncoder(w).Encode(f.libraries)
-		case strings.HasPrefix(r.URL.Path, libraryPrefix) && r.Method == http.MethodPut:
-			id := strings.TrimPrefix(r.URL.Path, libraryPrefix)
-			for _, lib := range f.libraries {
-				if lib["id"] == id {
-					lib["enabled"] = body["enabled"]
-					_ = json.NewEncoder(w).Encode(lib)
-					return
-				}
-			}
-			w.WriteHeader(http.StatusNotFound)
-			_ = json.NewEncoder(w).Encode(map[string]any{"message": "Library does not exist."})
+		case f.libraryRoutes(w, r, body):
 		default:
 			_ = json.NewEncoder(w).Encode(map[string]any{})
 		}
@@ -330,6 +315,42 @@ func (f *fakeSeerr) reject(w http.ResponseWriter, r *http.Request) bool {
 		f.rejected = append(f.rejected, r.Method+" "+r.URL.RequestURI())
 		w.WriteHeader(http.StatusBadRequest)
 		_ = json.NewEncoder(w).Encode(map[string]any{"message": "Unknown query parameter"})
+	default:
+		return false
+	}
+	return true
+}
+
+// libraryRoutes serves a media server's library list, its sync, and a single
+// library's update. The caller holds f.mu.
+func (f *fakeSeerr) libraryRoutes(w http.ResponseWriter, r *http.Request, body map[string]any) bool {
+	prefix := mediaServerLibraries(r.URL.Path)
+	switch {
+	case r.URL.Path == prefix+"sync" && r.Method == http.MethodPost:
+		if len(f.libraries) == 0 {
+			w.WriteHeader(http.StatusNotFound)
+			_ = json.NewEncoder(w).Encode(map[string]any{"message": "SYNC_ERROR_NO_LIBRARIES"})
+			return true
+		}
+		f.listed = true
+		_ = json.NewEncoder(w).Encode(f.libraries)
+	case r.URL.Path+"/" == prefix && r.Method == http.MethodGet:
+		listed := []map[string]any{}
+		if f.listed {
+			listed = f.libraries
+		}
+		_ = json.NewEncoder(w).Encode(listed)
+	case strings.HasPrefix(r.URL.Path, prefix) && r.Method == http.MethodPut:
+		id := strings.TrimPrefix(r.URL.Path, prefix)
+		for _, lib := range f.libraries {
+			if lib["id"] == id {
+				lib["enabled"] = body["enabled"]
+				_ = json.NewEncoder(w).Encode(lib)
+				return true
+			}
+		}
+		w.WriteHeader(http.StatusNotFound)
+		_ = json.NewEncoder(w).Encode(map[string]any{"message": "Library does not exist."})
 	default:
 		return false
 	}
@@ -992,4 +1013,69 @@ func TestSeerrMissingServerAppRefSkipsOnlyThatServer(t *testing.T) {
 	synced := meta.FindStatusCondition(got.Status.Conditions, "Synced")
 	require.NotNil(t, synced)
 	assert.Contains(t, synced.Message, `sonarr(Sonarr): appRef: Sonarr "sonarr" not found`)
+}
+
+func seerrLibrariesApp(listed bool) *fakeSeerr {
+	return &fakeSeerr{initialized: true, listed: listed,
+		jellyfin: map[string]any{"ip": "jellyfin", "port": float64(8096), "useSsl": false, "urlBase": ""},
+		libraries: []map[string]any{
+			{"id": "movies", "name": "Movies", "enabled": false},
+			{"id": "shows", "name": "Shows", "enabled": true},
+			{"id": "home", "name": "Home Videos", "enabled": true},
+		}}
+}
+
+func TestSeerrEnablesOnlyTheDeclaredLibraries(t *testing.T) {
+	app := seerrLibrariesApp(true)
+	cfg := jellyfinServerConfig(app.serve(t))
+	cfg.Spec.Libraries = []string{"Movies", "Shows"}
+
+	runSeerr(t, cfg)
+
+	assert.True(t, app.libraryEnabled("movies"), "a declared library was left disabled")
+	assert.True(t, app.libraryEnabled("shows"))
+	assert.False(t, app.libraryEnabled("home"), "a library left out was left enabled")
+	assert.False(t, app.saw("PUT", "/api/v1/settings/jellyfin/library/shows"), "rewrote a library that already matched")
+	assert.False(t, app.saw("POST", "/api/v1/settings/jellyfin/library/sync"), "synced although Seerr listed every declared library")
+}
+
+func TestSeerrSyncsLibrariesItDoesNotListYet(t *testing.T) {
+	app := seerrLibrariesApp(false)
+	cfg := jellyfinServerConfig(app.serve(t))
+	cfg.Spec.Libraries = []string{"Movies"}
+
+	runSeerr(t, cfg)
+
+	require.True(t, app.saw("POST", "/api/v1/settings/jellyfin/library/sync"), "never synced the libraries Seerr didn't list")
+	assert.True(t, app.libraryEnabled("movies"))
+	assert.False(t, app.libraryEnabled("shows"))
+}
+
+func TestSeerrReportsALibraryTheServerLacks(t *testing.T) {
+	app := seerrLibrariesApp(true)
+	cfg := jellyfinServerConfig(app.serve(t))
+	cfg.Spec.Libraries = []string{"Movies", "Anime"}
+
+	got := runSeerr(t, cfg)
+
+	synced := meta.FindStatusCondition(got.Status.Conditions, "Synced")
+	require.NotNil(t, synced)
+	assert.Equal(t, metav1.ConditionFalse, synced.Status)
+	assert.Contains(t, synced.Message, `the media server has no library named "Anime"`)
+	assert.True(t, app.libraryEnabled("home"), "changed libraries while a declared one was missing")
+}
+
+func TestSeerrSetupEnablesOnlyTheDeclaredLibraries(t *testing.T) {
+	app := &fakeSeerr{libraries: []map[string]any{
+		{"id": "movies", "name": "Movies", "enabled": false},
+		{"id": "home", "name": "Home Videos", "enabled": false},
+	}}
+	cfg := jellyfinServerConfig(app.serve(t))
+	cfg.Spec.Libraries = []string{"Movies"}
+
+	runSeerr(t, cfg)
+
+	require.True(t, app.saw("POST", "/api/v1/settings/initialize"), "setup never completed")
+	assert.True(t, app.libraryEnabled("movies"))
+	assert.False(t, app.libraryEnabled("home"), "setup enabled a library left out")
 }

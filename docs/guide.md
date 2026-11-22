@@ -34,7 +34,10 @@ and a name two libraries share is refused rather than guessed.
 
 On a fresh install, the operator runs the Jellyfin and Seerr setup wizards.
 Seerr's needs Seerr 3.5.0 or later, and when set up through Jellyfin it waits
-until Jellyfin has a library.
+until Jellyfin has a library. Seerr's setup enables every library of its media
+server, unless `spec.libraries` names the ones to use. Those are then enabled,
+and the rest disabled, on every pass; a name the media server doesn't have
+fails the reconcile.
 
 ## Indexers and download clients
 
