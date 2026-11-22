@@ -526,6 +526,72 @@ spec:
                       on import.
                     type: boolean
                 type: object
+              metadataProfiles:
+                description: |-
+                  metadataProfiles defines metadata profiles, matched by name: which books
+                  Readarr considers for an author. Root folders and import lists can name a
+                  profile declared here.
+                items:
+                  description: |-
+                    ReadarrMetadataProfile defines a Readarr metadata profile. A setting left
+                    out keeps what the profile has, or Readarr's default for a new profile.
+                  properties:
+                    allowedLanguages:
+                      description: |-
+                        allowedLanguages are the ISO 639-3 codes of the editions to allow, such
+                        as eng; "null" allows editions without a language. An empty list allows
+                        every language.
+                      items:
+                        minLength: 1
+                        type: string
+                      type: array
+                      x-kubernetes-list-type: set
+                    ignored:
+                      description: ignored are terms that skip a book whose title
+                        contains one.
+                      items:
+                        minLength: 1
+                        type: string
+                      type: array
+                      x-kubernetes-list-type: set
+                    minPages:
+                      description: minPages skips editions with fewer pages.
+                      format: int32
+                      minimum: 0
+                      type: integer
+                    minPopularity:
+                      description: |-
+                        minPopularity skips books whose popularity, ratings times rating count,
+                        is below it. Readarr's own None profile sets 10000000000.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    name:
+                      description: name identifies the profile.
+                      minLength: 1
+                      type: string
+                    skipMissingDate:
+                      description: skipMissingDate skips books without a release date.
+                      type: boolean
+                    skipMissingIsbn:
+                      description: skipMissingIsbn skips books without an ISBN or
+                        ASIN.
+                      type: boolean
+                    skipPartsAndSets:
+                      description: skipPartsAndSets skips books that are parts of
+                        a book or sets of books.
+                      type: boolean
+                    skipSeriesSecondary:
+                      description: skipSeriesSecondary skips secondary books in a
+                        series, such as companions.
+                      type: boolean
+                  required:
+                  - name
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
               naming:
                 description: naming configures author and book naming formats.
                 properties:

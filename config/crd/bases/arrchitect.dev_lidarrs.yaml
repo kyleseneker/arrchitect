@@ -526,6 +526,54 @@ spec:
                       on import.
                     type: boolean
                 type: object
+              metadataProfiles:
+                description: |-
+                  metadataProfiles defines metadata profiles, matched by name: which album
+                  types and release statuses Lidarr considers for an artist. Root folders
+                  and import lists can name a profile declared here.
+                items:
+                  description: |-
+                    LidarrMetadataProfile defines a Lidarr metadata profile. Each list names
+                    what to allow, and Lidarr disallows the rest; a list left out keeps what the
+                    profile has, or Lidarr's defaults for a new profile.
+                  properties:
+                    name:
+                      description: name identifies the profile.
+                      minLength: 1
+                      type: string
+                    primaryAlbumTypes:
+                      description: |-
+                        primaryAlbumTypes are the primary album types to allow, such as Album,
+                        EP or Single.
+                      items:
+                        minLength: 1
+                        type: string
+                      type: array
+                      x-kubernetes-list-type: set
+                    releaseStatuses:
+                      description: releaseStatuses are the release statuses to allow,
+                        such as Official.
+                      items:
+                        minLength: 1
+                        type: string
+                      type: array
+                      x-kubernetes-list-type: set
+                    secondaryAlbumTypes:
+                      description: |-
+                        secondaryAlbumTypes are the secondary album types to allow, such as
+                        Studio, Live or Compilation.
+                      items:
+                        minLength: 1
+                        type: string
+                      type: array
+                      x-kubernetes-list-type: set
+                  required:
+                  - name
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
               naming:
                 description: naming configures artist and track naming formats.
                 properties:

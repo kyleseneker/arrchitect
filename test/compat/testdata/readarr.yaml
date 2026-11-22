@@ -37,10 +37,20 @@ spec:
     timeFormat: "h(:mm)a"
     theme: dark
     uiLanguage: 1
+  metadataProfiles:
+    - name: English Books
+      minPopularity: 0
+      skipMissingDate: true
+      allowedLanguages:
+        - eng
+        - "null"
+      minPages: 20
+      ignored:
+        - summary
   rootFolders:
     - path: /data/media/books
       defaultQualityProfileName: Books
-      defaultMetadataProfileName: Standard
+      defaultMetadataProfileName: English Books
   remotePathMappings:
     - host: ${HOST}
       remotePath: /downloads/books

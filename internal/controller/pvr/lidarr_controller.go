@@ -37,15 +37,16 @@ func (r *LidarrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	return reconcilePVR(ctx, r.Client, r.Recorder, pvrConfig{
 		app: pvrclient.Lidarr, obj: &config, spec: s, connection: s.Connection, policy: s.Reconcile,
 		options: pvrclient.Options{
-			RootFolders:        s.RootFolders,
-			RemotePathMappings: s.RemotePathMappings,
-			QualityProfiles:    s.QualityProfiles,
-			CustomFormats:      s.CustomFormats,
-			Tags:               s.Tags,
-			Notifications:      s.Notifications,
-			ImportLists:        s.ImportLists,
-			QualityDefinitions: s.QualityDefinitions,
-			DelayProfiles:      s.DelayProfiles,
+			RootFolders:            s.RootFolders,
+			RemotePathMappings:     s.RemotePathMappings,
+			QualityProfiles:        s.QualityProfiles,
+			CustomFormats:          s.CustomFormats,
+			Tags:                   s.Tags,
+			Notifications:          s.Notifications,
+			ImportLists:            s.ImportLists,
+			QualityDefinitions:     s.QualityDefinitions,
+			DelayProfiles:          s.DelayProfiles,
+			LidarrMetadataProfiles: s.MetadataProfiles,
 		},
 	})
 }

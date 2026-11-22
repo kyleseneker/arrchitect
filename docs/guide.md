@@ -201,7 +201,7 @@ prune, removing an item from the resource only stops managing it.
 
 | App | Pruned |
 |---|---|
-| Sonarr, Radarr, Lidarr, Readarr | notifications, import lists, custom formats, quality profiles, remote path mappings, delay profiles; release profiles in Sonarr and Radarr |
+| Sonarr, Radarr, Lidarr, Readarr | notifications, import lists, custom formats, quality profiles, remote path mappings, delay profiles; release profiles in Sonarr and Radarr; metadata profiles in Lidarr and Readarr |
 | Prowlarr | applications, indexers, proxies, download clients, notifications |
 | FlareSolverr | sessions |
 | Tdarr | library variables |

@@ -1442,6 +1442,27 @@ _Appears in:_
 | `createEmptyArtistFolders` _boolean_ | createEmptyArtistFolders creates folders for artists with no files. |  | Optional: \{\} <br /> |
 
 
+#### LidarrMetadataProfile
+
+
+
+LidarrMetadataProfile defines a Lidarr metadata profile. Each list names
+what to allow, and Lidarr disallows the rest; a list left out keeps what the
+profile has, or Lidarr's defaults for a new profile.
+
+
+
+_Appears in:_
+- [LidarrSpec](#lidarrspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `name` _string_ | name identifies the profile. |  | MinLength: 1 <br />Required: \{\} <br /> |
+| `primaryAlbumTypes` _string array_ | primaryAlbumTypes are the primary album types to allow, such as Album,<br />EP or Single. |  | items:MinLength: 1 <br />Optional: \{\} <br /> |
+| `secondaryAlbumTypes` _string array_ | secondaryAlbumTypes are the secondary album types to allow, such as<br />Studio, Live or Compilation. |  | items:MinLength: 1 <br />Optional: \{\} <br /> |
+| `releaseStatuses` _string array_ | releaseStatuses are the release statuses to allow, such as Official. |  | items:MinLength: 1 <br />Optional: \{\} <br /> |
+
+
 #### LidarrNaming
 
 
@@ -1489,6 +1510,7 @@ _Appears in:_
 | `customFormats` _[CustomFormat](#customformat) array_ | customFormats defines custom format scoring rules for release selection. |  | Optional: \{\} <br /> |
 | `qualityDefinitions` _[QualityDefinition](#qualitydefinition) array_ | qualityDefinitions sets the size limits of the app's qualities. The app<br />has a fixed set of qualities, so none is created or pruned, and qualities<br />left out keep their limits. |  | Optional: \{\} <br /> |
 | `delayProfiles` _[DelayProfile](#delayprofile) array_ | delayProfiles defines delay profiles. The app checks tagged profiles in<br />the order listed, and the default profile, the one without tags, last.<br />Only operator-created profiles can be pruned, so the default never is. |  | MaxItems: 50 <br />Optional: \{\} <br /> |
+| `metadataProfiles` _[LidarrMetadataProfile](#lidarrmetadataprofile) array_ | metadataProfiles defines metadata profiles, matched by name: which album<br />types and release statuses Lidarr considers for an artist. Root folders<br />and import lists can name a profile declared here. |  | Optional: \{\} <br /> |
 | `tags` _[Tag](#tag) array_ | tags defines tags for linking resources together. |  | Optional: \{\} <br /> |
 | `notifications` _[Notification](#notification) array_ | notifications defines notification/connection configurations. |  | Optional: \{\} <br /> |
 
@@ -3225,6 +3247,31 @@ _Appears in:_
 | `createEmptyAuthorFolders` _boolean_ | createEmptyAuthorFolders creates folders for authors with no files. |  | Optional: \{\} <br /> |
 
 
+#### ReadarrMetadataProfile
+
+
+
+ReadarrMetadataProfile defines a Readarr metadata profile. A setting left
+out keeps what the profile has, or Readarr's default for a new profile.
+
+
+
+_Appears in:_
+- [ReadarrSpec](#readarrspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `name` _string_ | name identifies the profile. |  | MinLength: 1 <br />Required: \{\} <br /> |
+| `minPopularity` _integer_ | minPopularity skips books whose popularity, ratings times rating count,<br />is below it. Readarr's own None profile sets 10000000000. |  | Minimum: 0 <br />Optional: \{\} <br /> |
+| `skipMissingDate` _boolean_ | skipMissingDate skips books without a release date. |  | Optional: \{\} <br /> |
+| `skipMissingIsbn` _boolean_ | skipMissingIsbn skips books without an ISBN or ASIN. |  | Optional: \{\} <br /> |
+| `skipPartsAndSets` _boolean_ | skipPartsAndSets skips books that are parts of a book or sets of books. |  | Optional: \{\} <br /> |
+| `skipSeriesSecondary` _boolean_ | skipSeriesSecondary skips secondary books in a series, such as companions. |  | Optional: \{\} <br /> |
+| `allowedLanguages` _string array_ | allowedLanguages are the ISO 639-3 codes of the editions to allow, such<br />as eng; "null" allows editions without a language. An empty list allows<br />every language. |  | items:MinLength: 1 <br />Optional: \{\} <br /> |
+| `minPages` _integer_ | minPages skips editions with fewer pages. |  | Minimum: 0 <br />Optional: \{\} <br /> |
+| `ignored` _string array_ | ignored are terms that skip a book whose title contains one. |  | items:MinLength: 1 <br />Optional: \{\} <br /> |
+
+
 #### ReadarrNaming
 
 
@@ -3271,6 +3318,7 @@ _Appears in:_
 | `customFormats` _[CustomFormat](#customformat) array_ | customFormats defines custom format scoring rules for release selection. |  | Optional: \{\} <br /> |
 | `qualityDefinitions` _[QualityDefinition](#qualitydefinition) array_ | qualityDefinitions sets the size limits of the app's qualities. The app<br />has a fixed set of qualities, so none is created or pruned, and qualities<br />left out keep their limits. |  | Optional: \{\} <br /> |
 | `delayProfiles` _[DelayProfile](#delayprofile) array_ | delayProfiles defines delay profiles. The app checks tagged profiles in<br />the order listed, and the default profile, the one without tags, last.<br />Only operator-created profiles can be pruned, so the default never is. |  | MaxItems: 50 <br />Optional: \{\} <br /> |
+| `metadataProfiles` _[ReadarrMetadataProfile](#readarrmetadataprofile) array_ | metadataProfiles defines metadata profiles, matched by name: which books<br />Readarr considers for an author. Root folders and import lists can name a<br />profile declared here. |  | Optional: \{\} <br /> |
 | `tags` _[Tag](#tag) array_ | tags defines tags for linking resources together. |  | Optional: \{\} <br /> |
 | `notifications` _[Notification](#notification) array_ | notifications defines notification/connection configurations. |  | Optional: \{\} <br /> |
 

@@ -5,6 +5,36 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// LidarrMetadataProfile defines a Lidarr metadata profile. Each list names
+// what to allow, and Lidarr disallows the rest; a list left out keeps what the
+// profile has, or Lidarr's defaults for a new profile.
+type LidarrMetadataProfile struct {
+	// name identifies the profile.
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name,omitempty"`
+
+	// primaryAlbumTypes are the primary album types to allow, such as Album,
+	// EP or Single.
+	// +optional
+	// +listType=set
+	// +kubebuilder:validation:items:MinLength=1
+	PrimaryAlbumTypes []string `json:"primaryAlbumTypes,omitempty"`
+
+	// secondaryAlbumTypes are the secondary album types to allow, such as
+	// Studio, Live or Compilation.
+	// +optional
+	// +listType=set
+	// +kubebuilder:validation:items:MinLength=1
+	SecondaryAlbumTypes []string `json:"secondaryAlbumTypes,omitempty"`
+
+	// releaseStatuses are the release statuses to allow, such as Official.
+	// +optional
+	// +listType=set
+	// +kubebuilder:validation:items:MinLength=1
+	ReleaseStatuses []string `json:"releaseStatuses,omitempty"`
+}
+
 // LidarrSpec is a Lidarr instance's connection and app-wide settings. Indexers
 // and download clients are resources of their own that refer to it.
 type LidarrSpec struct {
@@ -79,6 +109,14 @@ type LidarrSpec struct {
 	// +kubebuilder:validation:XValidation:rule="self.filter(p, !has(p.tagLabels) || size(p.tagLabels) == 0).size() <= 1",message="only one delay profile can be without tags"
 	// +listType=atomic
 	DelayProfiles []commonv1alpha1.DelayProfile `json:"delayProfiles,omitempty"`
+
+	// metadataProfiles defines metadata profiles, matched by name: which album
+	// types and release statuses Lidarr considers for an artist. Root folders
+	// and import lists can name a profile declared here.
+	// +optional
+	// +listType=map
+	// +listMapKey=name
+	MetadataProfiles []LidarrMetadataProfile `json:"metadataProfiles,omitempty"`
 
 	// tags defines tags for linking resources together.
 	// +optional
