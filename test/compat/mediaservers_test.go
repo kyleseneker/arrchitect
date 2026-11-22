@@ -57,7 +57,8 @@ func TestJellyfin(t *testing.T) {
 		// Added in Jellyfin 12.0.
 		newerFields: []string{"/spec/encoding/subtitleExtractionTimeoutMinutes"},
 		update: `[
-			{"op": "replace", "path": "/spec/libraries/0/automaticRefreshIntervalDays", "value": 60}
+			{"op": "replace", "path": "/spec/libraries/0/automaticRefreshIntervalDays", "value": 60},
+			{"op": "replace", "path": "/spec/libraries/0/seasonZeroDisplayName", "value": "Extras"}
 		]`,
 		export:  "jellyfin",
 		vars:    map[string]string{"URL": proxy.url()},

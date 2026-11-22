@@ -129,6 +129,13 @@ spec:
       automaticRefreshIntervalDays: 30
       preferredMetadataLanguage: en
       metadataCountryCode: US
+      saveLocalMetadata: true
+      metadataSavers:
+        - Nfo
+      seasonZeroDisplayName: Specials
+      subtitleDownloadLanguages:
+        - eng
+      allowEmbeddedSubtitles: AllowText
     - name: TV Shows
       collectionType: tvshows
       paths:

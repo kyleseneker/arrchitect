@@ -387,22 +387,15 @@ func singleLibrary(libraries []map[string]any, field, name string) (map[string]a
 
 // jellyfinLibraryOptions renders the declared library options under
 // Jellyfin's names.
+// jellyfinLibraryOptions is a library's declared options under Jellyfin's
+// names: every field but its name, type and folders.
 func jellyfinLibraryOptions(lib mediaserversv1alpha1.JellyfinLibrary) map[string]any {
-	options := map[string]any{}
-	if lib.EnableRealtimeMonitor != nil {
-		options["EnableRealtimeMonitor"] = *lib.EnableRealtimeMonitor
+	options, err := jellyfinSettings(lib)
+	if err != nil {
+		return map[string]any{}
 	}
-	if lib.EnableTrickplayImageExtraction != nil {
-		options["EnableTrickplayImageExtraction"] = *lib.EnableTrickplayImageExtraction
-	}
-	if lib.AutomaticRefreshIntervalDays != nil {
-		options["AutomaticRefreshIntervalDays"] = *lib.AutomaticRefreshIntervalDays
-	}
-	if lib.PreferredMetadataLanguage != "" {
-		options["PreferredMetadataLanguage"] = lib.PreferredMetadataLanguage
-	}
-	if lib.MetadataCountryCode != "" {
-		options["MetadataCountryCode"] = lib.MetadataCountryCode
+	for _, key := range []string{"Name", "CollectionType", "Paths"} {
+		delete(options, key)
 	}
 	return options
 }

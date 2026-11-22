@@ -47,13 +47,11 @@ func exportJellyfin(r *reader) (map[string]any, error) {
 		}
 		library := map[string]any{"name": f["Name"], "collectionType": collection, "paths": f["Locations"]}
 		options, _ := f["LibraryOptions"].(map[string]any)
-		for _, field := range []string{
-			"enableRealtimeMonitor", "enableTrickplayImageExtraction", "automaticRefreshIntervalDays",
-			"preferredMetadataLanguage", "metadataCountryCode",
-		} {
-			if v, ok := options[pascal(field)]; ok && v != nil {
-				library[field] = v
+		for field, v := range jellyfinSettings(options, reflect.TypeFor[mediaserversv1alpha1.JellyfinLibrary]()) {
+			if s, isString := v.(string); field == "name" || field == "collectionType" || field == "paths" || isString && s == "" {
+				continue
 			}
+			library[field] = v
 		}
 		libraries = append(libraries, library)
 	}
