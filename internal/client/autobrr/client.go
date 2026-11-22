@@ -129,6 +129,18 @@ var Types = map[string]string{
 // IRCAuthMechanisms maps Autobrr's IRC auth mechanisms to Autobrr's constants.
 var IRCAuthMechanisms = map[string]string{"None": "NONE", "NickServ": "NICKSERV", "SASL_PLAIN": "SASL_PLAIN"}
 
+// RuleFields maps the AutobrrDownloadClientRules fields Autobrr stores as given to its keys.
+var RuleFields = map[string]string{
+	"maxActiveDownloads": "max_active_downloads", "ignoreSlowTorrents": "ignore_slow_torrents",
+	"downloadSpeedThreshold": "download_speed_threshold", "uploadSpeedThreshold": "upload_speed_threshold",
+}
+
+// SlowTorrentConditions maps ignoreSlowTorrentsCondition values to Autobrr's.
+var SlowTorrentConditions = map[string]string{"Always": "ALWAYS", "MaxDownloadsReached": "MAX_DOWNLOADS_REACHED"}
+
+// FeedDownloadTypes maps downloadType values to Autobrr's.
+var FeedDownloadTypes = map[string]string{"Torrent": "TORRENT", "Magnet": "MAGNET"}
+
 // NewClient creates a new Autobrr API client.
 func NewClient(hc *engine.HTTPClient) *Client {
 	return &Client{hc: hc, downloaders: "/api/downloaders"}

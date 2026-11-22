@@ -84,6 +84,11 @@ type AutobrrSpec struct {
 
 // AutobrrDownloadClient defines a download client connection in Autobrr.
 // +kubebuilder:validation:XValidation:rule="has(self.appRef) ? !has(self.type) && !has(self.host) && !has(self.port) && !has(self.tls) && !has(self.usernameSecretRef) && !has(self.passwordSecretRef) && !has(self.apiKeySecretRef) : has(self.type) && has(self.host)",message="set appRef, or type and host, not both"
+// +kubebuilder:validation:XValidation:rule="!has(self.rules) || (has(self.appRef) ? self.appRef.kind == 'QBittorrent' : has(self.type) && self.type in ['qBittorrent', 'Deluge', 'Transmission'])",message="only qBittorrent, Deluge and Transmission clients take rules"
+// +kubebuilder:validation:XValidation:rule="!has(self.rules) || !(has(self.rules.ignoreSlowTorrents) || has(self.rules.ignoreSlowTorrentsCondition) || has(self.rules.downloadSpeedThreshold) || has(self.rules.uploadSpeedThreshold)) || has(self.appRef) || has(self.type) && self.type == 'qBittorrent'",message="only qBittorrent clients take the slow torrent rules"
+// +kubebuilder:validation:XValidation:rule="!has(self.httpAuth) || has(self.appRef) || has(self.type) && !(self.type in ['Deluge', 'Transmission'])",message="Deluge and Transmission clients don't take httpAuth"
+// +kubebuilder:validation:XValidation:rule="!has(self.httpAuth) || !has(self.httpAuth.type) || self.httpAuth.type == 'Basic' || has(self.type) && self.type == 'rTorrent'",message="only rTorrent clients take Digest authentication"
+// +kubebuilder:validation:XValidation:rule="!has(self.externalDownloadClient) || (has(self.appRef) ? self.appRef.kind in ['Sonarr', 'Radarr', 'Lidarr', 'Readarr'] : has(self.type) && self.type in ['Sonarr', 'Radarr', 'Lidarr', 'Readarr', 'Whisparr'])",message="only Sonarr, Radarr, Lidarr, Readarr and Whisparr clients take externalDownloadClient"
 type AutobrrDownloadClient struct {
 	// name is the display name of the download client.
 	// +required
@@ -132,6 +137,76 @@ type AutobrrDownloadClient struct {
 	// Readarr and SABnzbd clients.
 	// +optional
 	APIKeySecretRef *commonv1alpha1.SecretKeyRef `json:"apiKeySecretRef,omitempty"`
+
+	// httpAuth is the HTTP authentication in front of the client, such as a
+	// reverse proxy's. Deluge and Transmission clients don't use it.
+	// +optional
+	HTTPAuth AutobrrHTTPAuth `json:"httpAuth,omitzero"`
+
+	// rules make Autobrr skip a release while the client is busy.
+	// +optional
+	Rules *AutobrrDownloadClientRules `json:"rules,omitempty"`
+
+	// externalDownloadClient is the name of the download client in Sonarr,
+	// Radarr, Lidarr, Readarr or Whisparr that releases sent through this client
+	// go to, unless a filter action names another.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	ExternalDownloadClient string `json:"externalDownloadClient,omitempty"`
+}
+
+// AutobrrHTTPAuth is HTTP authentication in front of a download client.
+type AutobrrHTTPAuth struct {
+	// type is Basic, or Digest for an rTorrent client. Basic unless set.
+	// +optional
+	// +kubebuilder:validation:Enum=Basic;Digest
+	Type string `json:"type,omitempty"`
+
+	// usernameSecretRef references a Secret containing the username.
+	// +required
+	UsernameSecretRef commonv1alpha1.SecretKeyRef `json:"usernameSecretRef,omitempty"`
+
+	// passwordSecretRef references a Secret containing the password.
+	// +required
+	PasswordSecretRef commonv1alpha1.SecretKeyRef `json:"passwordSecretRef,omitempty"`
+}
+
+// AutobrrDownloadClientRules limit what Autobrr sends a download client.
+// +kubebuilder:validation:XValidation:rule="!has(self.ignoreSlowTorrents) || !self.ignoreSlowTorrents || has(self.ignoreSlowTorrentsCondition)",message="ignoreSlowTorrents needs ignoreSlowTorrentsCondition"
+type AutobrrDownloadClientRules struct {
+	// enable controls whether the rules apply. They apply unless this is false.
+	// +optional
+	Enable *bool `json:"enable,omitempty"`
+
+	// maxActiveDownloads is how many torrents may download at once before
+	// Autobrr skips new releases. 0 means no limit.
+	// +optional
+	// +kubebuilder:validation:Minimum=0
+	MaxActiveDownloads *int32 `json:"maxActiveDownloads,omitempty"`
+
+	// ignoreSlowTorrents checks the client's transfer speeds against the
+	// thresholds, sending a release only while they are below them.
+	// +optional
+	IgnoreSlowTorrents *bool `json:"ignoreSlowTorrents,omitempty"`
+
+	// ignoreSlowTorrentsCondition is when the speeds are checked: Always, for
+	// every release, or MaxDownloadsReached, once maxActiveDownloads torrents
+	// are downloading.
+	// +optional
+	// +kubebuilder:validation:Enum=Always;MaxDownloadsReached
+	IgnoreSlowTorrentsCondition string `json:"ignoreSlowTorrentsCondition,omitempty"`
+
+	// downloadSpeedThreshold is the total download speed, in KiB/s, at or above
+	// which the client counts as busy. 0 doesn't check it.
+	// +optional
+	// +kubebuilder:validation:Minimum=0
+	DownloadSpeedThreshold *int32 `json:"downloadSpeedThreshold,omitempty"`
+
+	// uploadSpeedThreshold is the total upload speed, in KiB/s, at or above
+	// which the client counts as busy. 0 doesn't check it.
+	// +optional
+	// +kubebuilder:validation:Minimum=0
+	UploadSpeedThreshold *int32 `json:"uploadSpeedThreshold,omitempty"`
 }
 
 // AutobrrIndexer defines an indexer/tracker connection in Autobrr.
@@ -225,6 +300,22 @@ type AutobrrIRCNetwork struct {
 	// +optional
 	// +kubebuilder:validation:MinLength=1
 	ProxyName string `json:"proxyName,omitempty"`
+
+	// serverPasswordSecretRef references a Secret containing the server
+	// password, which some networks and bouncers ask for when connecting.
+	// +optional
+	ServerPasswordSecretRef *commonv1alpha1.SecretKeyRef `json:"serverPasswordSecretRef,omitempty"`
+
+	// bouncerAddress is the host:port of a bouncer, such as ZNC, that the
+	// network connects through instead of server and port.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	BouncerAddress string `json:"bouncerAddress,omitempty"`
+
+	// botMode marks the connection as a bot, IRCv3 bot mode, on networks that
+	// support it.
+	// +optional
+	BotMode *bool `json:"botMode,omitempty"`
 
 	// channels defines the IRC channels to join.
 	// +optional
@@ -422,6 +513,29 @@ type AutobrrFeed struct {
 	// 15 minutes unless this is set.
 	// +optional
 	Interval *int32 `json:"interval,omitempty"`
+
+	// timeout is how long, in seconds, a feed request may take. A new feed
+	// waits 60 seconds unless this is set.
+	// +optional
+	// +kubebuilder:validation:Minimum=1
+	Timeout int32 `json:"timeout,omitempty"`
+
+	// maxAge is the age, in seconds, past which feed items are skipped. 0
+	// processes every item.
+	// +optional
+	// +kubebuilder:validation:Minimum=0
+	MaxAge *int32 `json:"maxAge,omitempty"`
+
+	// cookieSecretRef references a Secret containing the cookie sent with feed
+	// requests, for feeds behind a login.
+	// +optional
+	CookieSecretRef *commonv1alpha1.SecretKeyRef `json:"cookieSecretRef,omitempty"`
+
+	// downloadType is whether the feed's releases are fetched as Torrent files
+	// or Magnet links. Some feeds need Magnet.
+	// +optional
+	// +kubebuilder:validation:Enum=Torrent;Magnet
+	DownloadType string `json:"downloadType,omitempty"`
 
 	// indexerRef is the name of the indexer this feed belongs to: a torznab,
 	// newznab or rss indexer declared under indexers.

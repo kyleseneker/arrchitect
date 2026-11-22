@@ -139,6 +139,30 @@ _Appears in:_
 | `usernameSecretRef` _[SecretKeyRef](#secretkeyref)_ | usernameSecretRef references a Secret containing the username. |  | Optional: \{\} <br /> |
 | `passwordSecretRef` _[SecretKeyRef](#secretkeyref)_ | passwordSecretRef references a Secret containing the password. |  | Optional: \{\} <br /> |
 | `apiKeySecretRef` _[SecretKeyRef](#secretkeyref)_ | apiKeySecretRef references a Secret containing the API key, for Sonarr, Radarr, Lidarr,<br />Readarr and SABnzbd clients. |  | Optional: \{\} <br /> |
+| `httpAuth` _[AutobrrHTTPAuth](#autobrrhttpauth)_ | httpAuth is the HTTP authentication in front of the client, such as a<br />reverse proxy's. Deluge and Transmission clients don't use it. |  | Optional: \{\} <br /> |
+| `rules` _[AutobrrDownloadClientRules](#autobrrdownloadclientrules)_ | rules make Autobrr skip a release while the client is busy. |  | Optional: \{\} <br /> |
+| `externalDownloadClient` _string_ | externalDownloadClient is the name of the download client in Sonarr,<br />Radarr, Lidarr, Readarr or Whisparr that releases sent through this client<br />go to, unless a filter action names another. |  | MinLength: 1 <br />Optional: \{\} <br /> |
+
+
+#### AutobrrDownloadClientRules
+
+
+
+AutobrrDownloadClientRules limit what Autobrr sends a download client.
+
+
+
+_Appears in:_
+- [AutobrrDownloadClient](#autobrrdownloadclient)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `enable` _boolean_ | enable controls whether the rules apply. They apply unless this is false. |  | Optional: \{\} <br /> |
+| `maxActiveDownloads` _integer_ | maxActiveDownloads is how many torrents may download at once before<br />Autobrr skips new releases. 0 means no limit. |  | Minimum: 0 <br />Optional: \{\} <br /> |
+| `ignoreSlowTorrents` _boolean_ | ignoreSlowTorrents checks the client's transfer speeds against the<br />thresholds, sending a release only while they are below them. |  | Optional: \{\} <br /> |
+| `ignoreSlowTorrentsCondition` _string_ | ignoreSlowTorrentsCondition is when the speeds are checked: Always, for<br />every release, or MaxDownloadsReached, once maxActiveDownloads torrents<br />are downloading. |  | Enum: [Always MaxDownloadsReached] <br />Optional: \{\} <br /> |
+| `downloadSpeedThreshold` _integer_ | downloadSpeedThreshold is the total download speed, in KiB/s, at or above<br />which the client counts as busy. 0 doesn't check it. |  | Minimum: 0 <br />Optional: \{\} <br /> |
+| `uploadSpeedThreshold` _integer_ | uploadSpeedThreshold is the total upload speed, in KiB/s, at or above<br />which the client counts as busy. 0 doesn't check it. |  | Minimum: 0 <br />Optional: \{\} <br /> |
 
 
 #### AutobrrFeed
@@ -160,6 +184,10 @@ _Appears in:_
 | `url` _string_ | url is the feed URL. |  | MinLength: 1 <br />Required: \{\} <br /> |
 | `apiKeySecretRef` _[SecretKeyRef](#secretkeyref)_ | apiKeySecretRef references a Secret containing the feed API key (for Torznab/Newznab). |  | Optional: \{\} <br /> |
 | `interval` _integer_ | interval is the feed polling interval in minutes. A new feed polls every<br />15 minutes unless this is set. |  | Optional: \{\} <br /> |
+| `timeout` _integer_ | timeout is how long, in seconds, a feed request may take. A new feed<br />waits 60 seconds unless this is set. |  | Minimum: 1 <br />Optional: \{\} <br /> |
+| `maxAge` _integer_ | maxAge is the age, in seconds, past which feed items are skipped. 0<br />processes every item. |  | Minimum: 0 <br />Optional: \{\} <br /> |
+| `cookieSecretRef` _[SecretKeyRef](#secretkeyref)_ | cookieSecretRef references a Secret containing the cookie sent with feed<br />requests, for feeds behind a login. |  | Optional: \{\} <br /> |
+| `downloadType` _string_ | downloadType is whether the feed's releases are fetched as Torrent files<br />or Magnet links. Some feeds need Magnet. |  | Enum: [Torrent Magnet] <br />Optional: \{\} <br /> |
 | `indexerRef` _string_ | indexerRef is the name of the indexer this feed belongs to: a torznab,<br />newznab or rss indexer declared under indexers. |  | MinLength: 1 <br />Required: \{\} <br /> |
 
 
@@ -291,6 +319,24 @@ _Appears in:_
 | `externalDownloadClient` _string_ | externalDownloadClient is the download client, by name in Sonarr, Radarr, Lidarr or Readarr,<br />that the app sends the release to. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 
 
+#### AutobrrHTTPAuth
+
+
+
+AutobrrHTTPAuth is HTTP authentication in front of a download client.
+
+
+
+_Appears in:_
+- [AutobrrDownloadClient](#autobrrdownloadclient)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `type` _string_ | type is Basic, or Digest for an rTorrent client. Basic unless set. |  | Enum: [Basic Digest] <br />Optional: \{\} <br /> |
+| `usernameSecretRef` _[SecretKeyRef](#secretkeyref)_ | usernameSecretRef references a Secret containing the username. |  | Required: \{\} <br /> |
+| `passwordSecretRef` _[SecretKeyRef](#secretkeyref)_ | passwordSecretRef references a Secret containing the password. |  | Required: \{\} <br /> |
+
+
 #### AutobrrIRCChannel
 
 
@@ -332,6 +378,9 @@ _Appears in:_
 | `authPasswordSecretRef` _[SecretKeyRef](#secretkeyref)_ | authPasswordSecretRef references a Secret containing the auth password. |  | Optional: \{\} <br /> |
 | `inviteCommand` _string_ | inviteCommand is the IRC command to send to request channel invites. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `proxyName` _string_ | proxyName names the proxy the network connects through. |  | MinLength: 1 <br />Optional: \{\} <br /> |
+| `serverPasswordSecretRef` _[SecretKeyRef](#secretkeyref)_ | serverPasswordSecretRef references a Secret containing the server<br />password, which some networks and bouncers ask for when connecting. |  | Optional: \{\} <br /> |
+| `bouncerAddress` _string_ | bouncerAddress is the host:port of a bouncer, such as ZNC, that the<br />network connects through instead of server and port. |  | MinLength: 1 <br />Optional: \{\} <br /> |
+| `botMode` _boolean_ | botMode marks the connection as a bot, IRCv3 bot mode, on networks that<br />support it. |  | Optional: \{\} <br /> |
 | `channels` _[AutobrrIRCChannel](#autobrrircchannel) array_ | channels defines the IRC channels to join. |  | Optional: \{\} <br /> |
 
 
@@ -3801,6 +3850,7 @@ _Appears in:_
 - [AppConnection](#appconnection)
 - [AutobrrDownloadClient](#autobrrdownloadclient)
 - [AutobrrFeed](#autobrrfeed)
+- [AutobrrHTTPAuth](#autobrrhttpauth)
 - [AutobrrIRCChannel](#autobrrircchannel)
 - [AutobrrIRCNetwork](#autobrrircnetwork)
 - [AutobrrProxy](#autobrrproxy)

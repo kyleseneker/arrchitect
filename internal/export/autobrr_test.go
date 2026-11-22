@@ -14,8 +14,15 @@ import (
 
 var fakeAutobrrAPI = map[string]string{
 	"/api/downloaders": `[{"id":3,"name":"qBit","type":"QBITTORRENT","enabled":true,"host":"http://qbit","port":8080,
-		"tls":false,"username":"admin","password":"<redacted>"},
-		{"id":4,"name":"Sonarr","type":"SONARR","enabled":true,"host":"http://sonarr:8989","settings":{"apikey":"<redacted>"}}]`,
+		"tls":false,"username":"admin","password":"<redacted>","settings":{
+		"rules":{"enabled":true,"max_active_downloads":3,"ignore_slow_torrents":true,
+		"ignore_slow_torrents_condition":"MAX_DOWNLOADS_REACHED","download_speed_threshold":0,"upload_speed_threshold":0},
+		"basic":{"auth":true,"username":"edge","password":"<redacted>"},
+		"auth":{"enabled":true,"type":"BASIC_AUTH","username":"edge","password":"<redacted>"}}},
+		{"id":4,"name":"Sonarr","type":"SONARR","enabled":true,"host":"http://sonarr:8989","settings":{"apikey":"<redacted>",
+		"external_download_client":"qBittorrent","basic":{},"auth":{},
+		"rules":{"enabled":false,"max_active_downloads":0,"ignore_slow_torrents":false,"download_speed_threshold":0,
+		"upload_speed_threshold":0}}}]`,
 	"/api/indexer": `[{"id":1,"name":"Tracker","identifier":"ipt","implementation":"irc",
 		"settings":[{"name":"passkey","type":"secret"}]},{"id":5,"name":"Feed","identifier":"torznab-feed"}]`,
 	"/api/indexer/1": `{"id":1,"name":"Tracker","identifier":"ipt","implementation":"irc","enabled":true,
@@ -28,13 +35,14 @@ var fakeAutobrrAPI = map[string]string{
 		"filters":[{"id":7,"name":"TV"}],"match_release":false,"tags_included":[],"tags_excluded":["anime"],
 		"include_unmonitored":false,"include_alternate_titles":true,"include_year":false,"skip_clean_sanitize":false,"headers":[]}]`,
 	"/api/irc": `[{"id":1,"name":"Net","enabled":false,"server":"irc.example","port":6697,"tls":true,"nick":"bot",
-		"use_proxy":true,"proxy_id":6,
+		"use_proxy":true,"proxy_id":6,"pass":"<redacted>","use_bouncer":true,"bouncer_addr":"znc:6697","bot_mode":true,
 		"auth":{"mechanism":"NICKSERV","account":"bot","password":"<redacted>"},
 		"channels":[{"name":"#announce","password":""},{"name":"#vip","password":"<redacted>"}]}]`,
 	"/api/notification": `[{"id":1,"name":"Builtin","type":"BUILTIN","enabled":true},
 		{"id":2,"name":"Discord","type":"DISCORD","enabled":true,"events":["PUSH_APPROVED","IRC_DISCONNECTED"],
 		"webhook":"<redacted>","title":"autobrr","priority":0,"token":""}]`,
 	"/api/feeds": `[{"id":1,"name":"Feed","type":"TORZNAB","enabled":true,"url":"http://feed","interval":15,"api_key":"<redacted>",
+		"timeout":60,"max_age":86400,"cookie":"<redacted>","settings":{"download_type":"MAGNET"},
 		"indexer":{"id":5,"name":"Feed","identifier":"torznab-feed"}}]`,
 	"/api/filters": `[{"id":7,"name":"TV"}]`,
 	"/api/filters/7": `{"id":7,"name":"TV","enabled":true,"priority":1,"use_regex":false,"match_releases":"",
@@ -163,4 +171,36 @@ func TestAutobrrExportsListsAndProxiesByName(t *testing.T) {
 	assert.Nil(t, l.MatchRelease, "Autobrr's empty defaults aren't exported")
 	assert.Nil(t, l.APIKeySecretRef)
 	assert.Empty(t, l.URL)
+}
+
+func TestAutobrrExportsClientRulesAuthAndFeedOptions(t *testing.T) {
+	cfg, res := exportAutobrrForTest(t)
+
+	qbit := cfg.Spec.DownloadClients[0]
+	require.NotNil(t, qbit.Rules)
+	assert.Nil(t, qbit.Rules.Enable, "enabled rules are the default")
+	assert.Equal(t, int32(3), *qbit.Rules.MaxActiveDownloads)
+	assert.True(t, *qbit.Rules.IgnoreSlowTorrents)
+	assert.Equal(t, "MaxDownloadsReached", qbit.Rules.IgnoreSlowTorrentsCondition)
+	assert.Nil(t, qbit.Rules.DownloadSpeedThreshold)
+	assert.Empty(t, qbit.HTTPAuth.Type)
+	assert.Equal(t, "edge", res.Secret.StringData[qbit.HTTPAuth.UsernameSecretRef.Key])
+	assert.Contains(t, res.Unfilled, qbit.HTTPAuth.PasswordSecretRef.Key)
+	sonarr := cfg.Spec.DownloadClients[1]
+	assert.Nil(t, sonarr.Rules, "rules Autobrr keeps off and empty aren't exported")
+	assert.Zero(t, sonarr.HTTPAuth)
+	assert.Equal(t, "qBittorrent", sonarr.ExternalDownloadClient)
+
+	irc := cfg.Spec.IRCNetworks[0]
+	assert.Equal(t, "znc:6697", irc.BouncerAddress)
+	assert.True(t, *irc.BotMode)
+	require.NotNil(t, irc.ServerPasswordSecretRef)
+	assert.Contains(t, res.Unfilled, irc.ServerPasswordSecretRef.Key)
+
+	feed := cfg.Spec.Feeds[0]
+	assert.Equal(t, int32(60), feed.Timeout)
+	assert.Equal(t, int32(86400), *feed.MaxAge)
+	assert.Equal(t, "Magnet", feed.DownloadType)
+	require.NotNil(t, feed.CookieSecretRef)
+	assert.Contains(t, res.Unfilled, feed.CookieSecretRef.Key)
 }
