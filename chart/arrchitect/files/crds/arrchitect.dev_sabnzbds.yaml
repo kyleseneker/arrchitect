@@ -55,6 +55,64 @@ spec:
           spec:
             description: spec is the desired state of the Sabnzbd.
             properties:
+              apprise:
+                description: |-
+                  apprise sends SABnzbd's notifications through Apprise, to services such
+                  as Discord or Telegram.
+                minProperties: 1
+                properties:
+                  categories:
+                    description: |-
+                      categories limits notifications to jobs in these categories; * is every
+                      category.
+                    items:
+                      minLength: 1
+                      type: string
+                    type: array
+                    x-kubernetes-list-type: set
+                  enabled:
+                    description: enabled turns Apprise notifications on.
+                    type: boolean
+                  events:
+                    description: |-
+                      events are the events to notify about. Those listed are turned on and the
+                      rest off.
+                    items:
+                      enum:
+                      - startup
+                      - download
+                      - pauseResume
+                      - pp
+                      - complete
+                      - failed
+                      - diskFull
+                      - quota
+                      - newLogin
+                      - warning
+                      - error
+                      - queueDone
+                      - other
+                      type: string
+                    type: array
+                    x-kubernetes-list-type: set
+                  urlsSecretRef:
+                    description: |-
+                      urlsSecretRef is the Secret key holding the Apprise URLs to notify,
+                      separated by commas, such as discord://webhook_id/webhook_token.
+                    properties:
+                      key:
+                        description: key is the key within the Secret.
+                        minLength: 1
+                        type: string
+                      name:
+                        description: name is the name of the Secret.
+                        minLength: 1
+                        type: string
+                    required:
+                    - key
+                    - name
+                    type: object
+                type: object
               categories:
                 description: categories defines download categories.
                 items:

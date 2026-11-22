@@ -81,6 +81,13 @@ var PostProcessing = map[string]string{"download": "0", "repair": "1", "unpack":
 // Priorities maps priority names to a category's priority values.
 var Priorities = map[string]string{"default": "-100", "paused": "-2", "low": "-1", "normal": "0", "high": "1", "force": "2"}
 
+// AppriseEvents are SABnzbd's names for the events Apprise can notify about.
+var AppriseEvents = map[string]string{
+	"startup": "startup", "download": "download", "pauseResume": "pause_resume", "pp": "pp",
+	"complete": "complete", "failed": "failed", "diskFull": "disk_full", "quota": "quota",
+	"newLogin": "new_login", "warning": "warning", "error": "error", "queueDone": "queue_done", "other": "other",
+}
+
 type Client struct {
 	hc     *engine.HTTPClient
 	apiKey string

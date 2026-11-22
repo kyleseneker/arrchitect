@@ -2,6 +2,8 @@ package export
 
 import (
 	"fmt"
+	"maps"
+	"slices"
 	"strconv"
 
 	sabnzbdclient "github.com/kyleseneker/arrchitect/internal/client/sabnzbd"
@@ -96,7 +98,38 @@ func exportSabnzbd(r *reader) (map[string]any, error) {
 	if categories := sabCategories(list(current["categories"])); len(categories) > 0 {
 		spec["categories"] = categories
 	}
+	if apprise := r.sabnzbdApprise(current); apprise != nil {
+		spec["apprise"] = apprise
+	}
 	return spec, nil
+}
+
+// sabnzbdApprise exports the apprise section when it is on or has URLs.
+func (r *reader) sabnzbdApprise(current map[string]any) map[string]any {
+	section, _ := current["apprise"].(map[string]any)
+	on := func(key string) bool {
+		v := section[key]
+		return v == true || v == float64(1) || v == "1"
+	}
+	urls, _ := section["apprise_urls"].(string)
+	if !on("apprise_enable") && urls == "" {
+		return nil
+	}
+	apprise := map[string]any{"enabled": on("apprise_enable")}
+	if urls != "" {
+		apprise["urlsSecretRef"] = r.creds.ref(urls, "apprise", "urls")
+	}
+	if cats, _ := section["apprise_cats"].([]any); len(cats) > 0 {
+		apprise["categories"] = cats
+	}
+	var events []any
+	for _, event := range slices.Sorted(maps.Keys(sabnzbdclient.AppriseEvents)) {
+		if on("apprise_target_" + sabnzbdclient.AppriseEvents[event] + "_enable") {
+			events = append(events, event)
+		}
+	}
+	apprise["events"] = events
+	return apprise
 }
 
 func sabCategories(current []map[string]any) []any {

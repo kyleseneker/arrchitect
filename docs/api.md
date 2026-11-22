@@ -3550,6 +3550,26 @@ Sabnzbd configures a Sabnzbd instance the operator connects to.
 | `status` _[SabnzbdStatus](#sabnzbdstatus)_ | status is the observed state of the Sabnzbd. |  | MinProperties: 1 <br />Optional: \{\} <br /> |
 
 
+#### SabnzbdApprise
+
+
+
+SabnzbdApprise configures SABnzbd's Apprise notifications.
+
+_Validation:_
+- MinProperties: 1
+
+_Appears in:_
+- [SabnzbdSpec](#sabnzbdspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `enabled` _boolean_ | enabled turns Apprise notifications on. |  | Optional: \{\} <br /> |
+| `urlsSecretRef` _[SecretKeyRef](#secretkeyref)_ | urlsSecretRef is the Secret key holding the Apprise URLs to notify,<br />separated by commas, such as discord://webhook_id/webhook_token. |  | Optional: \{\} <br /> |
+| `categories` _string array_ | categories limits notifications to jobs in these categories; * is every<br />category. |  | items:MinLength: 1 <br />Optional: \{\} <br /> |
+| `events` _string array_ | events are the events to notify about. Those listed are turned on and the<br />rest off. |  | items:Enum: [startup download pauseResume pp complete failed diskFull quota newLogin warning error queueDone other] <br />Optional: \{\} <br /> |
+
+
 #### SabnzbdCategory
 
 
@@ -3681,6 +3701,7 @@ _Appears in:_
 | `servers` _[SabnzbdServer](#sabnzbdserver) array_ | servers defines Usenet server connections. |  | Optional: \{\} <br /> |
 | `categories` _[SabnzbdCategory](#sabnzbdcategory) array_ | categories defines download categories. |  | Optional: \{\} <br /> |
 | `folders` _[SabnzbdFolders](#sabnzbdfolders)_ | folders configures download and temp folder paths. |  | Optional: \{\} <br /> |
+| `apprise` _[SabnzbdApprise](#sabnzbdapprise)_ | apprise sends SABnzbd's notifications through Apprise, to services such<br />as Discord or Telegram. |  | MinProperties: 1 <br />Optional: \{\} <br /> |
 
 
 #### SabnzbdStatus
@@ -3733,6 +3754,7 @@ _Appears in:_
 - [QBittorrentConnection](#qbittorrentconnection)
 - [RadarrDownloadClientSpec](#radarrdownloadclientspec)
 - [ReadarrDownloadClientSpec](#readarrdownloadclientspec)
+- [SabnzbdApprise](#sabnzbdapprise)
 - [SabnzbdServer](#sabnzbdserver)
 - [SeerrConnection](#seerrconnection)
 - [SeerrJellyfinAuth](#seerrjellyfinauth)
