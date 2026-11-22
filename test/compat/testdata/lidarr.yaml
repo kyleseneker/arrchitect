@@ -33,6 +33,7 @@ spec:
     standardTrackFormat: "{Album Title} ({Release Year})/{Artist Name} - {Album Title} - {track:00} - {Track Title}"
     multiDiscTrackFormat: "{Album Title} ({Release Year})/{Medium Format} {medium:00}/{Artist Name} - {Album Title} - {track:00} - {Track Title}"
     artistFolderFormat: "{Artist Name}"
+    colonReplacementFormat: dash
   indexerConfig:
     minimumAge: 0
     retention: 0
@@ -41,6 +42,8 @@ spec:
   downloadClientConfig:
     enableCompletedDownloadHandling: true
     autoRedownloadFailed: true
+    autoRedownloadFailedFromInteractiveSearch: false
+    downloadClientWorkingFolders: "_UNPACK_|_FAILED_|_TEMP_"
   ui:
     firstDayOfWeek: 1
     shortDateFormat: "MMM D YYYY"

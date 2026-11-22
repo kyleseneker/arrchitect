@@ -264,6 +264,11 @@ type ReadarrNaming struct {
 	// +optional
 	// +kubebuilder:validation:MinLength=1
 	AuthorFolderFormat string `json:"authorFolderFormat,omitempty"`
+
+	// colonReplacementFormat defines how colons are replaced in filenames.
+	// +optional
+	// +kubebuilder:validation:Enum=delete;dash;spaceDash;spaceDashSpace;smart
+	ColonReplacementFormat string `json:"colonReplacementFormat,omitempty"`
 }
 
 // ReadarrIndexerConfig configures global indexer settings.
@@ -294,6 +299,17 @@ type ReadarrDownloadClientConfig struct {
 	// autoRedownloadFailed automatically searches when a download fails.
 	// +optional
 	AutoRedownloadFailed *bool `json:"autoRedownloadFailed,omitempty"`
+
+	// autoRedownloadFailedFromInteractiveSearch auto-searches failed interactive searches.
+	// +optional
+	AutoRedownloadFailedFromInteractiveSearch *bool `json:"autoRedownloadFailedFromInteractiveSearch,omitempty"`
+
+	// downloadClientWorkingFolders lists, separated by |, the folders download
+	// clients unpack and fail into, which imports skip. The app's default is
+	// _UNPACK_|_FAILED_.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	DownloadClientWorkingFolders string `json:"downloadClientWorkingFolders,omitempty"`
 }
 
 // ReadarrUI configures UI display settings.

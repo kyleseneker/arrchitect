@@ -300,6 +300,13 @@ type RadarrDownloadClientConfig struct {
 	// checkForFinishedDownloadInterval is the interval in minutes to check for finished downloads.
 	// +optional
 	CheckForFinishedDownloadInterval *int32 `json:"checkForFinishedDownloadInterval,omitempty"`
+
+	// downloadClientWorkingFolders lists, separated by |, the folders download
+	// clients unpack and fail into, which imports skip. The app's default is
+	// _UNPACK_|_FAILED_.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	DownloadClientWorkingFolders string `json:"downloadClientWorkingFolders,omitempty"`
 }
 
 // RadarrUI configures UI display settings.

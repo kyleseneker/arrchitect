@@ -41,6 +41,10 @@ var bookAndMusicImportListFields = ImportListFields{
 	MonitorNewItems: "monitorNewItems", MonitorExisting: "shouldMonitorExisting",
 }
 
+var bookAndMusicChoices = map[string]map[string]map[string]int{"naming": {
+	"colonReplacementFormat": {"delete": 0, "dash": 1, "spaceDash": 2, "spaceDashSpace": 3, "smart": 4},
+}}
+
 var (
 	Sonarr = App{
 		Name: "sonarr", Kind: "Sonarr", APIVersion: "v3", CategoryField: "tvCategory", ReleaseProfiles: true,
@@ -49,7 +53,7 @@ var (
 			MonitorNewItems: "monitorNewItems",
 		},
 		Choices: map[string]map[string]map[string]int{"naming": {
-			"colonReplacementFormat": {"delete": 0, "dash": 1, "spaceDash": 2, "spaceDashSpace": 3, "smart": 4},
+			"colonReplacementFormat": {"delete": 0, "dash": 1, "spaceDash": 2, "spaceDashSpace": 3, "smart": 4, "custom": 5},
 			"multiEpisodeStyle":      {"extend": 0, "duplicate": 1, "repeat": 2, "scene": 3, "range": 4, "prefixedRange": 5},
 		}},
 	}
@@ -59,11 +63,11 @@ var (
 	}
 	Lidarr = App{
 		Name: "lidarr", Kind: "Lidarr", APIVersion: "v1", CategoryField: "musicCategory", MetadataProfiles: true,
-		ImportListFields: bookAndMusicImportListFields,
+		ImportListFields: bookAndMusicImportListFields, Choices: bookAndMusicChoices,
 	}
 	Readarr = App{
 		Name: "readarr", Kind: "Readarr", APIVersion: "v1", CategoryField: "bookCategory", MetadataProfiles: true,
-		ImportListFields: bookAndMusicImportListFields,
+		ImportListFields: bookAndMusicImportListFields, Choices: bookAndMusicChoices,
 	}
 )
 

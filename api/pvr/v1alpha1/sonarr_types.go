@@ -213,10 +213,17 @@ type SonarrNaming struct {
 	// +optional
 	ReplaceIllegalCharacters *bool `json:"replaceIllegalCharacters,omitempty"`
 
-	// colonReplacementFormat defines how colons are replaced in filenames.
+	// colonReplacementFormat defines how colons are replaced in filenames:
+	// custom uses customColonReplacementFormat.
 	// +optional
-	// +kubebuilder:validation:Enum=delete;dash;spaceDash;spaceDashSpace;smart
+	// +kubebuilder:validation:Enum=delete;dash;spaceDash;spaceDashSpace;smart;custom
 	ColonReplacementFormat string `json:"colonReplacementFormat,omitempty"`
+
+	// customColonReplacementFormat replaces each colon when
+	// colonReplacementFormat is custom.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	CustomColonReplacementFormat string `json:"customColonReplacementFormat,omitempty"`
 
 	// multiEpisodeStyle defines how multi-episode files are named: extend
 	// (S01E01-02-03), duplicate (S01E01.S01E02), repeat (S01E01E02E03), scene
@@ -288,6 +295,13 @@ type SonarrDownloadClientConfig struct {
 	// autoRedownloadFailedFromInteractiveSearch auto-searches failed interactive searches.
 	// +optional
 	AutoRedownloadFailedFromInteractiveSearch *bool `json:"autoRedownloadFailedFromInteractiveSearch,omitempty"`
+
+	// downloadClientWorkingFolders lists, separated by |, the folders download
+	// clients unpack and fail into, which imports skip. The app's default is
+	// _UNPACK_|_FAILED_.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	DownloadClientWorkingFolders string `json:"downloadClientWorkingFolders,omitempty"`
 }
 
 // SonarrUI configures UI display settings.
