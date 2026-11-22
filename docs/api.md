@@ -354,6 +354,26 @@ _Appears in:_
 | `settings` _[ConfigField](#configfield) array_ | settings are the definition's settings, such as passkey or rsskey. |  | MaxProperties: 2 <br />Optional: \{\} <br /> |
 
 
+#### AutobrrNotification
+
+
+
+AutobrrNotification sends Autobrr's events to a service such as Discord.
+
+
+
+_Appears in:_
+- [AutobrrSpec](#autobrrspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `name` _string_ | name identifies the notification. |  | MinLength: 1 <br />Required: \{\} <br /> |
+| `type` _string_ | type is the service. Webhook needs Autobrr 1.72.0 or later, and Bark<br />1.89.0 or later. |  | Enum: [Discord Notifiarr Pushover Slack Telegram Gotify Ntfy LunaSea Shoutrrr Webhook Bark] <br />Required: \{\} <br /> |
+| `enable` _boolean_ | enable turns the notification on. A new notification is enabled unless<br />this is false. |  | Optional: \{\} <br /> |
+| `events` _string array_ | events are the events it sends. |  | items:Enum: [pushApproved pushRejected pushError ircDisconnected ircReconnected ircUnhealthy ircHealthy listRefreshSuccess listRefreshError feedRefreshSuccess feedRefreshError releaseNew appUpdateAvailable] <br />Optional: \{\} <br /> |
+| `options` _[ConfigField](#configfield) array_ | options are the service's settings under Autobrr's names: webhook,<br />token, api_key, channel, host, username, password, title, icon, rooms,<br />targets, devices, priority, topic, sound, method and headers; method and<br />headers need Autobrr 1.72.0 or later. Take secrets from a Secret with<br />valueFrom. |  | MaxProperties: 2 <br />Optional: \{\} <br /> |
+
+
 #### AutobrrSpec
 
 
@@ -374,6 +394,7 @@ _Appears in:_
 | `ircNetworks` _[AutobrrIRCNetwork](#autobrrircnetwork) array_ | ircNetworks defines IRC network connections for announce channel monitoring. |  | Optional: \{\} <br /> |
 | `feeds` _[AutobrrFeed](#autobrrfeed) array_ | feeds defines RSS/Torznab feed sources. |  | Optional: \{\} <br /> |
 | `filters` _[AutobrrFilter](#autobrrfilter) array_ | filters defines release filters with match criteria and actions. |  | Optional: \{\} <br /> |
+| `notifications` _[AutobrrNotification](#autobrrnotification) array_ | notifications defines where Autobrr sends its events, matched by name. |  | Optional: \{\} <br /> |
 
 
 #### AutobrrStatus
@@ -655,6 +676,7 @@ _Validation:_
 
 _Appears in:_
 - [AutobrrIndexer](#autobrrindexer)
+- [AutobrrNotification](#autobrrnotification)
 - [BazarrProvider](#bazarrprovider)
 - [CustomFormatSpecification](#customformatspecification)
 - [DownloadClient](#downloadclient)

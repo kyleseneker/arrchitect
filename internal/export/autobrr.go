@@ -118,7 +118,70 @@ func exportAutobrr(r *reader) (map[string]any, error) {
 		out = append(out, r.autobrrFilter(full, actions, clientNames))
 	}
 	setList(spec, "filters", out)
+
+	notifications, err := ac.ListNotifications(r.ctx)
+	if err != nil {
+		return nil, err
+	}
+	var ns []any
+	for _, n := range notifications {
+		if exported := r.autobrrNotification(n); exported != nil {
+			ns = append(ns, exported)
+		}
+	}
+	setList(spec, "notifications", ns)
 	return spec, nil
+}
+
+// autobrrNotification exports one notification, leaving out Autobrr's own
+// built-in one.
+func (r *reader) autobrrNotification(n map[string]any) map[string]any {
+	kind, _ := n["type"].(string)
+	var crdType string
+	for _, t := range []string{"Discord", "Notifiarr", "Pushover", "Slack", "Telegram", "Gotify", "Ntfy", "LunaSea", "Shoutrrr", "Webhook", "Bark"} {
+		if strings.ToUpper(t) == kind {
+			crdType = t
+		}
+	}
+	if crdType == "" {
+		return nil
+	}
+	name, _ := n["name"].(string)
+	out := map[string]any{"name": name, "type": crdType, "enable": n["enabled"]}
+	if events, ok := n["events"].([]any); ok && len(events) > 0 {
+		names := make([]any, 0, len(events))
+		for _, e := range events {
+			event, _ := e.(string)
+			names = append(names, autobrrclient.NotificationEventName(event))
+		}
+		out["events"] = names
+	}
+	var options []any
+	for _, key := range autobrrclient.NotificationOptions {
+		switch value := n[key].(type) {
+		case string:
+			switch {
+			case value == "":
+			case slices.Contains(autobrrclient.NotificationSecrets, key):
+				if reconciler.IsMasked(value) {
+					value = ""
+				}
+				options = append(options, map[string]any{"name": key, "valueFrom": map[string]any{
+					"secretKeyRef": r.creds.ref(value, "notification", name, key),
+				}})
+			default:
+				options = append(options, map[string]any{"name": key, "value": value})
+			}
+		case float64:
+			if value != 0 {
+				options = append(options, map[string]any{"name": key, "value": value})
+			}
+		}
+	}
+	if len(options) > 0 {
+		out["options"] = options
+	}
+	return out
 }
 
 func (r *reader) autobrrFilter(f map[string]any, actions []map[string]any, clientNames map[float64]any) map[string]any {

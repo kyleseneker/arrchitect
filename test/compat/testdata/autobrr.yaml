@@ -99,6 +99,20 @@ spec:
           reannounceSkip: false
           reannounceInterval: 7
           reannounceMaxAttempts: 50
+  notifications:
+    - name: Compat Gotify
+      type: Gotify
+      events:
+        - pushApproved
+        - pushRejected
+      options:
+        - name: host
+          value: https://gotify.example.com
+        - name: token
+          valueFrom:
+            secretKeyRef:
+              name: compat-credentials
+              key: gotify-token
 ---
 apiVersion: arrchitect.dev/v1alpha1
 kind: QBittorrent

@@ -24,6 +24,9 @@ var fakeAutobrrAPI = map[string]string{
 	"/api/irc": `[{"id":1,"name":"Net","enabled":false,"server":"irc.example","port":6697,"tls":true,"nick":"bot",
 		"auth":{"mechanism":"NICKSERV","account":"bot","password":"<redacted>"},
 		"channels":[{"name":"#announce","password":""},{"name":"#vip","password":"<redacted>"}]}]`,
+	"/api/notification": `[{"id":1,"name":"Builtin","type":"BUILTIN","enabled":true},
+		{"id":2,"name":"Discord","type":"DISCORD","enabled":true,"events":["PUSH_APPROVED","IRC_DISCONNECTED"],
+		"webhook":"<redacted>","title":"autobrr","priority":0,"token":""}]`,
 	"/api/feeds": `[{"id":1,"name":"Feed","type":"TORZNAB","enabled":true,"url":"http://feed","interval":15,"api_key":"<redacted>",
 		"indexer":{"id":5,"name":"Feed","identifier":"torznab-feed"}}]`,
 	"/api/filters": `[{"id":7,"name":"TV"}]`,
@@ -35,7 +38,8 @@ var fakeAutobrrAPI = map[string]string{
 		"limit_ratio":1.5,"content_layout":"SUBFOLDER_CREATE","paused":false,"webhook_headers":[]}]`,
 }
 
-func TestAutobrrExportsEachResourceWithSecretsInTheSecret(t *testing.T) {
+func exportAutobrrForTest(t *testing.T) (*automationv1alpha1.Autobrr, Result) {
+	t.Helper()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("X-API-Token") != "k" {
 			w.WriteHeader(http.StatusForbidden)
@@ -54,6 +58,11 @@ func TestAutobrrExportsEachResourceWithSecretsInTheSecret(t *testing.T) {
 	require.NoError(t, err)
 	cfg, ok := res.Config.(*automationv1alpha1.Autobrr)
 	require.True(t, ok)
+	return cfg, res
+}
+
+func TestAutobrrExportsEachResourceWithSecretsInTheSecret(t *testing.T) {
+	cfg, res := exportAutobrrForTest(t)
 
 	require.Len(t, cfg.Spec.DownloadClients, 2)
 	dc := cfg.Spec.DownloadClients[0]
@@ -111,4 +120,16 @@ func TestAutobrrExportsEachResourceWithSecretsInTheSecret(t *testing.T) {
 	assert.Equal(t, "SUBFOLDER_CREATE", action.ContentLayout)
 	assert.Nil(t, action.Paused)
 	assert.Empty(t, action.WebhookHeaders)
+}
+
+func TestAutobrrExportsNotificationsButNotTheBuiltinOne(t *testing.T) {
+	cfg, res := exportAutobrrForTest(t)
+	require.Len(t, cfg.Spec.Notifications, 1, "the built-in notification is Autobrr's own")
+	n := cfg.Spec.Notifications[0]
+	assert.Equal(t, "Discord", n.Type)
+	assert.Equal(t, []string{"pushApproved", "ircDisconnected"}, n.Events)
+	require.Len(t, n.Options, 2, "empty and zero settings are left out")
+	assert.Equal(t, "webhook", n.Options[0].Name)
+	assert.Contains(t, res.Unfilled, n.Options[0].ValueFrom.SecretKeyRef.Key, "a redacted webhook is left for the user to fill in")
+	assert.Equal(t, "title", n.Options[1].Name)
 }

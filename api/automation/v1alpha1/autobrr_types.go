@@ -60,6 +60,12 @@ type AutobrrSpec struct {
 	// +listType=map
 	// +listMapKey=name
 	Filters []AutobrrFilter `json:"filters,omitempty"`
+
+	// notifications defines where Autobrr sends its events, matched by name.
+	// +optional
+	// +listType=map
+	// +listMapKey=name
+	Notifications []AutobrrNotification `json:"notifications,omitempty"`
 }
 
 // AutobrrDownloadClient defines a download client connection in Autobrr.
@@ -212,6 +218,41 @@ type AutobrrIRCChannel struct {
 	// passwordSecretRef references a Secret containing the channel password/key.
 	// +optional
 	PasswordSecretRef *commonv1alpha1.SecretKeyRef `json:"passwordSecretRef,omitempty"`
+}
+
+// AutobrrNotification sends Autobrr's events to a service such as Discord.
+type AutobrrNotification struct {
+	// name identifies the notification.
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name,omitempty"`
+
+	// type is the service. Webhook needs Autobrr 1.72.0 or later, and Bark
+	// 1.89.0 or later.
+	// +required
+	// +kubebuilder:validation:Enum=Discord;Notifiarr;Pushover;Slack;Telegram;Gotify;Ntfy;LunaSea;Shoutrrr;Webhook;Bark
+	Type string `json:"type,omitempty"`
+
+	// enable turns the notification on. A new notification is enabled unless
+	// this is false.
+	// +optional
+	Enable *bool `json:"enable,omitempty"`
+
+	// events are the events it sends.
+	// +optional
+	// +listType=set
+	// +kubebuilder:validation:items:Enum=pushApproved;pushRejected;pushError;ircDisconnected;ircReconnected;ircUnhealthy;ircHealthy;listRefreshSuccess;listRefreshError;feedRefreshSuccess;feedRefreshError;releaseNew;appUpdateAvailable
+	Events []string `json:"events,omitempty"`
+
+	// options are the service's settings under Autobrr's names: webhook,
+	// token, api_key, channel, host, username, password, title, icon, rooms,
+	// targets, devices, priority, topic, sound, method and headers; method and
+	// headers need Autobrr 1.72.0 or later. Take secrets from a Secret with
+	// valueFrom.
+	// +optional
+	// +listType=map
+	// +listMapKey=name
+	Options []commonv1alpha1.ConfigField `json:"options,omitempty"`
 }
 
 // AutobrrFeed defines an RSS or Torznab feed source.

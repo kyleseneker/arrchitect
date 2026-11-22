@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"maps"
 	"net/http"
+	"strings"
+	"unicode"
 
 	"github.com/kyleseneker/arrchitect/internal/engine"
 )
@@ -286,6 +288,59 @@ func (c *Client) DeleteIRCNetwork(ctx context.Context, id int) error {
 // DeleteFeed removes a feed.
 func (c *Client) DeleteFeed(ctx context.Context, id int) error {
 	return c.hc.DeleteJSON(ctx, fmt.Sprintf("/api/feeds/%d", id))
+}
+
+// --- Notifications ---
+
+// NotificationOptions are the notification settings Autobrr stores besides
+// its name, type, enabled flag and events.
+var NotificationOptions = []string{
+	"webhook", "token", "api_key", "channel", "host", "username", "password", "title", "icon",
+	"rooms", "targets", "devices", "priority", "topic", "sound", "method", "headers",
+}
+
+// NotificationSecrets are the notification settings that hold credentials.
+var NotificationSecrets = []string{"webhook", "token", "api_key", "password"}
+
+// NotificationEvent is Autobrr's name for an event: pushApproved is
+// PUSH_APPROVED.
+func NotificationEvent(name string) string {
+	var b strings.Builder
+	for i, r := range name {
+		if unicode.IsUpper(r) && i > 0 {
+			b.WriteByte('_')
+		}
+		b.WriteRune(unicode.ToUpper(r))
+	}
+	return b.String()
+}
+
+// NotificationEventName is the resource's name for an Autobrr event.
+func NotificationEventName(event string) string {
+	words := strings.Split(strings.ToLower(event), "_")
+	for i := 1; i < len(words); i++ {
+		if words[i] != "" {
+			words[i] = strings.ToUpper(words[i][:1]) + words[i][1:]
+		}
+	}
+	return strings.Join(words, "")
+}
+
+func (c *Client) ListNotifications(ctx context.Context) ([]map[string]any, error) {
+	return c.hc.GetJSONList(ctx, "/api/notification")
+}
+
+func (c *Client) CreateNotification(ctx context.Context, notification map[string]any) error {
+	return c.hc.PostJSON(ctx, "/api/notification", notification)
+}
+
+// UpdateNotification replaces a notification whole.
+func (c *Client) UpdateNotification(ctx context.Context, id int, notification map[string]any) error {
+	return c.hc.PutJSON(ctx, fmt.Sprintf("/api/notification/%d", id), notification)
+}
+
+func (c *Client) DeleteNotification(ctx context.Context, id int) error {
+	return c.hc.DeleteJSON(ctx, fmt.Sprintf("/api/notification/%d", id))
 }
 
 // DeleteFilter removes a filter and its actions.

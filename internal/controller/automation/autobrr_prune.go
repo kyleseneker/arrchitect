@@ -23,6 +23,7 @@ type autobrrList struct {
 func (s *autobrrSync) lists() []autobrrList {
 	return []autobrrList{
 		{"filters", s.ac.ListFilters, s.ac.DeleteFilter},
+		{"notifications", s.ac.ListNotifications, s.ac.DeleteNotification},
 		{"feeds", s.ac.ListFeeds, s.ac.DeleteFeed},
 		{"ircNetworks", s.ac.ListIRCNetworks, s.ac.DeleteIRCNetwork},
 		{"indexers", s.ac.ListIndexers, s.ac.DeleteIndexer},
@@ -46,6 +47,9 @@ func declaredNames(spec *automationv1alpha1.AutobrrSpec) map[string][]string {
 	}
 	for _, d := range spec.DownloadClients {
 		declared["downloadClients"] = append(declared["downloadClients"], d.Name)
+	}
+	for _, n := range spec.Notifications {
+		declared["notifications"] = append(declared["notifications"], n.Name)
 	}
 	return declared
 }

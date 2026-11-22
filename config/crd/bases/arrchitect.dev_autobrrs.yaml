@@ -1093,6 +1093,117 @@ spec:
                 x-kubernetes-list-map-keys:
                 - name
                 x-kubernetes-list-type: map
+              notifications:
+                description: notifications defines where Autobrr sends its events,
+                  matched by name.
+                items:
+                  description: AutobrrNotification sends Autobrr's events to a service
+                    such as Discord.
+                  properties:
+                    enable:
+                      description: |-
+                        enable turns the notification on. A new notification is enabled unless
+                        this is false.
+                      type: boolean
+                    events:
+                      description: events are the events it sends.
+                      items:
+                        enum:
+                        - pushApproved
+                        - pushRejected
+                        - pushError
+                        - ircDisconnected
+                        - ircReconnected
+                        - ircUnhealthy
+                        - ircHealthy
+                        - listRefreshSuccess
+                        - listRefreshError
+                        - feedRefreshSuccess
+                        - feedRefreshError
+                        - releaseNew
+                        - appUpdateAvailable
+                        type: string
+                      type: array
+                      x-kubernetes-list-type: set
+                    name:
+                      description: name identifies the notification.
+                      minLength: 1
+                      type: string
+                    options:
+                      description: |-
+                        options are the service's settings under Autobrr's names: webhook,
+                        token, api_key, channel, host, username, password, title, icon, rooms,
+                        targets, devices, priority, topic, sound, method and headers; method and
+                        headers need Autobrr 1.72.0 or later. Take secrets from a Secret with
+                        valueFrom.
+                      items:
+                        description: |-
+                          ConfigField is a named field of a provider's configuration. It sets value
+                          or valueFrom, not both.
+                        maxProperties: 2
+                        properties:
+                          name:
+                            description: name is the field name.
+                            minLength: 1
+                            type: string
+                          value:
+                            description: 'value is the field value: a string, number,
+                              boolean or list.'
+                            x-kubernetes-preserve-unknown-fields: true
+                          valueFrom:
+                            description: valueFrom reads the field value from a source.
+                            properties:
+                              secretKeyRef:
+                                description: secretKeyRef reads the value from a key
+                                  of a Secret in the resource's namespace.
+                                properties:
+                                  key:
+                                    description: key is the key within the Secret.
+                                    minLength: 1
+                                    type: string
+                                  name:
+                                    description: name is the name of the Secret.
+                                    minLength: 1
+                                    type: string
+                                required:
+                                - key
+                                - name
+                                type: object
+                            required:
+                            - secretKeyRef
+                            type: object
+                        required:
+                        - name
+                        type: object
+                      type: array
+                      x-kubernetes-list-map-keys:
+                      - name
+                      x-kubernetes-list-type: map
+                    type:
+                      description: |-
+                        type is the service. Webhook needs Autobrr 1.72.0 or later, and Bark
+                        1.89.0 or later.
+                      enum:
+                      - Discord
+                      - Notifiarr
+                      - Pushover
+                      - Slack
+                      - Telegram
+                      - Gotify
+                      - Ntfy
+                      - LunaSea
+                      - Shoutrrr
+                      - Webhook
+                      - Bark
+                      type: string
+                  required:
+                  - name
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
               reconcile:
                 description: reconcile configures reconciliation behavior (e.g., sync
                   interval).

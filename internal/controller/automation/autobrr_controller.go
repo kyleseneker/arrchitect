@@ -181,6 +181,11 @@ func (s *autobrrSync) run(ctx context.Context, spec *automationv1alpha1.AutobrrS
 			fail("filter", filter.Name, err)
 		}
 	}
+	for _, n := range spec.Notifications {
+		if err := s.notification(ctx, n); err != nil {
+			fail("notification", n.Name, err)
+		}
+	}
 	if s.prune {
 		syncErrors = append(syncErrors, s.pruneUndeclared(ctx, spec, failed)...)
 	}
@@ -546,6 +551,43 @@ func (s *autobrrSync) feed(ctx context.Context, feed automationv1alpha1.AutobrrF
 			}
 			return s.ac.UpdateFeed(ctx, id, withIndexer(body))
 		}, s.ac.ListFeeds)
+}
+
+func (s *autobrrSync) notification(ctx context.Context, n automationv1alpha1.AutobrrNotification) error {
+	options, err := ctrlcommon.FieldValues(ctx, s.c, s.namespace, "notification "+n.Name, n.Options)
+	if err != nil {
+		return err
+	}
+	existing, err := s.ac.ListNotifications(ctx)
+	if err != nil {
+		return fmt.Errorf("listing notifications: %w", err)
+	}
+	obj := map[string]any{"name": n.Name, "type": strings.ToUpper(n.Type)}
+	setEnabled(obj, n.Enable)
+	if n.Events != nil {
+		names := make([]any, 0, len(n.Events))
+		for _, event := range n.Events {
+			names = append(names, autobrrclient.NotificationEvent(event))
+		}
+		obj["events"] = names
+	}
+	for key, value := range options {
+		if !slices.Contains(autobrrclient.NotificationOptions, key) {
+			return fmt.Errorf("option %q isn't an Autobrr notification setting", key)
+		}
+		obj[key] = value
+	}
+	return s.upsert(ctx, "notification", n.Name, existing, obj,
+		s.created("notifications", n.Name, func() error {
+			return s.ac.CreateNotification(ctx, createBody(obj, map[string]any{"enabled": true, "events": []any{}}))
+		}),
+		func(id int, current map[string]any) error {
+			body, err := mergedOver(current, obj)
+			if err != nil {
+				return err
+			}
+			return s.ac.UpdateNotification(ctx, id, body)
+		}, s.ac.ListNotifications)
 }
 
 // indexerIDs maps each Autobrr indexer's name to its id.

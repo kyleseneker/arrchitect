@@ -205,7 +205,7 @@ prune, removing an item from the resource only stops managing it.
 | Prowlarr | applications, indexers, proxies, download clients, notifications |
 | FlareSolverr | sessions |
 | Tdarr | library variables |
-| Autobrr | download clients, indexers, IRC networks, feeds, filters and their actions |
+| Autobrr | download clients, indexers, IRC networks, feeds, filters and their actions, notifications |
 | Seerr | Sonarr and Radarr servers |
 | SABnzbd | servers, categories |
 | qBittorrent | categories |
