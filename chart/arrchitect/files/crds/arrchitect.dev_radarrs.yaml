@@ -508,6 +508,18 @@ spec:
                     description: autoUnmonitorPreviouslyDownloadedMovies unmonitors
                       movies that have been downloaded.
                     type: boolean
+                  chmodFolder:
+                    description: |-
+                      chmodFolder is the octal mode, such as 755, given to media folders
+                      when setPermissionsLinux is on. Files get it without the execute bits.
+                    minLength: 3
+                    pattern: ^[0-7]{3,4}$
+                    type: string
+                  chownGroup:
+                    description: |-
+                      chownGroup is the group name or gid given to imported files when
+                      setPermissionsLinux is on. An empty string leaves the group alone.
+                    type: string
                   copyUsingHardlinks:
                     description: copyUsingHardlinks uses hardlinks instead of copies
                       when importing.
@@ -535,6 +547,15 @@ spec:
                     description: extraFileExtensions is a comma-separated list of
                       extra file extensions to import.
                     minLength: 1
+                    type: string
+                  fileDate:
+                    description: |-
+                      fileDate sets an imported file's modified date: none keeps it, cinemas and
+                      release use the movie's cinema or physical release date.
+                    enum:
+                    - none
+                    - cinemas
+                    - release
                     type: string
                   importExtraFiles:
                     description: importExtraFiles imports additional files (subtitles,
@@ -567,6 +588,12 @@ spec:
                     - afterManual
                     - never
                     type: string
+                  scriptImportPath:
+                    description: |-
+                      scriptImportPath is the script run for each import when useScriptImport
+                      is on.
+                    minLength: 1
+                    type: string
                   setPermissionsLinux:
                     description: setPermissionsLinux enables setting file permissions
                       on import.
@@ -574,6 +601,11 @@ spec:
                   skipFreeSpaceCheckWhenImporting:
                     description: skipFreeSpaceCheckWhenImporting skips free space
                       check during import.
+                    type: boolean
+                  useScriptImport:
+                    description: |-
+                      useScriptImport imports with the script at scriptImportPath instead of
+                      copying or hardlinking.
                     type: boolean
                 type: object
               naming:

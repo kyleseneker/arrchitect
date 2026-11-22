@@ -17,6 +17,16 @@ spec:
     rescanAfterRefresh: always
     minimumFreeSpaceWhenImporting: 100
     createEmptyArtistFolders: false
+    fileDate: albumReleaseDate
+    chmodFolder: "775"
+    chownGroup: "1000"
+    autoUnmonitorPreviouslyDownloadedTracks: true
+    watchLibraryForChanges: false
+    allowFingerprinting: never
+    skipFreeSpaceCheckWhenImporting: true
+    enableMediaInfo: false
+    useScriptImport: false
+    scriptImportPath: /config/import.sh
   naming:
     renameTracks: true
     replaceIllegalCharacters: true

@@ -18,6 +18,12 @@ spec:
     rescanAfterRefresh: always
     episodeTitleRequired: always
     minimumFreeSpaceWhenImporting: 100
+    fileDate: localAirDate
+    chmodFolder: "775"
+    chownGroup: "1000"
+    autoUnmonitorPreviouslyDownloadedEpisodes: true
+    useScriptImport: false
+    scriptImportPath: /config/import.sh
   naming:
     renameEpisodes: true
     replaceIllegalCharacters: true

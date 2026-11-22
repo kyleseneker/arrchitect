@@ -180,6 +180,9 @@ func TestAdmissionRules(t *testing.T) {
     url: sonarr:8989
     apiKeySecretRef: {name: app, key: api-key}`,
 			rejected: "should match '^https?://'"},
+		{name: "a symbolic folder mode", kind: "Sonarr", spec: conn + `
+  mediaManagement: {chmodFolder: rwxr-xr-x}`,
+			rejected: "should match '^[0-7]{3,4}$'"},
 		{name: "a Lidarr root folder without profiles", kind: "Lidarr", spec: conn + `
   rootFolders: [{path: /music}]`,
 			rejected: "Lidarr root folders need defaultQualityProfileName and defaultMetadataProfileName"},
