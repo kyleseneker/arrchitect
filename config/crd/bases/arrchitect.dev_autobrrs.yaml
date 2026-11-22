@@ -918,6 +918,12 @@ spec:
                       description: name is the display name of the indexer.
                       minLength: 1
                       type: string
+                    proxyName:
+                      description: |-
+                        proxyName names the proxy the indexer, and a feed on it, connects
+                        through.
+                      minLength: 1
+                      type: string
                     settings:
                       description: settings are the definition's settings, such as
                         passkey or rsskey.
@@ -1076,6 +1082,11 @@ spec:
                       maximum: 65535
                       minimum: 1
                       type: integer
+                    proxyName:
+                      description: proxyName names the proxy the network connects
+                        through.
+                      minLength: 1
+                      type: string
                     server:
                       description: server is the IRC server address (e.g., "irc.example.com").
                       minLength: 1
@@ -1089,6 +1100,129 @@ spec:
                   - port
                   - server
                   type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
+              lists:
+                description: |-
+                  lists feed titles into filters from Sonarr, Radarr, Trakt, MDBList and
+                  other sources, matched by name. Changing a list that has never refreshed
+                  needs Autobrr 1.84.0 or later.
+                items:
+                  description: AutobrrTitleList feeds the titles from a source into
+                    filters.
+                  properties:
+                    apiKeySecretRef:
+                      description: |-
+                        apiKeySecretRef is the Secret key holding the list's API key, for the
+                        types that take one.
+                      properties:
+                        key:
+                          description: key is the key within the Secret.
+                          minLength: 1
+                          type: string
+                        name:
+                          description: name is the name of the Secret.
+                          minLength: 1
+                          type: string
+                      required:
+                      - key
+                      - name
+                      type: object
+                    downloadClientName:
+                      description: |-
+                        downloadClientName names the download client a Sonarr, Radarr, Lidarr,
+                        Readarr or Whisparr list reads from. Those types need it.
+                      minLength: 1
+                      type: string
+                    enable:
+                      description: enable turns the list on. A new list is enabled
+                        unless this is false.
+                      type: boolean
+                    filters:
+                      description: filters names the filters the list's titles go
+                        into.
+                      items:
+                        minLength: 1
+                        type: string
+                      minItems: 1
+                      type: array
+                      x-kubernetes-list-type: set
+                    includeAlternateTitles:
+                      description: includeAlternateTitles includes each item's alternate
+                        titles.
+                      type: boolean
+                    includeUnmonitored:
+                      description: includeUnmonitored includes items that aren't monitored.
+                      type: boolean
+                    includeYear:
+                      description: includeYear adds the year to each title.
+                      type: boolean
+                    matchRelease:
+                      description: |-
+                        matchRelease matches the titles against release names rather than show
+                        or movie names.
+                      type: boolean
+                    name:
+                      description: name identifies the list.
+                      minLength: 1
+                      type: string
+                    skipCleanSanitize:
+                      description: skipCleanSanitize keeps the titles as the source
+                        gives them.
+                      type: boolean
+                    tagsExcluded:
+                      description: tagsExcluded leaves out the items with one of these
+                        tags.
+                      items:
+                        minLength: 1
+                        type: string
+                      type: array
+                      x-kubernetes-list-type: set
+                    tagsIncluded:
+                      description: tagsIncluded keeps only the items with one of these
+                        tags.
+                      items:
+                        minLength: 1
+                        type: string
+                      type: array
+                      x-kubernetes-list-type: set
+                    type:
+                      description: type is the source.
+                      enum:
+                      - Sonarr
+                      - Radarr
+                      - Lidarr
+                      - Readarr
+                      - Whisparr
+                      - MDBList
+                      - Metacritic
+                      - Plaintext
+                      - Trakt
+                      - Steam
+                      - AniList
+                      type: string
+                    url:
+                      description: |-
+                        url is the list's address. The MDBList, Metacritic, Plaintext, Trakt,
+                        Steam and AniList types need it.
+                      minLength: 1
+                      type: string
+                  required:
+                  - filters
+                  - name
+                  - type
+                  type: object
+                  x-kubernetes-validations:
+                  - message: a Sonarr, Radarr, Lidarr, Readarr or Whisparr list needs
+                      downloadClientName
+                    rule: '!(self.type in [''Sonarr'', ''Radarr'', ''Lidarr'', ''Readarr'',
+                      ''Whisparr'']) || has(self.downloadClientName)'
+                  - message: an MDBList, Metacritic, Plaintext, Trakt, Steam or AniList
+                      list needs url
+                    rule: self.type in ['Sonarr', 'Radarr', 'Lidarr', 'Readarr', 'Whisparr']
+                      || has(self.url)
                 type: array
                 x-kubernetes-list-map-keys:
                 - name
@@ -1200,6 +1334,83 @@ spec:
                   - name
                   - type
                   type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
+              proxies:
+                description: proxies defines proxies, matched by name.
+                items:
+                  description: AutobrrProxy is a proxy Autobrr can connect through.
+                  properties:
+                    addr:
+                      description: addr is the proxy's address, such as socks5://proxy:1080.
+                      minLength: 1
+                      type: string
+                    enable:
+                      description: enable turns the proxy on. A new proxy is enabled
+                        unless this is false.
+                      type: boolean
+                    name:
+                      description: name identifies the proxy.
+                      minLength: 1
+                      type: string
+                    passwordSecretRef:
+                      description: passwordSecretRef is the Secret key holding the
+                        proxy's password.
+                      properties:
+                        key:
+                          description: key is the key within the Secret.
+                          minLength: 1
+                          type: string
+                        name:
+                          description: name is the name of the Secret.
+                          minLength: 1
+                          type: string
+                      required:
+                      - key
+                      - name
+                      type: object
+                    timeout:
+                      description: timeout is how long a connection through the proxy
+                        may take, in seconds.
+                      format: int32
+                      minimum: 1
+                      type: integer
+                    type:
+                      description: type is the proxy protocol. HTTP needs Autobrr
+                        1.70.0 or later.
+                      enum:
+                      - Socks5
+                      - HTTP
+                      type: string
+                    usernameSecretRef:
+                      description: usernameSecretRef is the Secret key holding the
+                        proxy's user name.
+                      properties:
+                        key:
+                          description: key is the key within the Secret.
+                          minLength: 1
+                          type: string
+                        name:
+                          description: name is the name of the Secret.
+                          minLength: 1
+                          type: string
+                      required:
+                      - key
+                      - name
+                      type: object
+                  required:
+                  - addr
+                  - name
+                  - type
+                  type: object
+                  x-kubernetes-validations:
+                  - message: a Socks5 proxy's addr starts with socks5:// or socks5h://,
+                      and an HTTP proxy's with http:// or https://
+                    rule: 'self.type == ''Socks5'' ? self.addr.startsWith(''socks5://'')
+                      || self.addr.startsWith(''socks5h://'') : self.addr.startsWith(''http://'')
+                      || self.addr.startsWith(''https://'')'
                 type: array
                 x-kubernetes-list-map-keys:
                 - name

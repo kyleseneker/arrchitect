@@ -39,6 +39,8 @@ type fakeAutobrr struct {
 	requests []string
 	bodies   map[string]map[string]any
 	existing map[string][]map[string]any
+	// stores lists what is created, as Autobrr does.
+	stores bool
 }
 
 func (f *fakeAutobrr) posted(path string) map[string]any {
@@ -73,7 +75,12 @@ func (f *fakeAutobrr) serve(t *testing.T) string {
 			}
 			f.bodies[r.Method+" "+r.URL.Path] = body
 		}
-		list := f.existing[strings.TrimPrefix(r.URL.Path, "/api/")]
+		path := strings.TrimPrefix(r.URL.Path, "/api/")
+		if f.stores && r.Method == http.MethodPost && body != nil {
+			body["id"] = float64(len(f.existing[path]) + 1)
+			f.existing[path] = append(f.existing[path], body)
+		}
+		list := f.existing[path]
 		f.mu.Unlock()
 
 		w.Header().Set("Content-Type", "application/json")
@@ -193,10 +200,10 @@ func TestAutobrrMissingSecretDoesNotContactApp(t *testing.T) {
 	assert.NotEqual(t, conditionTrue, autobrrSynced(t, c), "Synced = True despite a missing secret")
 }
 
-func observedAutobrr(url string, indexer string) *automationv1alpha1.Autobrr {
+func observedAutobrr(url string) *automationv1alpha1.Autobrr {
 	cfg := autobrrConfig(url)
 	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{DriftPolicy: "observe"}
-	cfg.Spec.Indexers = []automationv1alpha1.AutobrrIndexer{{Name: indexer, Identifier: "torznab"}}
+	cfg.Spec.Indexers = []automationv1alpha1.AutobrrIndexer{{Name: "torznab-a", Identifier: "torznab"}}
 	return cfg
 }
 
@@ -214,7 +221,7 @@ func autobrrWrites(f *fakeAutobrr) []string {
 
 func TestAutobrrObserveReportsMissingResourcesWithoutWriting(t *testing.T) {
 	app := &fakeAutobrr{existing: map[string][]map[string]any{"indexer/schema": autobrrDefinitions}}
-	c := runAutobrr(t, observedAutobrr(app.serve(t), "torznab-a"), true)
+	c := runAutobrr(t, observedAutobrr(app.serve(t)), true)
 
 	assert.Empty(t, autobrrWrites(app), "observe mode wrote to Autobrr")
 	var cfg automationv1alpha1.Autobrr
@@ -226,7 +233,7 @@ func TestAutobrrObserveReportsMissingResourcesWithoutWriting(t *testing.T) {
 func TestAutobrrObserveTellsADeclaredIndexerFromATypo(t *testing.T) {
 	for ref, want := range map[string]string{"torznab-a": "DriftDetected", "typo": "SyncFailed"} {
 		app := &fakeAutobrr{existing: map[string][]map[string]any{"indexer/schema": autobrrDefinitions}}
-		cfg := observedAutobrr(app.serve(t), "torznab-a")
+		cfg := observedAutobrr(app.serve(t))
 		cfg.Spec.Feeds = []automationv1alpha1.AutobrrFeed{{Name: "Feed", Type: "Torznab", URL: "http://feed", IndexerRef: ref}}
 
 		c := runAutobrr(t, cfg, true)
@@ -246,7 +253,7 @@ func TestAutobrrObserveMatchesWhatExists(t *testing.T) {
 		"indexer/2":      {{"id": float64(2), "name": "torznab-a", "enabled": true, "implementation": "torznab"}},
 		"indexer/schema": autobrrDefinitions,
 	}}
-	c := runAutobrr(t, observedAutobrr(app.serve(t), "torznab-a"), true)
+	c := runAutobrr(t, observedAutobrr(app.serve(t)), true)
 
 	require.True(t, app.saw("GET", "/api/indexer"), "observe never read the indexers")
 	assert.Empty(t, autobrrWrites(app))
@@ -619,5 +626,94 @@ func TestAutobrrEventNames(t *testing.T) {
 	} {
 		assert.Equal(t, want, autobrrclient.NotificationEvent(name))
 		assert.Equal(t, name, autobrrclient.NotificationEventName(want))
+	}
+}
+
+func TestAutobrrListNamesItsDownloadClientAndFiltersByID(t *testing.T) {
+	app := &fakeAutobrr{existing: map[string][]map[string]any{
+		"downloaders": {{"id": float64(4), "name": "Sonarr", "type": "SONARR"}},
+		"filters":     {{"id": float64(7), "name": "TV"}},
+	}}
+	cfg := autobrrConfig(app.serve(t))
+	cfg.Spec.Lists = []automationv1alpha1.AutobrrTitleList{{
+		Name: "Shows", Type: "Sonarr", DownloadClientName: "Sonarr", Filters: []string{"TV"},
+		IncludeAlternateTitles: new(true), TagsExcluded: []string{"anime"},
+	}}
+	runAutobrr(t, cfg, true)
+
+	body := app.posted("/api/lists")
+	require.NotNil(t, body, "the list was never created")
+	assert.Equal(t, "SONARR", body["type"])
+	assert.Equal(t, float64(4), body["client_id"])
+	assert.Equal(t, []any{map[string]any{"id": float64(7), "name": "TV"}}, body["filters"])
+	assert.Equal(t, true, body["include_alternate_titles"])
+	assert.Equal(t, []any{"anime"}, body["tags_excluded"])
+	assert.Equal(t, []any{}, body["tags_included"], "Autobrr refuses a new list without its lists")
+	assert.Equal(t, true, body["enabled"], "a new list is enabled")
+}
+
+func TestAutobrrListRefusesAFilterAutobrrDoesNotHave(t *testing.T) {
+	app := &fakeAutobrr{}
+	cfg := autobrrConfig(app.serve(t))
+	cfg.Spec.Lists = []automationv1alpha1.AutobrrTitleList{{Name: "Shows", Type: "Plaintext", URL: "http://list", Filters: []string{"TV"}}}
+	c := runAutobrr(t, cfg, true)
+
+	assert.False(t, app.saw(http.MethodPost, "/api/lists"))
+	assert.Equal(t, "False", autobrrSynced(t, c))
+}
+
+func TestAutobrrProxyTakesItsTypeAndCredentials(t *testing.T) {
+	app := &fakeAutobrr{}
+	cfg := autobrrConfig(app.serve(t))
+	cfg.Spec.Proxies = []automationv1alpha1.AutobrrProxy{{
+		Name: "VPN", Type: "Socks5", Addr: "socks5://vpn:1080", Timeout: 30,
+		UsernameSecretRef: &commonv1alpha1.SecretKeyRef{Name: "proxy", Key: "user"},
+		PasswordSecretRef: &commonv1alpha1.SecretKeyRef{Name: "proxy", Key: "pass"},
+	}}
+	proxy := &corev1.Secret{Name: "proxy", Namespace: "media", Data: map[string][]byte{"user": []byte("u"), "pass": []byte("p")}}
+	runAutobrr(t, cfg, true, proxy)
+
+	body := app.posted("/api/proxy")
+	require.NotNil(t, body, "the proxy was never created")
+	assert.Equal(t, "SOCKS5", body["type"])
+	assert.Equal(t, "u", body["user"])
+	assert.Equal(t, "p", body["pass"])
+	assert.Equal(t, float64(30), body["timeout"])
+	assert.Equal(t, true, body["enabled"], "a new proxy is enabled")
+}
+
+func TestAutobrrIRCNetworkConnectsThroughItsProxyByID(t *testing.T) {
+	app := &fakeAutobrr{existing: map[string][]map[string]any{"proxy": {{"id": float64(3), "name": "VPN"}}}, stores: true}
+	cfg := autobrrConfig(app.serve(t))
+	cfg.Spec.IRCNetworks = []automationv1alpha1.AutobrrIRCNetwork{{Name: "Net", Server: "irc.example", Port: 6697, Nick: "bot", ProxyName: "VPN"}}
+	runAutobrr(t, cfg, true)
+
+	created := app.posted("/api/irc")
+	require.NotNil(t, created, "the network was never created")
+	assert.Equal(t, false, created["enabled"], "a network was created on before it had its proxy")
+	app.mu.Lock()
+	updated := app.bodies[http.MethodPut+" /api/irc/network/1"]
+	app.mu.Unlock()
+	require.NotNil(t, updated, "the new network was never given its proxy")
+	assert.Equal(t, true, updated["use_proxy"])
+	assert.Equal(t, float64(3), updated["proxy_id"])
+	assert.Equal(t, true, updated["enabled"], "a new network is enabled")
+}
+
+func TestAutobrrObserveTellsADeclaredProxyFromATypo(t *testing.T) {
+	for ref, want := range map[string]string{"VPN": "DriftDetected", "typo": "SyncFailed"} {
+		app := &fakeAutobrr{existing: map[string][]map[string]any{"indexer/schema": autobrrDefinitions}}
+		cfg := observedAutobrr(app.serve(t))
+		cfg.Spec.Proxies = []automationv1alpha1.AutobrrProxy{{Name: "VPN", Type: "HTTP", Addr: "http://vpn:8080"}}
+		cfg.Spec.IRCNetworks = []automationv1alpha1.AutobrrIRCNetwork{{Name: "Net", Server: "irc.example", Port: 6697, Nick: "bot", ProxyName: ref}}
+
+		c := runAutobrr(t, cfg, true)
+
+		var got automationv1alpha1.Autobrr
+		require.NoError(t, c.Get(context.Background(), types.NamespacedName{Name: "autobrr", Namespace: "media"}, &got))
+		synced := meta.FindStatusCondition(got.Status.Conditions, "Synced")
+		require.NotNil(t, synced)
+		assert.Equal(t, want, synced.Reason, "a network using proxy %q", ref)
+		assert.Empty(t, autobrrWrites(app))
 	}
 }

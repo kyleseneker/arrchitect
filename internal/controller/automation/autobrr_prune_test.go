@@ -102,3 +102,26 @@ func TestAutobrrObserveReportsWhatPruneWouldDelete(t *testing.T) {
 }
 
 var genericIndexer = []map[string]any{{"id": float64(9), "name": "Generic", "implementation": "rss"}}
+
+func TestAutobrrDeletesListsBeforeWhatTheyNameAndProxiesLast(t *testing.T) {
+	app := &fakeAutobrr{existing: map[string][]map[string]any{
+		"lists":       {{"id": float64(2), "name": "Shows"}},
+		"filters":     {{"id": float64(3), "name": "TV"}},
+		"downloaders": {{"id": float64(4), "name": "Sonarr"}},
+		"proxy":       {{"id": float64(6), "name": "VPN"}},
+	}}
+	cfg := autobrrConfig(app.serve(t))
+	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{DeletionPolicy: ctrlcommon.DeletionPolicyDelete}
+	cfg.SetManagedResources(map[string][]string{
+		"lists": {"Shows"}, "filters": {"TV"}, "downloadClients": {"Sonarr"}, "proxies": {"VPN"},
+	})
+	now := metav1.NewTime(time.Now())
+	cfg.DeletionTimestamp = &now
+	cfg.Finalizers = []string{ctrlcommon.Finalizer}
+
+	runAutobrr(t, cfg, true)
+
+	assert.Equal(t, []string{
+		"DELETE /api/lists/2", "DELETE /api/filters/3", "DELETE /api/downloaders/4", "DELETE /api/proxy/6",
+	}, autobrrWrites(app))
+}

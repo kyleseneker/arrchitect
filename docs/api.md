@@ -331,6 +331,7 @@ _Appears in:_
 | `authAccountSecretRef` _[SecretKeyRef](#secretkeyref)_ | authAccountSecretRef references a Secret containing the auth account name. |  | Optional: \{\} <br /> |
 | `authPasswordSecretRef` _[SecretKeyRef](#secretkeyref)_ | authPasswordSecretRef references a Secret containing the auth password. |  | Optional: \{\} <br /> |
 | `inviteCommand` _string_ | inviteCommand is the IRC command to send to request channel invites. |  | MinLength: 1 <br />Optional: \{\} <br /> |
+| `proxyName` _string_ | proxyName names the proxy the network connects through. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `channels` _[AutobrrIRCChannel](#autobrrircchannel) array_ | channels defines the IRC channels to join. |  | Optional: \{\} <br /> |
 
 
@@ -351,6 +352,7 @@ _Appears in:_
 | `enable` _boolean_ | enable controls whether this indexer is active. A new indexer is enabled<br />unless this is false. |  | Optional: \{\} <br /> |
 | `identifier` _string_ | identifier is the Autobrr indexer definition, such as "ipt" or "btn", or<br />"torznab", "newznab" or "rss" for an indexer that a feed reads from. |  | MinLength: 1 <br />Required: \{\} <br /> |
 | `baseURL` _string_ | baseURL is the tracker's site URL. It defaults to the definition's first URL. |  | MinLength: 1 <br />Optional: \{\} <br /> |
+| `proxyName` _string_ | proxyName names the proxy the indexer, and a feed on it, connects<br />through. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `settings` _[ConfigField](#configfield) array_ | settings are the definition's settings, such as passkey or rsskey. |  | MaxProperties: 2 <br />Optional: \{\} <br /> |
 
 
@@ -374,6 +376,28 @@ _Appears in:_
 | `options` _[ConfigField](#configfield) array_ | options are the service's settings under Autobrr's names: webhook,<br />token, api_key, channel, host, username, password, title, icon, rooms,<br />targets, devices, priority, topic, sound, method and headers; method and<br />headers need Autobrr 1.72.0 or later. Take secrets from a Secret with<br />valueFrom. |  | MaxProperties: 2 <br />Optional: \{\} <br /> |
 
 
+#### AutobrrProxy
+
+
+
+AutobrrProxy is a proxy Autobrr can connect through.
+
+
+
+_Appears in:_
+- [AutobrrSpec](#autobrrspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `name` _string_ | name identifies the proxy. |  | MinLength: 1 <br />Required: \{\} <br /> |
+| `type` _string_ | type is the proxy protocol. HTTP needs Autobrr 1.70.0 or later. |  | Enum: [Socks5 HTTP] <br />Required: \{\} <br /> |
+| `addr` _string_ | addr is the proxy's address, such as socks5://proxy:1080. |  | MinLength: 1 <br />Required: \{\} <br /> |
+| `enable` _boolean_ | enable turns the proxy on. A new proxy is enabled unless this is false. |  | Optional: \{\} <br /> |
+| `usernameSecretRef` _[SecretKeyRef](#secretkeyref)_ | usernameSecretRef is the Secret key holding the proxy's user name. |  | Optional: \{\} <br /> |
+| `passwordSecretRef` _[SecretKeyRef](#secretkeyref)_ | passwordSecretRef is the Secret key holding the proxy's password. |  | Optional: \{\} <br /> |
+| `timeout` _integer_ | timeout is how long a connection through the proxy may take, in seconds. |  | Minimum: 1 <br />Optional: \{\} <br /> |
+
+
 #### AutobrrSpec
 
 
@@ -395,6 +419,7 @@ _Appears in:_
 | `feeds` _[AutobrrFeed](#autobrrfeed) array_ | feeds defines RSS/Torznab feed sources. |  | Optional: \{\} <br /> |
 | `filters` _[AutobrrFilter](#autobrrfilter) array_ | filters defines release filters with match criteria and actions. |  | Optional: \{\} <br /> |
 | `notifications` _[AutobrrNotification](#autobrrnotification) array_ | notifications defines where Autobrr sends its events, matched by name. |  | Optional: \{\} <br /> |
+| `proxies` _[AutobrrProxy](#autobrrproxy) array_ | proxies defines proxies, matched by name. |  | Optional: \{\} <br /> |
 
 
 #### AutobrrStatus
@@ -3738,6 +3763,7 @@ _Appears in:_
 - [AutobrrFeed](#autobrrfeed)
 - [AutobrrIRCChannel](#autobrrircchannel)
 - [AutobrrIRCNetwork](#autobrrircnetwork)
+- [AutobrrProxy](#autobrrproxy)
 - [BazarrAppConnection](#bazarrappconnection)
 - [BazarrNotification](#bazarrnotification)
 - [DownloadClient](#downloadclient)

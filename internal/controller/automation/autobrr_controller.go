@@ -149,12 +149,27 @@ func (s *autobrrSync) run(ctx context.Context, spec *automationv1alpha1.AutobrrS
 	for _, dc := range spec.DownloadClients {
 		s.declared["downloadClients"] = append(s.declared["downloadClients"], dc.Name)
 	}
+	for _, f := range spec.Filters {
+		s.declared["filters"] = append(s.declared["filters"], f.Name)
+	}
+	for _, p := range spec.Proxies {
+		s.declared["proxies"] = append(s.declared["proxies"], p.Name)
+	}
 	var syncErrors []string
 	failed := map[string]bool{}
 	fail := func(section, name string, err error) {
 		logger.Error(err, "failed to reconcile", "section", section, "name", name)
 		syncErrors = append(syncErrors, fmt.Sprintf("%s(%s): %v", section, name, err))
-		failed[section+"s"] = true
+		kind := section + "s"
+		if section == "proxy" {
+			kind = "proxies"
+		}
+		failed[kind] = true
+	}
+	for _, p := range spec.Proxies {
+		if err := s.proxy(ctx, p); err != nil {
+			fail("proxy", p.Name, err)
+		}
 	}
 	for _, dc := range spec.DownloadClients {
 		if err := s.downloadClient(ctx, dc); err != nil {
@@ -184,6 +199,11 @@ func (s *autobrrSync) run(ctx context.Context, spec *automationv1alpha1.AutobrrS
 	for _, n := range spec.Notifications {
 		if err := s.notification(ctx, n); err != nil {
 			fail("notification", n.Name, err)
+		}
+	}
+	for _, l := range spec.Lists {
+		if err := s.titleList(ctx, l); err != nil {
+			fail("list", l.Name, err)
 		}
 	}
 	if s.prune {
@@ -314,6 +334,13 @@ func (s *autobrrSync) indexer(ctx context.Context, idx automationv1alpha1.Autobr
 			}
 		}
 	}
+	switch ok, err := s.useProxy(ctx, obj, idx.ProxyName); {
+	case err != nil:
+		return err
+	case !ok:
+		s.RecordDrift("indexer", idx.Name)
+		return nil
+	}
 
 	for _, e := range existing {
 		if e["name"] != idx.Name {
@@ -434,6 +461,13 @@ func (s *autobrrSync) ircNetwork(ctx context.Context, irc automationv1alpha1.Aut
 	if irc.InviteCommand != "" {
 		obj["invite_command"] = irc.InviteCommand
 	}
+	switch ok, err := s.useProxy(ctx, obj, irc.ProxyName); {
+	case err != nil:
+		return err
+	case !ok:
+		s.RecordDrift("IRC network", irc.Name)
+		return nil
+	}
 
 	if irc.AuthAccountSecretRef != nil {
 		val, err := reconciler.ResolveSecretKeyRef(ctx, s.c, s.namespace, *irc.AuthAccountSecretRef)
@@ -470,6 +504,17 @@ func (s *autobrrSync) ircNetwork(ctx context.Context, irc automationv1alpha1.Aut
 		obj["channels"] = channels
 	}
 
+	update := func(id int, current map[string]any) error {
+		body, err := mergedOver(current, obj)
+		if err != nil {
+			return err
+		}
+		// Autobrr replaces a network's channels with the ones sent.
+		if _, declared := obj["channels"]; declared {
+			body["channels"] = onlyNamed(body["channels"], irc.Channels)
+		}
+		return s.ac.UpdateIRCNetwork(ctx, id, body)
+	}
 	return s.upsert(ctx, "IRC network", irc.Name, existing, obj,
 		s.created("ircNetworks", irc.Name, func() error {
 			body := createBody(obj, map[string]any{"enabled": true})
@@ -477,19 +522,38 @@ func (s *autobrrSync) ircNetwork(ctx context.Context, irc automationv1alpha1.Aut
 			if _, ok := auth["mechanism"]; !ok {
 				body["auth"] = createBody(auth, map[string]any{"mechanism": autobrrIRCAuth("None")})
 			}
+			if _, proxied := obj["use_proxy"]; proxied {
+				return s.createProxiedNetwork(ctx, body, update)
+			}
 			return s.ac.CreateIRCNetwork(ctx, body)
 		}),
-		func(id int, current map[string]any) error {
-			body, err := mergedOver(current, obj)
-			if err != nil {
-				return err
-			}
-			// Autobrr replaces a network's channels with the ones sent.
-			if _, declared := obj["channels"]; declared {
-				body["channels"] = onlyNamed(body["channels"], irc.Channels)
-			}
-			return s.ac.UpdateIRCNetwork(ctx, id, body)
-		}, s.ac.ListIRCNetworks)
+		update, s.ac.ListIRCNetworks)
+}
+
+// createProxiedNetwork creates a network off, then turns it on with its
+// proxy: Autobrr before 1.86.0 ignores a new network's proxy, and an enabled
+// network would connect without it.
+func (s *autobrrSync) createProxiedNetwork(
+	ctx context.Context, body map[string]any, update func(id int, current map[string]any) error,
+) error {
+	enabled := body["enabled"]
+	body["enabled"] = false
+	if err := s.ac.CreateIRCNetwork(ctx, body); err != nil {
+		return err
+	}
+	networks, err := s.ac.ListIRCNetworks(ctx)
+	if err != nil {
+		return fmt.Errorf("listing IRC networks: %w", err)
+	}
+	for _, n := range networks {
+		if n["name"] != body["name"] {
+			continue
+		}
+		id, _ := n["id"].(float64)
+		n["enabled"] = enabled
+		return update(int(id), n)
+	}
+	return fmt.Errorf("IRC network %q was not created", body["name"])
 }
 
 func (s *autobrrSync) feed(ctx context.Context, feed automationv1alpha1.AutobrrFeed) error {
@@ -551,6 +615,148 @@ func (s *autobrrSync) feed(ctx context.Context, feed automationv1alpha1.AutobrrF
 			}
 			return s.ac.UpdateFeed(ctx, id, withIndexer(body))
 		}, s.ac.ListFeeds)
+}
+
+// useProxy points obj at the named proxy. It reports false for a proxy the
+// spec declares but observe mode hasn't created.
+func (s *autobrrSync) useProxy(ctx context.Context, obj map[string]any, name string) (bool, error) {
+	if name == "" {
+		return true, nil
+	}
+	proxies, err := s.ac.ListProxies(ctx)
+	if err != nil {
+		return false, fmt.Errorf("listing proxies: %w", err)
+	}
+	id, found, err := engine.NamedIDsOf(proxies, "name").Find(name)
+	switch {
+	case err != nil:
+		return false, fmt.Errorf("proxy: %w", err)
+	case !found && s.planned("proxies", name):
+		return false, nil
+	case !found:
+		return false, fmt.Errorf("references proxy %q, which does not exist", name)
+	}
+	obj["use_proxy"] = true
+	obj["proxy_id"] = id
+	return true, nil
+}
+
+func (s *autobrrSync) proxy(ctx context.Context, p automationv1alpha1.AutobrrProxy) error {
+	existing, err := s.ac.ListProxies(ctx)
+	if err != nil {
+		return fmt.Errorf("listing proxies: %w", err)
+	}
+	obj := map[string]any{"name": p.Name, "type": strings.ToUpper(p.Type), "addr": p.Addr}
+	setEnabled(obj, p.Enable)
+	if p.Timeout != 0 {
+		obj["timeout"] = p.Timeout
+	}
+	for key, ref := range map[string]*commonv1alpha1.SecretKeyRef{"user": p.UsernameSecretRef, "pass": p.PasswordSecretRef} {
+		if ref == nil {
+			continue
+		}
+		val, err := reconciler.ResolveSecretKeyRef(ctx, s.c, s.namespace, *ref)
+		if err != nil {
+			return fmt.Errorf("resolving %s: %w", key, err)
+		}
+		obj[key] = val
+	}
+	return s.upsert(ctx, "proxy", p.Name, existing, obj,
+		s.created("proxies", p.Name, func() error {
+			return s.ac.CreateProxy(ctx, createBody(obj, map[string]any{"enabled": true}))
+		}),
+		func(id int, current map[string]any) error {
+			body, err := mergedOver(current, obj)
+			if err != nil {
+				return err
+			}
+			return s.ac.UpdateProxy(ctx, id, body)
+		}, s.ac.ListProxies)
+}
+
+// titleList reconciles one list. A download client or filter it names that
+// the spec declares but Autobrr doesn't have yet, in observe mode, is drift.
+func (s *autobrrSync) titleList(ctx context.Context, l automationv1alpha1.AutobrrTitleList) error {
+	existing, err := s.ac.ListLists(ctx)
+	if err != nil {
+		return fmt.Errorf("listing lists: %w", err)
+	}
+	obj := map[string]any{"name": l.Name, "type": strings.ToUpper(l.Type)}
+	setEnabled(obj, l.Enable)
+	if l.URL != "" {
+		obj["url"] = l.URL
+	}
+	if l.APIKeySecretRef != nil {
+		val, err := reconciler.ResolveSecretKeyRef(ctx, s.c, s.namespace, *l.APIKeySecretRef)
+		if err != nil {
+			return fmt.Errorf("resolving API key: %w", err)
+		}
+		obj["api_key"] = val
+	}
+	if l.DownloadClientName != "" {
+		downloaders, err := s.ac.ListDownloadClients(ctx)
+		if err != nil {
+			return fmt.Errorf("listing download clients: %w", err)
+		}
+		id, found, err := engine.NamedIDsOf(downloaders, "name").Find(l.DownloadClientName)
+		switch {
+		case err != nil:
+			return fmt.Errorf("download client: %w", err)
+		case !found && s.planned("downloadClients", l.DownloadClientName):
+			s.RecordDrift("list", l.Name)
+			return nil
+		case !found:
+			return fmt.Errorf("references download client %q, which does not exist", l.DownloadClientName)
+		}
+		obj["client_id"] = id
+	}
+	filters, err := s.ac.ListFilters(ctx)
+	if err != nil {
+		return fmt.Errorf("listing filters: %w", err)
+	}
+	ids := engine.NamedIDsOf(filters, "name")
+	refs := make([]any, 0, len(l.Filters))
+	for _, name := range l.Filters {
+		id, found, err := ids.Find(name)
+		switch {
+		case err != nil:
+			return fmt.Errorf("filter: %w", err)
+		case !found && s.planned("filters", name):
+			s.RecordDrift("list", l.Name)
+			return nil
+		case !found:
+			return fmt.Errorf("references filter %q, which does not exist", name)
+		}
+		refs = append(refs, map[string]any{"id": id, "name": name})
+	}
+	obj["filters"] = refs
+	for key, value := range map[string]*bool{
+		"match_release": l.MatchRelease, "include_unmonitored": l.IncludeUnmonitored,
+		"include_alternate_titles": l.IncludeAlternateTitles, "include_year": l.IncludeYear,
+		"skip_clean_sanitize": l.SkipCleanSanitize,
+	} {
+		if value != nil {
+			obj[key] = *value
+		}
+	}
+	for key, tags := range map[string][]string{"tags_included": l.TagsIncluded, "tags_excluded": l.TagsExcluded} {
+		if tags != nil {
+			obj[key] = tags
+		}
+	}
+	return s.upsert(ctx, "list", l.Name, existing, obj,
+		s.created("lists", l.Name, func() error {
+			return s.ac.CreateList(ctx, createBody(obj, map[string]any{
+				"enabled": true, "tags_included": []any{}, "tags_excluded": []any{}, "headers": []any{},
+			}))
+		}),
+		func(id int, current map[string]any) error {
+			body, err := mergedOver(current, obj)
+			if err != nil {
+				return err
+			}
+			return s.ac.UpdateList(ctx, id, body)
+		}, s.ac.ListLists)
 }
 
 func (s *autobrrSync) notification(ctx context.Context, n automationv1alpha1.AutobrrNotification) error {

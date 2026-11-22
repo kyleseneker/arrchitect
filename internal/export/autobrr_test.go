@@ -20,8 +20,15 @@ var fakeAutobrrAPI = map[string]string{
 		"settings":[{"name":"passkey","type":"secret"}]},{"id":5,"name":"Feed","identifier":"torznab-feed"}]`,
 	"/api/indexer/1": `{"id":1,"name":"Tracker","identifier":"ipt","implementation":"irc","enabled":true,
 		"base_url":"https://iptorrents.com/","settings":{"passkey":"<redacted>","freeleech":"true"}}`,
-	"/api/indexer/5": `{"id":5,"name":"Feed","identifier":"torznab-feed","implementation":"torznab","enabled":true}`,
+	"/api/indexer/5": `{"id":5,"name":"Feed","identifier":"torznab-feed","implementation":"torznab","enabled":true,
+		"use_proxy":false,"proxy_id":6}`,
+	"/api/proxy": `[{"id":6,"name":"VPN","enabled":true,"type":"SOCKS5","addr":"socks5://vpn:1080","user":"u",
+		"pass":"<redacted>","timeout":30}]`,
+	"/api/lists": `[{"id":2,"name":"Shows","type":"SONARR","enabled":true,"client_id":4,"url":"","api_key":"",
+		"filters":[{"id":7,"name":"TV"}],"match_release":false,"tags_included":[],"tags_excluded":["anime"],
+		"include_unmonitored":false,"include_alternate_titles":true,"include_year":false,"skip_clean_sanitize":false,"headers":[]}]`,
 	"/api/irc": `[{"id":1,"name":"Net","enabled":false,"server":"irc.example","port":6697,"tls":true,"nick":"bot",
+		"use_proxy":true,"proxy_id":6,
 		"auth":{"mechanism":"NICKSERV","account":"bot","password":"<redacted>"},
 		"channels":[{"name":"#announce","password":""},{"name":"#vip","password":"<redacted>"}]}]`,
 	"/api/notification": `[{"id":1,"name":"Builtin","type":"BUILTIN","enabled":true},
@@ -132,4 +139,28 @@ func TestAutobrrExportsNotificationsButNotTheBuiltinOne(t *testing.T) {
 	assert.Equal(t, "webhook", n.Options[0].Name)
 	assert.Contains(t, res.Unfilled, n.Options[0].ValueFrom.SecretKeyRef.Key, "a redacted webhook is left for the user to fill in")
 	assert.Equal(t, "title", n.Options[1].Name)
+}
+
+func TestAutobrrExportsListsAndProxiesByName(t *testing.T) {
+	cfg, res := exportAutobrrForTest(t)
+
+	require.Len(t, cfg.Spec.Proxies, 1)
+	proxy := cfg.Spec.Proxies[0]
+	assert.Equal(t, "Socks5", proxy.Type)
+	assert.Equal(t, int32(30), proxy.Timeout)
+	assert.Equal(t, "u", res.Secret.StringData[proxy.UsernameSecretRef.Key])
+	assert.Contains(t, res.Unfilled, proxy.PasswordSecretRef.Key)
+	assert.Equal(t, "VPN", cfg.Spec.IRCNetworks[0].ProxyName)
+	assert.Empty(t, cfg.Spec.Indexers[1].ProxyName, "a proxy id Autobrr keeps but doesn't use isn't exported")
+
+	require.Len(t, cfg.Spec.Lists, 1)
+	l := cfg.Spec.Lists[0]
+	assert.Equal(t, "Sonarr", l.Type)
+	assert.Equal(t, "Sonarr", l.DownloadClientName)
+	assert.Equal(t, []string{"TV"}, l.Filters)
+	assert.Equal(t, []string{"anime"}, l.TagsExcluded)
+	assert.True(t, *l.IncludeAlternateTitles)
+	assert.Nil(t, l.MatchRelease, "Autobrr's empty defaults aren't exported")
+	assert.Nil(t, l.APIKeySecretRef)
+	assert.Empty(t, l.URL)
 }

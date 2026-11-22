@@ -205,7 +205,7 @@ prune, removing an item from the resource only stops managing it.
 | Prowlarr | applications, indexers, proxies, download clients, notifications |
 | FlareSolverr | sessions |
 | Tdarr | library variables |
-| Autobrr | download clients, indexers, IRC networks, feeds, filters and their actions, notifications |
+| Autobrr | download clients, indexers, IRC networks, feeds, filters and their actions, notifications, lists, proxies |
 | Seerr | Sonarr and Radarr servers |
 | SABnzbd | servers, categories |
 | qBittorrent | categories |
@@ -288,6 +288,9 @@ references can use names instead:
   to that indexer.
 - `activeProfileName` on Seerr's Sonarr and Radarr connections, looked up from
   that Sonarr or Radarr.
+- In Autobrr: `indexers` on filters, `clientRef` on actions, `indexerRef` on
+  feeds, `downloadClientName` and `filters` on lists, and `proxyName` on
+  indexers and IRC networks.
 
 A name that matches nothing, or more than one item, fails the reconcile. See
 [Rebuilding apps](rebuilding.md) for more.

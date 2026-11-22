@@ -13,6 +13,27 @@ func exportAutobrr(r *reader) (map[string]any, error) {
 	ac := autobrrclient.NewClient(r.hc)
 	spec := map[string]any{}
 
+	proxies, err := ac.ListProxies(r.ctx)
+	if err != nil {
+		return nil, err
+	}
+	proxyNames := map[float64]any{}
+	var ps []any
+	for _, p := range proxies {
+		proxyNames[num(p["id"])] = p["name"]
+		name, _ := p["name"].(string)
+		proxy := pick(p, "name", "addr")
+		proxy["type"] = upperName([]string{"Socks5", "HTTP"}, p["type"])
+		proxy["enable"] = p["enabled"]
+		if timeout := num(p["timeout"]); timeout != 0 {
+			proxy["timeout"] = timeout
+		}
+		r.autobrrSecret(proxy, "usernameSecretRef", p["user"], "proxy", name, "username")
+		r.autobrrSecret(proxy, "passwordSecretRef", p["pass"], "proxy", name, "password")
+		ps = append(ps, proxy)
+	}
+	setList(spec, "proxies", ps)
+
 	clients, err := ac.ListDownloadClients(r.ctx)
 	if err != nil {
 		return nil, err
@@ -46,7 +67,9 @@ func exportAutobrr(r *reader) (map[string]any, error) {
 		if err != nil {
 			return nil, err
 		}
-		idxs = append(idxs, r.autobrrIndexer(i))
+		idx := r.autobrrIndexer(i)
+		setProxy(idx, i, proxyNames)
+		idxs = append(idxs, idx)
 	}
 	setList(spec, "indexers", idxs)
 
@@ -60,6 +83,7 @@ func exportAutobrr(r *reader) (map[string]any, error) {
 		irc := pick(n, "name", "server", "port", "tls", "nick")
 		irc["enable"] = n["enabled"]
 		setText(irc, "inviteCommand", n["invite_command"])
+		setProxy(irc, n, proxyNames)
 		auth, _ := n["auth"].(map[string]any)
 		if mechanism, _ := auth["mechanism"].(string); mechanism != "" {
 			irc["authMechanism"] = crdName(autobrrclient.IRCAuthMechanisms, mechanism)
@@ -130,19 +154,72 @@ func exportAutobrr(r *reader) (map[string]any, error) {
 		}
 	}
 	setList(spec, "notifications", ns)
+
+	lists, err := ac.ListLists(r.ctx)
+	if err != nil {
+		return nil, err
+	}
+	var ls []any
+	for _, l := range lists {
+		ls = append(ls, r.autobrrList(l, clientNames))
+	}
+	setList(spec, "lists", ls)
 	return spec, nil
+}
+
+var autobrrListTypes = []string{
+	"Sonarr", "Radarr", "Lidarr", "Readarr", "Whisparr", "MDBList", "Metacritic", "Plaintext", "Trakt", "Steam", "AniList",
+}
+
+var autobrrListFields = map[string]string{
+	"url": "url", "matchRelease": "match_release", "tagsIncluded": "tags_included", "tagsExcluded": "tags_excluded",
+	"includeUnmonitored": "include_unmonitored", "includeAlternateTitles": "include_alternate_titles",
+	"includeYear": "include_year", "skipCleanSanitize": "skip_clean_sanitize",
+}
+
+func (r *reader) autobrrList(l map[string]any, clientNames map[float64]any) map[string]any {
+	name, _ := l["name"].(string)
+	out := pick(l, "name")
+	out["type"] = upperName(autobrrListTypes, l["type"])
+	out["enable"] = l["enabled"]
+	autobrrSetFields(out, l, autobrrListFields)
+	if id := num(l["client_id"]); id != 0 {
+		setText(out, "downloadClientName", clientNames[id])
+	}
+	r.autobrrSecret(out, "apiKeySecretRef", l["api_key"], "list", name, "api-key")
+	refs := list(l["filters"])
+	filters := make([]any, 0, len(refs))
+	for _, f := range refs {
+		filters = append(filters, f["name"])
+	}
+	if len(filters) > 0 {
+		out["filters"] = filters
+	}
+	return out
+}
+
+// upperName returns the name whose upper case is the Autobrr constant.
+func upperName(names []string, value any) string {
+	for _, name := range names {
+		if strings.ToUpper(name) == value {
+			return name
+		}
+	}
+	return ""
+}
+
+func setProxy(out, item map[string]any, proxyNames map[float64]any) {
+	if used, _ := item["use_proxy"].(bool); used {
+		setText(out, "proxyName", proxyNames[num(item["proxy_id"])])
+	}
 }
 
 // autobrrNotification exports one notification, leaving out Autobrr's own
 // built-in one.
 func (r *reader) autobrrNotification(n map[string]any) map[string]any {
-	kind, _ := n["type"].(string)
-	var crdType string
-	for _, t := range []string{"Discord", "Notifiarr", "Pushover", "Slack", "Telegram", "Gotify", "Ntfy", "LunaSea", "Shoutrrr", "Webhook", "Bark"} {
-		if strings.ToUpper(t) == kind {
-			crdType = t
-		}
-	}
+	crdType := upperName([]string{
+		"Discord", "Notifiarr", "Pushover", "Slack", "Telegram", "Gotify", "Ntfy", "LunaSea", "Shoutrrr", "Webhook", "Bark",
+	}, n["type"])
 	if crdType == "" {
 		return nil
 	}

@@ -300,6 +300,26 @@ func TestAdmissionRules(t *testing.T) {
 		{name: "an Autobrr download client referring to Plex", kind: "Autobrr", spec: conn + `
   downloadClients: [{name: Plex, appRef: {kind: Plex, name: plex}}]`,
 			rejected: "a download client refers to a QBittorrent, Sabnzbd, Sonarr, Radarr, Lidarr or Readarr"},
+		{name: "Autobrr lists", kind: "Autobrr", spec: conn + `
+  lists:
+    - {name: Shows, type: Sonarr, downloadClientName: Sonarr, filters: [TV]}
+    - {name: Picks, type: Trakt, url: "https://trakt.example/list", filters: [TV]}`},
+		{name: "an Autobrr Sonarr list without a download client", kind: "Autobrr", spec: conn + `
+  lists: [{name: Shows, type: Sonarr, filters: [TV]}]`,
+			rejected: "a Sonarr, Radarr, Lidarr, Readarr or Whisparr list needs downloadClientName"},
+		{name: "an Autobrr Trakt list without a URL", kind: "Autobrr", spec: conn + `
+  lists: [{name: Picks, type: Trakt, filters: [TV]}]`,
+			rejected: "an MDBList, Metacritic, Plaintext, Trakt, Steam or AniList list needs url"},
+		{name: "an Autobrr list without filters", kind: "Autobrr", spec: conn + `
+  lists: [{name: Picks, type: Plaintext, url: "http://list", filters: []}]`,
+			rejected: "should have at least 1 items"},
+		{name: "Autobrr proxies", kind: "Autobrr", spec: conn + `
+  proxies:
+    - {name: VPN, type: Socks5, addr: "socks5h://vpn:1080"}
+    - {name: Web, type: HTTP, addr: "https://proxy:8443"}`},
+		{name: "an Autobrr Socks5 proxy with an HTTP address", kind: "Autobrr", spec: conn + `
+  proxies: [{name: VPN, type: Socks5, addr: "http://vpn:8080"}]`,
+			rejected: "a Socks5 proxy's addr starts with socks5:// or socks5h://"},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			obj := &unstructured.Unstructured{}

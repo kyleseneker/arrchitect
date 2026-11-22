@@ -66,6 +66,20 @@ type AutobrrSpec struct {
 	// +listType=map
 	// +listMapKey=name
 	Notifications []AutobrrNotification `json:"notifications,omitempty"`
+
+	// lists feed titles into filters from Sonarr, Radarr, Trakt, MDBList and
+	// other sources, matched by name. Changing a list that has never refreshed
+	// needs Autobrr 1.84.0 or later.
+	// +optional
+	// +listType=map
+	// +listMapKey=name
+	Lists []AutobrrTitleList `json:"lists,omitempty"`
+
+	// proxies defines proxies, matched by name.
+	// +optional
+	// +listType=map
+	// +listMapKey=name
+	Proxies []AutobrrProxy `json:"proxies,omitempty"`
 }
 
 // AutobrrDownloadClient defines a download client connection in Autobrr.
@@ -143,6 +157,12 @@ type AutobrrIndexer struct {
 	// +kubebuilder:validation:MinLength=1
 	BaseURL string `json:"baseURL,omitempty"`
 
+	// proxyName names the proxy the indexer, and a feed on it, connects
+	// through.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	ProxyName string `json:"proxyName,omitempty"`
+
 	// settings are the definition's settings, such as passkey or rsskey.
 	// +optional
 	// +listType=map
@@ -201,6 +221,11 @@ type AutobrrIRCNetwork struct {
 	// +kubebuilder:validation:MinLength=1
 	InviteCommand string `json:"inviteCommand,omitempty"`
 
+	// proxyName names the proxy the network connects through.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	ProxyName string `json:"proxyName,omitempty"`
+
 	// channels defines the IRC channels to join.
 	// +optional
 	// +listType=map
@@ -218,6 +243,118 @@ type AutobrrIRCChannel struct {
 	// passwordSecretRef references a Secret containing the channel password/key.
 	// +optional
 	PasswordSecretRef *commonv1alpha1.SecretKeyRef `json:"passwordSecretRef,omitempty"`
+}
+
+// AutobrrTitleList feeds the titles from a source into filters.
+// +kubebuilder:validation:XValidation:rule="!(self.type in ['Sonarr', 'Radarr', 'Lidarr', 'Readarr', 'Whisparr']) || has(self.downloadClientName)",message="a Sonarr, Radarr, Lidarr, Readarr or Whisparr list needs downloadClientName"
+// +kubebuilder:validation:XValidation:rule="self.type in ['Sonarr', 'Radarr', 'Lidarr', 'Readarr', 'Whisparr'] || has(self.url)",message="an MDBList, Metacritic, Plaintext, Trakt, Steam or AniList list needs url"
+type AutobrrTitleList struct {
+	// name identifies the list.
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name,omitempty"`
+
+	// type is the source.
+	// +required
+	// +kubebuilder:validation:Enum=Sonarr;Radarr;Lidarr;Readarr;Whisparr;MDBList;Metacritic;Plaintext;Trakt;Steam;AniList
+	Type string `json:"type,omitempty"`
+
+	// enable turns the list on. A new list is enabled unless this is false.
+	// +optional
+	Enable *bool `json:"enable,omitempty"`
+
+	// downloadClientName names the download client a Sonarr, Radarr, Lidarr,
+	// Readarr or Whisparr list reads from. Those types need it.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	DownloadClientName string `json:"downloadClientName,omitempty"`
+
+	// url is the list's address. The MDBList, Metacritic, Plaintext, Trakt,
+	// Steam and AniList types need it.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	URL string `json:"url,omitempty"`
+
+	// apiKeySecretRef is the Secret key holding the list's API key, for the
+	// types that take one.
+	// +optional
+	APIKeySecretRef *commonv1alpha1.SecretKeyRef `json:"apiKeySecretRef,omitempty"`
+
+	// filters names the filters the list's titles go into.
+	// +required
+	// +listType=set
+	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:items:MinLength=1
+	Filters []string `json:"filters,omitempty"`
+
+	// matchRelease matches the titles against release names rather than show
+	// or movie names.
+	// +optional
+	MatchRelease *bool `json:"matchRelease,omitempty"`
+
+	// tagsIncluded keeps only the items with one of these tags.
+	// +optional
+	// +listType=set
+	// +kubebuilder:validation:items:MinLength=1
+	TagsIncluded []string `json:"tagsIncluded,omitempty"`
+
+	// tagsExcluded leaves out the items with one of these tags.
+	// +optional
+	// +listType=set
+	// +kubebuilder:validation:items:MinLength=1
+	TagsExcluded []string `json:"tagsExcluded,omitempty"`
+
+	// includeUnmonitored includes items that aren't monitored.
+	// +optional
+	IncludeUnmonitored *bool `json:"includeUnmonitored,omitempty"`
+
+	// includeAlternateTitles includes each item's alternate titles.
+	// +optional
+	IncludeAlternateTitles *bool `json:"includeAlternateTitles,omitempty"`
+
+	// includeYear adds the year to each title.
+	// +optional
+	IncludeYear *bool `json:"includeYear,omitempty"`
+
+	// skipCleanSanitize keeps the titles as the source gives them.
+	// +optional
+	SkipCleanSanitize *bool `json:"skipCleanSanitize,omitempty"`
+}
+
+// AutobrrProxy is a proxy Autobrr can connect through.
+// +kubebuilder:validation:XValidation:rule="self.type == 'Socks5' ? self.addr.startsWith('socks5://') || self.addr.startsWith('socks5h://') : self.addr.startsWith('http://') || self.addr.startsWith('https://')",message="a Socks5 proxy's addr starts with socks5:// or socks5h://, and an HTTP proxy's with http:// or https://"
+type AutobrrProxy struct {
+	// name identifies the proxy.
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name,omitempty"`
+
+	// type is the proxy protocol. HTTP needs Autobrr 1.70.0 or later.
+	// +required
+	// +kubebuilder:validation:Enum=Socks5;HTTP
+	Type string `json:"type,omitempty"`
+
+	// addr is the proxy's address, such as socks5://proxy:1080.
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	Addr string `json:"addr,omitempty"`
+
+	// enable turns the proxy on. A new proxy is enabled unless this is false.
+	// +optional
+	Enable *bool `json:"enable,omitempty"`
+
+	// usernameSecretRef is the Secret key holding the proxy's user name.
+	// +optional
+	UsernameSecretRef *commonv1alpha1.SecretKeyRef `json:"usernameSecretRef,omitempty"`
+
+	// passwordSecretRef is the Secret key holding the proxy's password.
+	// +optional
+	PasswordSecretRef *commonv1alpha1.SecretKeyRef `json:"passwordSecretRef,omitempty"`
+
+	// timeout is how long a connection through the proxy may take, in seconds.
+	// +optional
+	// +kubebuilder:validation:Minimum=1
+	Timeout int32 `json:"timeout,omitempty"`
 }
 
 // AutobrrNotification sends Autobrr's events to a service such as Discord.
