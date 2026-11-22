@@ -161,6 +161,13 @@ spec:
       preferredProtocol: torrent
       usenetDelay: 120
     - bypassIfHighestQuality: false
+  releaseProfiles:
+    - name: No x265
+      ignored:
+        - x265
+        - /HEVC/i
+      tagLabels:
+        - uhd
 ---
 apiVersion: arrchitect.dev/v1alpha1
 kind: RadarrDownloadClient

@@ -496,3 +496,55 @@ func TestRemoteMappingsReachEveryPVRController(t *testing.T) {
 		})
 	}
 }
+
+func withReleaseProfiles(cfg ctrlcommon.ConfigResource, profiles []commonv1alpha1.ReleaseProfile) bool {
+	switch c := cfg.(type) {
+	case *pvrv1alpha1.Sonarr:
+		c.Spec.ReleaseProfiles = profiles
+	case *pvrv1alpha1.Radarr:
+		c.Spec.ReleaseProfiles = profiles
+	default:
+		return false
+	}
+	return true
+}
+
+func TestReleaseProfilesResolveTheirIndexerAndTags(t *testing.T) {
+	for _, app := range pvrApps {
+		t.Run(app.name, func(t *testing.T) {
+			fa, url := newFakeArr(t, app.apiVer, map[string][]map[string]any{
+				"indexer": {{"id": float64(3), "name": "NZBgeek"}},
+				"tag":     {{"id": float64(5), "label": "anime"}},
+			})
+			cfg := app.build(url, buildOpts{})
+			if !withReleaseProfiles(cfg, []commonv1alpha1.ReleaseProfile{{
+				Name: "No x265", Ignored: []string{"x265", "/HEVC/i"}, IndexerName: "NZBgeek", TagLabels: []string{"anime"},
+			}}) {
+				t.Skip("no release profiles")
+			}
+			c := run(t, app, apiKeySecret(), cfg)
+
+			sent := fa.sent(fa.path("releaseprofile"))
+			require.Len(t, sent, 1)
+			assert.Equal(t, "No x265", sent[0]["name"])
+			assert.Equal(t, []any{"x265", "/HEVC/i"}, sent[0]["ignored"])
+			assert.Equal(t, float64(3), sent[0]["indexerId"])
+			assert.Equal(t, []any{float64(5)}, sent[0]["tags"])
+			assert.Equal(t, true, sent[0]["enabled"], "a new profile is enabled")
+			obj := app.empty()
+			require.NoError(t, c.Get(context.Background(), types.NamespacedName{Name: "app", Namespace: "media"}, obj))
+			assert.Equal(t, []string{"No x265"}, obj.GetManagedResources()["releaseProfiles"])
+		})
+	}
+}
+
+func TestReleaseProfileNamingAMissingIndexerIsNotWritten(t *testing.T) {
+	fa, url := newFakeArr(t, "v3", nil)
+	cfg := pvrApps[0].build(url, buildOpts{notification: true})
+	withReleaseProfiles(cfg, []commonv1alpha1.ReleaseProfile{{Name: "Only NZBgeek", Required: []string{"1080p"}, IndexerName: "NZBgeek"}})
+	c := run(t, pvrApps[0], apiKeySecret(), cfg)
+
+	assert.False(t, fa.saw("POST", fa.path("releaseprofile")), "wrote a profile whose indexer doesn't exist")
+	assert.True(t, fa.saw("POST", fa.path("notification")), "the other kinds were held back too")
+	assert.Equal(t, "False", conditionStatus(t, c, pvrApps[0], "Synced"))
+}

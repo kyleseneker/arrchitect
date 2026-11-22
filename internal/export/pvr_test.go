@@ -48,6 +48,7 @@ var fakeSonarrAPI = map[string]string{
 		"supportsOnGrab":true,"onRename":false,"supportsOnRename":false,"includeHealthWarnings":true,"tags":[],
 		"fields":[{"name":"url","value":"http://hook"}]}]`,
 	"/notification/schema": `[{"implementation":"Webhook","fields":[{"name":"url","value":""}]}]`,
+	"/releaseprofile":      `[{"id":1,"name":"No x265","enabled":true,"required":[],"ignored":["x265"],"indexerId":1,"tags":[1]}]`,
 	"/importlist": `[{"id":1,"name":"Trakt","implementation":"TraktListImport","configContract":"TraktListSettings",
 		"enableAutomaticAdd":true,"shouldMonitor":"all","qualityProfileId":4,"rootFolderPath":"/tv","seasonFolder":true,
 		"seriesType":"standard","tags":[1],"fields":[{"name":"accessToken","value":"********","privacy":"password"}]}]`,
@@ -254,4 +255,15 @@ func TestPVRDelayProfilesReadProtocolItems(t *testing.T) {
 		EnableUsenet: new(false), EnableTorrent: new(true), PreferredProtocol: "torrent", UsenetDelay: new(int32(0)), TorrentDelay: new(int32(15)),
 		BypassIfHighestQuality: new(true), BypassIfAboveCustomFormatScore: new(false), MinimumCustomFormatScore: new(int32(0)),
 	}}, cfg.Spec.DelayProfiles)
+}
+
+func TestPVRReleaseProfilesExportTheirIndexerAndTagsByName(t *testing.T) {
+	cfg, _ := exportSonarr(t, Options{})
+	require.Len(t, cfg.Spec.ReleaseProfiles, 1)
+	rp := cfg.Spec.ReleaseProfiles[0]
+	assert.Equal(t, "No x265", rp.Name)
+	assert.Equal(t, []string{"x265"}, rp.Ignored)
+	assert.Nil(t, rp.Required, "an empty term list is left out")
+	assert.Equal(t, "Torznab", rp.IndexerName)
+	assert.Equal(t, []string{"anime"}, rp.TagLabels)
 }

@@ -95,6 +95,13 @@ type RadarrSpec struct {
 	// +listType=atomic
 	DelayProfiles []commonv1alpha1.DelayProfile `json:"delayProfiles,omitempty"`
 
+	// releaseProfiles defines release profiles: terms a release must or must not
+	// contain, matched by name.
+	// +optional
+	// +listType=map
+	// +listMapKey=name
+	ReleaseProfiles []commonv1alpha1.ReleaseProfile `json:"releaseProfiles,omitempty"`
+
 	// tags defines tags for linking resources together.
 	// +optional
 	// +listType=map

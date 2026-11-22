@@ -31,6 +31,7 @@ type pvrExport struct {
 	qualityProfiles  map[float64]string
 	metadataProfiles map[float64]string
 	downloadClients  map[float64]string
+	indexers         map[float64]string
 	preferredSizes   bool
 }
 
@@ -56,6 +57,11 @@ func (e *pvrExport) spec() (map[string]any, error) {
 	if e.downloadClients, err = e.names("/downloadclient", "name"); err != nil {
 		return nil, err
 	}
+	if e.app.ReleaseProfiles {
+		if e.indexers, err = e.names("/indexer", "name"); err != nil {
+			return nil, err
+		}
+	}
 	if e.app.MetadataProfiles {
 		if e.metadataProfiles, err = e.names("/metadataprofile", "name"); err != nil {
 			return nil, err
@@ -73,7 +79,7 @@ func (e *pvrExport) spec() (map[string]any, error) {
 		_, has := d["preferredSize"]
 		e.preferredSizes = e.preferredSizes || has
 	}
-	return spec, e.resources(spec, []resource{
+	resources := []resource{
 		{"tags", "/tag", "", tag},
 		{"rootFolders", "/rootfolder", "", e.rootFolder},
 		{"remotePathMappings", "/remotepathmapping", "", func(item map[string]any, _ map[string]map[string]any) map[string]any {
@@ -86,7 +92,25 @@ func (e *pvrExport) spec() (map[string]any, error) {
 		{"qualityProfiles", "/qualityprofile", "", qualityProfile},
 		{"notifications", "/notification", "/notification/schema", e.notification},
 		{"importLists", "/importlist", "/importlist/schema", e.importList},
-	})
+	}
+	if e.app.ReleaseProfiles {
+		resources = append(resources, resource{"releaseProfiles", "/releaseprofile", "", e.releaseProfile})
+	}
+	return spec, e.resources(spec, resources)
+}
+
+func (e *pvrExport) releaseProfile(item map[string]any, _ map[string]map[string]any) map[string]any {
+	rp := pick(item, "name", "enabled")
+	for _, terms := range []string{"required", "ignored"} {
+		if list, ok := item[terms].([]any); ok && len(list) > 0 {
+			rp[terms] = list
+		}
+	}
+	if name, ok := e.indexers[num(item["indexerId"])]; ok {
+		rp["indexerName"] = name
+	}
+	rp["tagLabels"] = e.tagLabels(item)
+	return rp
 }
 
 func (e *pvrExport) rootFolder(item map[string]any, _ map[string]map[string]any) map[string]any {

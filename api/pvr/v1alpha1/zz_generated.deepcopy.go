@@ -1143,6 +1143,13 @@ func (in *RadarrSpec) DeepCopyInto(out *RadarrSpec) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	if in.ReleaseProfiles != nil {
+		in, out := &in.ReleaseProfiles, &out.ReleaseProfiles
+		*out = make([]commonv1alpha1.ReleaseProfile, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
+	}
 	if in.Tags != nil {
 		in, out := &in.Tags, &out.Tags
 		*out = make([]commonv1alpha1.Tag, len(*in))
@@ -2325,6 +2332,13 @@ func (in *SonarrSpec) DeepCopyInto(out *SonarrSpec) {
 	if in.DelayProfiles != nil {
 		in, out := &in.DelayProfiles, &out.DelayProfiles
 		*out = make([]commonv1alpha1.DelayProfile, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
+	}
+	if in.ReleaseProfiles != nil {
+		in, out := &in.ReleaseProfiles, &out.ReleaseProfiles
+		*out = make([]commonv1alpha1.ReleaseProfile, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}

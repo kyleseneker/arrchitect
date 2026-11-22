@@ -21,5 +21,10 @@ func hasTagLabels(opts Options) bool {
 			return true
 		}
 	}
+	for _, item := range opts.ReleaseProfiles {
+		if len(item.TagLabels) > 0 {
+			return true
+		}
+	}
 	return false
 }

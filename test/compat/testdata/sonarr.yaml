@@ -186,6 +186,13 @@ spec:
       enableUsenet: false
     - usenetDelay: 30
       torrentDelay: 10
+  releaseProfiles:
+    - name: No x265
+      ignored:
+        - x265
+        - /HEVC/i
+      tagLabels:
+        - hdr
 ---
 apiVersion: arrchitect.dev/v1alpha1
 kind: SonarrDownloadClient
