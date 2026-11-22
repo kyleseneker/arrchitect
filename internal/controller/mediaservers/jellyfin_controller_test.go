@@ -489,3 +489,15 @@ func TestVersionBefore(t *testing.T) {
 		assert.Equal(t, tt.want, versionBefore(tt.a, tt.b), "%s before %s", tt.a, tt.b)
 	}
 }
+
+func TestJellyfinLibraryOptionsUseJellyfinNames(t *testing.T) {
+	got := jellyfinLibraryOptions(mediaserversv1alpha1.JellyfinLibrary{
+		Name: "Movies", CollectionType: "movies", Paths: []string{"/media/movies"},
+		MetadataSavers: []string{"Nfo"}, EnableLUFSScan: new(true), SubtitleDownloadLanguages: []string{"eng"},
+		AllowEmbeddedSubtitles: "AllowText", SeasonZeroDisplayName: "Extras",
+	})
+	assert.Equal(t, map[string]any{
+		"MetadataSavers": []any{"Nfo"}, "EnableLUFSScan": true, "SubtitleDownloadLanguages": []any{"eng"},
+		"AllowEmbeddedSubtitles": "AllowText", "SeasonZeroDisplayName": "Extras",
+	}, got, "the name, type and folders are not options")
+}

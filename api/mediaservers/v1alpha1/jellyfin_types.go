@@ -578,6 +578,93 @@ type JellyfinLibrary struct {
 	// +optional
 	// +kubebuilder:validation:MinLength=1
 	MetadataCountryCode string `json:"metadataCountryCode,omitempty"`
+
+	// saveLocalMetadata saves artwork into the media folders.
+	// +optional
+	SaveLocalMetadata *bool `json:"saveLocalMetadata,omitempty"`
+
+	// metadataSavers are the formats metadata is saved in next to the media,
+	// such as Nfo for Kodi and other players.
+	// +optional
+	// +listType=set
+	// +kubebuilder:validation:items:MinLength=1
+	MetadataSavers []string `json:"metadataSavers,omitempty"`
+
+	// enableEmbeddedTitles uses the titles embedded in files when there is no
+	// other metadata.
+	// +optional
+	EnableEmbeddedTitles *bool `json:"enableEmbeddedTitles,omitempty"`
+
+	// enableEmbeddedExtrasTitles uses the titles embedded in extras' files.
+	// +optional
+	EnableEmbeddedExtrasTitles *bool `json:"enableEmbeddedExtrasTitles,omitempty"`
+
+	// enableEmbeddedEpisodeInfos uses the episode information embedded in files
+	// when there is no other metadata.
+	// +optional
+	EnableEmbeddedEpisodeInfos *bool `json:"enableEmbeddedEpisodeInfos,omitempty"`
+
+	// seasonZeroDisplayName is what season 0 is shown as, such as Specials.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	SeasonZeroDisplayName string `json:"seasonZeroDisplayName,omitempty"`
+
+	// enableChapterImageExtraction extracts chapter images from videos.
+	// +optional
+	EnableChapterImageExtraction *bool `json:"enableChapterImageExtraction,omitempty"`
+
+	// extractChapterImagesDuringLibraryScan extracts chapter images while the
+	// library is scanned rather than in the nightly task.
+	// +optional
+	ExtractChapterImagesDuringLibraryScan *bool `json:"extractChapterImagesDuringLibraryScan,omitempty"`
+
+	// extractTrickplayImagesDuringLibraryScan extracts trickplay images while
+	// the library is scanned rather than in the nightly task.
+	// +optional
+	ExtractTrickplayImagesDuringLibraryScan *bool `json:"extractTrickplayImagesDuringLibraryScan,omitempty"`
+
+	// saveTrickplayWithMedia saves trickplay images next to the media.
+	// +optional
+	SaveTrickplayWithMedia *bool `json:"saveTrickplayWithMedia,omitempty"`
+
+	// subtitleDownloadLanguages are the ISO 639-2 codes of the languages to
+	// download subtitles in, such as eng.
+	// +optional
+	// +listType=set
+	// +kubebuilder:validation:items:MinLength=1
+	SubtitleDownloadLanguages []string `json:"subtitleDownloadLanguages,omitempty"`
+
+	// saveSubtitlesWithMedia saves downloaded subtitles next to the media.
+	// +optional
+	SaveSubtitlesWithMedia *bool `json:"saveSubtitlesWithMedia,omitempty"`
+
+	// requirePerfectSubtitleMatch downloads only subtitles that match the file
+	// exactly.
+	// +optional
+	RequirePerfectSubtitleMatch *bool `json:"requirePerfectSubtitleMatch,omitempty"`
+
+	// skipSubtitlesIfEmbeddedSubtitlesPresent skips the download when the file
+	// already has subtitles in the language.
+	// +optional
+	SkipSubtitlesIfEmbeddedSubtitlesPresent *bool `json:"skipSubtitlesIfEmbeddedSubtitlesPresent,omitempty"`
+
+	// skipSubtitlesIfAudioTrackMatches skips the download when the default
+	// audio track is in the language.
+	// +optional
+	SkipSubtitlesIfAudioTrackMatches *bool `json:"skipSubtitlesIfAudioTrackMatches,omitempty"`
+
+	// allowEmbeddedSubtitles is which embedded subtitles players may use.
+	// +optional
+	// +kubebuilder:validation:Enum=AllowAll;AllowText;AllowImage;AllowNone
+	AllowEmbeddedSubtitles string `json:"allowEmbeddedSubtitles,omitempty"`
+
+	// enableLUFSScan measures loudness so audio plays back at an even volume.
+	// +optional
+	EnableLUFSScan *bool `json:"enableLUFSScan,omitempty"`
+
+	// automaticallyAddToCollection adds items to their box set collection.
+	// +optional
+	AutomaticallyAddToCollection *bool `json:"automaticallyAddToCollection,omitempty"`
 }
 
 // JellyfinStatus defines the observed state of Jellyfin.

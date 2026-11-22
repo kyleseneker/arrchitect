@@ -396,11 +396,24 @@ spec:
                 items:
                   description: JellyfinLibrary defines a media library in Jellyfin.
                   properties:
+                    allowEmbeddedSubtitles:
+                      description: allowEmbeddedSubtitles is which embedded subtitles
+                        players may use.
+                      enum:
+                      - AllowAll
+                      - AllowText
+                      - AllowImage
+                      - AllowNone
+                      type: string
                     automaticRefreshIntervalDays:
                       description: automaticRefreshIntervalDays is the number of days
                         between automatic library scans.
                       format: int32
                       type: integer
+                    automaticallyAddToCollection:
+                      description: automaticallyAddToCollection adds items to their
+                        box set collection.
+                      type: boolean
                     collectionType:
                       description: collectionType is the type of media in this library.
                       enum:
@@ -412,6 +425,28 @@ spec:
                       - books
                       - mixed
                       type: string
+                    enableChapterImageExtraction:
+                      description: enableChapterImageExtraction extracts chapter images
+                        from videos.
+                      type: boolean
+                    enableEmbeddedEpisodeInfos:
+                      description: |-
+                        enableEmbeddedEpisodeInfos uses the episode information embedded in files
+                        when there is no other metadata.
+                      type: boolean
+                    enableEmbeddedExtrasTitles:
+                      description: enableEmbeddedExtrasTitles uses the titles embedded
+                        in extras' files.
+                      type: boolean
+                    enableEmbeddedTitles:
+                      description: |-
+                        enableEmbeddedTitles uses the titles embedded in files when there is no
+                        other metadata.
+                      type: boolean
+                    enableLUFSScan:
+                      description: enableLUFSScan measures loudness so audio plays
+                        back at an even volume.
+                      type: boolean
                     enableRealtimeMonitor:
                       description: enableRealtimeMonitor enables real-time monitoring
                         of library paths for changes.
@@ -420,11 +455,30 @@ spec:
                       description: enableTrickplayImageExtraction enables generation
                         of trickplay (scrubbing preview) images.
                       type: boolean
+                    extractChapterImagesDuringLibraryScan:
+                      description: |-
+                        extractChapterImagesDuringLibraryScan extracts chapter images while the
+                        library is scanned rather than in the nightly task.
+                      type: boolean
+                    extractTrickplayImagesDuringLibraryScan:
+                      description: |-
+                        extractTrickplayImagesDuringLibraryScan extracts trickplay images while
+                        the library is scanned rather than in the nightly task.
+                      type: boolean
                     metadataCountryCode:
                       description: metadataCountryCode overrides the server-level
                         metadata country code for this library.
                       minLength: 1
                       type: string
+                    metadataSavers:
+                      description: |-
+                        metadataSavers are the formats metadata is saved in next to the media,
+                        such as Nfo for Kodi and other players.
+                      items:
+                        minLength: 1
+                        type: string
+                      type: array
+                      x-kubernetes-list-type: set
                     name:
                       description: name is the display name of the library.
                       minLength: 1
@@ -441,6 +495,47 @@ spec:
                         preferred metadata language for this library.
                       minLength: 1
                       type: string
+                    requirePerfectSubtitleMatch:
+                      description: |-
+                        requirePerfectSubtitleMatch downloads only subtitles that match the file
+                        exactly.
+                      type: boolean
+                    saveLocalMetadata:
+                      description: saveLocalMetadata saves artwork into the media
+                        folders.
+                      type: boolean
+                    saveSubtitlesWithMedia:
+                      description: saveSubtitlesWithMedia saves downloaded subtitles
+                        next to the media.
+                      type: boolean
+                    saveTrickplayWithMedia:
+                      description: saveTrickplayWithMedia saves trickplay images next
+                        to the media.
+                      type: boolean
+                    seasonZeroDisplayName:
+                      description: seasonZeroDisplayName is what season 0 is shown
+                        as, such as Specials.
+                      minLength: 1
+                      type: string
+                    skipSubtitlesIfAudioTrackMatches:
+                      description: |-
+                        skipSubtitlesIfAudioTrackMatches skips the download when the default
+                        audio track is in the language.
+                      type: boolean
+                    skipSubtitlesIfEmbeddedSubtitlesPresent:
+                      description: |-
+                        skipSubtitlesIfEmbeddedSubtitlesPresent skips the download when the file
+                        already has subtitles in the language.
+                      type: boolean
+                    subtitleDownloadLanguages:
+                      description: |-
+                        subtitleDownloadLanguages are the ISO 639-2 codes of the languages to
+                        download subtitles in, such as eng.
+                      items:
+                        minLength: 1
+                        type: string
+                      type: array
+                      x-kubernetes-list-type: set
                   required:
                   - collectionType
                   - name

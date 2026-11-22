@@ -1075,6 +1075,24 @@ _Appears in:_
 | `automaticRefreshIntervalDays` _integer_ | automaticRefreshIntervalDays is the number of days between automatic library scans. |  | Optional: \{\} <br /> |
 | `preferredMetadataLanguage` _string_ | preferredMetadataLanguage overrides the server-level preferred metadata language for this library. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `metadataCountryCode` _string_ | metadataCountryCode overrides the server-level metadata country code for this library. |  | MinLength: 1 <br />Optional: \{\} <br /> |
+| `saveLocalMetadata` _boolean_ | saveLocalMetadata saves artwork into the media folders. |  | Optional: \{\} <br /> |
+| `metadataSavers` _string array_ | metadataSavers are the formats metadata is saved in next to the media,<br />such as Nfo for Kodi and other players. |  | items:MinLength: 1 <br />Optional: \{\} <br /> |
+| `enableEmbeddedTitles` _boolean_ | enableEmbeddedTitles uses the titles embedded in files when there is no<br />other metadata. |  | Optional: \{\} <br /> |
+| `enableEmbeddedExtrasTitles` _boolean_ | enableEmbeddedExtrasTitles uses the titles embedded in extras' files. |  | Optional: \{\} <br /> |
+| `enableEmbeddedEpisodeInfos` _boolean_ | enableEmbeddedEpisodeInfos uses the episode information embedded in files<br />when there is no other metadata. |  | Optional: \{\} <br /> |
+| `seasonZeroDisplayName` _string_ | seasonZeroDisplayName is what season 0 is shown as, such as Specials. |  | MinLength: 1 <br />Optional: \{\} <br /> |
+| `enableChapterImageExtraction` _boolean_ | enableChapterImageExtraction extracts chapter images from videos. |  | Optional: \{\} <br /> |
+| `extractChapterImagesDuringLibraryScan` _boolean_ | extractChapterImagesDuringLibraryScan extracts chapter images while the<br />library is scanned rather than in the nightly task. |  | Optional: \{\} <br /> |
+| `extractTrickplayImagesDuringLibraryScan` _boolean_ | extractTrickplayImagesDuringLibraryScan extracts trickplay images while<br />the library is scanned rather than in the nightly task. |  | Optional: \{\} <br /> |
+| `saveTrickplayWithMedia` _boolean_ | saveTrickplayWithMedia saves trickplay images next to the media. |  | Optional: \{\} <br /> |
+| `subtitleDownloadLanguages` _string array_ | subtitleDownloadLanguages are the ISO 639-2 codes of the languages to<br />download subtitles in, such as eng. |  | items:MinLength: 1 <br />Optional: \{\} <br /> |
+| `saveSubtitlesWithMedia` _boolean_ | saveSubtitlesWithMedia saves downloaded subtitles next to the media. |  | Optional: \{\} <br /> |
+| `requirePerfectSubtitleMatch` _boolean_ | requirePerfectSubtitleMatch downloads only subtitles that match the file<br />exactly. |  | Optional: \{\} <br /> |
+| `skipSubtitlesIfEmbeddedSubtitlesPresent` _boolean_ | skipSubtitlesIfEmbeddedSubtitlesPresent skips the download when the file<br />already has subtitles in the language. |  | Optional: \{\} <br /> |
+| `skipSubtitlesIfAudioTrackMatches` _boolean_ | skipSubtitlesIfAudioTrackMatches skips the download when the default<br />audio track is in the language. |  | Optional: \{\} <br /> |
+| `allowEmbeddedSubtitles` _string_ | allowEmbeddedSubtitles is which embedded subtitles players may use. |  | Enum: [AllowAll AllowText AllowImage AllowNone] <br />Optional: \{\} <br /> |
+| `enableLUFSScan` _boolean_ | enableLUFSScan measures loudness so audio plays back at an even volume. |  | Optional: \{\} <br /> |
+| `automaticallyAddToCollection` _boolean_ | automaticallyAddToCollection adds items to their box set collection. |  | Optional: \{\} <br /> |
 
 
 #### JellyfinNetwork
