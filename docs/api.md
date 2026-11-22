@@ -2715,6 +2715,7 @@ _Appears in:_
 | `minFormatScore` _integer_ | minFormatScore is the minimum custom format score required to grab a release. |  | Optional: \{\} <br /> |
 | `cutoffFormatScore` _integer_ | cutoffFormatScore is the custom format score at which upgrades stop. |  | Optional: \{\} <br /> |
 | `minUpgradeFormatScore` _integer_ | minUpgradeFormatScore is the minimum score improvement required for a format-based upgrade. |  | Optional: \{\} <br /> |
+| `language` _string_ | language is the language a release must be in, by the name Radarr gives<br />it, such as English, Original or Any. Radarr only. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `items` _[QualityProfileItem](#qualityprofileitem) array_ | items defines the quality ordering and allowed states.<br />Items at the end of the list are higher priority. Each item is either<br />an individual quality (with quality set) or a quality group (with name and items set). |  | ExactlyOneOf: [name quality] <br />Optional: \{\} <br /> |
 | `formatItems` _[QualityProfileFormatItem](#qualityprofileformatitem) array_ | formatItems assigns custom format scores within this profile.<br />Reference custom formats by name; IDs are resolved automatically. |  | Optional: \{\} <br /> |
 

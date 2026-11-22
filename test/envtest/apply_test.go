@@ -180,6 +180,11 @@ func TestAdmissionRules(t *testing.T) {
     url: sonarr:8989
     apiKeySecretRef: {name: app, key: api-key}`,
 			rejected: "should match '^https?://'"},
+		{name: "a Radarr quality profile language", kind: "Radarr", spec: conn + `
+  qualityProfiles: [{name: HD, language: English}]`},
+		{name: "a Sonarr quality profile language", kind: "Sonarr", spec: conn + `
+  qualityProfiles: [{name: HD, language: English}]`,
+			rejected: "only Radarr quality profiles take a language"},
 		{name: "a symbolic folder mode", kind: "Sonarr", spec: conn + `
   mediaManagement: {chmodFolder: rwxr-xr-x}`,
 			rejected: "should match '^[0-7]{3,4}$'"},

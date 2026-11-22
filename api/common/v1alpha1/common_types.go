@@ -317,6 +317,12 @@ type QualityProfile struct {
 	// +optional
 	MinUpgradeFormatScore *int32 `json:"minUpgradeFormatScore,omitempty"`
 
+	// language is the language a release must be in, by the name Radarr gives
+	// it, such as English, Original or Any. Radarr only.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	Language string `json:"language,omitempty"`
+
 	// items defines the quality ordering and allowed states.
 	// Items at the end of the list are higher priority. Each item is either
 	// an individual quality (with quality set) or a quality group (with name and items set).

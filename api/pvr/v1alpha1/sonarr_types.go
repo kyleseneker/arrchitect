@@ -54,6 +54,7 @@ type SonarrSpec struct {
 	// +optional
 	// +listType=map
 	// +listMapKey=name
+	// +kubebuilder:validation:XValidation:rule="self.all(p, !has(p.language))",message="only Radarr quality profiles take a language"
 	QualityProfiles []commonv1alpha1.QualityProfile `json:"qualityProfiles,omitempty"`
 
 	// customFormats defines custom format scoring rules for release selection.

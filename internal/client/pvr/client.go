@@ -1070,6 +1070,10 @@ func qualityProfileResources(
 		name, _ := profile["name"].(string)
 		existing[name] = profile
 	}
+	languages, err := profileLanguages(ctx, client, apiVersion, profiles)
+	if err != nil {
+		return nil, err
+	}
 	var qps []map[string]any
 	for _, qp := range profiles {
 		cfIDs := map[string]int{}
@@ -1091,9 +1095,37 @@ func qualityProfileResources(
 			declared, _ := payload["formatItems"].([]map[string]any)
 			payload["formatItems"] = CompleteFormatItems(declared, formats)
 		}
+		if qp.Language != "" {
+			id, ok := languages[qp.Language]
+			if !ok {
+				return nil, fmt.Errorf("qualityProfiles(%s): language %q does not exist", qp.Name, qp.Language)
+			}
+			payload["language"] = map[string]any{"id": id, "name": qp.Language}
+		}
 		qps = append(qps, payload)
 	}
 	return qps, nil
+}
+
+// profileLanguages maps the app's language names to their IDs, read only when
+// a profile names a language.
+func profileLanguages(
+	ctx context.Context, client *engine.HTTPClient, apiVersion string, profiles []commonv1alpha1.QualityProfile,
+) (map[string]any, error) {
+	if !slices.ContainsFunc(profiles, func(qp commonv1alpha1.QualityProfile) bool { return qp.Language != "" }) {
+		return nil, nil
+	}
+	list, err := client.GetJSONList(ctx, fmt.Sprintf("/api/%s/language", apiVersion))
+	if err != nil {
+		return nil, err
+	}
+	languages := make(map[string]any, len(list))
+	for _, l := range list {
+		if name, ok := l["name"].(string); ok {
+			languages[name] = l["id"]
+		}
+	}
+	return languages, nil
 }
 
 func qualityName(item map[string]any) string {
