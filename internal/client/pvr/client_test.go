@@ -381,8 +381,10 @@ func TestBuildNotificationPayload(t *testing.T) {
 }
 
 func TestBuildImportListPayload(t *testing.T) {
-	sonarr := ImportListFields{AutomaticAdd: "enableAutomaticAdd", Monitor: "shouldMonitor"}
-	radarr := ImportListFields{Enable: "enabled", AutomaticAdd: "enableAuto", Monitor: "monitor"}
+	sonarr, radarr, lidarr := Sonarr.ImportListFields, Radarr.ImportListFields, Lidarr.ImportListFields
+	searching := commonv1alpha1.ImportList{
+		Name: "List", Implementation: "CustomImport", SearchOnAdd: new(true), MonitorNewItems: "all", MonitorExisting: new(true),
+	}
 	tests := []struct {
 		name    string
 		il      commonv1alpha1.ImportList
@@ -451,6 +453,38 @@ func TestBuildImportListPayload(t *testing.T) {
 			check: func(t *testing.T, p map[string]any) {
 				assert.Equal(t, "movieAndCollection", p["monitor"])
 				assert.NotContains(t, p, "shouldMonitor")
+			},
+		},
+		{
+			name:    "sonarr searches for missing episodes",
+			il:      searching,
+			monitor: sonarr,
+			check: func(t *testing.T, p map[string]any) {
+				assert.Equal(t, true, p["searchForMissingEpisodes"])
+				assert.Equal(t, "all", p["monitorNewItems"])
+				assert.NotContains(t, p, "searchOnAdd", "Sonarr drops it, so it reads back missing and is rewritten forever")
+				assert.NotContains(t, p, "shouldMonitorExisting")
+			},
+		},
+		{
+			name:    "radarr searches on add and monitors nothing new",
+			il:      searching,
+			monitor: radarr,
+			check: func(t *testing.T, p map[string]any) {
+				assert.Equal(t, true, p["searchOnAdd"])
+				assert.NotContains(t, p, "monitorNewItems")
+				assert.NotContains(t, p, "shouldMonitorExisting")
+			},
+		},
+		{
+			name:    "lidarr searches and monitors existing artists",
+			il:      searching,
+			monitor: lidarr,
+			check: func(t *testing.T, p map[string]any) {
+				assert.Equal(t, true, p["shouldSearch"])
+				assert.Equal(t, true, p["shouldMonitorExisting"])
+				assert.Equal(t, "all", p["monitorNewItems"])
+				assert.NotContains(t, p, "searchOnAdd")
 			},
 		},
 		{

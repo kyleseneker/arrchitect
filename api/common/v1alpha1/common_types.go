@@ -907,9 +907,20 @@ type ImportList struct {
 	// +kubebuilder:validation:MinLength=1
 	MinimumAvailability string `json:"minimumAvailability,omitempty"`
 
-	// searchOnAdd searches for items immediately after adding (Radarr).
+	// searchOnAdd searches for what the list adds (Sonarr's
+	// searchForMissingEpisodes, Lidarr's and Readarr's shouldSearch).
 	// +optional
 	SearchOnAdd *bool `json:"searchOnAdd,omitempty"`
+	// monitorNewItems monitors seasons, albums or books added later to what the
+	// list added: all or none, or in Lidarr and Readarr new. Sonarr, Lidarr and
+	// Readarr only.
+	// +optional
+	// +kubebuilder:validation:Enum=all;none;new
+	MonitorNewItems string `json:"monitorNewItems,omitempty"`
+	// monitorExisting also applies monitor to artists or authors already in the
+	// library (Lidarr's and Readarr's shouldMonitorExisting).
+	// +optional
+	MonitorExisting *bool `json:"monitorExisting,omitempty"`
 
 	// listOrder controls the display order of this list.
 	// +optional

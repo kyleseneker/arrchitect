@@ -51,7 +51,7 @@ var fakeSonarrAPI = map[string]string{
 	"/releaseprofile":      `[{"id":1,"name":"No x265","enabled":true,"required":[],"ignored":["x265"],"indexerId":1,"tags":[1]}]`,
 	"/importlist": `[{"id":1,"name":"Trakt","implementation":"TraktListImport","configContract":"TraktListSettings",
 		"enableAutomaticAdd":true,"shouldMonitor":"all","qualityProfileId":4,"rootFolderPath":"/tv","seasonFolder":true,
-		"seriesType":"standard","tags":[1],"fields":[{"name":"accessToken","value":"********","privacy":"password"}]}]`,
+		"seriesType":"standard","searchForMissingEpisodes":false,"monitorNewItems":"none","tags":[1],"fields":[{"name":"accessToken","value":"********","privacy":"password"}]}]`,
 	"/importlist/schema": `[{"implementation":"TraktListImport","fields":[]}]`,
 	"/qualitydefinition": `[
 		{"id":1,"quality":{"id":1,"name":"SDTV"},"title":"SDTV","minSize":2,"maxSize":100,"preferredSize":95},
@@ -177,6 +177,9 @@ func TestPVRImportListUsesTheAppsPropertyNames(t *testing.T) {
 	il := cfg.Spec.ImportLists[0]
 	assert.Equal(t, "all", il.Monitor)
 	assert.True(t, *il.EnableAutomaticAdd)
+	assert.False(t, *il.SearchOnAdd, "Sonarr's searchForMissingEpisodes is exported as searchOnAdd")
+	assert.Equal(t, "none", il.MonitorNewItems)
+	assert.Nil(t, il.MonitorExisting, "Sonarr has no shouldMonitorExisting")
 	assert.Equal(t, "HD", il.QualityProfileName)
 	assert.Equal(t, []string{"anime"}, il.TagLabels)
 	assert.Equal(t, "import-list-trakt-accesstoken", il.Fields[0].ValueFrom.SecretKeyRef.Key)

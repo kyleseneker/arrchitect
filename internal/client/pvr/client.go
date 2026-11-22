@@ -36,10 +36,18 @@ type App struct {
 	Choices map[string]map[string]map[string]int
 }
 
+var bookAndMusicImportListFields = ImportListFields{
+	AutomaticAdd: "enableAutomaticAdd", Monitor: "shouldMonitor", Search: "shouldSearch",
+	MonitorNewItems: "monitorNewItems", MonitorExisting: "shouldMonitorExisting",
+}
+
 var (
 	Sonarr = App{
 		Name: "sonarr", Kind: "Sonarr", APIVersion: "v3", CategoryField: "tvCategory", ReleaseProfiles: true,
-		ImportListFields: ImportListFields{AutomaticAdd: "enableAutomaticAdd", Monitor: "shouldMonitor"},
+		ImportListFields: ImportListFields{
+			AutomaticAdd: "enableAutomaticAdd", Monitor: "shouldMonitor", Search: "searchForMissingEpisodes",
+			MonitorNewItems: "monitorNewItems",
+		},
 		Choices: map[string]map[string]map[string]int{"naming": {
 			"colonReplacementFormat": {"delete": 0, "dash": 1, "spaceDash": 2, "spaceDashSpace": 3, "smart": 4},
 			"multiEpisodeStyle":      {"extend": 0, "duplicate": 1, "repeat": 2, "scene": 3, "range": 4, "prefixedRange": 5},
@@ -47,15 +55,15 @@ var (
 	}
 	Radarr = App{
 		Name: "radarr", Kind: "Radarr", APIVersion: "v3", CategoryField: "movieCategory", ReleaseProfiles: true,
-		ImportListFields: ImportListFields{Enable: "enabled", AutomaticAdd: "enableAuto", Monitor: "monitor"},
+		ImportListFields: ImportListFields{Enable: "enabled", AutomaticAdd: "enableAuto", Monitor: "monitor", Search: "searchOnAdd"},
 	}
 	Lidarr = App{
 		Name: "lidarr", Kind: "Lidarr", APIVersion: "v1", CategoryField: "musicCategory", MetadataProfiles: true,
-		ImportListFields: ImportListFields{AutomaticAdd: "enableAutomaticAdd", Monitor: "shouldMonitor"},
+		ImportListFields: bookAndMusicImportListFields,
 	}
 	Readarr = App{
 		Name: "readarr", Kind: "Readarr", APIVersion: "v1", CategoryField: "bookCategory", MetadataProfiles: true,
-		ImportListFields: ImportListFields{AutomaticAdd: "enableAutomaticAdd", Monitor: "shouldMonitor"},
+		ImportListFields: bookAndMusicImportListFields,
 	}
 )
 
@@ -649,6 +657,13 @@ type ImportListFields struct {
 	AutomaticAdd string
 	// Monitor takes the app's monitor enum (Radarr: monitor; others: shouldMonitor).
 	Monitor string
+	// Search searches for what a list adds (Sonarr: searchForMissingEpisodes;
+	// Radarr: searchOnAdd; Lidarr, Readarr: shouldSearch).
+	Search string
+	// MonitorNewItems monitors what is added to a series or artist later.
+	MonitorNewItems string
+	// MonitorExisting also applies monitor to items already in the library.
+	MonitorExisting string
 }
 
 // BuildImportListPayload builds the API payload for an import list.
@@ -677,8 +692,16 @@ func BuildImportListPayload(il commonv1alpha1.ImportList, qpIDs map[string]int, 
 	if names.AutomaticAdd != "" {
 		SetOptionalBool(payload, names.AutomaticAdd, il.EnableAutomaticAdd)
 	}
+	if names.Search != "" {
+		SetOptionalBool(payload, names.Search, il.SearchOnAdd)
+	}
+	if names.MonitorExisting != "" {
+		SetOptionalBool(payload, names.MonitorExisting, il.MonitorExisting)
+	}
+	if il.MonitorNewItems != "" && names.MonitorNewItems != "" {
+		payload[names.MonitorNewItems] = il.MonitorNewItems
+	}
 	SetOptionalBool(payload, "seasonFolder", il.SeasonFolder)
-	SetOptionalBool(payload, "searchOnAdd", il.SearchOnAdd)
 
 	if value := il.Monitor; value != "" && names.Monitor != "" {
 		payload[names.Monitor] = value
