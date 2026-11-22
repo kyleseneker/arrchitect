@@ -75,20 +75,21 @@ func differs(current, merged any, secrets *[]string) bool {
 
 	curMap, curIsMap := current.(map[string]any)
 	mergedMap, mergedIsMap := merged.(map[string]any)
+	// Every field is walked, past the first difference, so the digest holds
+	// all the secrets whatever else changed.
 	if curIsMap && mergedIsMap {
-		if len(curMap) != len(mergedMap) {
-			return true
-		}
+		changed := len(curMap) != len(mergedMap)
 		for k, mv := range mergedMap {
 			cv, ok := curMap[k]
 			if !ok {
-				return true
+				changed = true
+				continue
 			}
 			if differs(cv, mv, secrets) {
-				return true
+				changed = true
 			}
 		}
-		return false
+		return changed
 	}
 
 	curSlice, curIsSlice := current.([]any)
@@ -96,15 +97,13 @@ func differs(current, merged any, secrets *[]string) bool {
 	if curIsSlice && mergedIsSlice {
 		// mergeNamedObjectSlice preserves the order of current and appends
 		// anything new, so equal lengths mean index-wise correspondence.
-		if len(curSlice) != len(mergedSlice) {
-			return true
-		}
-		for i := range curSlice {
+		changed := len(curSlice) != len(mergedSlice)
+		for i := range min(len(curSlice), len(mergedSlice)) {
 			if differs(curSlice[i], mergedSlice[i], secrets) {
-				return true
+				changed = true
 			}
 		}
-		return false
+		return changed
 	}
 
 	return !sameScalar(current, merged)
