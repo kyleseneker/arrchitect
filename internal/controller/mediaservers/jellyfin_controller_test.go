@@ -3,6 +3,7 @@ package mediaservers
 import (
 	"context"
 	"encoding/json"
+	"maps"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -46,8 +47,13 @@ type fakeJellyfin struct {
 	auth map[string]string
 	// version is what /System/Info/Public reports.
 	version string
-	// posted is the last body each configuration path received.
+	// posted is the last body each configuration path, and the library
+	// create, received.
 	posted map[string]map[string]any
+	// available is what /Libraries/AvailableOptions answers, and
+	// availableQuery the query it was last asked with.
+	available      map[string]any
+	availableQuery string
 }
 
 func (f *fakeJellyfin) postedTo(path string) map[string]any {
@@ -138,7 +144,20 @@ func (f *fakeJellyfin) serve(t *testing.T) string {
 				_ = json.NewEncoder(w).Encode(libs)
 				return
 			}
+			var body map[string]any
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			f.mu.Lock()
+			if f.posted == nil {
+				f.posted = map[string]map[string]any{}
+			}
+			f.posted[r.URL.Path] = body
+			f.mu.Unlock()
 			w.WriteHeader(http.StatusNoContent)
+		case "/Libraries/AvailableOptions":
+			f.mu.Lock()
+			f.availableQuery = r.URL.RawQuery
+			f.mu.Unlock()
+			_ = json.NewEncoder(w).Encode(f.available)
 		default:
 			// Startup wizard steps and config posts.
 			if r.Method == http.MethodPost && strings.HasPrefix(r.URL.Path, "/System/Configuration/") {
@@ -500,4 +519,117 @@ func TestJellyfinLibraryOptionsUseJellyfinNames(t *testing.T) {
 		"MetadataSavers": []any{"Nfo"}, "EnableLUFSScan": true, "SubtitleDownloadLanguages": []any{"eng"},
 		"AllowEmbeddedSubtitles": "AllowText", "SeasonZeroDisplayName": "Extras",
 	}, got, "the name, type and folders are not options")
+}
+
+func jellyfinOffered(names ...string) []any {
+	out := make([]any, 0, len(names))
+	for _, n := range names {
+		on := !strings.HasPrefix(n, "-")
+		out = append(out, map[string]any{"Name": strings.TrimPrefix(n, "-"), "DefaultEnabled": on})
+	}
+	return out
+}
+
+func asJSON(t *testing.T, v any) map[string]any {
+	t.Helper()
+	raw, err := json.Marshal(v)
+	require.NoError(t, err)
+	var out map[string]any
+	require.NoError(t, json.Unmarshal(raw, &out))
+	return out
+}
+
+// Jellyfin keeps the subtitle fetchers a library disables; the declared ones
+// come first in the order and the rest, installed or not, are disabled.
+func TestJellyfinFetchersDisableWhatIsNotDeclared(t *testing.T) {
+	lib := mediaserversv1alpha1.JellyfinLibrary{SubtitleFetchers: []string{"Podnapisi"}}
+	current := map[string]any{
+		"SubtitleFetcherOrder":     []any{"Open Subtitles", "Podnapisi"},
+		"DisabledSubtitleFetchers": []any{"Podnapisi"},
+	}
+	available := map[string]any{"SubtitleFetchers": jellyfinOffered("Open Subtitles", "Podnapisi", "Addic7ed")}
+	got := asJSON(t, jellyfinFetchers(lib, current, available))
+	assert.Equal(t, map[string]any{
+		"SubtitleFetcherOrder":     []any{"Podnapisi", "Open Subtitles", "Addic7ed"},
+		"DisabledSubtitleFetchers": []any{"Open Subtitles", "Addic7ed"},
+	}, got)
+
+	maps.Copy(current, got)
+	assert.Equal(t, got, asJSON(t, jellyfinFetchers(lib, current, available)), "what was written is kept")
+	current["DisabledSubtitleFetchers"] = []any{"Addic7ed", "Open Subtitles"}
+	assert.Equal(t, []any{"Addic7ed", "Open Subtitles"}, asJSON(t, jellyfinFetchers(lib, current, available))["DisabledSubtitleFetchers"],
+		"the disabled list's order means nothing to Jellyfin")
+}
+
+// Once a type has options, Jellyfin uses only the fetchers they enable, so a
+// new type's undeclared list starts from what Jellyfin enables without them.
+func TestJellyfinTypeOptionsKeepWhatIsNotDeclared(t *testing.T) {
+	lib := mediaserversv1alpha1.JellyfinLibrary{TypeOptions: []mediaserversv1alpha1.JellyfinTypeOptions{
+		{Type: "Series", MetadataFetchers: []string{"TheTVDB"}},
+		{Type: "Episode", ImageFetchers: []string{"Screen Grabber"}},
+	}}
+	current := map[string]any{"TypeOptions": []any{map[string]any{
+		"Type": "Series", "MetadataFetchers": []any{"TheMovieDb"}, "MetadataFetcherOrder": []any{"TheMovieDb", "TheTVDB"},
+		"ImageFetchers": []any{"TheMovieDb"}, "ImageFetcherOrder": []any{"TheMovieDb"}, "ImageOptions": []any{map[string]any{"Type": "Backdrop", "Limit": 3.0}},
+	}}}
+	available := map[string]any{"TypeOptions": []any{
+		map[string]any{"Type": "Series", "MetadataFetchers": jellyfinOffered("TheMovieDb", "TheTVDB"), "ImageFetchers": jellyfinOffered("TheMovieDb")},
+		map[string]any{"Type": "Episode", "MetadataFetchers": jellyfinOffered("TheMovieDb", "-TheTVDB"), "ImageFetchers": jellyfinOffered("TheMovieDb", "Screen Grabber")},
+	}}
+	got := asJSON(t, jellyfinFetchers(lib, current, available))
+	assert.Equal(t, []any{
+		map[string]any{
+			"Type": "Series", "MetadataFetchers": []any{"TheTVDB"}, "MetadataFetcherOrder": []any{"TheTVDB", "TheMovieDb"},
+			"ImageFetchers": []any{"TheMovieDb"}, "ImageFetcherOrder": []any{"TheMovieDb"}, "ImageOptions": []any{map[string]any{"Type": "Backdrop", "Limit": 3.0}},
+		},
+		map[string]any{
+			"Type": "Episode", "MetadataFetchers": []any{"TheMovieDb"}, "MetadataFetcherOrder": []any{"TheMovieDb", "TheTVDB"},
+			"ImageFetchers": []any{"Screen Grabber"}, "ImageFetcherOrder": []any{"Screen Grabber", "TheMovieDb"},
+		},
+	}, got["TypeOptions"])
+	assert.Len(t, current["TypeOptions"], 1, "the current options are left as they were")
+}
+
+// Jellyfin's options are arrays it doesn't expect to be null.
+func TestJellyfinFetchersSendEmptyListsNotNull(t *testing.T) {
+	got := asJSON(t, jellyfinFetchers(mediaserversv1alpha1.JellyfinLibrary{
+		LyricFetchers: []string{"LrcLib"},
+		TypeOptions:   []mediaserversv1alpha1.JellyfinTypeOptions{{Type: "Audio", MetadataFetchers: []string{"MusicBrainz"}}},
+	}, nil, map[string]any{}))
+	assert.Equal(t, []any{}, got["DisabledLyricFetchers"])
+	assert.Equal(t, []any{map[string]any{
+		"Type": "Audio", "MetadataFetchers": []any{"MusicBrainz"}, "MetadataFetcherOrder": []any{"MusicBrainz"},
+		"ImageFetchers": []any{}, "ImageFetcherOrder": []any{},
+	}}, got["TypeOptions"])
+}
+
+func TestReconcileCreatesALibraryWithItsFetchers(t *testing.T) {
+	app := &fakeJellyfin{setupComplete: true, available: map[string]any{
+		"MetadataReaders": jellyfinOffered("Nfo"),
+		"TypeOptions": []any{map[string]any{
+			"Type": "Movie", "MetadataFetchers": jellyfinOffered("TheMovieDb", "The Open Movie Database"),
+			"ImageFetchers": jellyfinOffered("TheMovieDb", "-Embedded Image Extractor"),
+		}},
+	}}
+	url := app.serve(t)
+
+	runJellyfin(t, adminSecret(), jellyfinConfig(url, mediaserversv1alpha1.JellyfinLibrary{
+		Name: "Movies", CollectionType: "movies", Paths: []string{"/media/movies"},
+		LocalMetadataReaders: []string{"Nfo"},
+		TypeOptions:          []mediaserversv1alpha1.JellyfinTypeOptions{{Type: "Movie", MetadataFetchers: []string{"The Open Movie Database"}}},
+	}))
+
+	app.mu.Lock()
+	assert.Equal(t, "isNewLibrary=false&libraryContentType=movies", app.availableQuery,
+		"the defaults a library without type options falls back on")
+	app.mu.Unlock()
+	options, _ := app.postedTo("/Library/VirtualFolders")["LibraryOptions"].(map[string]any)
+	require.NotNil(t, options, "the library was not created with options")
+	assert.Equal(t, []any{"Nfo"}, options["LocalMetadataReaderOrder"])
+	assert.Equal(t, []any{}, options["DisabledLocalMetadataReaders"])
+	assert.Equal(t, []any{map[string]any{
+		"Type": "Movie", "MetadataFetchers": []any{"The Open Movie Database"},
+		"MetadataFetcherOrder": []any{"The Open Movie Database", "TheMovieDb"},
+		"ImageFetchers":        []any{"TheMovieDb"}, "ImageFetcherOrder": []any{"TheMovieDb", "Embedded Image Extractor"},
+	}}, options["TypeOptions"])
 }

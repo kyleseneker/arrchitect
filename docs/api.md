@@ -1209,6 +1209,18 @@ _Appears in:_
 | `allowEmbeddedSubtitles` _string_ | allowEmbeddedSubtitles is which embedded subtitles players may use. |  | Enum: [AllowAll AllowText AllowImage AllowNone] <br />Optional: \{\} <br /> |
 | `enableLUFSScan` _boolean_ | enableLUFSScan measures loudness so audio plays back at an even volume. |  | Optional: \{\} <br /> |
 | `automaticallyAddToCollection` _boolean_ | automaticallyAddToCollection adds items to their box set collection. |  | Optional: \{\} <br /> |
+| `enablePhotos` _boolean_ | enablePhotos picks up photos alongside the other media. |  | Optional: \{\} <br /> |
+| `enableAutomaticSeriesGrouping` _boolean_ | enableAutomaticSeriesGrouping merges a series spread across several<br />folders into one. |  | Optional: \{\} <br /> |
+| `saveLyricsWithMedia` _boolean_ | saveLyricsWithMedia saves downloaded lyrics next to the media. |  | Optional: \{\} <br /> |
+| `preferNonstandardArtistsTag` _boolean_ | preferNonstandardArtistsTag reads artists from the ARTISTS tag, when a<br />file has one, instead of ARTIST. |  | Optional: \{\} <br /> |
+| `useCustomTagDelimiters` _boolean_ | useCustomTagDelimiters splits artist and genre tags on<br />customTagDelimiters. |  | Optional: \{\} <br /> |
+| `customTagDelimiters` _string array_ | customTagDelimiters are the characters artist and genre tags are split<br />on. A new library takes /, \|, ; and \. |  | MinItems: 1 <br />items:MinLength: 1 <br />Optional: \{\} <br /> |
+| `delimiterWhitelist` _string array_ | delimiterWhitelist are artist and genre names never split, such as AC/DC. |  | MinItems: 1 <br />items:MinLength: 1 <br />Optional: \{\} <br /> |
+| `typeOptions` _[JellyfinTypeOptions](#jellyfintypeoptions) array_ | typeOptions picks, for each kind of item in the library, the metadata and<br />image fetchers it uses, matched by type. |  | MaxItems: 4 <br />Optional: \{\} <br /> |
+| `subtitleFetchers` _string array_ | subtitleFetchers are the subtitle downloaders used, in priority order,<br />such as Open Subtitles. The rest are disabled. |  | MinItems: 1 <br />items:MinLength: 1 <br />Optional: \{\} <br /> |
+| `lyricFetchers` _string array_ | lyricFetchers are the lyric downloaders used, in priority order. The<br />rest are disabled. |  | MinItems: 1 <br />items:MinLength: 1 <br />Optional: \{\} <br /> |
+| `mediaSegmentProviders` _string array_ | mediaSegmentProviders are the providers of intro, credits and other<br />segments used, in priority order. The rest are disabled. |  | MinItems: 1 <br />items:MinLength: 1 <br />Optional: \{\} <br /> |
+| `localMetadataReaders` _string array_ | localMetadataReaders are the readers of metadata files next to the<br />media used, in priority order, such as Nfo. The rest are disabled. |  | MinItems: 1 <br />items:MinLength: 1 <br />Optional: \{\} <br /> |
 
 
 #### JellyfinNetwork
@@ -1348,6 +1360,26 @@ _Appears in:_
 | `qscale` _integer_ | qscale is the thumbnails' encoding quality, from 2 (best) to 31. |  | Maximum: 31 <br />Minimum: 2 <br />Optional: \{\} <br /> |
 | `jpegQuality` _integer_ | jpegQuality is the JPEG quality of the tile images. |  | Maximum: 100 <br />Minimum: 1 <br />Optional: \{\} <br /> |
 | `processThreads` _integer_ | processThreads is how many threads making thumbnails uses. |  | Minimum: 0 <br />Optional: \{\} <br /> |
+
+
+#### JellyfinTypeOptions
+
+
+
+JellyfinTypeOptions picks the fetchers one kind of item uses. Fetchers left
+out are disabled; a list left out stays as it is, or for a type the library
+has no options for yet, takes the fetchers Jellyfin enables by default.
+
+
+
+_Appears in:_
+- [JellyfinLibrary](#jellyfinlibrary)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `type` _string_ | type is the kind of item, which the library's collectionType must hold. |  | Enum: [Movie Series Season Episode MusicArtist MusicAlbum Audio MusicVideo Video Photo Book] <br />MaxLength: 11 <br />Required: \{\} <br /> |
+| `metadataFetchers` _string array_ | metadataFetchers are the metadata fetchers used, in priority order, such<br />as TheMovieDb. |  | MinItems: 1 <br />items:MinLength: 1 <br />Optional: \{\} <br /> |
+| `imageFetchers` _string array_ | imageFetchers are the image fetchers used, in priority order. |  | MinItems: 1 <br />items:MinLength: 1 <br />Optional: \{\} <br /> |
 
 
 #### Lidarr

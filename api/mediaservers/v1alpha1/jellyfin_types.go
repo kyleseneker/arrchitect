@@ -541,6 +541,7 @@ type JellyfinEncoding struct {
 }
 
 // JellyfinLibrary defines a media library in Jellyfin.
+// +kubebuilder:validation:XValidation:rule="!has(self.typeOptions) || (self.collectionType == 'movies' ? self.typeOptions.all(t, t.type == 'Movie') : self.collectionType == 'tvshows' ? self.typeOptions.all(t, t.type in ['Series', 'Season', 'Episode']) : self.collectionType == 'music' ? self.typeOptions.all(t, t.type in ['MusicArtist', 'MusicAlbum', 'Audio', 'MusicVideo']) : self.collectionType == 'musicvideos' ? self.typeOptions.all(t, t.type == 'MusicVideo') : self.collectionType == 'homevideos' ? self.typeOptions.all(t, t.type in ['Video', 'Photo']) : self.collectionType == 'books' ? self.typeOptions.all(t, t.type == 'Book') : self.typeOptions.all(t, t.type in ['Series', 'Season', 'Episode', 'Movie']))",message="typeOptions names a type the library's collectionType doesn't hold"
 type JellyfinLibrary struct {
 	// name is the display name of the library.
 	// +required
@@ -665,6 +666,111 @@ type JellyfinLibrary struct {
 	// automaticallyAddToCollection adds items to their box set collection.
 	// +optional
 	AutomaticallyAddToCollection *bool `json:"automaticallyAddToCollection,omitempty"`
+
+	// enablePhotos picks up photos alongside the other media.
+	// +optional
+	EnablePhotos *bool `json:"enablePhotos,omitempty"`
+
+	// enableAutomaticSeriesGrouping merges a series spread across several
+	// folders into one.
+	// +optional
+	EnableAutomaticSeriesGrouping *bool `json:"enableAutomaticSeriesGrouping,omitempty"`
+
+	// saveLyricsWithMedia saves downloaded lyrics next to the media.
+	// +optional
+	SaveLyricsWithMedia *bool `json:"saveLyricsWithMedia,omitempty"`
+
+	// preferNonstandardArtistsTag reads artists from the ARTISTS tag, when a
+	// file has one, instead of ARTIST.
+	// +optional
+	PreferNonstandardArtistsTag *bool `json:"preferNonstandardArtistsTag,omitempty"`
+
+	// useCustomTagDelimiters splits artist and genre tags on
+	// customTagDelimiters.
+	// +optional
+	UseCustomTagDelimiters *bool `json:"useCustomTagDelimiters,omitempty"`
+
+	// customTagDelimiters are the characters artist and genre tags are split
+	// on. A new library takes /, |, ; and \.
+	// +optional
+	// +listType=set
+	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:items:MinLength=1
+	CustomTagDelimiters []string `json:"customTagDelimiters,omitempty"`
+
+	// delimiterWhitelist are artist and genre names never split, such as AC/DC.
+	// +optional
+	// +listType=set
+	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:items:MinLength=1
+	DelimiterWhitelist []string `json:"delimiterWhitelist,omitempty"`
+
+	// typeOptions picks, for each kind of item in the library, the metadata and
+	// image fetchers it uses, matched by type.
+	// +optional
+	// +listType=map
+	// +listMapKey=type
+	// +kubebuilder:validation:MaxItems=4
+	TypeOptions []JellyfinTypeOptions `json:"typeOptions,omitempty"`
+
+	// subtitleFetchers are the subtitle downloaders used, in priority order,
+	// such as Open Subtitles. The rest are disabled.
+	// +optional
+	// +listType=set
+	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:items:MinLength=1
+	SubtitleFetchers []string `json:"subtitleFetchers,omitempty"`
+
+	// lyricFetchers are the lyric downloaders used, in priority order. The
+	// rest are disabled.
+	// +optional
+	// +listType=set
+	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:items:MinLength=1
+	LyricFetchers []string `json:"lyricFetchers,omitempty"`
+
+	// mediaSegmentProviders are the providers of intro, credits and other
+	// segments used, in priority order. The rest are disabled.
+	// +optional
+	// +listType=set
+	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:items:MinLength=1
+	MediaSegmentProviders []string `json:"mediaSegmentProviders,omitempty"`
+
+	// localMetadataReaders are the readers of metadata files next to the
+	// media used, in priority order, such as Nfo. The rest are disabled.
+	// +optional
+	// +listType=set
+	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:items:MinLength=1
+	LocalMetadataReaders []string `json:"localMetadataReaders,omitempty"`
+}
+
+// JellyfinTypeOptions picks the fetchers one kind of item uses. Fetchers left
+// out are disabled; a list left out stays as it is, or for a type the library
+// has no options for yet, takes the fetchers Jellyfin enables by default.
+// +kubebuilder:validation:XValidation:rule="has(self.metadataFetchers) || has(self.imageFetchers)",message="set metadataFetchers, imageFetchers or both"
+type JellyfinTypeOptions struct {
+	// type is the kind of item, which the library's collectionType must hold.
+	// +required
+	// +kubebuilder:validation:MaxLength=11
+	// +kubebuilder:validation:Enum=Movie;Series;Season;Episode;MusicArtist;MusicAlbum;Audio;MusicVideo;Video;Photo;Book
+	Type string `json:"type,omitempty"`
+
+	// metadataFetchers are the metadata fetchers used, in priority order, such
+	// as TheMovieDb.
+	// +optional
+	// +listType=set
+	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:items:MinLength=1
+	MetadataFetchers []string `json:"metadataFetchers,omitempty"`
+
+	// imageFetchers are the image fetchers used, in priority order.
+	// +optional
+	// +listType=set
+	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:items:MinLength=1
+	ImageFetchers []string `json:"imageFetchers,omitempty"`
 }
 
 // JellyfinStatus defines the observed state of Jellyfin.

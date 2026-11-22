@@ -58,8 +58,14 @@ func TestJellyfin(t *testing.T) {
 		newerFields: []string{"/spec/encoding/subtitleExtractionTimeoutMinutes"},
 		update: `[
 			{"op": "replace", "path": "/spec/libraries/0/automaticRefreshIntervalDays", "value": 60},
-			{"op": "replace", "path": "/spec/libraries/0/seasonZeroDisplayName", "value": "Extras"}
+			{"op": "replace", "path": "/spec/libraries/0/seasonZeroDisplayName", "value": "Extras"},
+			{"op": "replace", "path": "/spec/libraries/0/typeOptions/0/metadataFetchers", "value": ["TheMovieDb"]}
 		]`,
+		verifyUpdate: func(t *testing.T) {
+			movie := jellyfinTypeOption(t, jellyfinClient(t, jf.url(), password), "Movies", "Movie")
+			assert.Equal(t, []any{"TheMovieDb"}, movie["MetadataFetchers"])
+			assert.Equal(t, []any{"TheMovieDb", "The Open Movie Database"}, movie["MetadataFetcherOrder"])
+		},
 		export:  "jellyfin",
 		vars:    map[string]string{"URL": proxy.url()},
 		secrets: map[string]string{"username": jellyfinAdmin, "password": password},
@@ -98,9 +104,35 @@ func TestJellyfin(t *testing.T) {
 				names = append(names, l["Name"])
 			}
 			assert.ElementsMatch(t, []any{"Movies", "TV Shows"}, names)
+			movie := jellyfinTypeOption(t, jc, "Movies", "Movie")
+			assert.Equal(t, []any{"The Open Movie Database", "TheMovieDb"}, movie["MetadataFetchers"])
+			series := jellyfinTypeOption(t, jc, "TV Shows", "Series")
+			assert.Equal(t, []any{"TheMovieDb"}, series["ImageFetchers"])
+			assert.NotEmpty(t, series["MetadataFetchers"], "the undeclared metadata fetchers lost Jellyfin's defaults")
 			checkJellyfinAPIKey(t, jf.url(), password, proxy)
 		},
 	})
+}
+
+// jellyfinTypeOption is a library's options for one type of item.
+func jellyfinTypeOption(t *testing.T, jc *jellyfinclient.Client, library, itemType string) map[string]any {
+	t.Helper()
+	libraries, err := jc.ListLibraries(context.Background())
+	require.NoError(t, err)
+	for _, l := range libraries {
+		if l["Name"] != library {
+			continue
+		}
+		options, _ := l["LibraryOptions"].(map[string]any)
+		typeOptions, _ := options["TypeOptions"].([]any)
+		for _, o := range typeOptions {
+			if m, _ := o.(map[string]any); m["Type"] == itemType {
+				return m
+			}
+		}
+	}
+	require.Failf(t, "no type options", "library %q has no options for %s", library, itemType)
+	return nil
 }
 
 // checkJellyfinAPIKey switches the resource to an API key and checks that a

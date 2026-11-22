@@ -198,6 +198,41 @@ func TestAdmissionRules(t *testing.T) {
     passwordSecretRef: {name: app, key: password}
   reconcile: {prune: true}`,
 			rejected: "Jellyfin doesn't support prune"},
+		{name: "Jellyfin fetchers for the types a library holds", kind: "Jellyfin", spec: `
+  connection: {url: http://jellyfin:8096}
+  adminUser:
+    usernameSecretRef: {name: app, key: username}
+    passwordSecretRef: {name: app, key: password}
+  libraries:
+    - name: Shows
+      collectionType: tvshows
+      paths: [/tv]
+      subtitleFetchers: [Open Subtitles]
+      typeOptions:
+        - {type: Series, metadataFetchers: [TheTVDB, TheMovieDb]}
+        - {type: Episode, imageFetchers: [Screen Grabber]}
+    - name: Everything
+      collectionType: mixed
+      paths: [/other]
+      typeOptions: [{type: Movie, imageFetchers: [TheMovieDb]}]`},
+		{name: "Jellyfin movie fetchers in a TV library", kind: "Jellyfin", spec: `
+  connection: {url: http://jellyfin:8096}
+  adminUser:
+    usernameSecretRef: {name: app, key: username}
+    passwordSecretRef: {name: app, key: password}
+  libraries:
+    - name: Shows
+      collectionType: tvshows
+      paths: [/tv]
+      typeOptions: [{type: Movie, metadataFetchers: [TheMovieDb]}]`,
+			rejected: "typeOptions names a type the library's collectionType doesn't hold"},
+		{name: "Jellyfin type options without fetchers", kind: "Jellyfin", spec: `
+  connection: {url: http://jellyfin:8096}
+  adminUser:
+    usernameSecretRef: {name: app, key: username}
+    passwordSecretRef: {name: app, key: password}
+  libraries: [{name: Movies, collectionType: movies, paths: [/movies], typeOptions: [{type: Movie}]}]`,
+			rejected: "set metadataFetchers, imageFetchers or both"},
 		{name: "deletionPolicy delete on Plex", kind: "Plex", spec: `
   connection:
     url: http://plex:32400
