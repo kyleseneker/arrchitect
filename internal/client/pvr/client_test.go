@@ -1915,3 +1915,40 @@ func TestQualityProfileLanguageIsLookedUpByName(t *testing.T) {
 	assert.NotContains(t, qps[0], "language")
 	assert.NotContains(t, paths, "/api/v3/language", "the languages are read only for a profile that names one")
 }
+
+func TestLidarrRootFoldersKeepTheirNameAndTakeDefaults(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/v1/rootfolder":
+			_, _ = w.Write([]byte(`[{"id":1,"path":"/music","name":"Music Library"}]`))
+		case "/api/v1/qualityprofile":
+			_, _ = w.Write([]byte(`[{"id":2,"name":"Lossless"}]`))
+		case "/api/v1/metadataprofile":
+			_, _ = w.Write([]byte(`[{"id":3,"name":"Standard"}]`))
+		default:
+			_, _ = w.Write([]byte(`[]`))
+		}
+	}))
+	t.Cleanup(srv.Close)
+	hc, err := engine.NewHTTPClient(srv.URL, engine.AuthNone, engine.WithTransport(&http.Transport{}))
+	require.NoError(t, err)
+	folder := func(dir string) commonv1alpha1.RootFolder {
+		return commonv1alpha1.RootFolder{
+			Path: dir, DefaultQualityProfileName: "Lossless", DefaultMetadataProfileName: "Standard",
+			DefaultMonitorOption: "future", DefaultNewItemMonitorOption: "new", DefaultTagLabels: []string{"flac"},
+		}
+	}
+	opts := Options{MetadataProfiles: true, RootFolders: []commonv1alpha1.RootFolder{folder("/music"), folder("/data/audiobooks")}}
+
+	rfs, err := rootFolderResources(context.Background(), hc, "v1", opts, engine.NamedIDs{"flac": {7}})
+	require.NoError(t, err)
+	require.Len(t, rfs, 2)
+	assert.NotContains(t, rfs[0], "name", "renamed a folder the spec doesn't name")
+	assert.Equal(t, "audiobooks", rfs[1]["name"], "a new folder is named after its path")
+	assert.Equal(t, "future", rfs[0]["defaultMonitorOption"])
+	assert.Equal(t, "new", rfs[0]["defaultNewItemMonitorOption"])
+	assert.Equal(t, []any{7}, rfs[0]["defaultTags"])
+
+	_, err = rootFolderResources(context.Background(), hc, "v1", opts, engine.NamedIDs{})
+	assert.ErrorContains(t, err, "rootFolders(/music): tag")
+}

@@ -3581,9 +3581,12 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `path` _string_ | path is the filesystem path for the root folder inside the container. |  | MinLength: 1 <br />Required: \{\} <br /> |
-| `name` _string_ | name labels the root folder (Lidarr, Readarr). Defaults to the last<br />element of path. |  | MinLength: 1 <br />Optional: \{\} <br /> |
+| `name` _string_ | name labels the root folder (Lidarr, Readarr). A new folder is named<br />after the last element of path unless this is set. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `defaultQualityProfileName` _string_ | defaultQualityProfileName is the quality profile for content added to<br />this folder (Lidarr, Readarr; required there). Resolved to an ID at<br />reconciliation time, after declared quality profiles are applied. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `defaultMetadataProfileName` _string_ | defaultMetadataProfileName is the metadata profile for content added to<br />this folder (Lidarr, Readarr; required there). Resolved to an ID at<br />reconciliation time. |  | MinLength: 1 <br />Optional: \{\} <br /> |
+| `defaultMonitorOption` _string_ | defaultMonitorOption is what to monitor of an artist or author added to<br />this folder (Lidarr, Readarr). |  | Enum: [all future missing existing latest first none] <br />Optional: \{\} <br /> |
+| `defaultNewItemMonitorOption` _string_ | defaultNewItemMonitorOption is whether albums or books released later<br />are monitored: all, none or new (Lidarr, Readarr). |  | Enum: [all none new] <br />Optional: \{\} <br /> |
+| `defaultTagLabels` _string array_ | defaultTagLabels tags artists or authors added to this folder, by label<br />(Lidarr, Readarr). An empty list clears the tags. |  | items:MinLength: 1 <br />Optional: \{\} <br /> |
 
 
 #### Sabnzbd

@@ -64,6 +64,10 @@ spec:
     - path: /data/media/music
       defaultQualityProfileName: Music
       defaultMetadataProfileName: Albums Only
+      defaultMonitorOption: future
+      defaultNewItemMonitorOption: new
+      defaultTagLabels:
+        - favorites
   remotePathMappings:
     - host: ${HOST}
       remotePath: /downloads/music

@@ -161,8 +161,8 @@ type RootFolder struct {
 	// +kubebuilder:validation:MinLength=1
 	Path string `json:"path,omitempty"`
 
-	// name labels the root folder (Lidarr, Readarr). Defaults to the last
-	// element of path.
+	// name labels the root folder (Lidarr, Readarr). A new folder is named
+	// after the last element of path unless this is set.
 	// +optional
 	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name,omitempty"`
@@ -180,6 +180,25 @@ type RootFolder struct {
 	// +optional
 	// +kubebuilder:validation:MinLength=1
 	DefaultMetadataProfileName string `json:"defaultMetadataProfileName,omitempty"`
+
+	// defaultMonitorOption is what to monitor of an artist or author added to
+	// this folder (Lidarr, Readarr).
+	// +optional
+	// +kubebuilder:validation:Enum=all;future;missing;existing;latest;first;none
+	DefaultMonitorOption string `json:"defaultMonitorOption,omitempty"`
+
+	// defaultNewItemMonitorOption is whether albums or books released later
+	// are monitored: all, none or new (Lidarr, Readarr).
+	// +optional
+	// +kubebuilder:validation:Enum=all;none;new
+	DefaultNewItemMonitorOption string `json:"defaultNewItemMonitorOption,omitempty"`
+
+	// defaultTagLabels tags artists or authors added to this folder, by label
+	// (Lidarr, Readarr). An empty list clears the tags.
+	// +optional
+	// +listType=set
+	// +kubebuilder:validation:items:MinLength=1
+	DefaultTagLabels []string `json:"defaultTagLabels,omitempty"`
 }
 
 // DownloadClient defines a download client connection.

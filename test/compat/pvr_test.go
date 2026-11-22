@@ -222,7 +222,9 @@ func TestLidarr(t *testing.T) {
 			{"op": "replace", "path": "/spec/notifications/0/onRename", "value": false},
 			{"op": "replace", "path": "/spec/importLists/0/monitor", "value": "none"},
 			{"op": "replace", "path": "/spec/delayProfiles/0/torrentDelay", "value": 20},
-			{"op": "replace", "path": "/spec/metadataProfiles/0/primaryAlbumTypes", "value": ["Album"]}
+			{"op": "replace", "path": "/spec/metadataProfiles/0/primaryAlbumTypes", "value": ["Album"]},
+			{"op": "replace", "path": "/spec/rootFolders/0/defaultMonitorOption", "value": "missing"},
+			{"op": "add", "path": "/spec/rootFolders/0/name", "value": "Compat Music"}
 		]`,
 		export: "lidarr",
 		vars: map[string]string{
@@ -306,7 +308,8 @@ func TestReadarr(t *testing.T) {
 			{"op": "replace", "path": "/spec/qualityProfiles/0/upgradeAllowed", "value": false},
 			{"op": "replace", "path": "/spec/notifications/0/onRename", "value": false},
 			{"op": "replace", "path": "/spec/delayProfiles/0/torrentDelay", "value": 45},
-			{"op": "replace", "path": "/spec/metadataProfiles/0/minPages", "value": 30}
+			{"op": "replace", "path": "/spec/metadataProfiles/0/minPages", "value": 30},
+			{"op": "replace", "path": "/spec/rootFolders/0/defaultTagLabels", "value": []}
 		]`,
 		export:  "readarr",
 		vars:    map[string]string{"URL": proxy.url(), "HOST": hostIP, "FAKES": fakes},
