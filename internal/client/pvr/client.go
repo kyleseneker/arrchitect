@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
+	pvrv1alpha1 "github.com/kyleseneker/arrchitect/api/pvr/v1alpha1"
 	"github.com/kyleseneker/arrchitect/internal/engine"
 	"github.com/kyleseneker/arrchitect/internal/metrics"
 	"github.com/kyleseneker/arrchitect/internal/reconciler"
@@ -74,6 +75,8 @@ func Definition(apiVersion string) engine.AppDefinition {
 		Resources: []engine.ResourceEndpoint{
 			// Tags first — other resources reference tag IDs. Not prunable (may be shared).
 			{Name: "tags", Path: prefix + "/tag", MatchField: "label", Policy: engine.CreateOrUpdate},
+			// Metadata profiles before root folders and import lists, which name them.
+			{Name: "metadataProfiles", Path: prefix + "/metadataprofile", MatchField: "name", Policy: engine.CreateOrUpdate, Prunable: true},
 			// Root folders not prunable (CreateOnly, destructive to remove).
 			{Name: "rootFolders", Path: prefix + "/rootfolder", MatchField: "path", Policy: engine.CreateOnly},
 			// Delay profiles reconcile in their own stage; this entry drives cleanup.
@@ -185,6 +188,10 @@ type Options struct {
 	Notifications    []commonv1alpha1.Notification
 	ImportLists      []commonv1alpha1.ImportList
 	ReleaseProfiles  []commonv1alpha1.ReleaseProfile
+	// LidarrMetadataProfiles and ReadarrMetadataProfiles are each app's own
+	// metadata profiles.
+	LidarrMetadataProfiles  []pvrv1alpha1.LidarrMetadataProfile
+	ReadarrMetadataProfiles []pvrv1alpha1.ReadarrMetadataProfile
 	// QualityDefinitions and DelayProfiles change items the app already has as
 	// well as adding to them.
 	QualityDefinitions []commonv1alpha1.QualityDefinition
@@ -226,6 +233,12 @@ func Resources(ctx context.Context, client *engine.HTTPClient, apiVersion string
 		build func() ([]map[string]any, error)
 	}{
 		{"tags", len(opts.Tags), func() ([]map[string]any, error) { return tagResources(opts.Tags), nil }},
+		{"metadataProfiles", len(opts.LidarrMetadataProfiles) + len(opts.ReadarrMetadataProfiles), func() ([]map[string]any, error) {
+			if len(opts.LidarrMetadataProfiles) > 0 {
+				return lidarrMetadataProfileResources(ctx, client, apiVersion, opts.LidarrMetadataProfiles)
+			}
+			return readarrMetadataProfileResources(ctx, client, apiVersion, opts.ReadarrMetadataProfiles)
+		}},
 		{"remotePathMappings", len(opts.RemotePathMappings), func() ([]map[string]any, error) {
 			return remotePathMappingResources(opts.RemotePathMappings)
 		}},
@@ -423,6 +436,7 @@ func importListResources(
 		if metadataProfiles, err = engine.FetchNamedIDs(ctx, client, fmt.Sprintf("/api/%s/metadataprofile", apiVersion), "name"); err != nil {
 			return nil, err
 		}
+		metadataProfiles.Plan(opts.planned["metadataProfiles"]...)
 	}
 	schema := opts.schema(ctx, client, apiVersion, "importlist")
 	ils := make([]map[string]any, 0, len(opts.ImportLists))
@@ -966,6 +980,12 @@ func plannedNames(opts Options) map[string][]string {
 	for _, cf := range opts.CustomFormats {
 		planned["customFormats"] = append(planned["customFormats"], cf.Name)
 	}
+	for _, mp := range opts.LidarrMetadataProfiles {
+		planned["metadataProfiles"] = append(planned["metadataProfiles"], mp.Name)
+	}
+	for _, mp := range opts.ReadarrMetadataProfiles {
+		planned["metadataProfiles"] = append(planned["metadataProfiles"], mp.Name)
+	}
 	return planned
 }
 
@@ -1277,6 +1297,7 @@ func rootFolderResources(ctx context.Context, client *engine.HTTPClient, apiVers
 		if metadata, err = engine.FetchNamedIDs(ctx, client, fmt.Sprintf("/api/%s/metadataprofile", apiVersion), "name"); err != nil {
 			return nil, err
 		}
+		metadata.Plan(opts.planned["metadataProfiles"]...)
 	}
 	rfs := make([]map[string]any, 0, len(opts.RootFolders))
 	for _, rf := range opts.RootFolders {

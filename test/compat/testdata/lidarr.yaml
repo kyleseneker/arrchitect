@@ -38,10 +38,19 @@ spec:
     timeFormat: "h(:mm)a"
     theme: dark
     uiLanguage: 1
+  metadataProfiles:
+    - name: Albums Only
+      primaryAlbumTypes:
+        - Album
+        - EP
+      secondaryAlbumTypes:
+        - Studio
+      releaseStatuses:
+        - Official
   rootFolders:
     - path: /data/media/music
       defaultQualityProfileName: Music
-      defaultMetadataProfileName: Standard
+      defaultMetadataProfileName: Albums Only
   remotePathMappings:
     - host: ${HOST}
       remotePath: /downloads/music
@@ -97,7 +106,7 @@ spec:
       enableAutomaticAdd: false
       monitor: entireArtist
       qualityProfileName: Music
-      metadataProfileName: Standard
+      metadataProfileName: Albums Only
       rootFolderPath: /data/media/music
       fields:
         - name: baseUrl

@@ -5,6 +5,56 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// ReadarrMetadataProfile defines a Readarr metadata profile. A setting left
+// out keeps what the profile has, or Readarr's default for a new profile.
+type ReadarrMetadataProfile struct {
+	// name identifies the profile.
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name,omitempty"`
+
+	// minPopularity skips books whose popularity, ratings times rating count,
+	// is below it. Readarr's own None profile sets 10000000000.
+	// +optional
+	// +kubebuilder:validation:Minimum=0
+	MinPopularity *int64 `json:"minPopularity,omitempty"`
+
+	// skipMissingDate skips books without a release date.
+	// +optional
+	SkipMissingDate *bool `json:"skipMissingDate,omitempty"`
+
+	// skipMissingIsbn skips books without an ISBN or ASIN.
+	// +optional
+	SkipMissingIsbn *bool `json:"skipMissingIsbn,omitempty"`
+
+	// skipPartsAndSets skips books that are parts of a book or sets of books.
+	// +optional
+	SkipPartsAndSets *bool `json:"skipPartsAndSets,omitempty"`
+
+	// skipSeriesSecondary skips secondary books in a series, such as companions.
+	// +optional
+	SkipSeriesSecondary *bool `json:"skipSeriesSecondary,omitempty"`
+
+	// allowedLanguages are the ISO 639-3 codes of the editions to allow, such
+	// as eng; "null" allows editions without a language. An empty list allows
+	// every language.
+	// +optional
+	// +listType=set
+	// +kubebuilder:validation:items:MinLength=1
+	AllowedLanguages []string `json:"allowedLanguages,omitempty"`
+
+	// minPages skips editions with fewer pages.
+	// +optional
+	// +kubebuilder:validation:Minimum=0
+	MinPages *int32 `json:"minPages,omitempty"`
+
+	// ignored are terms that skip a book whose title contains one.
+	// +optional
+	// +listType=set
+	// +kubebuilder:validation:items:MinLength=1
+	Ignored []string `json:"ignored,omitempty"`
+}
+
 // ReadarrSpec is a Readarr instance's connection and app-wide settings. Indexers
 // and download clients are resources of their own that refer to it.
 type ReadarrSpec struct {
@@ -79,6 +129,14 @@ type ReadarrSpec struct {
 	// +kubebuilder:validation:XValidation:rule="self.filter(p, !has(p.tagLabels) || size(p.tagLabels) == 0).size() <= 1",message="only one delay profile can be without tags"
 	// +listType=atomic
 	DelayProfiles []commonv1alpha1.DelayProfile `json:"delayProfiles,omitempty"`
+
+	// metadataProfiles defines metadata profiles, matched by name: which books
+	// Readarr considers for an author. Root folders and import lists can name a
+	// profile declared here.
+	// +optional
+	// +listType=map
+	// +listMapKey=name
+	MetadataProfiles []ReadarrMetadataProfile `json:"metadataProfiles,omitempty"`
 
 	// tags defines tags for linking resources together.
 	// +optional

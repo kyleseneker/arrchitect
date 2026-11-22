@@ -221,7 +221,8 @@ func TestLidarr(t *testing.T) {
 			{"op": "replace", "path": "/spec/qualityProfiles/0/upgradeAllowed", "value": false},
 			{"op": "replace", "path": "/spec/notifications/0/onRename", "value": false},
 			{"op": "replace", "path": "/spec/importLists/0/monitor", "value": "none"},
-			{"op": "replace", "path": "/spec/delayProfiles/0/torrentDelay", "value": 20}
+			{"op": "replace", "path": "/spec/delayProfiles/0/torrentDelay", "value": 20},
+			{"op": "replace", "path": "/spec/metadataProfiles/0/primaryAlbumTypes", "value": ["Album"]}
 		]`,
 		export: "lidarr",
 		vars: map[string]string{
@@ -286,7 +287,9 @@ func TestLidarr(t *testing.T) {
 			assert.InDelta(t, 30, list(profiles["default"]["items"])[0]["delay"], 0)
 		},
 		// The root folder defaults to this profile and is never deleted.
-		cleanup: ownedGone(directClient(t, lidarr.url(), key), pvrclient.Definition("v1"), "qualityProfiles/Music"),
+		// The root folder defaults to these, so the app keeps them.
+		cleanup: ownedGone(directClient(t, lidarr.url(), key), pvrclient.Definition("v1"),
+			"qualityProfiles/Music", "metadataProfiles/Albums Only"),
 	})
 }
 
@@ -302,7 +305,8 @@ func TestReadarr(t *testing.T) {
 		update: `[
 			{"op": "replace", "path": "/spec/qualityProfiles/0/upgradeAllowed", "value": false},
 			{"op": "replace", "path": "/spec/notifications/0/onRename", "value": false},
-			{"op": "replace", "path": "/spec/delayProfiles/0/torrentDelay", "value": 45}
+			{"op": "replace", "path": "/spec/delayProfiles/0/torrentDelay", "value": 45},
+			{"op": "replace", "path": "/spec/metadataProfiles/0/minPages", "value": 30}
 		]`,
 		export:  "readarr",
 		vars:    map[string]string{"URL": proxy.url(), "HOST": hostIP, "FAKES": fakes},
@@ -345,7 +349,9 @@ func TestReadarr(t *testing.T) {
 			assert.InDelta(t, 15, profiles["default"]["usenetDelay"], 0)
 		},
 		// The root folder defaults to this profile and is never deleted.
-		cleanup: ownedGone(directClient(t, readarr.url(), key), pvrclient.Definition("v1"), "qualityProfiles/Books"),
+		// The root folder defaults to these, so the app keeps them.
+		cleanup: ownedGone(directClient(t, readarr.url(), key), pvrclient.Definition("v1"),
+			"qualityProfiles/Books", "metadataProfiles/English Books"),
 	})
 }
 

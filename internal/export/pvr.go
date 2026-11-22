@@ -96,7 +96,52 @@ func (e *pvrExport) spec() (map[string]any, error) {
 	if e.app.ReleaseProfiles {
 		resources = append(resources, resource{"releaseProfiles", "/releaseprofile", "", e.releaseProfile})
 	}
+	switch e.app.Name {
+	case "lidarr":
+		resources = append(resources, resource{"metadataProfiles", "/metadataprofile", "", lidarrMetadataProfile})
+	case "readarr":
+		resources = append(resources, resource{"metadataProfiles", "/metadataprofile", "", readarrMetadataProfile})
+	}
 	return spec, e.resources(spec, resources)
+}
+
+func lidarrMetadataProfile(item map[string]any, _ map[string]map[string]any) map[string]any {
+	mp := pick(item, "name")
+	for _, list := range []struct{ field, key string }{
+		{"primaryAlbumTypes", "albumType"}, {"secondaryAlbumTypes", "albumType"}, {"releaseStatuses", "releaseStatus"},
+	} {
+		entries, ok := item[list.field].([]any)
+		if !ok {
+			continue
+		}
+		allowed := []any{}
+		for _, entry := range entries {
+			choice, _ := entry.(map[string]any)
+			if choice["allowed"] == true {
+				named, _ := choice[list.key].(map[string]any)
+				allowed = append(allowed, named["name"])
+			}
+		}
+		mp[list.field] = allowed
+	}
+	return mp
+}
+
+func readarrMetadataProfile(item map[string]any, _ map[string]map[string]any) map[string]any {
+	mp := pick(item, "name", "minPopularity", "skipMissingDate", "skipMissingIsbn", "skipPartsAndSets", "skipSeriesSecondary", "minPages")
+	if languages, _ := item["allowedLanguages"].(string); languages != "" {
+		var codes []any
+		for code := range strings.SplitSeq(languages, ",") {
+			if code = strings.TrimSpace(code); code != "" {
+				codes = append(codes, code)
+			}
+		}
+		mp["allowedLanguages"] = codes
+	}
+	if ignored, ok := item["ignored"].([]any); ok && len(ignored) > 0 {
+		mp["ignored"] = ignored
+	}
+	return mp
 }
 
 func (e *pvrExport) releaseProfile(item map[string]any, _ map[string]map[string]any) map[string]any {
