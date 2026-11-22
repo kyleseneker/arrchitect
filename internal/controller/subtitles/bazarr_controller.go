@@ -107,6 +107,11 @@ func (r *BazarrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		problems = append(problems, fmt.Sprintf("general: %v", err))
 	}
 	changes := bazarrChanges(desired, settings, profiles.stored(), enabled)
+	if items, err := r.bazarrNotificationChanges(ctx, config.Namespace, config.Spec.Notifications, settings); err != nil {
+		problems = append(problems, fmt.Sprintf("notifications: %v", err))
+	} else if len(items) > 0 {
+		changes[notificationsField] = items
+	}
 
 	if ctrlcommon.ObserveOnly(config.Spec.Reconcile) {
 		for key := range changes {
@@ -348,6 +353,53 @@ func (r *BazarrReconciler) bazarrProviderForm(ctx context.Context, namespace str
 
 // bazarrChanges returns the desired form fields whose value differs from what
 // Bazarr reports, so a reconcile writes nothing when nothing changed.
+// notificationsField carries each notification provider to change, as JSON.
+const notificationsField = "notifications-providers"
+
+// bazarrNotificationChanges is each declared notification provider whose
+// enabled flag or URL differs, as the JSON Bazarr's settings form takes. Bazarr
+// sets both from the item, so an unset one keeps its stored value.
+func (r *BazarrReconciler) bazarrNotificationChanges(
+	ctx context.Context, namespace string, declared []subtitlesv1alpha1.BazarrNotification, settings map[string]any,
+) ([]string, error) {
+	notifications, _ := settings["notifications"].(map[string]any)
+	providers, _ := notifications["providers"].([]any)
+	current := map[string]map[string]any{}
+	for _, p := range providers {
+		if provider, ok := p.(map[string]any); ok {
+			name, _ := provider["name"].(string)
+			current[name] = provider
+		}
+	}
+	var items []string
+	for _, n := range declared {
+		have, ok := current[n.Name]
+		if !ok {
+			return nil, fmt.Errorf("no notification provider is named %q", n.Name)
+		}
+		want := map[string]any{"name": n.Name, "enabled": have["enabled"], "url": have["url"]}
+		if n.Enabled != nil {
+			want["enabled"] = *n.Enabled
+		}
+		if n.URLSecretRef != nil {
+			u, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, namespace, *n.URLSecretRef)
+			if err != nil {
+				return nil, fmt.Errorf("%s url: %w", n.Name, err)
+			}
+			want["url"] = u
+		}
+		if want["enabled"] == have["enabled"] && want["url"] == have["url"] {
+			continue
+		}
+		raw, err := json.Marshal(want)
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, string(raw))
+	}
+	return items, nil
+}
+
 func bazarrChanges(desired url.Values, settings map[string]any, profiles []map[string]any, enabled []string) url.Values {
 	changes := url.Values{}
 	for key, values := range desired {
@@ -386,8 +438,11 @@ func bazarrDrift(changes url.Values) []string {
 }
 
 func bazarrSettingSection(key string) string {
-	if key == profilesField {
+	switch key {
+	case profilesField:
 		return "languages"
+	case notificationsField:
+		return "notifications"
 	}
 	section, _, _ := strings.Cut(strings.TrimPrefix(key, "settings-"), "-")
 	return section

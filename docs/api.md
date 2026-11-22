@@ -565,6 +565,25 @@ _Appears in:_
 | `profiles` _[BazarrLanguageProfile](#bazarrlanguageprofile) array_ | profiles defines language profiles for subtitle selection. |  | Optional: \{\} <br /> |
 
 
+#### BazarrNotification
+
+
+
+BazarrNotification sets up one of Bazarr's notification providers.
+
+_Validation:_
+- MinProperties: 2
+
+_Appears in:_
+- [BazarrSpec](#bazarrspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `name` _string_ | name is the provider, as Bazarr lists it, such as Discord or Telegram. |  | MinLength: 1 <br />Required: \{\} <br /> |
+| `enabled` _boolean_ | enabled turns the provider on. |  | Optional: \{\} <br /> |
+| `urlSecretRef` _[SecretKeyRef](#secretkeyref)_ | urlSecretRef is the Secret key holding the provider's Apprise URL, such<br />as discord://webhook_id/webhook_token. |  | Optional: \{\} <br /> |
+
+
 #### BazarrPathMapping
 
 
@@ -620,6 +639,7 @@ _Appears in:_
 | `sonarrConnection` _[BazarrAppConnection](#bazarrappconnection)_ | sonarrConnection configures the connection to a Sonarr instance. |  | MinProperties: 1 <br />Optional: \{\} <br /> |
 | `radarrConnection` _[BazarrAppConnection](#bazarrappconnection)_ | radarrConnection configures the connection to a Radarr instance. |  | MinProperties: 1 <br />Optional: \{\} <br /> |
 | `subSync` _[BazarrSubSync](#bazarrsubsync)_ | subSync configures subtitle synchronization settings. |  | Optional: \{\} <br /> |
+| `notifications` _[BazarrNotification](#bazarrnotification) array_ | notifications sets up Bazarr's notification providers, matched by name.<br />Bazarr lists every provider Apprise supports, and one left out keeps its<br />settings. |  | MinProperties: 2 <br />Optional: \{\} <br /> |
 | `providers` _[BazarrProvider](#bazarrprovider) array_ | providers defines subtitle provider configurations. |  | Optional: \{\} <br /> |
 | `languages` _[BazarrLanguages](#bazarrlanguages)_ | languages configures language settings and profiles. |  | Optional: \{\} <br /> |
 
@@ -3698,6 +3718,7 @@ _Appears in:_
 - [AutobrrIRCChannel](#autobrrircchannel)
 - [AutobrrIRCNetwork](#autobrrircnetwork)
 - [BazarrAppConnection](#bazarrappconnection)
+- [BazarrNotification](#bazarrnotification)
 - [DownloadClient](#downloadclient)
 - [JellyfinAdminUser](#jellyfinadminuser)
 - [JellyfinConnection](#jellyfinconnection)

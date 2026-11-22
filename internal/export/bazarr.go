@@ -80,6 +80,25 @@ func exportBazarr(r *reader) (map[string]any, error) {
 	if len(languages) > 0 {
 		spec["languages"] = languages
 	}
+	notifications, _ := settings["notifications"].(map[string]any)
+	notifiers, _ := notifications["providers"].([]any)
+	var enabledProviders []any
+	for _, p := range notifiers {
+		provider, _ := p.(map[string]any)
+		u, _ := provider["url"].(string)
+		if provider["enabled"] != true && u == "" {
+			continue
+		}
+		name, _ := provider["name"].(string)
+		notification := map[string]any{"name": name, "enabled": provider["enabled"] == true}
+		if u != "" {
+			notification["urlSecretRef"] = r.creds.ref(u, "notification", name, "url")
+		}
+		enabledProviders = append(enabledProviders, notification)
+	}
+	if len(enabledProviders) > 0 {
+		spec["notifications"] = enabledProviders
+	}
 	return spec, nil
 }
 
