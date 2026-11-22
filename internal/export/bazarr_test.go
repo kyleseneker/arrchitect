@@ -22,7 +22,9 @@ const fakeBazarrSettings = `{
 		"excluded_tags": ["no-subs"], "excluded_series_types": []},
 	"radarr": {"ip": "radarr", "apikey": "radarr-key"},
 	"subsync": {"use_subsync": true, "subsync_threshold": 90},
-	"opensubtitlescom": {"username": "me", "password": "hunter2", "use_hash": true, "vip": false, "extra": {"nested": 1}}
+	"opensubtitlescom": {"username": "me", "password": "hunter2", "use_hash": true, "vip": false, "extra": {"nested": 1}},
+	"notifications": {"providers": [{"name": "Discord", "enabled": true, "url": "discord://id/token"},
+		{"name": "Telegram", "enabled": false, "url": null}]}
 }`
 
 const fakeBazarrProfiles = `[
@@ -113,4 +115,14 @@ func TestBazarrProfilesWarnAboutWhatTheConfigWouldClear(t *testing.T) {
 		`must-not-contain or original-format setting, and applying the config would clear it`)
 	assert.Contains(t, res.Warnings, `language profile "Picky": Bazarr numbers its items differently than the config, `+
 		`so applying the config would renumber them`)
+}
+
+func TestBazarrExportsConfiguredNotificationProvidersWithTheirURLInTheSecret(t *testing.T) {
+	cfg, res := exportBazarrFrom(t)
+	require.Len(t, cfg.Spec.Notifications, 1, "a provider that's off and has no URL is Bazarr's default, not a setting")
+	n := cfg.Spec.Notifications[0]
+	assert.Equal(t, "Discord", n.Name)
+	assert.True(t, *n.Enabled)
+	require.NotNil(t, n.URLSecretRef)
+	assert.Equal(t, "discord://id/token", res.Secret.StringData[n.URLSecretRef.Key])
 }

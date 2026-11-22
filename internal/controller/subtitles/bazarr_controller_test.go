@@ -417,3 +417,42 @@ func TestBazarrMissingAppRefSkipsOnlyThatConnection(t *testing.T) {
 	require.NotNil(t, synced)
 	assert.Contains(t, synced.Message, `sonarrConnection: appRef: Sonarr "sonarr" not found`)
 }
+
+func bazarrNotificationSettings() map[string]any {
+	return map[string]any{"notifications": map[string]any{"providers": []any{
+		map[string]any{"name": "Discord", "enabled": false, "url": nil},
+		map[string]any{"name": "Telegram", "enabled": true, "url": "tgram://token/chat"},
+	}}}
+}
+
+func TestBazarrSetsANotificationProvidersURLFromItsSecret(t *testing.T) {
+	app := &fakeBazarr{settings: bazarrNotificationSettings()}
+	cfg := bazarrConfig(app.serve(t))
+	cfg.Spec.Notifications = []subtitlesv1alpha1.BazarrNotification{
+		{Name: "Discord", Enabled: new(true), URLSecretRef: &commonv1alpha1.SecretKeyRef{Name: "hooks", Key: "discord"}},
+		{Name: "Telegram", Enabled: new(true)},
+	}
+	hooks := &corev1.Secret{Name: "hooks", Namespace: "media", Data: map[string][]byte{"discord": []byte("discord://id/token")}}
+	runBazarr(t, cfg, bazarrSecrets(), hooks)
+
+	app.mu.Lock()
+	defer app.mu.Unlock()
+	var items []string
+	for _, form := range app.forms {
+		items = append(items, form["notifications-providers"]...)
+	}
+	assert.Equal(t, []string{`{"enabled":true,"name":"Discord","url":"discord://id/token"}`}, items,
+		"only the provider that differs is sent, with its URL from the Secret")
+}
+
+func TestBazarrReportsANotificationProviderItLacks(t *testing.T) {
+	app := &fakeBazarr{settings: bazarrNotificationSettings()}
+	cfg := bazarrConfig(app.serve(t))
+	cfg.Spec.Notifications = []subtitlesv1alpha1.BazarrNotification{{Name: "Carrier Pigeon", Enabled: new(true)}}
+	c := runBazarr(t, cfg, bazarrSecrets())
+
+	assert.Equal(t, string(metav1.ConditionFalse), bazarrCondition(t, c, "Synced"))
+	assert.Equal(t, conditionTrue, bazarrCondition(t, c, "Ready"), "a missing provider doesn't make Bazarr unreachable")
+	_, sent := app.formValue("notifications-providers")
+	assert.False(t, sent)
+}

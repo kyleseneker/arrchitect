@@ -372,6 +372,48 @@ spec:
                     - name
                     x-kubernetes-list-type: map
                 type: object
+              notifications:
+                description: |-
+                  notifications sets up Bazarr's notification providers, matched by name.
+                  Bazarr lists every provider Apprise supports, and one left out keeps its
+                  settings.
+                items:
+                  description: BazarrNotification sets up one of Bazarr's notification
+                    providers.
+                  minProperties: 2
+                  properties:
+                    enabled:
+                      description: enabled turns the provider on.
+                      type: boolean
+                    name:
+                      description: name is the provider, as Bazarr lists it, such
+                        as Discord or Telegram.
+                      minLength: 1
+                      type: string
+                    urlSecretRef:
+                      description: |-
+                        urlSecretRef is the Secret key holding the provider's Apprise URL, such
+                        as discord://webhook_id/webhook_token.
+                      properties:
+                        key:
+                          description: key is the key within the Secret.
+                          minLength: 1
+                          type: string
+                        name:
+                          description: name is the name of the Secret.
+                          minLength: 1
+                          type: string
+                      required:
+                      - key
+                      - name
+                      type: object
+                  required:
+                  - name
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
               providers:
                 description: providers defines subtitle provider configurations.
                 items:

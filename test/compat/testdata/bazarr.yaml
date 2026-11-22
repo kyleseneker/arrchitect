@@ -96,6 +96,12 @@ spec:
             hi: false
             forced: false
             audioExclude: false
+  notifications:
+    - name: Discord
+      enabled: true
+      urlSecretRef:
+        name: compat-credentials
+        key: discord-url
 ---
 apiVersion: arrchitect.dev/v1alpha1
 kind: Sonarr

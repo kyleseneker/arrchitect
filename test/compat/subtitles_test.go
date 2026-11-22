@@ -53,15 +53,18 @@ func TestBazarr(t *testing.T) {
 	checkCompat(t, compatCase{
 		fixture: "bazarr.yaml",
 		update: `[
-			{"op": "replace", "path": "/spec/general/minimumScore", "value": 85}
+			{"op": "replace", "path": "/spec/general/minimumScore", "value": 85},
+			{"op": "replace", "path": "/spec/notifications/0/enabled", "value": false}
 		]`,
 		export: "bazarr",
 		vars: map[string]string{
 			"URL": proxy.url(), "HOST": hostIP,
 			"SONARR_PORT": strconv.Itoa(sonarr.port), "RADARR_PORT": strconv.Itoa(radarr.port),
 		},
-		secrets: map[string]string{"api-key": key, "sonarr-api-key": sonarrKey, "radarr-api-key": radarrKey},
-		newObj:  func() ctrlcommon.ConfigResource { return &subtitlesv1alpha1.Bazarr{} },
+		secrets: map[string]string{
+			"api-key": key, "sonarr-api-key": sonarrKey, "radarr-api-key": radarrKey, "discord-url": "discord://compat/token",
+		},
+		newObj: func() ctrlcommon.ConfigResource { return &subtitlesv1alpha1.Bazarr{} },
 		reconciler: func(c client.Client) reconcile.Reconciler {
 			return &subtitles.BazarrReconciler{Client: c, Scheme: c.Scheme(), Recorder: events.NewFakeRecorder(100)}
 		},

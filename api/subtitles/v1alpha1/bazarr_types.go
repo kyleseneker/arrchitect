@@ -49,6 +49,14 @@ type BazarrSpec struct {
 	// +optional
 	SubSync *BazarrSubSync `json:"subSync,omitempty"`
 
+	// notifications sets up Bazarr's notification providers, matched by name.
+	// Bazarr lists every provider Apprise supports, and one left out keeps its
+	// settings.
+	// +optional
+	// +listType=map
+	// +listMapKey=name
+	Notifications []BazarrNotification `json:"notifications,omitempty"`
+
 	// providers defines subtitle provider configurations.
 	// +optional
 	// +listType=map
@@ -294,6 +302,24 @@ type BazarrAppConnection struct {
 	// excludeSeasonZero leaves out specials. Only applicable when used with Sonarr.
 	// +optional
 	ExcludeSeasonZero *bool `json:"excludeSeasonZero,omitempty"`
+}
+
+// BazarrNotification sets up one of Bazarr's notification providers.
+// +kubebuilder:validation:MinProperties=2
+type BazarrNotification struct {
+	// name is the provider, as Bazarr lists it, such as Discord or Telegram.
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name,omitempty"`
+
+	// enabled turns the provider on.
+	// +optional
+	Enabled *bool `json:"enabled,omitempty"`
+
+	// urlSecretRef is the Secret key holding the provider's Apprise URL, such
+	// as discord://webhook_id/webhook_token.
+	// +optional
+	URLSecretRef *commonv1alpha1.SecretKeyRef `json:"urlSecretRef,omitempty"`
 }
 
 // BazarrSubSync configures subtitle synchronization settings.
