@@ -13,8 +13,10 @@ import (
 )
 
 var fakeSeerrAPI = map[string]string{
-	"/api/v1/settings/main": `{"applicationTitle":"Requests","hideAvailable":true,"defaultPermissions":32,
-		"mediaServerType":2,"apiKey":"seerr-key"}`,
+	"/api/v1/settings/main": `{"applicationTitle":"Requests","applicationUrl":"","hideAvailable":true,"defaultPermissions":32,
+		"mediaServerType":2,"apiKey":"seerr-key","newPlexLogin":false,"discoverRegion":"US","streamingRegion":"",
+		"originalLanguage":"en|ja","blocklistLanguage":"","blocklistedTags":"210024,abc","blocklistedTagsLimit":"25",
+		"defaultQuotas":{"movie":{"quotaLimit":5,"quotaDays":0},"tv":{}}}`,
 	"/api/v1/settings/network":          `{"csrfProtection":false,"forceIpv4First":false,"trustProxy":true}`,
 	"/api/v1/settings/jellyfin":         `{"ip":"jellyfin","port":8096,"useSsl":false,"urlBase":"","name":"home"}`,
 	"/api/v1/settings/jellyfin/library": `[{"id":"m","name":"Movies","enabled":true},{"id":"h","name":"Home Videos","enabled":false}]`,
@@ -28,7 +30,8 @@ var fakeSeerrAPI = map[string]string{
 	"/api/v1/settings/notifications/telegram": `{"enabled":false}`,
 }
 
-func TestSeerrExportsSettingsServicesAndNotifications(t *testing.T) {
+func exportFakeSeerr(t *testing.T) (Result, *requestsv1alpha1.Seerr) {
+	t.Helper()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, ok := fakeSeerrAPI[r.URL.Path]
 		if !ok {
@@ -43,6 +46,11 @@ func TestSeerrExportsSettingsServicesAndNotifications(t *testing.T) {
 	require.NoError(t, err)
 	cfg, ok := res.Config.(*requestsv1alpha1.Seerr)
 	require.True(t, ok)
+	return res, cfg
+}
+
+func TestSeerrExportsSettingsServicesAndNotifications(t *testing.T) {
+	res, cfg := exportFakeSeerr(t)
 	assert.Equal(t, "Requests", cfg.Spec.Main.ApplicationTitle)
 	assert.Equal(t, int32(32), *cfg.Spec.Main.DefaultPermissions)
 
@@ -78,6 +86,29 @@ func TestSeerrExportsSettingsServicesAndNotifications(t *testing.T) {
 	webhook := fieldNamed(t, discord.Options, "webhookUrl")
 	require.NotZero(t, webhook.ValueFrom)
 	assert.Equal(t, "https://hook", res.Secret.StringData[webhook.ValueFrom.SecretKeyRef.Key])
+}
+
+// Seerr stores languages and tags as joined strings, and its web UI saves the
+// tag page limit as a string.
+func TestSeerrExportsMainListsQuotasAndStringNumbers(t *testing.T) {
+	res, cfg := exportFakeSeerr(t)
+	main := cfg.Spec.Main
+	require.NotNil(t, main)
+	assert.Empty(t, main.ApplicationUrl)
+	assert.Equal(t, "US", main.DiscoverRegion)
+	assert.Empty(t, main.StreamingRegion)
+	assert.Equal(t, []string{"en", "ja"}, main.OriginalLanguages)
+	assert.Empty(t, main.BlocklistLanguages)
+	assert.Equal(t, []int32{210024}, main.BlocklistedTags)
+	assert.Equal(t, int32(25), main.BlocklistedTagsLimit)
+	require.NotNil(t, main.NewMediaServerLogin)
+	assert.False(t, *main.NewMediaServerLogin)
+	require.NotNil(t, main.DefaultQuotas.Movie.Limit)
+	assert.Equal(t, int32(5), *main.DefaultQuotas.Movie.Limit)
+	require.NotNil(t, main.DefaultQuotas.Movie.Days)
+	assert.Equal(t, int32(0), *main.DefaultQuotas.Movie.Days)
+	assert.Zero(t, main.DefaultQuotas.TV, "Seerr has no TV quota stored")
+	assert.Contains(t, res.Warnings, `blocklisted tag "abc" isn't a TMDB keyword ID, so it isn't exported`)
 }
 
 func TestIsCredentialOption(t *testing.T) {

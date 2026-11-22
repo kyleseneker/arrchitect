@@ -247,6 +247,129 @@ type SeerrMain struct {
 	// +optional
 	// +kubebuilder:validation:MinLength=1
 	Locale string `json:"locale,omitempty"`
+
+	// newMediaServerLogin lets media server users sign in before they're
+	// imported, creating their Seerr user.
+	// +optional
+	NewMediaServerLogin *bool `json:"newMediaServerLogin,omitempty"`
+
+	// defaultQuotas limits how much users without a quota of their own can
+	// request.
+	// +optional
+	DefaultQuotas SeerrDefaultQuotas `json:"defaultQuotas,omitzero"`
+
+	// hideRequested hides requested media from discovery.
+	// +optional
+	HideRequested *bool `json:"hideRequested,omitempty"`
+
+	// hideBlocklisted hides blocklisted media from discovery for users who
+	// manage the blocklist.
+	// +optional
+	HideBlocklisted *bool `json:"hideBlocklisted,omitempty"`
+
+	// enableSpecialEpisodes lets users request a series' specials.
+	// +optional
+	EnableSpecialEpisodes *bool `json:"enableSpecialEpisodes,omitempty"`
+
+	// cacheImages caches images from TMDB and other sources, which takes a lot
+	// of disk space.
+	// +optional
+	CacheImages *bool `json:"cacheImages,omitempty"`
+
+	// versionCheck checks GitHub for new Seerr releases.
+	// +optional
+	VersionCheck *bool `json:"versionCheck,omitempty"`
+
+	// youtubeUrl is the base URL trailers play from, for a self-hosted
+	// YouTube frontend.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:Pattern=`^https?://`
+	YoutubeUrl string `json:"youtubeUrl,omitempty"`
+
+	// discoverRegion limits discovery to what's released in this ISO 3166-1
+	// region, such as US.
+	// +optional
+	// +kubebuilder:validation:MinLength=2
+	// +kubebuilder:validation:MaxLength=2
+	// +kubebuilder:validation:Pattern=`^[A-Z]{2}$`
+	DiscoverRegion string `json:"discoverRegion,omitempty"`
+
+	// streamingRegion is the ISO 3166-1 region whose streaming services Seerr
+	// shows.
+	// +optional
+	// +kubebuilder:validation:MinLength=2
+	// +kubebuilder:validation:MaxLength=2
+	// +kubebuilder:validation:Pattern=`^[A-Z]{2}$`
+	StreamingRegion string `json:"streamingRegion,omitempty"`
+
+	// originalLanguages limits discovery to media originally in these ISO
+	// 639-1 languages, such as en.
+	// +optional
+	// +listType=set
+	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:items:Pattern=`^[a-z]{2}$`
+	OriginalLanguages []string `json:"originalLanguages,omitempty"`
+
+	// blocklistedTags are TMDB keyword IDs whose media Seerr's Process
+	// Blocklisted Tags job adds to the blocklist. The job drops an ID TMDB
+	// doesn't know, and the operator puts it back.
+	// +optional
+	// +listType=set
+	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:items:Minimum=1
+	BlocklistedTags []int32 `json:"blocklistedTags,omitempty"`
+
+	// blocklistedTagsLimit is how many pages of results the job blocklists
+	// per tag and sort order. A new Seerr takes 50.
+	// +optional
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=250
+	BlocklistedTagsLimit int32 `json:"blocklistedTagsLimit,omitempty"`
+
+	// blocklistRegion is the ISO 3166-1 region the job searches, apart from
+	// discoverRegion.
+	// +optional
+	// +kubebuilder:validation:MinLength=2
+	// +kubebuilder:validation:MaxLength=2
+	// +kubebuilder:validation:Pattern=`^[A-Z]{2}$`
+	BlocklistRegion string `json:"blocklistRegion,omitempty"`
+
+	// blocklistLanguages limits the job to media originally in these ISO
+	// 639-1 languages, apart from originalLanguages.
+	// +optional
+	// +listType=set
+	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:items:Pattern=`^[a-z]{2}$`
+	BlocklistLanguages []string `json:"blocklistLanguages,omitempty"`
+}
+
+// SeerrDefaultQuotas sets the request quotas users get unless they have their own.
+// +kubebuilder:validation:MinProperties=1
+type SeerrDefaultQuotas struct {
+	// movie limits movie requests.
+	// +optional
+	Movie SeerrQuota `json:"movie,omitzero"`
+
+	// tv limits series requests, counted in seasons.
+	// +optional
+	TV SeerrQuota `json:"tv,omitzero"`
+}
+
+// SeerrQuota limits requests over a rolling window.
+// +kubebuilder:validation:MinProperties=1
+type SeerrQuota struct {
+	// limit is how many requests count before the user is stopped. 0 is
+	// unlimited.
+	// +optional
+	// +kubebuilder:validation:Minimum=0
+	Limit *int32 `json:"limit,omitempty"`
+
+	// days is the window, in days, that requests count toward limit. 0 counts
+	// every request ever made.
+	// +optional
+	// +kubebuilder:validation:Minimum=0
+	Days *int32 `json:"days,omitempty"`
 }
 
 // SeerrServiceConnection defines a connection to a Sonarr or Radarr instance.

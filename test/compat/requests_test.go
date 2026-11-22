@@ -107,15 +107,22 @@ func TestSeerr(t *testing.T) {
 		read: func(r request) bool {
 			return getOnly(r) || (r.Method == http.MethodPost && r.Path == "/api/v1/auth/jellyfin")
 		},
-		update: `[{"op": "replace", "path": "/spec/sonarr/0/externalUrl", "value": "https://tv.example.com"}]`,
+		update: `[{"op": "replace", "path": "/spec/sonarr/0/externalUrl", "value": "https://tv.example.com"},
+			{"op": "replace", "path": "/spec/main/defaultQuotas/movie/limit", "value": 3}]`,
 		verifyUpdate: func(t *testing.T) {
-			sonarrs, err := directClient(t, seerr.url(), seerrAPIKey(t)).GetJSONList(ctx, "/api/v1/settings/sonarr")
+			direct := directClient(t, seerr.url(), seerrAPIKey(t))
+			sonarrs, err := direct.GetJSONList(ctx, "/api/v1/settings/sonarr")
 			require.NoError(t, err)
 			urls := map[any]any{}
 			for _, s := range sonarrs {
 				urls[s["name"]] = s["externalUrl"]
 			}
 			assert.Equal(t, "https://tv.example.com", urls["Sonarr"], "Seerr didn't take the update to an existing server")
+			main, err := direct.GetJSON(ctx, "/api/v1/settings/main")
+			require.NoError(t, err)
+			quotas, _ := main["defaultQuotas"].(map[string]any)
+			assert.Equal(t, map[string]any{"quotaLimit": float64(3), "quotaDays": float64(7)}, quotas["movie"],
+				"Seerr didn't keep the quota days the update left alone")
 		},
 		verify: func(t *testing.T) {
 			resp, err := http.Get(seerr.url() + "/api/v1/settings/public")
@@ -136,6 +143,14 @@ func TestSeerr(t *testing.T) {
 			assert.NotContains(t, server, "hostname", "Seerr's settings migration rewrites the port from a stored hostname")
 
 			direct := directClient(t, seerr.url(), seerrAPIKey(t))
+			main, err := direct.GetJSON(ctx, "/api/v1/settings/main")
+			require.NoError(t, err)
+			assert.Equal(t, "en|ja", main["originalLanguage"])
+			assert.Equal(t, "210024", main["blocklistedTags"])
+			assert.Equal(t, true, main["newPlexLogin"])
+			quotas, _ := main["defaultQuotas"].(map[string]any)
+			assert.Equal(t, map[string]any{"quotaLimit": float64(10)}, quotas["tv"])
+
 			sonarrs, err := direct.GetJSONList(ctx, "/api/v1/settings/sonarr")
 			require.NoError(t, err)
 			require.Len(t, sonarrs, 2, "both declared Sonarr servers should be in Seerr")

@@ -2,10 +2,12 @@ package export
 
 import (
 	"errors"
+	"fmt"
 	"maps"
 	"net/http"
 	"reflect"
 	"slices"
+	"strconv"
 	"strings"
 
 	requestsv1alpha1 "github.com/kyleseneker/arrchitect/api/requests/v1alpha1"
@@ -38,7 +40,7 @@ func exportSeerr(r *reader) (map[string]any, error) {
 	if err != nil {
 		return nil, err
 	}
-	spec := map[string]any{"main": seerrFields(main, reflect.TypeFor[requestsv1alpha1.SeerrMain]())}
+	spec := map[string]any{"main": r.seerrMain(main)}
 	network, err := sc.Get(r.ctx, "/api/v1/settings/network")
 	if err != nil {
 		return nil, err
@@ -172,6 +174,55 @@ func (r *reader) seerrOptions(agent string, v any) (map[string]any, map[string]a
 		}
 	}
 	return options, secrets
+}
+
+func (r *reader) seerrMain(main map[string]any) map[string]any {
+	out := seerrFields(main, reflect.TypeFor[requestsv1alpha1.SeerrMain]())
+	delete(out, "blocklistedTags")
+	delete(out, "blocklistedTagsLimit")
+	if login, ok := main["newPlexLogin"].(bool); ok {
+		out["newMediaServerLogin"] = login
+	}
+	if limit, err := strconv.Atoi(fmt.Sprint(main["blocklistedTagsLimit"])); err == nil && limit > 0 {
+		out["blocklistedTagsLimit"] = limit
+	}
+	for key, field := range map[string]string{"originalLanguage": "originalLanguages", "blocklistLanguage": "blocklistLanguages"} {
+		if languages, _ := main[key].(string); languages != "" {
+			out[field] = strings.Split(languages, "|")
+		}
+	}
+	if tags, _ := main["blocklistedTags"].(string); tags != "" {
+		ids := []any{}
+		for tag := range strings.SplitSeq(tags, ",") {
+			id, err := strconv.Atoi(tag)
+			if err != nil || id < 1 {
+				r.warn("blocklisted tag %q isn't a TMDB keyword ID, so it isn't exported", tag)
+				continue
+			}
+			ids = append(ids, id)
+		}
+		if len(ids) > 0 {
+			out["blocklistedTags"] = ids
+		}
+	}
+	quotas := map[string]any{}
+	defaults, _ := main["defaultQuotas"].(map[string]any)
+	for _, kind := range []string{"movie", "tv"} {
+		q, _ := defaults[kind].(map[string]any)
+		quota := map[string]any{}
+		for from, to := range map[string]string{"quotaLimit": "limit", "quotaDays": "days"} {
+			if v, ok := q[from].(float64); ok {
+				quota[to] = v
+			}
+		}
+		if len(quota) > 0 {
+			quotas[kind] = quota
+		}
+	}
+	if len(quotas) > 0 {
+		out["defaultQuotas"] = quotas
+	}
+	return out
 }
 
 func seerrFields(values map[string]any, t reflect.Type) map[string]any {

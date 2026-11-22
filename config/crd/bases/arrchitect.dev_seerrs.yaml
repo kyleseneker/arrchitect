@@ -238,14 +238,122 @@ spec:
                     description: applicationUrl is the external URL for the application.
                     minLength: 1
                     type: string
+                  blocklistLanguages:
+                    description: |-
+                      blocklistLanguages limits the job to media originally in these ISO
+                      639-1 languages, apart from originalLanguages.
+                    items:
+                      pattern: ^[a-z]{2}$
+                      type: string
+                    minItems: 1
+                    type: array
+                    x-kubernetes-list-type: set
+                  blocklistRegion:
+                    description: |-
+                      blocklistRegion is the ISO 3166-1 region the job searches, apart from
+                      discoverRegion.
+                    maxLength: 2
+                    minLength: 2
+                    pattern: ^[A-Z]{2}$
+                    type: string
+                  blocklistedTags:
+                    description: |-
+                      blocklistedTags are TMDB keyword IDs whose media Seerr's Process
+                      Blocklisted Tags job adds to the blocklist. The job drops an ID TMDB
+                      doesn't know, and the operator puts it back.
+                    items:
+                      format: int32
+                      minimum: 1
+                      type: integer
+                    minItems: 1
+                    type: array
+                    x-kubernetes-list-type: set
+                  blocklistedTagsLimit:
+                    description: |-
+                      blocklistedTagsLimit is how many pages of results the job blocklists
+                      per tag and sort order. A new Seerr takes 50.
+                    format: int32
+                    maximum: 250
+                    minimum: 1
+                    type: integer
+                  cacheImages:
+                    description: |-
+                      cacheImages caches images from TMDB and other sources, which takes a lot
+                      of disk space.
+                    type: boolean
                   defaultPermissions:
                     description: defaultPermissions is the default permission bitmask
                       for new users.
                     format: int32
                     type: integer
+                  defaultQuotas:
+                    description: |-
+                      defaultQuotas limits how much users without a quota of their own can
+                      request.
+                    minProperties: 1
+                    properties:
+                      movie:
+                        description: movie limits movie requests.
+                        minProperties: 1
+                        properties:
+                          days:
+                            description: |-
+                              days is the window, in days, that requests count toward limit. 0 counts
+                              every request ever made.
+                            format: int32
+                            minimum: 0
+                            type: integer
+                          limit:
+                            description: |-
+                              limit is how many requests count before the user is stopped. 0 is
+                              unlimited.
+                            format: int32
+                            minimum: 0
+                            type: integer
+                        type: object
+                      tv:
+                        description: tv limits series requests, counted in seasons.
+                        minProperties: 1
+                        properties:
+                          days:
+                            description: |-
+                              days is the window, in days, that requests count toward limit. 0 counts
+                              every request ever made.
+                            format: int32
+                            minimum: 0
+                            type: integer
+                          limit:
+                            description: |-
+                              limit is how many requests count before the user is stopped. 0 is
+                              unlimited.
+                            format: int32
+                            minimum: 0
+                            type: integer
+                        type: object
+                    type: object
+                  discoverRegion:
+                    description: |-
+                      discoverRegion limits discovery to what's released in this ISO 3166-1
+                      region, such as US.
+                    maxLength: 2
+                    minLength: 2
+                    pattern: ^[A-Z]{2}$
+                    type: string
+                  enableSpecialEpisodes:
+                    description: enableSpecialEpisodes lets users request a series'
+                      specials.
+                    type: boolean
                   hideAvailable:
                     description: hideAvailable hides already-available media from
                       discovery.
+                    type: boolean
+                  hideBlocklisted:
+                    description: |-
+                      hideBlocklisted hides blocklisted media from discovery for users who
+                      manage the blocklist.
+                    type: boolean
+                  hideRequested:
+                    description: hideRequested hides requested media from discovery.
                     type: boolean
                   localLogin:
                     description: localLogin enables local user login.
@@ -258,10 +366,43 @@ spec:
                     description: mediaServerLogin enables login via the media server
                       (Jellyfin).
                     type: boolean
+                  newMediaServerLogin:
+                    description: |-
+                      newMediaServerLogin lets media server users sign in before they're
+                      imported, creating their Seerr user.
+                    type: boolean
+                  originalLanguages:
+                    description: |-
+                      originalLanguages limits discovery to media originally in these ISO
+                      639-1 languages, such as en.
+                    items:
+                      pattern: ^[a-z]{2}$
+                      type: string
+                    minItems: 1
+                    type: array
+                    x-kubernetes-list-type: set
                   partialRequestsEnabled:
                     description: partialRequestsEnabled enables partial season/episode
                       requests.
                     type: boolean
+                  streamingRegion:
+                    description: |-
+                      streamingRegion is the ISO 3166-1 region whose streaming services Seerr
+                      shows.
+                    maxLength: 2
+                    minLength: 2
+                    pattern: ^[A-Z]{2}$
+                    type: string
+                  versionCheck:
+                    description: versionCheck checks GitHub for new Seerr releases.
+                    type: boolean
+                  youtubeUrl:
+                    description: |-
+                      youtubeUrl is the base URL trailers play from, for a self-hosted
+                      YouTube frontend.
+                    minLength: 1
+                    pattern: ^https?://
+                    type: string
                 type: object
               network:
                 description: network configures how Seerr treats the network in front

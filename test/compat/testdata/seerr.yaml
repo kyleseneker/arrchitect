@@ -28,6 +28,23 @@ spec:
     defaultPermissions: 32
     partialRequestsEnabled: true
     locale: en
+    newMediaServerLogin: true
+    hideRequested: true
+    hideBlocklisted: true
+    enableSpecialEpisodes: true
+    cacheImages: false
+    versionCheck: false
+    youtubeUrl: https://youtube.example.com
+    discoverRegion: US
+    streamingRegion: GB
+    originalLanguages: [en, ja]
+    blocklistedTags: [210024]
+    blocklistedTagsLimit: 10
+    blocklistRegion: JP
+    blocklistLanguages: [ja]
+    defaultQuotas:
+      movie: {limit: 5, days: 7}
+      tv: {limit: 10}
   sonarr:
     - name: Sonarr
       appRef:
