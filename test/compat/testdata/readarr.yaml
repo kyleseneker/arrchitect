@@ -17,6 +17,13 @@ spec:
     rescanAfterRefresh: always
     minimumFreeSpaceWhenImporting: 100
     createEmptyAuthorFolders: false
+    fileDate: bookReleaseDate
+    chmodFolder: "775"
+    chownGroup: "1000"
+    autoUnmonitorPreviouslyDownloadedBooks: true
+    watchLibraryForChanges: false
+    allowFingerprinting: never
+    skipFreeSpaceCheckWhenImporting: true
   naming:
     renameBooks: true
     replaceIllegalCharacters: true

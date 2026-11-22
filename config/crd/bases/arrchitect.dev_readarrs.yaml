@@ -469,6 +469,32 @@ spec:
               mediaManagement:
                 description: mediaManagement configures media management settings.
                 properties:
+                  allowFingerprinting:
+                    description: |-
+                      allowFingerprinting matches books by fingerprint: never, for new
+                      files, or for all files.
+                    enum:
+                    - never
+                    - newFiles
+                    - allFiles
+                    type: string
+                  autoUnmonitorPreviouslyDownloadedBooks:
+                    description: |-
+                      autoUnmonitorPreviouslyDownloadedBooks unmonitors books deleted from
+                      disk.
+                    type: boolean
+                  chmodFolder:
+                    description: |-
+                      chmodFolder is the octal mode, such as 755, given to media folders
+                      when setPermissionsLinux is on. Files get it without the execute bits.
+                    minLength: 3
+                    pattern: ^[0-7]{3,4}$
+                    type: string
+                  chownGroup:
+                    description: |-
+                      chownGroup is the group name or gid given to imported files when
+                      setPermissionsLinux is on. An empty string leaves the group alone.
+                    type: string
                   copyUsingHardlinks:
                     description: copyUsingHardlinks uses hardlinks instead of copies
                       when importing.
@@ -493,6 +519,14 @@ spec:
                     description: extraFileExtensions is a comma-separated list of
                       extra file extensions to import.
                     minLength: 1
+                    type: string
+                  fileDate:
+                    description: |-
+                      fileDate sets an imported file's modified date: none keeps it,
+                      bookReleaseDate uses the book's release date.
+                    enum:
+                    - none
+                    - bookReleaseDate
                     type: string
                   importExtraFiles:
                     description: importExtraFiles imports additional files alongside
@@ -524,6 +558,14 @@ spec:
                   setPermissionsLinux:
                     description: setPermissionsLinux enables setting file permissions
                       on import.
+                    type: boolean
+                  skipFreeSpaceCheckWhenImporting:
+                    description: skipFreeSpaceCheckWhenImporting skips free space
+                      check during import.
+                    type: boolean
+                  watchLibraryForChanges:
+                    description: watchLibraryForChanges rescans when files in a root
+                      folder change.
                     type: boolean
                 type: object
               metadataProfiles:

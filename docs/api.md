@@ -1525,6 +1525,16 @@ _Appears in:_
 | `rescanAfterRefresh` _string_ | rescanAfterRefresh controls when to rescan artist folders. |  | Enum: [always afterManual never] <br />Optional: \{\} <br /> |
 | `setPermissionsLinux` _boolean_ | setPermissionsLinux enables setting file permissions on import. |  | Optional: \{\} <br /> |
 | `createEmptyArtistFolders` _boolean_ | createEmptyArtistFolders creates folders for artists with no files. |  | Optional: \{\} <br /> |
+| `fileDate` _string_ | fileDate sets an imported file's modified date: none keeps it,<br />albumReleaseDate uses the album's release date. |  | Enum: [none albumReleaseDate] <br />Optional: \{\} <br /> |
+| `chmodFolder` _string_ | chmodFolder is the octal mode, such as 755, given to media folders<br />when setPermissionsLinux is on. Files get it without the execute bits. |  | MinLength: 3 <br />Pattern: `^[0-7]\{3,4\}$` <br />Optional: \{\} <br /> |
+| `chownGroup` _string_ | chownGroup is the group name or gid given to imported files when<br />setPermissionsLinux is on. An empty string leaves the group alone. |  | Optional: \{\} <br /> |
+| `autoUnmonitorPreviouslyDownloadedTracks` _boolean_ | autoUnmonitorPreviouslyDownloadedTracks unmonitors tracks deleted from<br />disk. |  | Optional: \{\} <br /> |
+| `watchLibraryForChanges` _boolean_ | watchLibraryForChanges rescans when files in a root folder change. |  | Optional: \{\} <br /> |
+| `allowFingerprinting` _string_ | allowFingerprinting matches tracks by audio fingerprint: never, for new<br />files, or for all files. |  | Enum: [never newFiles allFiles] <br />Optional: \{\} <br /> |
+| `skipFreeSpaceCheckWhenImporting` _boolean_ | skipFreeSpaceCheckWhenImporting skips free space check during import. |  | Optional: \{\} <br /> |
+| `enableMediaInfo` _boolean_ | enableMediaInfo enables media info scanning. |  | Optional: \{\} <br /> |
+| `useScriptImport` _boolean_ | useScriptImport imports with the script at scriptImportPath instead of<br />copying or hardlinking. |  | Optional: \{\} <br /> |
+| `scriptImportPath` _string_ | scriptImportPath is the script run for each import when useScriptImport<br />is on. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 
 
 #### LidarrMetadataProfile
@@ -3014,6 +3024,11 @@ _Appears in:_
 | `rescanAfterRefresh` _string_ | rescanAfterRefresh controls when to rescan movie folders. |  | Enum: [always afterManual never] <br />Optional: \{\} <br /> |
 | `setPermissionsLinux` _boolean_ | setPermissionsLinux enables setting file permissions on import. |  | Optional: \{\} <br /> |
 | `skipFreeSpaceCheckWhenImporting` _boolean_ | skipFreeSpaceCheckWhenImporting skips free space check during import. |  | Optional: \{\} <br /> |
+| `fileDate` _string_ | fileDate sets an imported file's modified date: none keeps it, cinemas and<br />release use the movie's cinema or physical release date. |  | Enum: [none cinemas release] <br />Optional: \{\} <br /> |
+| `chmodFolder` _string_ | chmodFolder is the octal mode, such as 755, given to media folders<br />when setPermissionsLinux is on. Files get it without the execute bits. |  | MinLength: 3 <br />Pattern: `^[0-7]\{3,4\}$` <br />Optional: \{\} <br /> |
+| `chownGroup` _string_ | chownGroup is the group name or gid given to imported files when<br />setPermissionsLinux is on. An empty string leaves the group alone. |  | Optional: \{\} <br /> |
+| `useScriptImport` _boolean_ | useScriptImport imports with the script at scriptImportPath instead of<br />copying or hardlinking. |  | Optional: \{\} <br /> |
+| `scriptImportPath` _string_ | scriptImportPath is the script run for each import when useScriptImport<br />is on. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 
 
 #### RadarrNaming
@@ -3337,6 +3352,13 @@ _Appears in:_
 | `rescanAfterRefresh` _string_ | rescanAfterRefresh controls when to rescan author folders. |  | Enum: [always afterManual never] <br />Optional: \{\} <br /> |
 | `setPermissionsLinux` _boolean_ | setPermissionsLinux enables setting file permissions on import. |  | Optional: \{\} <br /> |
 | `createEmptyAuthorFolders` _boolean_ | createEmptyAuthorFolders creates folders for authors with no files. |  | Optional: \{\} <br /> |
+| `fileDate` _string_ | fileDate sets an imported file's modified date: none keeps it,<br />bookReleaseDate uses the book's release date. |  | Enum: [none bookReleaseDate] <br />Optional: \{\} <br /> |
+| `chmodFolder` _string_ | chmodFolder is the octal mode, such as 755, given to media folders<br />when setPermissionsLinux is on. Files get it without the execute bits. |  | MinLength: 3 <br />Pattern: `^[0-7]\{3,4\}$` <br />Optional: \{\} <br /> |
+| `chownGroup` _string_ | chownGroup is the group name or gid given to imported files when<br />setPermissionsLinux is on. An empty string leaves the group alone. |  | Optional: \{\} <br /> |
+| `autoUnmonitorPreviouslyDownloadedBooks` _boolean_ | autoUnmonitorPreviouslyDownloadedBooks unmonitors books deleted from<br />disk. |  | Optional: \{\} <br /> |
+| `watchLibraryForChanges` _boolean_ | watchLibraryForChanges rescans when files in a root folder change. |  | Optional: \{\} <br /> |
+| `allowFingerprinting` _string_ | allowFingerprinting matches books by fingerprint: never, for new<br />files, or for all files. |  | Enum: [never newFiles allFiles] <br />Optional: \{\} <br /> |
+| `skipFreeSpaceCheckWhenImporting` _boolean_ | skipFreeSpaceCheckWhenImporting skips free space check during import. |  | Optional: \{\} <br /> |
 
 
 #### ReadarrMetadataProfile
@@ -4251,6 +4273,12 @@ _Appears in:_
 | `episodeTitleRequired` _string_ | episodeTitleRequired controls when episode titles are required. |  | Enum: [always bulkSeasonReleases never] <br />Optional: \{\} <br /> |
 | `skipFreeSpaceCheckWhenImporting` _boolean_ | skipFreeSpaceCheckWhenImporting skips free space check during import. |  | Optional: \{\} <br /> |
 | `createEmptySeriesFolders` _boolean_ | createEmptySeriesFolders creates folders for series with no files. |  | Optional: \{\} <br /> |
+| `fileDate` _string_ | fileDate sets an imported file's modified date: none keeps it,<br />localAirDate and utcAirDate use the episode's air date. |  | Enum: [none localAirDate utcAirDate] <br />Optional: \{\} <br /> |
+| `chmodFolder` _string_ | chmodFolder is the octal mode, such as 755, given to media folders<br />when setPermissionsLinux is on. Files get it without the execute bits. |  | MinLength: 3 <br />Pattern: `^[0-7]\{3,4\}$` <br />Optional: \{\} <br /> |
+| `chownGroup` _string_ | chownGroup is the group name or gid given to imported files when<br />setPermissionsLinux is on. An empty string leaves the group alone. |  | Optional: \{\} <br /> |
+| `autoUnmonitorPreviouslyDownloadedEpisodes` _boolean_ | autoUnmonitorPreviouslyDownloadedEpisodes unmonitors episodes deleted from<br />disk. |  | Optional: \{\} <br /> |
+| `useScriptImport` _boolean_ | useScriptImport imports with the script at scriptImportPath instead of<br />copying or hardlinking. |  | Optional: \{\} <br /> |
+| `scriptImportPath` _string_ | scriptImportPath is the script run for each import when useScriptImport<br />is on. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 
 
 #### SonarrNaming

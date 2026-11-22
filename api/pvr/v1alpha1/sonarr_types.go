@@ -167,6 +167,40 @@ type SonarrMediaManagement struct {
 	// createEmptySeriesFolders creates folders for series with no files.
 	// +optional
 	CreateEmptySeriesFolders *bool `json:"createEmptySeriesFolders,omitempty"`
+
+	// fileDate sets an imported file's modified date: none keeps it,
+	// localAirDate and utcAirDate use the episode's air date.
+	// +optional
+	// +kubebuilder:validation:Enum=none;localAirDate;utcAirDate
+	FileDate string `json:"fileDate,omitempty"`
+
+	// chmodFolder is the octal mode, such as 755, given to media folders
+	// when setPermissionsLinux is on. Files get it without the execute bits.
+	// +optional
+	// +kubebuilder:validation:MinLength=3
+	// +kubebuilder:validation:Pattern=`^[0-7]{3,4}$`
+	ChmodFolder string `json:"chmodFolder,omitempty"`
+
+	// chownGroup is the group name or gid given to imported files when
+	// setPermissionsLinux is on. An empty string leaves the group alone.
+	// +optional
+	ChownGroup *string `json:"chownGroup,omitempty"`
+
+	// autoUnmonitorPreviouslyDownloadedEpisodes unmonitors episodes deleted from
+	// disk.
+	// +optional
+	AutoUnmonitorPreviouslyDownloadedEpisodes *bool `json:"autoUnmonitorPreviouslyDownloadedEpisodes,omitempty"`
+
+	// useScriptImport imports with the script at scriptImportPath instead of
+	// copying or hardlinking.
+	// +optional
+	UseScriptImport *bool `json:"useScriptImport,omitempty"`
+
+	// scriptImportPath is the script run for each import when useScriptImport
+	// is on.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	ScriptImportPath string `json:"scriptImportPath,omitempty"`
 }
 
 // SonarrNaming configures episode and folder naming conventions.

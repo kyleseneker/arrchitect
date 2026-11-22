@@ -21,6 +21,11 @@ spec:
     rescanAfterRefresh: always
     minimumFreeSpaceWhenImporting: 100
     skipFreeSpaceCheckWhenImporting: false
+    fileDate: cinemas
+    chmodFolder: "775"
+    chownGroup: "1000"
+    useScriptImport: false
+    scriptImportPath: /config/import.sh
   naming:
     renameMovies: true
     replaceIllegalCharacters: true

@@ -186,6 +186,58 @@ type LidarrMediaManagement struct {
 	// createEmptyArtistFolders creates folders for artists with no files.
 	// +optional
 	CreateEmptyArtistFolders *bool `json:"createEmptyArtistFolders,omitempty"`
+
+	// fileDate sets an imported file's modified date: none keeps it,
+	// albumReleaseDate uses the album's release date.
+	// +optional
+	// +kubebuilder:validation:Enum=none;albumReleaseDate
+	FileDate string `json:"fileDate,omitempty"`
+
+	// chmodFolder is the octal mode, such as 755, given to media folders
+	// when setPermissionsLinux is on. Files get it without the execute bits.
+	// +optional
+	// +kubebuilder:validation:MinLength=3
+	// +kubebuilder:validation:Pattern=`^[0-7]{3,4}$`
+	ChmodFolder string `json:"chmodFolder,omitempty"`
+
+	// chownGroup is the group name or gid given to imported files when
+	// setPermissionsLinux is on. An empty string leaves the group alone.
+	// +optional
+	ChownGroup *string `json:"chownGroup,omitempty"`
+
+	// autoUnmonitorPreviouslyDownloadedTracks unmonitors tracks deleted from
+	// disk.
+	// +optional
+	AutoUnmonitorPreviouslyDownloadedTracks *bool `json:"autoUnmonitorPreviouslyDownloadedTracks,omitempty"`
+
+	// watchLibraryForChanges rescans when files in a root folder change.
+	// +optional
+	WatchLibraryForChanges *bool `json:"watchLibraryForChanges,omitempty"`
+
+	// allowFingerprinting matches tracks by audio fingerprint: never, for new
+	// files, or for all files.
+	// +optional
+	// +kubebuilder:validation:Enum=never;newFiles;allFiles
+	AllowFingerprinting string `json:"allowFingerprinting,omitempty"`
+
+	// skipFreeSpaceCheckWhenImporting skips free space check during import.
+	// +optional
+	SkipFreeSpaceCheckWhenImporting *bool `json:"skipFreeSpaceCheckWhenImporting,omitempty"`
+
+	// enableMediaInfo enables media info scanning.
+	// +optional
+	EnableMediaInfo *bool `json:"enableMediaInfo,omitempty"`
+
+	// useScriptImport imports with the script at scriptImportPath instead of
+	// copying or hardlinking.
+	// +optional
+	UseScriptImport *bool `json:"useScriptImport,omitempty"`
+
+	// scriptImportPath is the script run for each import when useScriptImport
+	// is on.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	ScriptImportPath string `json:"scriptImportPath,omitempty"`
 }
 
 // LidarrNaming configures artist and track naming conventions.
