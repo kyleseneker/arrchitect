@@ -3,10 +3,16 @@
 package compat
 
 import (
+	"context"
+	"fmt"
+	"maps"
 	"os"
+	"slices"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
+	"github.com/testcontainers/testcontainers-go"
 )
 
 // The newest release of each app, which the suite runs against by default;
@@ -82,22 +88,62 @@ var previousMajorImages = map[string]string{
 // app's newest pin.
 func pinnedImage(t *testing.T, newest string) string {
 	t.Helper()
+	image, err := selectImage(newest)
+	require.NoError(t, err)
+	return image
+}
+
+func selectImage(newest string) (string, error) {
 	switch versions := os.Getenv("COMPAT_VERSIONS"); versions {
 	case "", "newest":
-		return newest
+		return newest, nil
 	case "oldest":
 		oldest, ok := oldestImages[newest]
-		require.True(t, ok, "no oldest pin for %s", newest)
-		return oldest
+		if !ok {
+			return "", fmt.Errorf("no oldest pin for %s", newest)
+		}
+		return oldest, nil
 	case "previous-major":
 		if previous, ok := previousMajorImages[newest]; ok {
-			return previous
+			return previous, nil
 		}
-		return newest
+		return newest, nil
 	default:
-		require.Failf(t, "unknown COMPAT_VERSIONS", "%q: use newest, oldest or previous-major", versions)
-		return ""
+		return "", fmt.Errorf("unknown COMPAT_VERSIONS %q: use newest, oldest or previous-major", versions)
 	}
+}
+
+// pullImages pulls each image the run uses once, retrying, before the cases
+// start. The cases start in parallel and often want the same image at once, and
+// a registry that throttles those pulls fails cases that have nothing to do
+// with it.
+func pullImages(ctx context.Context) error {
+	provider, err := testcontainers.NewDockerProvider()
+	if err != nil {
+		return err
+	}
+	defer func() { _ = provider.Close() }()
+	images := map[string]bool{}
+	for newest := range oldestImages {
+		image, err := selectImage(newest)
+		if err != nil {
+			return err
+		}
+		images[image] = true
+	}
+	for _, image := range slices.Sorted(maps.Keys(images)) {
+		for attempt := 1; ; attempt++ {
+			err := provider.PullImage(ctx, image)
+			if err == nil {
+				break
+			}
+			if attempt == 3 {
+				return fmt.Errorf("pulling %s: %w", image, err)
+			}
+			time.Sleep(time.Duration(attempt) * 15 * time.Second)
+		}
+	}
+	return nil
 }
 
 // atNewest reports whether the run uses every app's newest pin.
