@@ -136,9 +136,18 @@ spec:
       subtitleDownloadLanguages:
         - eng
       allowEmbeddedSubtitles: AllowText
+      enablePhotos: false
+      typeOptions:
+        - type: Movie
+          metadataFetchers: [The Open Movie Database, TheMovieDb]
     - name: TV Shows
       collectionType: tvshows
       paths:
         - /media/tv
+      enableAutomaticSeriesGrouping: false
+      localMetadataReaders: [Nfo]
+      typeOptions:
+        - type: Series
+          imageFetchers: [TheMovieDb]
       enableRealtimeMonitor: true
       automaticRefreshIntervalDays: 30

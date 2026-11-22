@@ -12,7 +12,8 @@ import (
 	mediaserversv1alpha1 "github.com/kyleseneker/arrchitect/api/mediaservers/v1alpha1"
 )
 
-func TestJellyfinExportsSettingsLibrariesAndTheAdminUser(t *testing.T) {
+func exportFakeJellyfin(t *testing.T, libraries string) (Result, *mediaserversv1alpha1.Jellyfin) {
+	t.Helper()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/Users/AuthenticateByName":
@@ -26,10 +27,7 @@ func TestJellyfinExportsSettingsLibrariesAndTheAdminUser(t *testing.T) {
 		case "/System/Configuration/network":
 			_, _ = w.Write([]byte(`{"BaseUrl":"/jf","InternalHttpPort":8096,"KnownProxies":["10.0.0.1"],"EnableRemoteAccess":true}`))
 		case "/Library/VirtualFolders":
-			_, _ = w.Write([]byte(`[
-				{"Name":"Movies","CollectionType":"movies","Locations":["/media/movies"],
-					"LibraryOptions":{"EnableRealtimeMonitor":true,"AutomaticRefreshIntervalDays":30}},
-				{"Name":"Everything","Locations":["/media/other"],"LibraryOptions":{}}]`))
+			_, _ = w.Write([]byte(libraries))
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}
@@ -40,6 +38,14 @@ func TestJellyfinExportsSettingsLibrariesAndTheAdminUser(t *testing.T) {
 	require.NoError(t, err)
 	cfg, ok := res.Config.(*mediaserversv1alpha1.Jellyfin)
 	require.True(t, ok)
+	return res, cfg
+}
+
+func TestJellyfinExportsSettingsLibrariesAndTheAdminUser(t *testing.T) {
+	res, cfg := exportFakeJellyfin(t, `[
+		{"Name":"Movies","CollectionType":"movies","Locations":["/media/movies"],
+			"LibraryOptions":{"EnableRealtimeMonitor":true,"AutomaticRefreshIntervalDays":30}},
+		{"Name":"Everything","Locations":["/media/other"],"LibraryOptions":{}}]`)
 	assert.Equal(t, "home", cfg.Spec.Server.ServerName)
 	assert.Equal(t, int32(3), *cfg.Spec.Server.LogFileRetentionDays)
 	assert.Equal(t, "vaapi", cfg.Spec.Encoding.HardwareAccelerationType)
@@ -58,4 +64,33 @@ func TestJellyfinExportsSettingsLibrariesAndTheAdminUser(t *testing.T) {
 	assert.Equal(t, "mixed", cfg.Spec.Libraries[1].CollectionType)
 	assert.Equal(t, "username", cfg.Spec.AdminUser.UsernameSecretRef.Key)
 	assert.Equal(t, map[string]string{"username": "admin", "password": "pw"}, res.Secret.StringData)
+}
+
+// Jellyfin keeps the fetchers a library disables and those a type option
+// enables, each beside an order; the config lists the ones used, in order.
+func TestJellyfinExportsFetchersAsTheOnesUsedInOrder(t *testing.T) {
+	res, cfg := exportFakeJellyfin(t, `[{"Name":"Shows","CollectionType":"tvshows","Locations":["/media/tv"],"LibraryOptions":{
+		"SubtitleFetcherOrder":["Podnapisi","Open Subtitles"],"DisabledSubtitleFetchers":["Podnapisi"],
+		"DisabledLyricFetchers":["LrcLib"],"LocalMetadataReaderOrder":null,"DisabledLocalMetadataReaders":[],
+		"CustomTagDelimiters":["/","|"],"DelimiterWhitelist":[],
+		"TypeOptions":[
+			{"Type":"Series","MetadataFetchers":["TheMovieDb","TheTVDB"],"MetadataFetcherOrder":["TheTVDB","Other","TheMovieDb"],
+				"ImageFetchers":["TheMovieDb"],"ImageFetcherOrder":[],"ImageOptions":[]},
+			{"Type":"Season","MetadataFetchers":[],"MetadataFetcherOrder":["TheMovieDb"],"ImageFetchers":[],"ImageFetcherOrder":[]},
+			{"Type":"Movie","MetadataFetchers":["TheMovieDb"],"ImageFetchers":[]}]}}]`)
+	require.Len(t, cfg.Spec.Libraries, 1)
+	lib := cfg.Spec.Libraries[0]
+	assert.Equal(t, []string{"Open Subtitles"}, lib.SubtitleFetchers)
+	assert.Empty(t, lib.LyricFetchers)
+	assert.Empty(t, lib.LocalMetadataReaders, "Jellyfin uses its own order when the library has none")
+	assert.Equal(t, []string{"/", "|"}, lib.CustomTagDelimiters)
+	assert.Equal(t, []mediaserversv1alpha1.JellyfinTypeOptions{
+		{Type: "Series", MetadataFetchers: []string{"TheTVDB", "TheMovieDb"}, ImageFetchers: []string{"TheMovieDb"}},
+	}, lib.TypeOptions)
+	assert.Contains(t, res.Warnings,
+		`library "Shows": the config can't express its lyricFetchers without an order that enables one, so they aren't exported`)
+	assert.Contains(t, res.Warnings,
+		`library "Shows": the config can't express Season with every metadata fetcher disabled, so they aren't exported`)
+	assert.Contains(t, res.Warnings,
+		`library "Shows": the config can't express options for Movie, which its collection type doesn't hold, so they aren't exported`)
 }

@@ -425,6 +425,30 @@ spec:
                       - books
                       - mixed
                       type: string
+                    customTagDelimiters:
+                      description: |-
+                        customTagDelimiters are the characters artist and genre tags are split
+                        on. A new library takes /, |, ; and \.
+                      items:
+                        minLength: 1
+                        type: string
+                      minItems: 1
+                      type: array
+                      x-kubernetes-list-type: set
+                    delimiterWhitelist:
+                      description: delimiterWhitelist are artist and genre names never
+                        split, such as AC/DC.
+                      items:
+                        minLength: 1
+                        type: string
+                      minItems: 1
+                      type: array
+                      x-kubernetes-list-type: set
+                    enableAutomaticSeriesGrouping:
+                      description: |-
+                        enableAutomaticSeriesGrouping merges a series spread across several
+                        folders into one.
+                      type: boolean
                     enableChapterImageExtraction:
                       description: enableChapterImageExtraction extracts chapter images
                         from videos.
@@ -447,6 +471,10 @@ spec:
                       description: enableLUFSScan measures loudness so audio plays
                         back at an even volume.
                       type: boolean
+                    enablePhotos:
+                      description: enablePhotos picks up photos alongside the other
+                        media.
+                      type: boolean
                     enableRealtimeMonitor:
                       description: enableRealtimeMonitor enables real-time monitoring
                         of library paths for changes.
@@ -465,6 +493,36 @@ spec:
                         extractTrickplayImagesDuringLibraryScan extracts trickplay images while
                         the library is scanned rather than in the nightly task.
                       type: boolean
+                    localMetadataReaders:
+                      description: |-
+                        localMetadataReaders are the readers of metadata files next to the
+                        media used, in priority order, such as Nfo. The rest are disabled.
+                      items:
+                        minLength: 1
+                        type: string
+                      minItems: 1
+                      type: array
+                      x-kubernetes-list-type: set
+                    lyricFetchers:
+                      description: |-
+                        lyricFetchers are the lyric downloaders used, in priority order. The
+                        rest are disabled.
+                      items:
+                        minLength: 1
+                        type: string
+                      minItems: 1
+                      type: array
+                      x-kubernetes-list-type: set
+                    mediaSegmentProviders:
+                      description: |-
+                        mediaSegmentProviders are the providers of intro, credits and other
+                        segments used, in priority order. The rest are disabled.
+                      items:
+                        minLength: 1
+                        type: string
+                      minItems: 1
+                      type: array
+                      x-kubernetes-list-type: set
                     metadataCountryCode:
                       description: metadataCountryCode overrides the server-level
                         metadata country code for this library.
@@ -490,6 +548,11 @@ spec:
                         type: string
                       type: array
                       x-kubernetes-list-type: set
+                    preferNonstandardArtistsTag:
+                      description: |-
+                        preferNonstandardArtistsTag reads artists from the ARTISTS tag, when a
+                        file has one, instead of ARTIST.
+                      type: boolean
                     preferredMetadataLanguage:
                       description: preferredMetadataLanguage overrides the server-level
                         preferred metadata language for this library.
@@ -503,6 +566,10 @@ spec:
                     saveLocalMetadata:
                       description: saveLocalMetadata saves artwork into the media
                         folders.
+                      type: boolean
+                    saveLyricsWithMedia:
+                      description: saveLyricsWithMedia saves downloaded lyrics next
+                        to the media.
                       type: boolean
                     saveSubtitlesWithMedia:
                       description: saveSubtitlesWithMedia saves downloaded subtitles
@@ -536,11 +603,97 @@ spec:
                         type: string
                       type: array
                       x-kubernetes-list-type: set
+                    subtitleFetchers:
+                      description: |-
+                        subtitleFetchers are the subtitle downloaders used, in priority order,
+                        such as Open Subtitles. The rest are disabled.
+                      items:
+                        minLength: 1
+                        type: string
+                      minItems: 1
+                      type: array
+                      x-kubernetes-list-type: set
+                    typeOptions:
+                      description: |-
+                        typeOptions picks, for each kind of item in the library, the metadata and
+                        image fetchers it uses, matched by type.
+                      items:
+                        description: |-
+                          JellyfinTypeOptions picks the fetchers one kind of item uses. Fetchers left
+                          out are disabled; a list left out stays as it is, or for a type the library
+                          has no options for yet, takes the fetchers Jellyfin enables by default.
+                        properties:
+                          imageFetchers:
+                            description: imageFetchers are the image fetchers used,
+                              in priority order.
+                            items:
+                              minLength: 1
+                              type: string
+                            minItems: 1
+                            type: array
+                            x-kubernetes-list-type: set
+                          metadataFetchers:
+                            description: |-
+                              metadataFetchers are the metadata fetchers used, in priority order, such
+                              as TheMovieDb.
+                            items:
+                              minLength: 1
+                              type: string
+                            minItems: 1
+                            type: array
+                            x-kubernetes-list-type: set
+                          type:
+                            description: type is the kind of item, which the library's
+                              collectionType must hold.
+                            enum:
+                            - Movie
+                            - Series
+                            - Season
+                            - Episode
+                            - MusicArtist
+                            - MusicAlbum
+                            - Audio
+                            - MusicVideo
+                            - Video
+                            - Photo
+                            - Book
+                            maxLength: 11
+                            type: string
+                        required:
+                        - type
+                        type: object
+                        x-kubernetes-validations:
+                        - message: set metadataFetchers, imageFetchers or both
+                          rule: has(self.metadataFetchers) || has(self.imageFetchers)
+                      maxItems: 4
+                      type: array
+                      x-kubernetes-list-map-keys:
+                      - type
+                      x-kubernetes-list-type: map
+                    useCustomTagDelimiters:
+                      description: |-
+                        useCustomTagDelimiters splits artist and genre tags on
+                        customTagDelimiters.
+                      type: boolean
                   required:
                   - collectionType
                   - name
                   - paths
                   type: object
+                  x-kubernetes-validations:
+                  - message: typeOptions names a type the library's collectionType
+                      doesn't hold
+                    rule: '!has(self.typeOptions) || (self.collectionType == ''movies''
+                      ? self.typeOptions.all(t, t.type == ''Movie'') : self.collectionType
+                      == ''tvshows'' ? self.typeOptions.all(t, t.type in [''Series'',
+                      ''Season'', ''Episode'']) : self.collectionType == ''music''
+                      ? self.typeOptions.all(t, t.type in [''MusicArtist'', ''MusicAlbum'',
+                      ''Audio'', ''MusicVideo'']) : self.collectionType == ''musicvideos''
+                      ? self.typeOptions.all(t, t.type == ''MusicVideo'') : self.collectionType
+                      == ''homevideos'' ? self.typeOptions.all(t, t.type in [''Video'',
+                      ''Photo'']) : self.collectionType == ''books'' ? self.typeOptions.all(t,
+                      t.type == ''Book'') : self.typeOptions.all(t, t.type in [''Series'',
+                      ''Season'', ''Episode'', ''Movie'']))'
                 type: array
                 x-kubernetes-list-map-keys:
                 - name

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 	"strconv"
 	"strings"
@@ -311,7 +312,10 @@ func reconcileJellyfinLibrary(ctx context.Context, jf *jellyfinclient.Client, li
 		return err
 	}
 	if current == nil {
-		options := jellyfinLibraryOptions(lib)
+		options, err := jellyfinLibraryDesired(ctx, jf, lib, nil)
+		if err != nil {
+			return err
+		}
 		options["PathInfos"] = buildPathInfos(lib.Paths)
 		return jf.CreateLibrary(ctx, lib.Name, lib.CollectionType, options)
 	}
@@ -347,11 +351,11 @@ func reconcileJellyfinLibrary(ctx context.Context, jf *jellyfinclient.Client, li
 			return fmt.Errorf("the library disappeared while its folders were changed")
 		}
 	}
-	declared := jellyfinLibraryOptions(lib)
-	if len(declared) == 0 {
-		return nil
-	}
 	options, _ := current["LibraryOptions"].(map[string]any)
+	declared, err := jellyfinLibraryDesired(ctx, jf, lib, options)
+	if err != nil || len(declared) == 0 {
+		return err
+	}
 	merged, differs, err := reconciler.MergeDesiredOverCurrent(options, declared)
 	if err != nil || !differs {
 		return err
@@ -385,19 +389,167 @@ func singleLibrary(libraries []map[string]any, field, name string) (map[string]a
 	return found, nil
 }
 
-// jellyfinLibraryOptions renders the declared library options under
-// Jellyfin's names.
 // jellyfinLibraryOptions is a library's declared options under Jellyfin's
-// names: every field but its name, type and folders.
+// names: every field but its name, type, folders and fetchers.
 func jellyfinLibraryOptions(lib mediaserversv1alpha1.JellyfinLibrary) map[string]any {
 	options, err := jellyfinSettings(lib)
 	if err != nil {
 		return map[string]any{}
 	}
-	for _, key := range []string{"Name", "CollectionType", "Paths"} {
+	for _, key := range []string{
+		"Name", "CollectionType", "Paths", "TypeOptions", "SubtitleFetchers", "LyricFetchers", "MediaSegmentProviders", "LocalMetadataReaders",
+	} {
 		delete(options, key)
 	}
 	return options
+}
+
+// jellyfinLibraryDesired is the options a library is to have: those declared,
+// and the fetchers, worked out against the options it has and the fetchers
+// Jellyfin offers.
+func jellyfinLibraryDesired(
+	ctx context.Context, jf *jellyfinclient.Client, lib mediaserversv1alpha1.JellyfinLibrary, current map[string]any,
+) (map[string]any, error) {
+	options := jellyfinLibraryOptions(lib)
+	if len(lib.TypeOptions) == 0 && len(lib.SubtitleFetchers) == 0 && len(lib.LyricFetchers) == 0 &&
+		len(lib.MediaSegmentProviders) == 0 && len(lib.LocalMetadataReaders) == 0 {
+		return options, nil
+	}
+	available, err := jf.AvailableLibraryOptions(ctx, lib.CollectionType)
+	if err != nil {
+		return nil, fmt.Errorf("listing the library's fetchers: %w", err)
+	}
+	maps.Copy(options, jellyfinFetchers(lib, current, available))
+	return options, nil
+}
+
+// jellyfinFetchers turns the declared fetchers, each list the ones used in
+// priority order, into what Jellyfin stores. A library keeps the fetchers it
+// disables and an order; a type option keeps the ones it enables.
+func jellyfinFetchers(lib mediaserversv1alpha1.JellyfinLibrary, current, available map[string]any) map[string]any {
+	out := map[string]any{}
+	for _, f := range []struct {
+		declared                   []string
+		disabled, order, available string
+	}{
+		{lib.SubtitleFetchers, "DisabledSubtitleFetchers", "SubtitleFetcherOrder", "SubtitleFetchers"},
+		{lib.LyricFetchers, "DisabledLyricFetchers", "LyricFetcherOrder", "LyricFetchers"},
+		{lib.MediaSegmentProviders, "DisabledMediaSegmentProviders", "MediaSegmentProviderOrder", "MediaSegmentProviders"},
+		{lib.LocalMetadataReaders, "DisabledLocalMetadataReaders", "LocalMetadataReaderOrder", "MetadataReaders"},
+	} {
+		if len(f.declared) == 0 {
+			continue
+		}
+		known := optionNames(available[f.available], false)
+		order := stringList(current[f.order])
+		out[f.order] = ranked(f.declared, order, known)
+		disabled := slices.DeleteFunc(ranked(nil, known, order, stringList(current[f.disabled])), func(name string) bool {
+			return slices.Contains(f.declared, name)
+		})
+		out[f.disabled] = sameSetOr(stringList(current[f.disabled]), disabled)
+	}
+	if len(lib.TypeOptions) > 0 {
+		out["TypeOptions"] = jellyfinTypeOptions(lib.TypeOptions, current["TypeOptions"], available["TypeOptions"])
+	}
+	return out
+}
+
+// jellyfinTypeOptions is the library's type options with the declared ones
+// applied. A type the library has no options for starts from the fetchers
+// Jellyfin enables without them, so a list left out changes nothing.
+func jellyfinTypeOptions(declared []mediaserversv1alpha1.JellyfinTypeOptions, current, available any) []any {
+	var entries []any
+	for _, e := range listOf(current) {
+		entries = append(entries, maps.Clone(e))
+	}
+	offered := listOf(available)
+	for _, t := range declared {
+		var avail map[string]any
+		if i := slices.IndexFunc(offered, func(o map[string]any) bool { return strings.EqualFold(fmt.Sprint(o["Type"]), t.Type) }); i >= 0 {
+			avail = offered[i]
+		}
+		var entry map[string]any
+		if i := slices.IndexFunc(entries, func(e any) bool {
+			m, _ := e.(map[string]any)
+			return strings.EqualFold(fmt.Sprint(m["Type"]), t.Type)
+		}); i >= 0 {
+			entry, _ = entries[i].(map[string]any)
+		} else {
+			entry = map[string]any{"Type": t.Type}
+			for _, kind := range []string{"Metadata", "Image"} {
+				entry[kind+"Fetchers"] = optionNames(avail[kind+"Fetchers"], true)
+				entry[kind+"FetcherOrder"] = optionNames(avail[kind+"Fetchers"], false)
+			}
+			entries = append(entries, entry)
+		}
+		for kind, fetchers := range map[string][]string{"Metadata": t.MetadataFetchers, "Image": t.ImageFetchers} {
+			if len(fetchers) == 0 {
+				continue
+			}
+			entry[kind+"Fetchers"] = sameSetOr(stringList(entry[kind+"Fetchers"]), fetchers)
+			entry[kind+"FetcherOrder"] = ranked(fetchers, stringList(entry[kind+"FetcherOrder"]), optionNames(avail[kind+"Fetchers"], false))
+		}
+	}
+	return entries
+}
+
+// ranked is first, then the names of rest not already in it, in order.
+func ranked(first []string, rest ...[]string) []string {
+	out := append([]string{}, first...)
+	for _, names := range rest {
+		for _, name := range names {
+			if !slices.Contains(out, name) {
+				out = append(out, name)
+			}
+		}
+	}
+	return out
+}
+
+// sameSetOr keeps current when it holds the same names as want, so a list
+// whose order means nothing isn't rewritten for its order.
+func sameSetOr(current, want []string) []string {
+	if len(current) == len(want) && !slices.ContainsFunc(want, func(name string) bool { return !slices.Contains(current, name) }) {
+		return current
+	}
+	return want
+}
+
+// optionNames is the names of the options Jellyfin offers, or with enabled
+// set, those it enables by default.
+func optionNames(v any, enabled bool) []string {
+	names := []string{}
+	for _, o := range listOf(v) {
+		if on, _ := o["DefaultEnabled"].(bool); enabled && !on {
+			continue
+		}
+		if name, ok := o["Name"].(string); ok {
+			names = append(names, name)
+		}
+	}
+	return names
+}
+
+func stringList(v any) []string {
+	raw, _ := v.([]any)
+	out := make([]string, 0, len(raw))
+	for _, item := range raw {
+		if s, ok := item.(string); ok {
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
+func listOf(v any) []map[string]any {
+	raw, _ := v.([]any)
+	out := make([]map[string]any, 0, len(raw))
+	for _, item := range raw {
+		if m, ok := item.(map[string]any); ok {
+			out = append(out, m)
+		}
+	}
+	return out
 }
 
 // jellyfinCollectionType is a library's type; Jellyfin leaves a mixed
@@ -501,7 +653,12 @@ func observeJellyfinConfig(ctx context.Context, jf *jellyfinclient.Client, spec 
 			"CollectionType": library.CollectionType,
 			"Locations":      slices.Sorted(slices.Values(cleanPaths(library.Paths))),
 		}
-		if options := jellyfinLibraryOptions(library); len(options) > 0 {
+		existingOptions, _ := current["LibraryOptions"].(map[string]any)
+		options, err := jellyfinLibraryDesired(ctx, jf, library, existingOptions)
+		if err != nil {
+			return err
+		}
+		if len(options) > 0 {
 			desired["LibraryOptions"] = options
 		}
 		if err := w.Compare("libraries", library.Name, current, desired); err != nil {

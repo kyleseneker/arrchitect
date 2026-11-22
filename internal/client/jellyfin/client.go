@@ -156,6 +156,17 @@ func (c *Client) RemoveLibraryPath(ctx context.Context, library, path string) er
 	return c.hc.DeleteJSON(ctx, "/Library/VirtualFolders/Paths?"+params.Encode())
 }
 
+// AvailableLibraryOptions lists the fetchers, readers and providers a library
+// of the collection type can use, with the ones Jellyfin enables when a
+// library has no say of its own. A mixed library has no collection type.
+func (c *Client) AvailableLibraryOptions(ctx context.Context, collectionType string) (map[string]any, error) {
+	params := url.Values{"isNewLibrary": {"false"}}
+	if collectionType != "" && collectionType != "mixed" {
+		params.Set("libraryContentType", collectionType)
+	}
+	return c.hc.GetJSON(ctx, "/Libraries/AvailableOptions?"+params.Encode())
+}
+
 // UpdateLibraryOptions replaces a library's options, which include its folders.
 func (c *Client) UpdateLibraryOptions(ctx context.Context, id string, options map[string]any) error {
 	return c.hc.PostJSON(ctx, "/Library/VirtualFolders/LibraryOptions", map[string]any{"Id": id, "LibraryOptions": options})
