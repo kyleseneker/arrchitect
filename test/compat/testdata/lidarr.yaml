@@ -156,6 +156,7 @@ spec:
     name: lidarr
   name: Compat Torznab
   protocol: torrent
+  downloadClientName: qBittorrent
   implementation: Torznab
   enableRss: true
   enableAutomaticSearch: true

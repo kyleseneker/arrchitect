@@ -310,6 +310,7 @@ func indexerResources(
 	ctx context.Context, client *engine.HTTPClient, apiVersion string, opts Options, tagIDs engine.NamedIDs,
 ) ([]map[string]any, error) {
 	schema := opts.schema(ctx, client, apiVersion, "indexer")
+	var clients engine.NamedIDs
 	idxs := make([]map[string]any, 0, len(opts.Indexers))
 	for _, idx := range opts.Indexers {
 		tags, err := tagIDs.ResolveTags(idx.TagLabels)
@@ -318,7 +319,20 @@ func indexerResources(
 		}
 		idx.ConfigContract = SchemaConfigContract(schema, idx.Implementation, idx.ConfigContract)
 		idx.Protocol = SchemaProtocol(schema, idx.Implementation, idx.Protocol)
-		idxs = append(idxs, BuildIndexerPayload(idx, tags))
+		payload := BuildIndexerPayload(idx, tags)
+		if idx.DownloadClientName != "" {
+			if clients == nil {
+				if clients, err = engine.FetchNamedIDs(ctx, client, fmt.Sprintf("/api/%s/downloadclient", apiVersion), "name"); err != nil {
+					return nil, err
+				}
+			}
+			id, err := clients.Resolve(idx.DownloadClientName)
+			if err != nil {
+				return nil, fmt.Errorf("indexers(%s): download client: %w", idx.Name, err)
+			}
+			payload["downloadClientId"] = id
+		}
+		idxs = append(idxs, payload)
 	}
 	return idxs, nil
 }

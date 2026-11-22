@@ -612,6 +612,13 @@ type Indexer struct {
 	// +optional
 	EnableInteractiveSearch *bool `json:"enableInteractiveSearch,omitempty"`
 
+	// downloadClientName names the download client that gets this indexer's
+	// releases, resolved against the app on each reconciliation. Left out, the
+	// app picks a client for the release's protocol.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	DownloadClientName string `json:"downloadClientName,omitempty"`
+
 	// tagLabels references tags by label, resolved against the app on each
 	// reconciliation. A missing or ambiguous label blocks writes, and an empty
 	// list clears the tags.

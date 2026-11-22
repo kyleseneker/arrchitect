@@ -235,6 +235,47 @@ func TestIndexerObjectReadsItsFieldsFromSecrets(t *testing.T) {
 	assert.Equal(t, []string{"NZBgeek"}, idx.GetManagedResources()["indexers"])
 }
 
+func reconcileIndexerWithClient(t *testing.T, clientName string) (*fakeArr, *pvrv1alpha1.SonarrIndexer) {
+	t.Helper()
+	fa, url := newFakeArr(t, "v3", map[string][]map[string]any{
+		"downloadclient": {{"id": float64(4), "name": "qBittorrent"}, {"id": float64(7), "name": "SABnzbd"}},
+	})
+	idx := &pvrv1alpha1.SonarrIndexer{
+		Name: "tv-nzbgeek", Namespace: "media",
+		Spec: pvrv1alpha1.SonarrIndexerSpec{
+			SonarrRef: commonv1alpha1.LocalObjectReference{Name: "tv"},
+			Indexer: commonv1alpha1.Indexer{
+				Name: "NZBgeek", Protocol: "usenet", Implementation: "Newznab", DownloadClientName: clientName,
+			},
+		},
+	}
+	c := objectClient(t, apiKeySecret(), sonarrInstanceAt(url, nil), idx)
+	r := &SonarrIndexerReconciler{Client: c, Scheme: c.Scheme(), Recorder: events.NewFakeRecorder(50)}
+	_, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: client.ObjectKeyFromObject(idx)})
+	require.NoError(t, err)
+	require.NoError(t, c.Get(context.Background(), client.ObjectKeyFromObject(idx), idx))
+	return fa, idx
+}
+
+func TestIndexerObjectPinsItsDownloadClientByName(t *testing.T) {
+	fa, _ := reconcileIndexerWithClient(t, "SABnzbd")
+
+	sent := fa.sent(fa.path("indexer"))
+	require.Len(t, sent, 1)
+	assert.Equal(t, float64(7), sent[0]["downloadClientId"])
+}
+
+func TestIndexerObjectReportsADownloadClientTheAppLacks(t *testing.T) {
+	fa, idx := reconcileIndexerWithClient(t, "NZBGet")
+
+	assert.Empty(t, fa.sent(fa.path("indexer")), "wrote the indexer without its download client")
+	synced := apimeta.FindStatusCondition(idx.Status.Conditions, "Synced")
+	require.NotNil(t, synced)
+	assert.Equal(t, metav1.ConditionFalse, synced.Status)
+	assert.Contains(t, synced.Message, "download client")
+	assert.Contains(t, synced.Message, "NZBGet")
+}
+
 func TestInstanceChangeRequeuesOnlyItsObjects(t *testing.T) {
 	named := func(namespace, name, instance string) *pvrv1alpha1.SonarrDownloadClient {
 		dc := sonarrDownloadClient()
