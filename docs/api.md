@@ -3925,6 +3925,24 @@ _Appears in:_
 | `tls` _[TLSConfig](#tlsconfig)_ | tls configures TLS settings for the connection.<br />Only needed when Seerr uses HTTPS with self-signed or private CA certificates. |  | Optional: \{\} <br /> |
 
 
+#### SeerrDefaultQuotas
+
+
+
+SeerrDefaultQuotas sets the request quotas users get unless they have their own.
+
+_Validation:_
+- MinProperties: 1
+
+_Appears in:_
+- [SeerrMain](#seerrmain)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `movie` _[SeerrQuota](#seerrquota)_ | movie limits movie requests. |  | MinProperties: 1 <br />Optional: \{\} <br /> |
+| `tv` _[SeerrQuota](#seerrquota)_ | tv limits series requests, counted in seasons. |  | MinProperties: 1 <br />Optional: \{\} <br /> |
+
+
 #### SeerrJellyfinAuth
 
 
@@ -3969,6 +3987,21 @@ _Appears in:_
 | `defaultPermissions` _integer_ | defaultPermissions is the default permission bitmask for new users. |  | Optional: \{\} <br /> |
 | `partialRequestsEnabled` _boolean_ | partialRequestsEnabled enables partial season/episode requests. |  | Optional: \{\} <br /> |
 | `locale` _string_ | locale is the application locale (e.g., "en"). |  | MinLength: 1 <br />Optional: \{\} <br /> |
+| `newMediaServerLogin` _boolean_ | newMediaServerLogin lets media server users sign in before they're<br />imported, creating their Seerr user. |  | Optional: \{\} <br /> |
+| `defaultQuotas` _[SeerrDefaultQuotas](#seerrdefaultquotas)_ | defaultQuotas limits how much users without a quota of their own can<br />request. |  | MinProperties: 1 <br />Optional: \{\} <br /> |
+| `hideRequested` _boolean_ | hideRequested hides requested media from discovery. |  | Optional: \{\} <br /> |
+| `hideBlocklisted` _boolean_ | hideBlocklisted hides blocklisted media from discovery for users who<br />manage the blocklist. |  | Optional: \{\} <br /> |
+| `enableSpecialEpisodes` _boolean_ | enableSpecialEpisodes lets users request a series' specials. |  | Optional: \{\} <br /> |
+| `cacheImages` _boolean_ | cacheImages caches images from TMDB and other sources, which takes a lot<br />of disk space. |  | Optional: \{\} <br /> |
+| `versionCheck` _boolean_ | versionCheck checks GitHub for new Seerr releases. |  | Optional: \{\} <br /> |
+| `youtubeUrl` _string_ | youtubeUrl is the base URL trailers play from, for a self-hosted<br />YouTube frontend. |  | MinLength: 1 <br />Pattern: `^https?://` <br />Optional: \{\} <br /> |
+| `discoverRegion` _string_ | discoverRegion limits discovery to what's released in this ISO 3166-1<br />region, such as US. |  | MaxLength: 2 <br />MinLength: 2 <br />Pattern: `^[A-Z]\{2\}$` <br />Optional: \{\} <br /> |
+| `streamingRegion` _string_ | streamingRegion is the ISO 3166-1 region whose streaming services Seerr<br />shows. |  | MaxLength: 2 <br />MinLength: 2 <br />Pattern: `^[A-Z]\{2\}$` <br />Optional: \{\} <br /> |
+| `originalLanguages` _string array_ | originalLanguages limits discovery to media originally in these ISO<br />639-1 languages, such as en. |  | MinItems: 1 <br />items:Pattern: `^[a-z]\{2\}$` <br />Optional: \{\} <br /> |
+| `blocklistedTags` _integer array_ | blocklistedTags are TMDB keyword IDs whose media Seerr's Process<br />Blocklisted Tags job adds to the blocklist. The job drops an ID TMDB<br />doesn't know, and the operator puts it back. |  | MinItems: 1 <br />items:Minimum: 1 <br />Optional: \{\} <br /> |
+| `blocklistedTagsLimit` _integer_ | blocklistedTagsLimit is how many pages of results the job blocklists<br />per tag and sort order. A new Seerr takes 50. |  | Maximum: 250 <br />Minimum: 1 <br />Optional: \{\} <br /> |
+| `blocklistRegion` _string_ | blocklistRegion is the ISO 3166-1 region the job searches, apart from<br />discoverRegion. |  | MaxLength: 2 <br />MinLength: 2 <br />Pattern: `^[A-Z]\{2\}$` <br />Optional: \{\} <br /> |
+| `blocklistLanguages` _string array_ | blocklistLanguages limits the job to media originally in these ISO<br />639-1 languages, apart from originalLanguages. |  | MinItems: 1 <br />items:Pattern: `^[a-z]\{2\}$` <br />Optional: \{\} <br /> |
 
 
 #### SeerrNetwork
@@ -4028,6 +4061,24 @@ _Appears in:_
 | `port` _integer_ | port is the Plex server port. Defaults to 32400. |  | Optional: \{\} <br /> |
 | `useSsl` _boolean_ | useSsl enables SSL for the Plex connection. |  | Optional: \{\} <br /> |
 | `tokenSecretRef` _[SecretKeyRef](#secretkeyref)_ | tokenSecretRef references a Secret containing the Plex auth token. |  | Optional: \{\} <br /> |
+
+
+#### SeerrQuota
+
+
+
+SeerrQuota limits requests over a rolling window.
+
+_Validation:_
+- MinProperties: 1
+
+_Appears in:_
+- [SeerrDefaultQuotas](#seerrdefaultquotas)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `limit` _integer_ | limit is how many requests count before the user is stopped. 0 is<br />unlimited. |  | Minimum: 0 <br />Optional: \{\} <br /> |
+| `days` _integer_ | days is the window, in days, that requests count toward limit. 0 counts<br />every request ever made. |  | Minimum: 0 <br />Optional: \{\} <br /> |
 
 
 #### SeerrServiceConnection

@@ -592,32 +592,7 @@ func buildServicePayload(svc *requestsv1alpha1.SeerrServiceConnection, apiKey st
 }
 
 func reconcileSeerrMainSettings(ctx context.Context, sc *seerrclient.Client, w *engine.Writes, main *requestsv1alpha1.SeerrMain) error {
-	payload := map[string]any{}
-	if main.ApplicationTitle != "" {
-		payload["applicationTitle"] = main.ApplicationTitle
-	}
-	if main.ApplicationUrl != "" {
-		payload["applicationUrl"] = main.ApplicationUrl
-	}
-	if main.HideAvailable != nil {
-		payload["hideAvailable"] = *main.HideAvailable
-	}
-	if main.LocalLogin != nil {
-		payload["localLogin"] = *main.LocalLogin
-	}
-	if main.MediaServerLogin != nil {
-		payload["mediaServerLogin"] = *main.MediaServerLogin
-	}
-	if main.DefaultPermissions != nil {
-		payload["defaultPermissions"] = *main.DefaultPermissions
-	}
-	if main.PartialRequestsEnabled != nil {
-		payload["partialRequestsEnabled"] = *main.PartialRequestsEnabled
-	}
-	if main.Locale != "" {
-		payload["locale"] = main.Locale
-	}
-
+	payload := seerrMainPayload(main)
 	if len(payload) == 0 {
 		return nil
 	}
@@ -633,6 +608,60 @@ func reconcileSeerrMainSettings(ctx context.Context, sc *seerrclient.Client, w *
 		_, err := sc.Post(ctx, "/api/v1/settings/main", payload)
 		return err
 	})
+}
+
+func seerrMainPayload(main *requestsv1alpha1.SeerrMain) map[string]any {
+	payload := map[string]any{}
+	for key, value := range map[string]string{
+		"applicationTitle": main.ApplicationTitle, "applicationUrl": main.ApplicationUrl, "locale": main.Locale,
+		"youtubeUrl": main.YoutubeUrl, "discoverRegion": main.DiscoverRegion, "streamingRegion": main.StreamingRegion,
+		"blocklistRegion":  main.BlocklistRegion,
+		"originalLanguage": strings.Join(main.OriginalLanguages, "|"), "blocklistLanguage": strings.Join(main.BlocklistLanguages, "|"),
+	} {
+		if value != "" {
+			payload[key] = value
+		}
+	}
+	for key, value := range map[string]*bool{
+		"hideAvailable": main.HideAvailable, "hideRequested": main.HideRequested, "hideBlocklisted": main.HideBlocklisted,
+		"localLogin": main.LocalLogin, "mediaServerLogin": main.MediaServerLogin, "newPlexLogin": main.NewMediaServerLogin,
+		"partialRequestsEnabled": main.PartialRequestsEnabled, "enableSpecialEpisodes": main.EnableSpecialEpisodes,
+		"cacheImages": main.CacheImages, "versionCheck": main.VersionCheck,
+	} {
+		if value != nil {
+			payload[key] = *value
+		}
+	}
+	if main.DefaultPermissions != nil {
+		payload["defaultPermissions"] = *main.DefaultPermissions
+	}
+	if len(main.BlocklistedTags) > 0 {
+		ids := make([]string, 0, len(main.BlocklistedTags))
+		for _, id := range main.BlocklistedTags {
+			ids = append(ids, strconv.Itoa(int(id)))
+		}
+		payload["blocklistedTags"] = strings.Join(ids, ",")
+	}
+	if main.BlocklistedTagsLimit != 0 {
+		payload["blocklistedTagsLimit"] = main.BlocklistedTagsLimit
+	}
+	quotas := map[string]any{}
+	for kind, q := range map[string]requestsv1alpha1.SeerrQuota{"movie": main.DefaultQuotas.Movie, "tv": main.DefaultQuotas.TV} {
+		quota := map[string]any{}
+		if q.Limit != nil {
+			quota["quotaLimit"] = *q.Limit
+		}
+		if q.Days != nil {
+			quota["quotaDays"] = *q.Days
+		}
+		if len(quota) > 0 {
+			quotas[kind] = quota
+		}
+	}
+	if len(quotas) > 0 {
+		payload["defaultQuotas"] = quotas
+	}
+	return payload
 }
 
 func reconcileSeerrNetwork(ctx context.Context, sc *seerrclient.Client, w *engine.Writes, network requestsv1alpha1.SeerrNetwork) error {

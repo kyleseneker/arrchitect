@@ -682,6 +682,46 @@ func TestSeerrServiceFieldsAllReachThePayload(t *testing.T) {
 		})
 }
 
+func TestSeerrMainFieldsAllReachThePayload(t *testing.T) {
+	contract.AssertEveryFieldEmitted(t, &requestsv1alpha1.SeerrMain{}, seerrMainPayload, func(m *requestsv1alpha1.SeerrMain) {
+		m.OriginalLanguages = []string{"en"}
+		m.BlocklistLanguages = []string{"en"}
+		m.BlocklistedTags = []int32{1}
+		m.DefaultQuotas.Movie.Limit = new(int32)
+	})
+}
+
+// Seerr keeps languages and tags as joined strings, and merges a partial
+// quota into the stored one.
+func TestSeerrMainPayloadUsesSeerrsShapes(t *testing.T) {
+	five, week, unlimited := int32(5), int32(7), int32(0)
+	payload := seerrMainPayload(&requestsv1alpha1.SeerrMain{
+		OriginalLanguages:   []string{"en", "ja"},
+		BlocklistedTags:     []int32{210024, 9663},
+		NewMediaServerLogin: new(bool),
+		DefaultQuotas: requestsv1alpha1.SeerrDefaultQuotas{
+			Movie: requestsv1alpha1.SeerrQuota{Limit: &five, Days: &week},
+			TV:    requestsv1alpha1.SeerrQuota{Limit: &unlimited},
+		},
+	})
+	assert.Equal(t, map[string]any{
+		"originalLanguage": "en|ja",
+		"blocklistedTags":  "210024,9663",
+		"newPlexLogin":     false,
+		"defaultQuotas": map[string]any{
+			"movie": map[string]any{"quotaLimit": int32(5), "quotaDays": int32(7)},
+			"tv":    map[string]any{"quotaLimit": int32(0)},
+		},
+	}, payload)
+	assert.False(t, seerrDiffers(map[string]any{
+		"originalLanguage": "en|ja", "blocklistedTags": "210024,9663", "newPlexLogin": false,
+		"defaultQuotas": map[string]any{
+			"movie": map[string]any{"quotaLimit": float64(5), "quotaDays": float64(7)},
+			"tv":    map[string]any{"quotaLimit": float64(0), "quotaDays": float64(30)},
+		},
+	}, payload), "what Seerr stores back matches")
+}
+
 // Seerr rejects a new server that omits these, so they are sent even when the
 // resource leaves them out.
 func TestSeerrSendsWhatANewServerRequires(t *testing.T) {

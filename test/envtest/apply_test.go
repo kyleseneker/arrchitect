@@ -261,6 +261,22 @@ func TestAdmissionRules(t *testing.T) {
   connection: {url: http://seerr:5055}
   jellyfinAuth: {}`,
 			rejected: "should have at least 1 properties"},
+		{name: "Seerr discovery, blocklist and quota settings", kind: "Seerr", spec: `
+  connection: {url: http://seerr:5055}
+  main:
+    discoverRegion: US
+    originalLanguages: [en, ja]
+    blocklistedTags: [210024]
+    blocklistedTagsLimit: 250
+    defaultQuotas: {movie: {limit: 0, days: 7}, tv: {limit: 10}}`},
+		{name: "a lowercase Seerr discover region", kind: "Seerr", spec: `
+  connection: {url: http://seerr:5055}
+  main: {discoverRegion: us}`,
+			rejected: "should match"},
+		{name: "an empty Seerr movie quota", kind: "Seerr", spec: `
+  connection: {url: http://seerr:5055}
+  main: {defaultQuotas: {movie: {}}}`,
+			rejected: "should have at least 1 properties"},
 		{name: "a Seerr plexAuth by reference and hostname", kind: "Seerr", spec: `
   connection: {url: http://seerr:5055}
   plexAuth: {appRef: {kind: Plex, name: plex}, hostname: plex}`,
