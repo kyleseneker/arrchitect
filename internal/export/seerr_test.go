@@ -15,7 +15,8 @@ import (
 var fakeSeerrAPI = map[string]string{
 	"/api/v1/settings/main": `{"applicationTitle":"Requests","hideAvailable":true,"defaultPermissions":32,
 		"mediaServerType":2,"apiKey":"seerr-key"}`,
-	"/api/v1/settings/jellyfin": `{"ip":"jellyfin","port":8096,"useSsl":false,"urlBase":"","name":"home"}`,
+	"/api/v1/settings/jellyfin":         `{"ip":"jellyfin","port":8096,"useSsl":false,"urlBase":"","name":"home"}`,
+	"/api/v1/settings/jellyfin/library": `[{"id":"m","name":"Movies","enabled":true},{"id":"h","name":"Home Videos","enabled":false}]`,
 	"/api/v1/settings/sonarr": `[
 		{"id":0,"name":"Sonarr 4K","hostname":"sonarr4k","port":8989,"apiKey":"k4k","is4k":true,"isDefault":true},
 		{"id":1,"name":"Sonarr","hostname":"sonarr","port":8989,"apiKey":"sonarr-key","is4k":false,"isDefault":true,
@@ -48,6 +49,7 @@ func TestSeerrExportsSettingsServicesAndNotifications(t *testing.T) {
 	assert.Equal(t, "jellyfin", cfg.Spec.JellyfinAuth.Hostname)
 	assert.Equal(t, int32(8096), *cfg.Spec.JellyfinAuth.Port)
 	assert.ElementsMatch(t, []string{"jellyfin-username", "jellyfin-password"}, res.Unfilled)
+	assert.Equal(t, []string{"Movies"}, cfg.Spec.Libraries, "only the enabled libraries are exported")
 
 	require.Len(t, cfg.Spec.Sonarr, 2, "every server is exported")
 	fourK, sonarr := cfg.Spec.Sonarr[0], cfg.Spec.Sonarr[1]

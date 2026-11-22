@@ -216,6 +216,18 @@ spec:
                     && !has(self.useSsl) && !has(self.urlBase) && !has(self.usernameSecretRef)
                     && !has(self.passwordSecretRef) : has(self.hostname) && has(self.port)
                     && has(self.usernameSecretRef) && has(self.passwordSecretRef)'
+              libraries:
+                description: |-
+                  libraries names the media server's libraries Seerr shows and takes
+                  requests for. Those are enabled and the rest disabled, on every pass.
+                  Left out, first-time setup enables every library and later passes leave
+                  them as they are.
+                items:
+                  minLength: 1
+                  type: string
+                minItems: 1
+                type: array
+                x-kubernetes-list-type: set
               main:
                 description: main configures general application settings.
                 properties:
@@ -842,6 +854,8 @@ spec:
             x-kubernetes-validations:
             - message: jellyfinAuth and plexAuth are mutually exclusive
               rule: '!(has(self.jellyfinAuth) && has(self.plexAuth))'
+            - message: libraries needs jellyfinAuth or plexAuth
+              rule: '!has(self.libraries) || has(self.jellyfinAuth) || has(self.plexAuth)'
           status:
             description: status is the observed state of the Seerr.
             minProperties: 1
