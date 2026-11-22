@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"maps"
+	"net/netip"
 	"reflect"
 	"slices"
 	"strconv"
@@ -18,6 +19,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
+	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
 	downloadsv1alpha1 "github.com/kyleseneker/arrchitect/api/downloads/v1alpha1"
 	qbclient "github.com/kyleseneker/arrchitect/internal/client/qbittorrent"
 	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
@@ -74,11 +76,14 @@ func (r *QBittorrentReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{RequeueAfter: 60 * time.Second}, nil
 	}
 
+	secret := func(ref commonv1alpha1.SecretKeyRef) (string, error) {
+		return reconciler.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, ref)
+	}
 	owned := engine.NewOwnership("qbittorrent", config.GetManagedResources())
 	prune := ctrlcommon.PruneEnabled(config.Spec.Reconcile)
 	if ctrlcommon.ObserveOnly(config.Spec.Reconcile) {
 		observed := &engine.Writes{App: "qbittorrent", Observe: true}
-		err := observeQBConfig(ctx, qb, config.Spec, prune, owned, observed)
+		err := observeQBConfig(ctx, qb, config.Spec, prune, owned, observed, secret)
 		ctrlcommon.UpdateObservationStatus(ctx, r.Client, &config, observed.Drift(), err)
 		return ctrl.Result{RequeueAfter: ctrlcommon.ReconcileInterval(config.Spec.Reconcile)}, nil
 	}
@@ -87,7 +92,7 @@ func (r *QBittorrentReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	// Reconcile preferences
 	if config.Spec.Preferences != nil {
-		if err := reconcileQBPreferences(ctx, qb, config.Spec.Preferences); err != nil {
+		if err := reconcileQBPreferences(ctx, qb, config.Spec.Preferences, secret); err != nil {
 			logger.Error(err, "failed to reconcile preferences")
 			syncErrors = append(syncErrors, fmt.Sprintf("preferences: %v", err))
 		}
@@ -104,8 +109,11 @@ func (r *QBittorrentReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	return ctrl.Result{RequeueAfter: ctrlcommon.ReconcileInterval(config.Spec.Reconcile)}, nil
 }
 
+// secretResolver reads a Secret key the resource refers to.
+type secretResolver func(commonv1alpha1.SecretKeyRef) (string, error)
+
 // qbPreferencePayload maps spec fields to the keys qBittorrent's API expects.
-func qbPreferencePayload(prefs *downloadsv1alpha1.QBittorrentPreferences) (map[string]any, error) {
+func qbPreferencePayload(prefs *downloadsv1alpha1.QBittorrentPreferences, secret secretResolver) (map[string]any, error) {
 	out := map[string]any{}
 	v := reflect.ValueOf(prefs).Elem()
 	for i := range v.NumField() {
@@ -136,6 +144,31 @@ func qbPreferencePayload(prefs *downloadsv1alpha1.QBittorrentPreferences) (map[s
 	}
 	if len(prefs.WebUIReverseProxiesList) > 0 {
 		out["web_ui_reverse_proxies_list"] = strings.Join(prefs.WebUIReverseProxiesList, ";")
+	}
+	if len(prefs.BannedIPs) > 0 {
+		ips, err := qbBannedIPs(prefs.BannedIPs)
+		if err != nil {
+			return nil, err
+		}
+		out["banned_IPs"] = ips
+	}
+	if len(prefs.AddTrackers) > 0 {
+		out["add_trackers"] = strings.Join(prefs.AddTrackers, "\n\n")
+	}
+	for key, ref := range map[string]*commonv1alpha1.SecretKeyRef{
+		"proxy_username": prefs.ProxyUsernameSecretRef, "proxy_password": prefs.ProxyPasswordSecretRef,
+	} {
+		if ref == nil {
+			continue
+		}
+		if secret == nil {
+			return nil, fmt.Errorf("%s refers to a Secret, which can't be read here", key)
+		}
+		value, err := secret(*ref)
+		if err != nil {
+			return nil, fmt.Errorf("resolving %s: %w", key, err)
+		}
+		out[key] = value
 	}
 	if prefs.SchedulerDays != "" {
 		days, ok := qbclient.SchedulerDays[prefs.SchedulerDays]
@@ -174,6 +207,21 @@ func qbPreferencePayload(prefs *downloadsv1alpha1.QBittorrentPreferences) (map[s
 	}
 
 	return out, nil
+}
+
+// qbBannedIPs is the banned addresses as qBittorrent stores them: in RFC 5952
+// form, sorted, once each, a line apiece.
+func qbBannedIPs(ips []string) (string, error) {
+	out := make([]string, 0, len(ips))
+	for _, ip := range ips {
+		addr, err := netip.ParseAddr(ip)
+		if err != nil {
+			return "", fmt.Errorf("bannedIps: %q isn't an IP address", ip)
+		}
+		out = append(out, addr.String())
+	}
+	slices.Sort(out)
+	return strings.Join(slices.Compact(out), "\n"), nil
 }
 
 // qbLimitPairs are the share limits qBittorrent reads as a pair: it applies a
@@ -221,8 +269,10 @@ func qbPath(p string) string {
 
 // reconcileQBPreferences writes only when qBittorrent's preferences differ;
 // setPreferences on every pass would re-apply listen and WebUI settings.
-func reconcileQBPreferences(ctx context.Context, qb *qbclient.Client, prefs *downloadsv1alpha1.QBittorrentPreferences) error {
-	payload, err := qbPreferencePayload(prefs)
+func reconcileQBPreferences(
+	ctx context.Context, qb *qbclient.Client, prefs *downloadsv1alpha1.QBittorrentPreferences, secret secretResolver,
+) error {
+	payload, err := qbPreferencePayload(prefs, secret)
 	if err != nil {
 		return err
 	}
@@ -349,10 +399,10 @@ func (r *QBittorrentReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 func observeQBConfig(
 	ctx context.Context, qb *qbclient.Client, spec downloadsv1alpha1.QBittorrentSpec, prune bool,
-	owned *engine.Ownership, w *engine.Writes,
+	owned *engine.Ownership, w *engine.Writes, secret secretResolver,
 ) error {
 	if spec.Preferences != nil {
-		desired, err := qbPreferencePayload(spec.Preferences)
+		desired, err := qbPreferencePayload(spec.Preferences, secret)
 		if err != nil {
 			return err
 		}

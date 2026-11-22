@@ -233,6 +233,19 @@ func TestAdmissionRules(t *testing.T) {
     passwordSecretRef: {name: app, key: password}
   libraries: [{name: Movies, collectionType: movies, paths: [/movies], typeOptions: [{type: Movie}]}]`,
 			rejected: "set metadataFetchers, imageFetchers or both"},
+		{name: "qBittorrent banned addresses", kind: "QBittorrent", spec: `
+  connection:
+    url: http://qbittorrent:8080
+    usernameSecretRef: {name: app, key: username}
+    passwordSecretRef: {name: app, key: password}
+  preferences: {bannedIps: [10.0.0.2, "2001:db8::1"], proxyType: SOCKS5, proxyPort: 1080}`},
+		{name: "a qBittorrent banned subnet", kind: "QBittorrent", spec: `
+  connection:
+    url: http://qbittorrent:8080
+    usernameSecretRef: {name: app, key: username}
+    passwordSecretRef: {name: app, key: password}
+  preferences: {bannedIps: [10.0.0.0/8]}`,
+			rejected: "bannedIps holds IP addresses"},
 		{name: "deletionPolicy delete on Plex", kind: "Plex", spec: `
   connection:
     url: http://plex:32400

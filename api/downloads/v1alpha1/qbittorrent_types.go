@@ -394,6 +394,127 @@ type QBittorrentPreferences struct {
 	// in qBittorrent.
 	// +optional
 	MaxInactiveSeedingTime *int32 `json:"maxInactiveSeedingTime,omitempty"`
+
+	// proxyType is the kind of proxy qBittorrent connects through. None turns
+	// the proxy off.
+	// +optional
+	// +kubebuilder:validation:Enum=None;HTTP;SOCKS5;SOCKS4
+	ProxyType string `json:"proxyType,omitempty"`
+
+	// proxyIp is the proxy's host name or address.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	ProxyIP string `json:"proxyIp,omitempty"`
+
+	// proxyPort is the proxy's port.
+	// +optional
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=65535
+	ProxyPort int32 `json:"proxyPort,omitempty"`
+
+	// proxyAuthEnabled signs in to the proxy with proxyUsernameSecretRef and
+	// proxyPasswordSecretRef. SOCKS4 has no sign-in.
+	// +optional
+	ProxyAuthEnabled *bool `json:"proxyAuthEnabled,omitempty"`
+
+	// proxyUsernameSecretRef is the Secret key holding the proxy's user name.
+	// +optional
+	ProxyUsernameSecretRef *commonv1alpha1.SecretKeyRef `json:"proxyUsernameSecretRef,omitempty"`
+
+	// proxyPasswordSecretRef is the Secret key holding the proxy's password.
+	// +optional
+	ProxyPasswordSecretRef *commonv1alpha1.SecretKeyRef `json:"proxyPasswordSecretRef,omitempty"`
+
+	// proxyHostnameLookup has the proxy, rather than qBittorrent, resolve host
+	// names.
+	// +optional
+	ProxyHostnameLookup *bool `json:"proxyHostnameLookup,omitempty"`
+
+	// proxyBittorrent sends BitTorrent traffic through the proxy.
+	// +optional
+	ProxyBittorrent *bool `json:"proxyBittorrent,omitempty"`
+
+	// proxyPeerConnections sends connections to peers, not only to trackers,
+	// through the proxy.
+	// +optional
+	ProxyPeerConnections *bool `json:"proxyPeerConnections,omitempty"`
+
+	// proxyRss sends RSS feed requests through the proxy.
+	// +optional
+	ProxyRSS *bool `json:"proxyRss,omitempty"`
+
+	// proxyMisc sends qBittorrent's other requests, such as update checks and
+	// tracker lists, through the proxy.
+	// +optional
+	ProxyMisc *bool `json:"proxyMisc,omitempty"`
+
+	// ipFilterEnabled blocks the peers ipFilterPath lists.
+	// +optional
+	IPFilterEnabled *bool `json:"ipFilterEnabled,omitempty"`
+
+	// ipFilterPath is the blocklist file, in .dat, .p2p or .p2b format, as
+	// qBittorrent sees it.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	IPFilterPath string `json:"ipFilterPath,omitempty"`
+
+	// ipFilterTrackers applies the IP filter to trackers as well as peers.
+	// +optional
+	IPFilterTrackers *bool `json:"ipFilterTrackers,omitempty"`
+
+	// bannedIps are peer addresses qBittorrent refuses, IPv4 or IPv6.
+	// +optional
+	// +listType=set
+	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:MaxItems=1000
+	// +kubebuilder:validation:items:MaxLength=45
+	// +kubebuilder:validation:XValidation:rule="self.all(a, isIP(a))",message="bannedIps holds IP addresses"
+	BannedIPs []string `json:"bannedIps,omitempty"`
+
+	// autorunOnTorrentAddedEnabled runs autorunOnTorrentAddedProgram when a
+	// torrent is added.
+	// +optional
+	AutorunOnTorrentAddedEnabled *bool `json:"autorunOnTorrentAddedEnabled,omitempty"`
+
+	// autorunOnTorrentAddedProgram is the command run when a torrent is added,
+	// with qBittorrent's parameters such as %N for its name and %I for its hash.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	AutorunOnTorrentAddedProgram string `json:"autorunOnTorrentAddedProgram,omitempty"`
+
+	// autorunEnabled runs autorunProgram when a torrent finishes.
+	// +optional
+	AutorunEnabled *bool `json:"autorunEnabled,omitempty"`
+
+	// autorunProgram is the command run when a torrent finishes, with the same
+	// parameters as autorunOnTorrentAddedProgram.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	AutorunProgram string `json:"autorunProgram,omitempty"`
+
+	// addTrackersEnabled adds addTrackers to every new torrent.
+	// +optional
+	AddTrackersEnabled *bool `json:"addTrackersEnabled,omitempty"`
+
+	// addTrackers are tracker URLs added to new torrents, each in its own tier.
+	// +optional
+	// +listType=set
+	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:items:MinLength=1
+	// +kubebuilder:validation:items:Pattern=`^\S+$`
+	AddTrackers []string `json:"addTrackers,omitempty"`
+
+	// addTrackersFromUrlEnabled adds the trackers listed at addTrackersUrl to
+	// every new torrent.
+	// +optional
+	AddTrackersFromURLEnabled *bool `json:"addTrackersFromUrlEnabled,omitempty"`
+
+	// addTrackersUrl is a tracker list qBittorrent downloads, one tracker a
+	// line.
+	// +optional
+	// +kubebuilder:validation:Pattern=`^https?://`
+	// +kubebuilder:validation:MinLength=1
+	AddTrackersURL string `json:"addTrackersUrl,omitempty"`
 }
 
 // QBittorrentCategory defines a download category with its save path.

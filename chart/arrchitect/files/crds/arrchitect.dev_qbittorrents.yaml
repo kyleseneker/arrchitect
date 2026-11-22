@@ -162,6 +162,32 @@ spec:
                   addStoppedEnabled:
                     description: addStoppedEnabled adds new torrents stopped.
                     type: boolean
+                  addTrackers:
+                    description: addTrackers are tracker URLs added to new torrents,
+                      each in its own tier.
+                    items:
+                      minLength: 1
+                      pattern: ^\S+$
+                      type: string
+                    minItems: 1
+                    type: array
+                    x-kubernetes-list-type: set
+                  addTrackersEnabled:
+                    description: addTrackersEnabled adds addTrackers to every new
+                      torrent.
+                    type: boolean
+                  addTrackersFromUrlEnabled:
+                    description: |-
+                      addTrackersFromUrlEnabled adds the trackers listed at addTrackersUrl to
+                      every new torrent.
+                    type: boolean
+                  addTrackersUrl:
+                    description: |-
+                      addTrackersUrl is a tracker list qBittorrent downloads, one tracker a
+                      line.
+                    minLength: 1
+                    pattern: ^https?://
+                    type: string
                   altDlLimit:
                     description: |-
                       altDlLimit is the download speed limit in KiB/s while the alternative
@@ -185,6 +211,40 @@ spec:
                       autoTmmEnabled puts new torrents in automatic management, which saves
                       them under their category's path.
                     type: boolean
+                  autorunEnabled:
+                    description: autorunEnabled runs autorunProgram when a torrent
+                      finishes.
+                    type: boolean
+                  autorunOnTorrentAddedEnabled:
+                    description: |-
+                      autorunOnTorrentAddedEnabled runs autorunOnTorrentAddedProgram when a
+                      torrent is added.
+                    type: boolean
+                  autorunOnTorrentAddedProgram:
+                    description: |-
+                      autorunOnTorrentAddedProgram is the command run when a torrent is added,
+                      with qBittorrent's parameters such as %N for its name and %I for its hash.
+                    minLength: 1
+                    type: string
+                  autorunProgram:
+                    description: |-
+                      autorunProgram is the command run when a torrent finishes, with the same
+                      parameters as autorunOnTorrentAddedProgram.
+                    minLength: 1
+                    type: string
+                  bannedIps:
+                    description: bannedIps are peer addresses qBittorrent refuses,
+                      IPv4 or IPv6.
+                    items:
+                      maxLength: 45
+                      type: string
+                    maxItems: 1000
+                    minItems: 1
+                    type: array
+                    x-kubernetes-list-type: set
+                    x-kubernetes-validations:
+                    - message: bannedIps holds IP addresses
+                      rule: self.all(a, isIP(a))
                   bypassAuthSubnetWhitelist:
                     description: |-
                       bypassAuthSubnetWhitelist is the comma-separated list of subnets allowed to
@@ -237,6 +297,19 @@ spec:
                   incompleteFilesExt:
                     description: incompleteFilesExt adds .!qB to the names of files
                       still downloading.
+                    type: boolean
+                  ipFilterEnabled:
+                    description: ipFilterEnabled blocks the peers ipFilterPath lists.
+                    type: boolean
+                  ipFilterPath:
+                    description: |-
+                      ipFilterPath is the blocklist file, in .dat, .p2p or .p2b format, as
+                      qBittorrent sees it.
+                    minLength: 1
+                    type: string
+                  ipFilterTrackers:
+                    description: ipFilterTrackers applies the IP filter to trackers
+                      as well as peers.
                     type: boolean
                   limitLanPeers:
                     description: limitLanPeers applies the speed limits to peers on
@@ -354,6 +427,85 @@ spec:
                     description: preallocateAll enables disk space pre-allocation
                       for all files.
                     type: boolean
+                  proxyAuthEnabled:
+                    description: |-
+                      proxyAuthEnabled signs in to the proxy with proxyUsernameSecretRef and
+                      proxyPasswordSecretRef. SOCKS4 has no sign-in.
+                    type: boolean
+                  proxyBittorrent:
+                    description: proxyBittorrent sends BitTorrent traffic through
+                      the proxy.
+                    type: boolean
+                  proxyHostnameLookup:
+                    description: |-
+                      proxyHostnameLookup has the proxy, rather than qBittorrent, resolve host
+                      names.
+                    type: boolean
+                  proxyIp:
+                    description: proxyIp is the proxy's host name or address.
+                    minLength: 1
+                    type: string
+                  proxyMisc:
+                    description: |-
+                      proxyMisc sends qBittorrent's other requests, such as update checks and
+                      tracker lists, through the proxy.
+                    type: boolean
+                  proxyPasswordSecretRef:
+                    description: proxyPasswordSecretRef is the Secret key holding
+                      the proxy's password.
+                    properties:
+                      key:
+                        description: key is the key within the Secret.
+                        minLength: 1
+                        type: string
+                      name:
+                        description: name is the name of the Secret.
+                        minLength: 1
+                        type: string
+                    required:
+                    - key
+                    - name
+                    type: object
+                  proxyPeerConnections:
+                    description: |-
+                      proxyPeerConnections sends connections to peers, not only to trackers,
+                      through the proxy.
+                    type: boolean
+                  proxyPort:
+                    description: proxyPort is the proxy's port.
+                    format: int32
+                    maximum: 65535
+                    minimum: 1
+                    type: integer
+                  proxyRss:
+                    description: proxyRss sends RSS feed requests through the proxy.
+                    type: boolean
+                  proxyType:
+                    description: |-
+                      proxyType is the kind of proxy qBittorrent connects through. None turns
+                      the proxy off.
+                    enum:
+                    - None
+                    - HTTP
+                    - SOCKS5
+                    - SOCKS4
+                    type: string
+                  proxyUsernameSecretRef:
+                    description: proxyUsernameSecretRef is the Secret key holding
+                      the proxy's user name.
+                    properties:
+                      key:
+                        description: key is the key within the Secret.
+                        minLength: 1
+                        type: string
+                      name:
+                        description: name is the name of the Secret.
+                        minLength: 1
+                        type: string
+                    required:
+                    - key
+                    - name
+                    type: object
                   queueingEnabled:
                     description: queueingEnabled limits how many torrents are active
                       at once.

@@ -147,12 +147,21 @@ func TestQBittorrent(t *testing.T) {
 	checkCompat(t, compatCase{
 		fixture: "qbittorrent.yaml",
 		update: `[
-			{"op": "replace", "path": "/spec/categories/0/savePath", "value": "/downloads/complete/series"}
+			{"op": "replace", "path": "/spec/categories/0/savePath", "value": "/downloads/complete/series"},
+			{"op": "replace", "path": "/spec/preferences/bannedIps", "value": ["10.0.0.3"]}
 		]`,
-		export:  "qbittorrent",
-		vars:    map[string]string{"URL": proxy.url()},
-		secrets: map[string]string{"username": qbittorrentUser, "password": password},
-		newObj:  func() ctrlcommon.ConfigResource { return &downloadsv1alpha1.QBittorrent{} },
+		verifyUpdate: func(t *testing.T) {
+			prefs, err := qbittorrentClient(t, qbit.url(), password).GetJSON(context.Background(), "/api/v2/app/preferences")
+			require.NoError(t, err)
+			assert.Equal(t, "10.0.0.3", prefs["banned_IPs"])
+		},
+		export: "qbittorrent",
+		vars:   map[string]string{"URL": proxy.url()},
+		secrets: map[string]string{
+			"username": qbittorrentUser, "password": password,
+			"proxy-username": "compat-proxy", "proxy-password": "proxy-secret",
+		},
+		newObj: func() ctrlcommon.ConfigResource { return &downloadsv1alpha1.QBittorrent{} },
 		reconciler: func(c client.Client) reconcile.Reconciler {
 			return &downloads.QBittorrentReconciler{Client: c, Scheme: c.Scheme(), Recorder: events.NewFakeRecorder(100)}
 		},
@@ -177,6 +186,13 @@ func TestQBittorrent(t *testing.T) {
 			assert.Equal(t, true, prefs["auto_tmm_enabled"])
 			assert.Equal(t, "Subfolder", prefs["torrent_content_layout"])
 			assert.InDelta(t, 1440, prefs["max_inactive_seeding_time"], 0)
+			assert.Equal(t, "SOCKS5", prefs["proxy_type"])
+			assert.Equal(t, "compat-proxy", prefs["proxy_username"])
+			assert.Equal(t, "proxy-secret", prefs["proxy_password"])
+			assert.Equal(t, "10.0.0.2\n2001:db8::1", prefs["banned_IPs"])
+			assert.Equal(t, `echo "%N"`, prefs["autorun_program"])
+			assert.Equal(t, "udp://tracker.example.invalid:1337/announce\n\nhttps://tracker.example.invalid/announce",
+				prefs["add_trackers"])
 			categories, err := hc.GetJSON(context.Background(), "/api/v2/torrents/categories")
 			require.NoError(t, err)
 			assert.Contains(t, categories, "movies")

@@ -51,7 +51,7 @@ func TestQBPreferencePayloadUsesAPIKeyNames(t *testing.T) {
 		WebUIPort:             new(int32(8080)),
 	}
 
-	got, err := qbPreferencePayload(prefs)
+	got, err := qbPreferencePayload(prefs, nil)
 	require.NoError(t, err, "qbPreferencePayload")
 
 	want := map[string]any{
@@ -81,7 +81,7 @@ func TestQBPreferencePayloadUsesAPIKeyNames(t *testing.T) {
 func TestQBPreferencePayloadCoversEverySpecField(t *testing.T) {
 	contract.AssertEveryFieldEmitted(t, &downloadsv1alpha1.QBittorrentPreferences{},
 		func(p *downloadsv1alpha1.QBittorrentPreferences) map[string]any {
-			out, err := qbPreferencePayload(p)
+			out, err := qbPreferencePayload(p, func(commonv1alpha1.SecretKeyRef) (string, error) { return "secret", nil })
 			require.NoError(t, err, "qbPreferencePayload")
 			return out
 		},
@@ -96,25 +96,62 @@ func TestQBPreferencePayloadCoversEverySpecField(t *testing.T) {
 			p.ExcludedFileNames = []string{"*.lnk"}
 			p.WebUIDomainList = []string{"qbittorrent.example.com"}
 			p.WebUIReverseProxiesList = []string{"10.0.0.0/8"}
+			p.BannedIPs = []string{"10.0.0.1"}
+			p.AddTrackers = []string{"udp://tracker.example.com:1337/announce"}
 		})
+}
+
+// qBittorrent stores banned addresses in RFC 5952 form, sorted and once each,
+// so anything else would read back as a change on every pass.
+func TestQBPreferencePayloadSendsBannedIPsAsQBittorrentStoresThem(t *testing.T) {
+	got, err := qbPreferencePayload(&downloadsv1alpha1.QBittorrentPreferences{
+		BannedIPs: []string{"2001:DB8:0:0::1", "10.0.0.2", "10.0.0.10", "2001:db8::1"},
+	}, nil)
+	require.NoError(t, err)
+	assert.Equal(t, "10.0.0.10\n10.0.0.2\n2001:db8::1", got["banned_IPs"])
+
+	_, err = qbPreferencePayload(&downloadsv1alpha1.QBittorrentPreferences{BannedIPs: []string{"10.0.0.0/8"}}, nil)
+	assert.ErrorContains(t, err, `"10.0.0.0/8" isn't an IP address`)
+}
+
+// A blank line starts a new tier in qBittorrent's list.
+func TestQBPreferencePayloadPutsEachAddedTrackerInItsOwnTier(t *testing.T) {
+	got, err := qbPreferencePayload(&downloadsv1alpha1.QBittorrentPreferences{
+		AddTrackers: []string{"udp://a.example.com:1337/announce", "https://b.example.com/announce"},
+	}, nil)
+	require.NoError(t, err)
+	assert.Equal(t, "udp://a.example.com:1337/announce\n\nhttps://b.example.com/announce", got["add_trackers"])
+}
+
+func TestQBPreferencePayloadReadsTheProxyCredentials(t *testing.T) {
+	secrets := map[string]string{"proxy-user": "vpn", "proxy-pass": "hunter2"}
+	got, err := qbPreferencePayload(&downloadsv1alpha1.QBittorrentPreferences{
+		ProxyType: "SOCKS5", ProxyAuthEnabled: new(true),
+		ProxyUsernameSecretRef: &commonv1alpha1.SecretKeyRef{Name: "vpn", Key: "proxy-user"},
+		ProxyPasswordSecretRef: &commonv1alpha1.SecretKeyRef{Name: "vpn", Key: "proxy-pass"},
+	}, func(ref commonv1alpha1.SecretKeyRef) (string, error) { return secrets[ref.Key], nil })
+	require.NoError(t, err)
+	assert.Equal(t, map[string]any{
+		"proxy_type": "SOCKS5", "proxy_auth_enabled": true, "proxy_username": "vpn", "proxy_password": "hunter2",
+	}, got)
 }
 
 func TestQBPreferencePayloadJoinsTheWebUILists(t *testing.T) {
 	got, err := qbPreferencePayload(&downloadsv1alpha1.QBittorrentPreferences{
 		WebUIDomainList:         []string{"qbittorrent.example.com", "qbittorrent.media.svc.cluster.local"},
 		WebUIReverseProxiesList: []string{"10.0.0.0/8", "192.168.1.1"},
-	})
+	}, nil)
 	require.NoError(t, err)
 	assert.Equal(t, "qbittorrent.example.com;qbittorrent.media.svc.cluster.local", got["web_ui_domain_list"])
 	assert.Equal(t, "10.0.0.0/8;192.168.1.1", got["web_ui_reverse_proxies_list"])
 }
 
 func TestQBPreferencePayloadRejectsBadValues(t *testing.T) {
-	_, err := qbPreferencePayload(&downloadsv1alpha1.QBittorrentPreferences{MaxRatio: new("abc")})
+	_, err := qbPreferencePayload(&downloadsv1alpha1.QBittorrentPreferences{MaxRatio: new("abc")}, nil)
 	assert.Error(t, err, "expected error for unparseable maxRatio")
-	_, err = qbPreferencePayload(&downloadsv1alpha1.QBittorrentPreferences{MaxRatioAction: "nope"})
+	_, err = qbPreferencePayload(&downloadsv1alpha1.QBittorrentPreferences{MaxRatioAction: "nope"}, nil)
 	assert.Error(t, err, "expected error for unknown maxRatioAction")
-	_, err = qbPreferencePayload(&downloadsv1alpha1.QBittorrentPreferences{SchedulerDays: "someday"})
+	_, err = qbPreferencePayload(&downloadsv1alpha1.QBittorrentPreferences{SchedulerDays: "someday"}, nil)
 	assert.Error(t, err, "expected error for unknown schedulerDays")
 }
 
@@ -128,7 +165,7 @@ func TestQBPreferencePayloadConvertsWhatQBittorrentStoresDifferently(t *testing.
 		NetworkInterface:              new(""),
 		MaxInactiveSeedingTimeEnabled: new(false),
 		MaxInactiveSeedingTime:        new(int32(30)),
-	})
+	}, nil)
 	require.NoError(t, err)
 	assert.Equal(t, map[string]any{
 		"temp_path":                         "/downloads/incomplete",
@@ -142,7 +179,7 @@ func TestQBPreferencePayloadConvertsWhatQBittorrentStoresDifferently(t *testing.
 }
 
 func TestQBPreferencePayloadOmitsUnsetFields(t *testing.T) {
-	got, err := qbPreferencePayload(&downloadsv1alpha1.QBittorrentPreferences{MaxRatioAction: "removeWithContent"})
+	got, err := qbPreferencePayload(&downloadsv1alpha1.QBittorrentPreferences{MaxRatioAction: "removeWithContent"}, nil)
 	require.NoError(t, err, "qbPreferencePayload")
 	assert.Equal(t, map[string]any{"max_ratio_act": 3}, got, "expected only max_ratio_act=3")
 }
@@ -438,11 +475,11 @@ func TestQBDisabledLimitIsNotCompared(t *testing.T) {
 	payload, err := qbPreferencePayload(&downloadsv1alpha1.QBittorrentPreferences{
 		MaxRatioEnabled: new(false), MaxRatio: new("2.0"),
 		MaxSeedingTimeEnabled: new(false), MaxSeedingTime: new(int32(1440)),
-	})
+	}, nil)
 	require.NoError(t, err)
 	assert.Equal(t, map[string]any{"max_ratio_enabled": false, "max_seeding_time_enabled": false}, payload)
 
-	enabled, err := qbPreferencePayload(&downloadsv1alpha1.QBittorrentPreferences{MaxRatioEnabled: new(true), MaxRatio: new("2.0")})
+	enabled, err := qbPreferencePayload(&downloadsv1alpha1.QBittorrentPreferences{MaxRatioEnabled: new(true), MaxRatio: new("2.0")}, nil)
 	require.NoError(t, err)
 	assert.Equal(t, 2.0, enabled["max_ratio"])
 }

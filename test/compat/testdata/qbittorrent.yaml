@@ -81,6 +81,33 @@ spec:
     anonymousMode: true
     maxInactiveSeedingTimeEnabled: true
     maxInactiveSeedingTime: 1440
+    proxyType: SOCKS5
+    proxyIp: proxy.example.invalid
+    proxyPort: 1080
+    proxyAuthEnabled: true
+    proxyUsernameSecretRef:
+      name: compat-credentials
+      key: proxy-username
+    proxyPasswordSecretRef:
+      name: compat-credentials
+      key: proxy-password
+    proxyHostnameLookup: true
+    proxyBittorrent: false
+    proxyPeerConnections: false
+    proxyRss: false
+    proxyMisc: false
+    ipFilterEnabled: false
+    ipFilterPath: /config/ipfilter.dat
+    ipFilterTrackers: true
+    bannedIps: [10.0.0.2, "2001:db8::1"]
+    autorunEnabled: false
+    autorunProgram: echo "%N"
+    autorunOnTorrentAddedEnabled: false
+    autorunOnTorrentAddedProgram: echo "%I"
+    addTrackersEnabled: true
+    addTrackers: [udp://tracker.example.invalid:1337/announce, https://tracker.example.invalid/announce]
+    addTrackersFromUrlEnabled: false
+    addTrackersUrl: https://trackers.example.invalid/list.txt
   categories:
     - name: tv
       savePath: /downloads/complete/tv
