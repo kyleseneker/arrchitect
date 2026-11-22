@@ -34,6 +34,11 @@ type SabnzbdSpec struct {
 	// folders configures download and temp folder paths.
 	// +optional
 	Folders *SabnzbdFolders `json:"folders,omitempty"`
+
+	// apprise sends SABnzbd's notifications through Apprise, to services such
+	// as Discord or Telegram.
+	// +optional
+	Apprise SabnzbdApprise `json:"apprise,omitzero"`
 }
 
 // SabnzbdGeneral configures general SABnzbd settings.
@@ -269,6 +274,33 @@ type SabnzbdCategory struct {
 	// +optional
 	// +kubebuilder:validation:Enum=download;repair;unpack;delete
 	PostProcessing string `json:"postProcessing,omitempty"`
+}
+
+// SabnzbdApprise configures SABnzbd's Apprise notifications.
+// +kubebuilder:validation:MinProperties=1
+type SabnzbdApprise struct {
+	// enabled turns Apprise notifications on.
+	// +optional
+	Enabled *bool `json:"enabled,omitempty"`
+
+	// urlsSecretRef is the Secret key holding the Apprise URLs to notify,
+	// separated by commas, such as discord://webhook_id/webhook_token.
+	// +optional
+	URLsSecretRef *commonv1alpha1.SecretKeyRef `json:"urlsSecretRef,omitempty"`
+
+	// categories limits notifications to jobs in these categories; * is every
+	// category.
+	// +optional
+	// +listType=set
+	// +kubebuilder:validation:items:MinLength=1
+	Categories []string `json:"categories,omitempty"`
+
+	// events are the events to notify about. Those listed are turned on and the
+	// rest off.
+	// +optional
+	// +listType=set
+	// +kubebuilder:validation:items:Enum=startup;download;pauseResume;pp;complete;failed;diskFull;quota;newLogin;warning;error;queueDone;other
+	Events []string `json:"events,omitempty"`
 }
 
 // SabnzbdFolders configures folder paths.

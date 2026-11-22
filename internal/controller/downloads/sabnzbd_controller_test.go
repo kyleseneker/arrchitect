@@ -442,3 +442,28 @@ func TestSabnzbdAutoSortWritesASortOrder(t *testing.T) {
 	assert.Len(t, planSabnzbd(map[string]any{"misc": map[string]any{"auto_sort": "1"}}, spec, nil, "sort"), 1,
 		"the value earlier versions wrote must be corrected")
 }
+
+func TestSabnzbdAppriseTurnsOnOnlyTheListedEvents(t *testing.T) {
+	values, err := (&SabnzbdReconciler{}).sabnzbdAppriseValues(context.Background(), &downloadsv1alpha1.Sabnzbd{
+		Spec: downloadsv1alpha1.SabnzbdSpec{Apprise: downloadsv1alpha1.SabnzbdApprise{
+			Enabled: new(true), Events: []string{"complete", "failed", "diskFull"},
+		}},
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "1", values["apprise_enable"])
+	assert.Equal(t, "1", values["apprise_target_disk_full_enable"])
+	assert.Equal(t, "0", values["apprise_target_startup_enable"])
+	assert.Equal(t, "0", values["apprise_target_queue_done_enable"])
+
+	current := map[string]any{"apprise": map[string]any{
+		"apprise_enable": 0, "apprise_target_complete_enable": 1, "apprise_target_failed_enable": true,
+	}}
+	writes := planKeywords(current, "apprise", values)
+	written := make([]string, 0, len(writes))
+	for _, w := range writes {
+		written = append(written, w.name)
+	}
+	assert.Contains(t, written, "apprise_enable")
+	assert.NotContains(t, written, "apprise_target_complete_enable", "a switch already on, stored as 1, was rewritten")
+	assert.NotContains(t, written, "apprise_target_failed_enable", "a switch already on, read back as true, was rewritten")
+}

@@ -73,3 +73,13 @@ spec:
     - name: movies
       dir: movies
       priority: high
+  apprise:
+    enabled: true
+    urlsSecretRef:
+      name: compat-credentials
+      key: apprise-urls
+    categories:
+      - tv
+    events:
+      - complete
+      - failed

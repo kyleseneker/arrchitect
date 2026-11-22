@@ -82,7 +82,11 @@ func (r *SabnzbdReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		}
 	}
 	servers, syncErrors := r.resolveSabnzbdServers(ctx, &config)
-	writes := planSabnzbd(current, config.Spec, servers, string(config.UID))
+	apprise, err := r.sabnzbdAppriseValues(ctx, &config)
+	if err != nil {
+		syncErrors = append(syncErrors, fmt.Sprintf("apprise: %v", err))
+	}
+	writes := append(planSabnzbd(current, config.Spec, servers, string(config.UID)), planKeywords(current, "apprise", apprise)...)
 
 	owned := engine.NewOwnership("sabnzbd", config.GetManagedResources())
 	prune := ctrlcommon.PruneEnabled(config.Spec.Reconcile)
@@ -105,7 +109,8 @@ func (r *SabnzbdReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		if current, err = sc.GetConfig(ctx); err != nil {
 			syncErrors = append(syncErrors, fmt.Sprintf("re-reading config: %v", err))
 		} else {
-			syncErrors = append(syncErrors, applySabnzbd(ctx, sc, planSabnzbd(current, config.Spec, servers, string(config.UID)), owned)...)
+			again := append(planSabnzbd(current, config.Spec, servers, string(config.UID)), planKeywords(current, "apprise", apprise)...)
+			syncErrors = append(syncErrors, applySabnzbd(ctx, sc, again, owned)...)
 		}
 	}
 	if prune && len(syncErrors) == 0 {
@@ -233,7 +238,7 @@ func applySabnzbd(ctx context.Context, sc *sabnzbdclient.Client, writes []sabWri
 	for _, w := range writes {
 		metrics.DriftCorrectedTotal.WithLabelValues("sabnzbd", w.resourceType, w.name).Inc()
 		var err error
-		if w.section == "misc" {
+		if w.section == "misc" || w.section == "apprise" {
 			err = sc.SetConfig(ctx, w.section, w.name, w.values["value"])
 		} else {
 			err = sc.SetNamed(ctx, w.section, w.name, w.values)
@@ -367,6 +372,60 @@ func (r *SabnzbdReconciler) resolveSabnzbdServers(
 	return servers, problems
 }
 
+// planKeywords returns a write for each keyword of a section whose value
+// differs from get_config's.
+func planKeywords(current map[string]any, section string, values map[string]string) []sabWrite {
+	var writes []sabWrite
+	stored, _ := current[section].(map[string]any)
+	for _, key := range slices.Sorted(maps.Keys(values)) {
+		// A switch reads back as 0/1 until written and as true/false after, and
+		// a list as an array of what was written comma-separated.
+		value := stored[key]
+		switch v := value.(type) {
+		case bool:
+			value = ctrlcommon.BoolTo01(v)
+		case []any:
+			items := make([]string, 0, len(v))
+			for _, item := range v {
+				items = append(items, fmt.Sprint(item))
+			}
+			value = strings.Join(items, ",")
+		}
+		out, err := reconciler.MergeDesired(map[string]any{key: value}, map[string]any{key: values[key]})
+		if err == nil && !out.Changed {
+			continue
+		}
+		writes = append(writes, sabWrite{section: section, name: key, values: map[string]string{"value": values[key]}, resourceType: "settings"})
+	}
+	return writes
+}
+
+// sabnzbdAppriseValues is the apprise section's declared keywords, with the
+// URLs read from their Secret.
+func (r *SabnzbdReconciler) sabnzbdAppriseValues(ctx context.Context, config *downloadsv1alpha1.Sabnzbd) (map[string]string, error) {
+	a := config.Spec.Apprise
+	values := map[string]string{}
+	if a.Enabled != nil {
+		values["apprise_enable"] = ctrlcommon.BoolTo01(*a.Enabled)
+	}
+	if a.Categories != nil {
+		values["apprise_cats"] = strings.Join(a.Categories, ",")
+	}
+	if a.Events != nil {
+		for event, name := range sabnzbdclient.AppriseEvents {
+			values["apprise_target_"+name+"_enable"] = ctrlcommon.BoolTo01(slices.Contains(a.Events, event))
+		}
+	}
+	if a.URLsSecretRef != nil {
+		urls, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, *a.URLsSecretRef)
+		if err != nil {
+			return nil, fmt.Errorf("urls: %w", err)
+		}
+		values["apprise_urls"] = urls
+	}
+	return values, nil
+}
+
 // planSabnzbd compares the declared settings with get_config and returns only
 // the writes needed. Writing every setting on every pass made each reconcile a
 // burst of set_config calls and hid which settings actually drifted.
@@ -383,27 +442,7 @@ func planSabnzbd(
 	if spec.Folders != nil {
 		maps.Copy(misc, buildSabnzbdFolderValues(spec.Folders))
 	}
-	currentMisc, _ := current["misc"].(map[string]any)
-	for _, key := range slices.Sorted(maps.Keys(misc)) {
-		// A switch reads back as 0/1 until written and as true/false after, and
-		// a list as an array of what was written comma-separated.
-		value := currentMisc[key]
-		switch v := value.(type) {
-		case bool:
-			value = ctrlcommon.BoolTo01(v)
-		case []any:
-			items := make([]string, 0, len(v))
-			for _, item := range v {
-				items = append(items, fmt.Sprint(item))
-			}
-			value = strings.Join(items, ",")
-		}
-		out, err := reconciler.MergeDesired(map[string]any{key: value}, map[string]any{key: misc[key]})
-		if err == nil && !out.Changed {
-			continue
-		}
-		writes = append(writes, sabWrite{section: "misc", name: key, values: map[string]string{"value": misc[key]}, resourceType: "settings"})
-	}
+	writes = append(writes, planKeywords(current, "misc", misc)...)
 
 	for _, srv := range spec.Servers {
 		vals, ok := servers[srv.Name]

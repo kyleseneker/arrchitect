@@ -49,12 +49,16 @@ func TestSabnzbd(t *testing.T) {
 		fixture: "sabnzbd.yaml",
 		update: `[
 			{"op": "replace", "path": "/spec/servers/0/connections", "value": 25},
-			{"op": "replace", "path": "/spec/categories/1/priority", "value": "normal"}
+			{"op": "replace", "path": "/spec/categories/1/priority", "value": "normal"},
+			{"op": "replace", "path": "/spec/apprise/events", "value": ["complete"]}
 		]`,
-		export:  "sabnzbd",
-		vars:    map[string]string{"URL": proxy.url()},
-		secrets: map[string]string{"api-key": key, "usenet-username": "compat", "usenet-password": "usenet-secret"},
-		newObj:  func() ctrlcommon.ConfigResource { return &downloadsv1alpha1.Sabnzbd{} },
+		export: "sabnzbd",
+		vars:   map[string]string{"URL": proxy.url()},
+		secrets: map[string]string{
+			"api-key": key, "usenet-username": "compat", "usenet-password": "usenet-secret",
+			"apprise-urls": "discord://compat/token",
+		},
+		newObj: func() ctrlcommon.ConfigResource { return &downloadsv1alpha1.Sabnzbd{} },
 		reconciler: func(c client.Client) reconcile.Reconciler {
 			return &downloads.SabnzbdReconciler{Client: c, Scheme: c.Scheme(), Recorder: events.NewFakeRecorder(100)}
 		},
