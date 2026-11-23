@@ -41,6 +41,9 @@ type fakeAutobrr struct {
 	existing map[string][]map[string]any
 	// stores lists what is created, as Autobrr does.
 	stores bool
+	// forbidden are paths refused as Autobrr 1.91 refuses an API key without
+	// their scope.
+	forbidden []string
 }
 
 func (f *fakeAutobrr) posted(path string) map[string]any {
@@ -85,6 +88,8 @@ func (f *fakeAutobrr) serve(t *testing.T) string {
 
 		w.Header().Set("Content-Type", "application/json")
 		switch {
+		case slices.Contains(f.forbidden, path):
+			http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
 		case strings.HasPrefix(r.URL.Path, "/api/healthz"):
 			w.WriteHeader(http.StatusOK)
 		case r.Method == http.MethodGet && isID(r.URL.Path[strings.LastIndex(r.URL.Path, "/")+1:]):

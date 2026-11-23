@@ -235,7 +235,7 @@ How each app's credentials get into a Secret:
 | Jellyfin | The admin user, which the operator creates when it runs the setup wizard | An API key, created in the dashboard |
 | Bazarr | | The key under Settings, General, Security |
 | SABnzbd | | The key under Config, General |
-| Autobrr | | A key created under Settings, API keys. From 1.91 it needs `config:read` and write access to `downloaders`, `indexers`, `irc`, `feeds`, `filters`, `notifications`, `lists` and `proxies` |
+| Autobrr | | A key created under Settings, API keys. From 1.91 it needs `config:read` and write access to `downloaders`, `indexers`, `irc`, `feeds`, `filters`, `notifications`, `lists` and `proxies`. Export needs only read access, and leaves out what the key can't read |
 | qBittorrent | | The password you set after first start |
 | Plex | | The token Plex stores after `PLEX_CLAIM`; see [finding a token](https://support.plex.tv/articles/204059436-finding-an-authentication-token-x-plex-token/) |
 | Maintainerr | No key needed | |
