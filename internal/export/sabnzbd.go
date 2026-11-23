@@ -3,6 +3,7 @@ package export
 import (
 	"fmt"
 	"maps"
+	"regexp"
 	"slices"
 	"strconv"
 
@@ -80,6 +81,9 @@ func exportSabnzbd(r *reader) (map[string]any, error) {
 		if verify, ok := sabChoice(sabnzbdclient.SSLVerify, s["ssl_verify"]); ok {
 			server["sslVerify"] = verify
 		}
+		if ciphers := sabText(s["ssl_ciphers"]); ciphers != "" {
+			server["sslCiphers"] = ciphers
+		}
 		if username := sabText(s["username"]); username != "" {
 			server["usernameSecretRef"] = r.creds.ref(username, "server", name, "username")
 		}
@@ -101,7 +105,69 @@ func exportSabnzbd(r *reader) (map[string]any, error) {
 	if apprise := r.sabnzbdApprise(current); apprise != nil {
 		spec["apprise"] = apprise
 	}
+	if login := r.sabnzbdLogin(misc); login != nil {
+		spec["login"] = login
+	}
+	if quota := r.sabnzbdQuota(misc); quota != nil {
+		spec["quota"] = quota
+	}
 	return spec, nil
+}
+
+// sabnzbdLogin exports the web interface login when it has a user name. The
+// password reads back masked, so it is left for the user to fill in.
+func (r *reader) sabnzbdLogin(misc map[string]any) map[string]any {
+	username := sabText(misc["username"])
+	if username == "" {
+		return nil
+	}
+	password := sabText(misc["password"])
+	if reconciler.IsMasked(password) {
+		password = ""
+	}
+	return map[string]any{
+		"usernameSecretRef": r.creds.ref(username, "login", "username"),
+		"passwordSecretRef": r.creds.ref(password, "login", "password"),
+	}
+}
+
+var (
+	sabQuotaDay  = regexp.MustCompile(`^\s*(\d+)[^:]*`)
+	sabQuotaTime = regexp.MustCompile(`(\d+:\d+)\s*$`)
+	sabClockTime = regexp.MustCompile(`^([01]?[0-9]|2[0-3]):[0-5][0-9]$`)
+)
+
+// sabnzbdQuota exports the download quota when it has a size, reading the
+// reset day and time the way SABnzbd does.
+func (r *reader) sabnzbdQuota(misc map[string]any) map[string]any {
+	size := sabText(misc["quota_size"])
+	if size == "" {
+		return nil
+	}
+	quota := map[string]any{"size": size, "resume": sabSwitch(misc["quota_resume"])}
+	if period, ok := sabChoice(sabnzbdclient.QuotaPeriods, misc["quota_period"]); ok {
+		quota["period"] = period
+	}
+	day := sabText(misc["quota_day"])
+	last := 31
+	if quota["period"] == "week" {
+		last = 7
+	}
+	if m := sabQuotaDay.FindStringSubmatch(day); m != nil {
+		if n, err := strconv.Atoi(m[1]); err == nil && n >= 1 && n <= last {
+			quota["resetDay"] = n
+		} else {
+			r.warn("the config can't express the quota reset day %q; resetDay is left out", day)
+		}
+	}
+	if m := sabQuotaTime.FindStringSubmatch(day); m != nil {
+		if sabClockTime.MatchString(m[1]) {
+			quota["resetTime"] = m[1]
+		} else {
+			r.warn("the config can't express the quota reset time %q; resetTime is left out", m[1])
+		}
+	}
+	return quota
 }
 
 // sabnzbdApprise exports the apprise section when it is on or has URLs.
