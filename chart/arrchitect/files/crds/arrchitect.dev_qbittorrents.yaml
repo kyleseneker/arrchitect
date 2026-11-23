@@ -256,6 +256,11 @@ spec:
                       bypassAuthSubnetWhitelistEnabled lets clients in the whitelisted subnets skip
                       the WebUI login, so an authenticating proxy does not produce a second prompt.
                     type: boolean
+                  bypassLocalAuth:
+                    description: |-
+                      bypassLocalAuth lets clients on localhost skip the WebUI login, such as a
+                      VPN sidecar that sets listenPort to the port the VPN forwards.
+                    type: boolean
                   categoryChangedTmmEnabled:
                     description: |-
                       categoryChangedTmmEnabled moves a category's torrents in automatic
@@ -653,8 +658,10 @@ spec:
                   webUiHostHeaderValidationEnabled:
                     description: |-
                       webUiHostHeaderValidationEnabled has the Web UI refuse requests whose
-                      Host header isn't in webUiDomainList. List the Service name the operator
-                      connects through there as well, or its requests are refused too.
+                      Host header names another port than its own, or a host not in
+                      webUiDomainList. List the Service name the operator connects through
+                      there as well, and give the Service the Web UI's port, or the operator's
+                      requests are refused too.
                     type: boolean
                   webUiPort:
                     description: webUiPort is the Web UI listening port.
