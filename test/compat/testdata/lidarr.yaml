@@ -117,6 +117,22 @@ spec:
           value: ${FAKES}/webhook
         - name: method
           value: 1
+    - name: Compat Jellyfin
+      appRef:
+        kind: Jellyfin
+        name: jellyfin
+      onRename: true
+      fields:
+        - name: updateLibrary
+          value: true
+    - name: Compat Plex
+      appRef:
+        kind: Plex
+        name: plex
+      onRename: true
+      fields:
+        - name: updateLibrary
+          value: true
   importLists:
     - name: Compat List
       implementation: CustomImport
@@ -207,3 +223,32 @@ spec:
       value: [3000, 3040]
     - name: minimumSeeders
       value: 1
+---
+apiVersion: arrchitect.dev/v1alpha1
+kind: Jellyfin
+metadata:
+  name: jellyfin
+spec:
+  connection:
+    url: ${FAKES}/jellyfin
+    apiKeySecretRef:
+      name: compat-credentials
+      key: jellyfin-api-key
+  adminUser:
+    usernameSecretRef:
+      name: compat-credentials
+      key: jellyfin-username
+    passwordSecretRef:
+      name: compat-credentials
+      key: jellyfin-password
+---
+apiVersion: arrchitect.dev/v1alpha1
+kind: Plex
+metadata:
+  name: plex
+spec:
+  connection:
+    url: ${FAKES}/plex
+    tokenSecretRef:
+      name: compat-credentials
+      key: plex-token

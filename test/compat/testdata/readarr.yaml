@@ -111,6 +111,14 @@ spec:
           value: ${FAKES}/webhook
         - name: method
           value: 1
+    - name: Compat Plex
+      appRef:
+        kind: Plex
+        name: plex
+      onRename: true
+      fields:
+        - name: updateLibrary
+          value: true
   qualityDefinitions:
     - quality: EPUB
       title: ePub
@@ -154,3 +162,14 @@ spec:
       value: [7000, 7020]
     - name: minimumSeeders
       value: 1
+---
+apiVersion: arrchitect.dev/v1alpha1
+kind: Plex
+metadata:
+  name: plex
+spec:
+  connection:
+    url: ${FAKES}/plex
+    tokenSecretRef:
+      name: compat-credentials
+      key: plex-token

@@ -686,6 +686,46 @@ spec:
                   description: Notification defines a notification (a "Connect" entry)
                     in Sonarr, Radarr, Lidarr, Readarr or Prowlarr.
                   properties:
+                    appRef:
+                      description: |-
+                        appRef names the media server's resource, a Jellyfin or Plex, whose
+                        connection is used in place of implementation, configContract and the
+                        host, port, useSsl, urlBase and apiKey or authToken fields. That Jellyfin
+                        must set its connection's apiKeySecretRef.
+                      properties:
+                        group:
+                          default: arrchitect.dev
+                          description: group is the resource's API group.
+                          enum:
+                          - arrchitect.dev
+                          type: string
+                        kind:
+                          description: kind is the resource's kind, such as Sonarr.
+                          enum:
+                          - Sonarr
+                          - Radarr
+                          - Lidarr
+                          - Readarr
+                          - Prowlarr
+                          - Seerr
+                          - Jellyfin
+                          - Plex
+                          - QBittorrent
+                          - Sabnzbd
+                          type: string
+                        name:
+                          description: name is the resource's name.
+                          maxLength: 253
+                          minLength: 1
+                          pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                          type: string
+                      required:
+                      - kind
+                      - name
+                      type: object
+                      x-kubernetes-validations:
+                      - message: a notification refers to a Jellyfin or Plex
+                        rule: self.kind in ['Jellyfin', 'Plex']
                     configContract:
                       description: |-
                         configContract is the configuration contract name for the implementation.
@@ -874,9 +914,12 @@ spec:
                       type: array
                       x-kubernetes-list-type: set
                   required:
-                  - implementation
                   - name
                   type: object
+                  x-kubernetes-validations:
+                  - message: set appRef, or implementation, not both
+                    rule: 'has(self.appRef) ? !has(self.implementation) && !has(self.configContract)
+                      : has(self.implementation)'
                 type: array
                 x-kubernetes-list-map-keys:
                 - name

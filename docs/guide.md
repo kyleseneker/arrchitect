@@ -112,10 +112,14 @@ spec:
 | Maintainerr `mediaServer.jellyfin` | Jellyfin | `url`, `apiKeySecretRef` |
 | Sonarr, Radarr, Lidarr and Readarr download clients | QBittorrent, Sabnzbd | `implementation`, `protocol`, `host`, `port`, `useSsl`, `urlBase` and the credentials |
 | Autobrr `downloadClients` | QBittorrent, Sabnzbd, Sonarr, Radarr, Lidarr, Readarr | `type`, `host`, `port`, `tls` and the credentials |
+| Sonarr, Radarr and Lidarr `notifications` | Jellyfin, Plex | `implementation`, `configContract` and the `host`, `port`, `useSsl`, `urlBase` and `apiKey` or `authToken` fields; the Jellyfin resource must set `connection.apiKeySecretRef` |
+| Readarr `notifications` | Plex | the same; Readarr has no Jellyfin notification |
 
 - A connection sets `appRef` or the fields it stands for, not both, and the API
-  server rejects a mix. To have an app reach another at a different address
-  from the operator's, set the fields.
+  server rejects a mix. A notification's `fields` beside its `appRef` are the
+  exception: the operator reports those as a sync error instead. To have an
+  app reach another at a different address from the operator's, set the
+  fields.
 - The resource must be in the same namespace. The operator only reads it, and
   copies nothing from it into the resource that refers to it.
 - The referenced app must be turned on, as `apps.<app>` in the chart, since the

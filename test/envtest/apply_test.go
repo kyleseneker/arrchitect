@@ -325,6 +325,30 @@ func TestAdmissionRules(t *testing.T) {
 		{name: "anime categories on a Radarr application", kind: "Prowlarr", spec: conn + `
   applications: [{name: Radarr, appRef: {kind: Radarr, name: radarr}, animeSyncCategories: [5070]}]`,
 			rejected: "animeSyncCategories and syncAnimeStandardFormatSearch are for Sonarr applications"},
+		{name: "notifications to Jellyfin and Plex by reference", kind: "Sonarr", spec: conn + `
+  notifications:
+    - name: Jellyfin
+      appRef: {kind: Jellyfin, name: jellyfin}
+      onDownload: true
+      fields: [{name: updateLibrary, value: true}]
+    - {name: Plex, appRef: {kind: Plex, name: plex}}`},
+		{name: "a notification by reference and implementation", kind: "Radarr", spec: conn + `
+  notifications: [{name: Jellyfin, appRef: {kind: Jellyfin, name: jellyfin}, implementation: MediaBrowser}]`,
+			rejected: "set appRef, or implementation, not both"},
+		{name: "a notification with neither", kind: "Lidarr", spec: conn + `
+  notifications: [{name: Discord}]`,
+			rejected: "set appRef, or implementation, not both"},
+		{name: "a notification referring to Sonarr", kind: "Radarr", spec: conn + `
+  notifications: [{name: Sonarr, appRef: {kind: Sonarr, name: sonarr}}]`,
+			rejected: "a notification refers to a Jellyfin or Plex"},
+		{name: "a Readarr notification to Plex by reference", kind: "Readarr", spec: conn + `
+  notifications: [{name: Plex, appRef: {kind: Plex, name: plex}}]`},
+		{name: "a Readarr notification to Jellyfin by reference", kind: "Readarr", spec: conn + `
+  notifications: [{name: Jellyfin, appRef: {kind: Jellyfin, name: jellyfin}}]`,
+			rejected: "Readarr has no Jellyfin notification"},
+		{name: "a Prowlarr notification by reference", kind: "Prowlarr", spec: conn + `
+  notifications: [{name: Plex, appRef: {kind: Plex, name: plex}}]`,
+			rejected: "Prowlarr has no media server notifications to refer to"},
 		{name: "a Prowlarr application referring to Seerr", kind: "Prowlarr", spec: conn + `
   applications: [{name: Seerr, appRef: {kind: Seerr, name: seerr}}]`,
 			rejected: "an application refers to a Sonarr, Radarr, Lidarr or Readarr"},

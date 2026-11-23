@@ -79,6 +79,7 @@ _Appears in:_
 - [MaintainerrJellyfin](#maintainerrjellyfin)
 - [MaintainerrPlex](#maintainerrplex)
 - [MaintainerrSeerrConnection](#maintainerrseerrconnection)
+- [Notification](#notification)
 - [ProwlarrApplication](#prowlarrapplication)
 - [RadarrDownloadClientSpec](#radarrdownloadclientspec)
 - [ReadarrDownloadClientSpec](#readarrdownloadclientspec)
@@ -1874,7 +1875,8 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `name` _string_ | name is the display name of the notification. |  | MinLength: 1 <br />Required: \{\} <br /> |
-| `implementation` _string_ | implementation is the notification type (e.g., Discord, Slack, Webhook, Email). |  | MinLength: 1 <br />Required: \{\} <br /> |
+| `appRef` _[AppRef](#appref)_ | appRef names the media server's resource, a Jellyfin or Plex, whose<br />connection is used in place of implementation, configContract and the<br />host, port, useSsl, urlBase and apiKey or authToken fields. That Jellyfin<br />must set its connection's apiKeySecretRef. |  | Optional: \{\} <br /> |
+| `implementation` _string_ | implementation is the notification type (e.g., Discord, Slack, Webhook, Email). |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `configContract` _string_ | configContract is the configuration contract name for the implementation.<br />Defaults to "<implementation>Settings" if not set. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `tagLabels` _string array_ | tagLabels references tags by label, resolved against the app on each<br />reconciliation. A missing or ambiguous label blocks writes, and an empty<br />list clears the tags. |  | Optional: \{\} <br /> |
 | `fields` _[ConfigField](#configfield) array_ | fields defines the notification's configuration fields (e.g., webhook URL, API token). |  | MaxProperties: 2 <br />Optional: \{\} <br /> |

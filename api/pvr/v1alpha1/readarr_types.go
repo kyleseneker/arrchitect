@@ -149,6 +149,7 @@ type ReadarrSpec struct {
 	// +optional
 	// +listType=map
 	// +listMapKey=name
+	// +kubebuilder:validation:XValidation:rule="self.all(n, !has(n.appRef) || n.appRef.kind == 'Plex')",message="Readarr has no Jellyfin notification"
 	Notifications []commonv1alpha1.Notification `json:"notifications,omitempty"`
 
 	// importLists defines import list configurations for automatic content addition.

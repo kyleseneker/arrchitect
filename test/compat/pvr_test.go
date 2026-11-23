@@ -6,6 +6,7 @@ import (
 	"cmp"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"slices"
 	"strconv"
@@ -68,6 +69,7 @@ func TestSonarr(t *testing.T) {
 		},
 		secrets: map[string]string{
 			"api-key": key, "qbittorrent-username": qbittorrentUser, "qbittorrent-password": qbitPassword,
+			"jellyfin-api-key": "compat-jellyfin-key", "plex-token": "compat-plex-token",
 		},
 		newObj: func() ctrlcommon.ConfigResource { return &pvrv1alpha1.Sonarr{} },
 		reconciler: func(c client.Client) reconcile.Reconciler {
@@ -91,6 +93,8 @@ func TestSonarr(t *testing.T) {
 		observe: true,
 		verify: func(t *testing.T) {
 			hc := directClient(t, sonarr.url(), key)
+			requireMediaServerNotification(t, hc, "/api/v3/notification", "Compat Jellyfin", "MediaBrowser", "/jellyfin")
+			requireMediaServerNotification(t, hc, "/api/v3/notification", "Compat Plex", "PlexServer", "/plex")
 			naming, err := hc.GetJSON(context.Background(), "/api/v3/config/naming")
 			require.NoError(t, err)
 			assert.Equal(t, "Season {season:00}", naming["seasonFolderFormat"])
@@ -154,6 +158,7 @@ func TestRadarr(t *testing.T) {
 		},
 		secrets: map[string]string{
 			"api-key": key, "qbittorrent-username": qbittorrentUser, "qbittorrent-password": qbitPassword,
+			"jellyfin-api-key": "compat-jellyfin-key", "plex-token": "compat-plex-token",
 		},
 		newObj: func() ctrlcommon.ConfigResource { return &pvrv1alpha1.Radarr{} },
 		reconciler: func(c client.Client) reconcile.Reconciler {
@@ -177,6 +182,8 @@ func TestRadarr(t *testing.T) {
 		observe: true,
 		verify: func(t *testing.T) {
 			hc := directClient(t, radarr.url(), key)
+			requireMediaServerNotification(t, hc, "/api/v3/notification", "Compat Jellyfin", "MediaBrowser", "/jellyfin")
+			requireMediaServerNotification(t, hc, "/api/v3/notification", "Compat Plex", "PlexServer", "/plex")
 			naming, err := hc.GetJSON(context.Background(), "/api/v3/config/naming")
 			require.NoError(t, err)
 			assert.Equal(t, "smart", naming["colonReplacementFormat"])
@@ -232,6 +239,7 @@ func TestLidarr(t *testing.T) {
 		},
 		secrets: map[string]string{
 			"api-key": key, "qbittorrent-username": qbittorrentUser, "qbittorrent-password": qbitPassword,
+			"jellyfin-api-key": "compat-jellyfin-key", "plex-token": "compat-plex-token",
 		},
 		newObj: func() ctrlcommon.ConfigResource { return &pvrv1alpha1.Lidarr{} },
 		reconciler: func(c client.Client) reconcile.Reconciler {
@@ -255,6 +263,8 @@ func TestLidarr(t *testing.T) {
 		observe: true,
 		verify: func(t *testing.T) {
 			hc := directClient(t, lidarr.url(), key)
+			requireMediaServerNotification(t, hc, "/api/v1/notification", "Compat Jellyfin", "MediaBrowser", "/jellyfin")
+			requireMediaServerNotification(t, hc, "/api/v1/notification", "Compat Plex", "PlexServer", "/plex")
 			requireNamed(t, hc, "/api/v1/rootfolder", "music")
 			requireNamed(t, hc, "/api/v1/downloadclient", "qBittorrent")
 			requireNamed(t, hc, "/api/v1/indexer", "Compat Torznab")
@@ -313,7 +323,7 @@ func TestReadarr(t *testing.T) {
 		]`,
 		export:  "readarr",
 		vars:    map[string]string{"URL": proxy.url(), "HOST": hostIP, "FAKES": fakes},
-		secrets: map[string]string{"api-key": key},
+		secrets: map[string]string{"api-key": key, "plex-token": "compat-plex-token"},
 		newObj:  func() ctrlcommon.ConfigResource { return &pvrv1alpha1.Readarr{} },
 		reconciler: func(c client.Client) reconcile.Reconciler {
 			return &pvr.ReadarrReconciler{Client: c, Scheme: c.Scheme(), Recorder: events.NewFakeRecorder(100)}
@@ -336,6 +346,7 @@ func TestReadarr(t *testing.T) {
 		observe: true,
 		verify: func(t *testing.T) {
 			hc := directClient(t, readarr.url(), key)
+			requireMediaServerNotification(t, hc, "/api/v1/notification", "Compat Plex", "PlexServer", "/plex")
 			requireNamed(t, hc, "/api/v1/rootfolder", "books")
 			requireNamed(t, hc, "/api/v1/indexer", "Compat Torznab")
 			requireNamed(t, hc, "/api/v1/qualityprofile", "Books")
@@ -356,6 +367,26 @@ func TestReadarr(t *testing.T) {
 		cleanup: ownedGone(directClient(t, readarr.url(), key), pvrclient.Definition("v1"),
 			"qualityProfiles/Books", "metadataProfiles/English Books"),
 	})
+}
+
+// requireMediaServerNotification checks that a notification by reference
+// reached the app as the media server's type, at its host and URL base.
+func requireMediaServerNotification(t *testing.T, hc interface {
+	GetJSONList(context.Context, string) ([]map[string]any, error)
+}, path, name, implementation, urlBase string) {
+	t.Helper()
+	n := requireNamed(t, hc, path, name)
+	assert.Equal(t, implementation, n["implementation"])
+	fields := map[string]any{}
+	list, _ := n["fields"].([]any)
+	for _, f := range list {
+		if m, ok := f.(map[string]any); ok {
+			fields[fmt.Sprint(m["name"])] = m["value"]
+		}
+	}
+	assert.Equal(t, urlBase, fields["urlBase"], "%s urlBase", name)
+	assert.Equal(t, hostIP, fields["host"], "%s host", name)
+	assert.Equal(t, true, fields["updateLibrary"], "%s keeps its own fields", name)
 }
 
 func requireNamed(t *testing.T, hc interface {

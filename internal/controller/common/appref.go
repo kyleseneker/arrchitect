@@ -2,9 +2,11 @@ package common
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -145,6 +147,56 @@ func ResolveAppAddress(ctx context.Context, c client.Reader, apps Apps, namespac
 		return App{}, Address{}, fmt.Errorf("%s %q has no usable connection URL", ref.Kind, ref.Name)
 	}
 	return app, addr, nil
+}
+
+// notificationAddressFields are the fields a notification's appRef fills in.
+var notificationAddressFields = []string{"host", "port", "useSsl", "urlBase", "apiKey", "authToken"}
+
+// ResolveNotifications returns notifications with each appRef replaced by the
+// media server's notification type, address and key.
+func ResolveNotifications(
+	ctx context.Context, c client.Reader, apps Apps, namespace string, in []commonv1alpha1.Notification,
+) ([]commonv1alpha1.Notification, error) {
+	out := slices.Clone(in)
+	for i, n := range out {
+		if n.AppRef == (commonv1alpha1.AppRef{}) {
+			continue
+		}
+		for _, f := range n.Fields {
+			if slices.Contains(notificationAddressFields, f.Name) {
+				return nil, fmt.Errorf("notification %q: appRef fills in %s, so leave that field out", n.Name, f.Name)
+			}
+		}
+		app, addr, err := ResolveAppAddress(ctx, c, apps, namespace, n.AppRef)
+		if err != nil {
+			return nil, fmt.Errorf("notification %q appRef: %w", n.Name, err)
+		}
+		key := commonv1alpha1.ConfigField{Name: "authToken"}
+		switch app.Kind {
+		case "Jellyfin":
+			if app.APIKeySecretRef == nil {
+				return nil, fmt.Errorf("notification %q appRef: Jellyfin %q sets no API key Secret", n.Name, n.AppRef.Name)
+			}
+			n.Implementation, key.Name, key.ValueFrom.SecretKeyRef = "MediaBrowser", "apiKey", *app.APIKeySecretRef
+		case "Plex":
+			n.Implementation, key.ValueFrom.SecretKeyRef = "PlexServer", *app.TokenSecretRef
+		default:
+			return nil, fmt.Errorf("notification %q appRef: %s isn't a media server", n.Name, app.Kind)
+		}
+		n.Fields = append(slices.Clone(n.Fields),
+			fieldValue("host", addr.Host), fieldValue("port", addr.Port), fieldValue("useSsl", addr.TLS), key)
+		if addr.Base != "" {
+			n.Fields = append(n.Fields, fieldValue("urlBase", addr.Base))
+		}
+		n.AppRef = commonv1alpha1.AppRef{}
+		out[i] = n
+	}
+	return out, nil
+}
+
+func fieldValue(name string, v any) commonv1alpha1.ConfigField {
+	raw, _ := json.Marshal(v)
+	return commonv1alpha1.ConfigField{Name: name, Value: &commonv1alpha1.FieldValue{Raw: raw}}
 }
 
 // ResolveDownloadClient returns dc with its appRef, if any, replaced by the

@@ -21,11 +21,13 @@ type SonarrReconciler struct {
 	client.Client
 	Scheme   *runtime.Scheme
 	Recorder events.EventRecorder
+	Apps     ctrlcommon.Apps
 }
 
 // +kubebuilder:rbac:groups=arrchitect.dev,resources=sonarrs,verbs=get;list;watch;update;patch
 // +kubebuilder:rbac:groups=arrchitect.dev,resources=sonarrs/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=arrchitect.dev,resources=sonarrs/finalizers,verbs=update
+// +kubebuilder:rbac:groups=arrchitect.dev,resources=jellyfins;plexes,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
 
 func (r *SonarrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -35,7 +37,7 @@ func (r *SonarrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	}
 	s := config.Spec
 	return reconcilePVR(ctx, r.Client, r.Recorder, pvrConfig{
-		app: pvrclient.Sonarr, obj: &config, spec: s, connection: s.Connection, policy: s.Reconcile,
+		app: pvrclient.Sonarr, apps: r.Apps, obj: &config, spec: s, connection: s.Connection, policy: s.Reconcile,
 		options: pvrclient.Options{
 			RootFolders:        s.RootFolders,
 			RemotePathMappings: s.RemotePathMappings,
@@ -52,11 +54,18 @@ func (r *SonarrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 }
 
 func (r *SonarrReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
+	b := ctrl.NewControllerManagedBy(mgr).
 		For(&pvrv1alpha1.Sonarr{}, builder.WithPredicates(ctrlcommon.ConfigChangedPredicate())).
-		WatchesMetadata(&corev1.Secret{}, ctrlcommon.EnqueueForSecret(r.Client, &pvrv1alpha1.SonarrList{})).
-		Named("sonarr").
-		Complete(r)
+		WatchesMetadata(&corev1.Secret{}, ctrlcommon.EnqueueForSecretThroughRefs(r.Client, &pvrv1alpha1.SonarrList{}, sonarrAppRefs))
+	b, err := ctrlcommon.WatchAppRefs(mgr, b, r.Apps, &pvrv1alpha1.Sonarr{}, &pvrv1alpha1.SonarrList{}, sonarrAppRefs, "Jellyfin", "Plex")
+	if err != nil {
+		return err
+	}
+	return b.Named("sonarr").Complete(r)
+}
+
+func sonarrAppRefs(o client.Object) []commonv1alpha1.AppRef {
+	return notificationAppRefs(o.(*pvrv1alpha1.Sonarr).Spec.Notifications)
 }
 
 // sonarrInstance reads the Sonarr an object names.

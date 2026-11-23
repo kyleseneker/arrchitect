@@ -34,6 +34,17 @@ spec:
     autoRedownloadFailed: true
   rootFolders:
     - path: /data/media/tv
+  notifications:
+    - name: Jellyfin
+      appRef:
+        kind: Jellyfin
+        name: jellyfin
+      onDownload: true
+      onUpgrade: true
+      onRename: true
+      fields:
+        - name: updateLibrary
+          value: true
 ---
 apiVersion: arrchitect.dev/v1alpha1
 kind: SonarrDownloadClient
@@ -72,6 +83,17 @@ spec:
     movieFolderFormat: "{Movie CleanTitle} ({Release Year})"
   rootFolders:
     - path: /data/media/movies
+  notifications:
+    - name: Jellyfin
+      appRef:
+        kind: Jellyfin
+        name: jellyfin
+      onDownload: true
+      onUpgrade: true
+      onRename: true
+      fields:
+        - name: updateLibrary
+          value: true
 ---
 apiVersion: arrchitect.dev/v1alpha1
 kind: RadarrDownloadClient
@@ -146,6 +168,9 @@ metadata:
 spec:
   connection:
     url: http://jellyfin.media.svc.cluster.local:8096
+    apiKeySecretRef:
+      name: jellyfin-credentials
+      key: api-key
   adminUser:
     usernameSecretRef:
       name: jellyfin-credentials

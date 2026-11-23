@@ -720,3 +720,67 @@ func TestAppRefChangesReconcileTheReferrer(t *testing.T) {
 		return m != "" && !strings.Contains(m, "sonarr-key")
 	}, 10*time.Second, 100*time.Millisecond, "creating the Sonarr's Secret did not reconcile the Prowlarr")
 }
+
+func TestNotificationAppRefChangesReconcileTheSonarr(t *testing.T) {
+	cfg, c := startControlPlane(t, pvrv1alpha1.AddToScheme, mediaserversv1alpha1.AddToScheme)
+	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
+		Scheme:     c.Scheme(),
+		Metrics:    metricsserver.Options{BindAddress: "0"},
+		Controller: config.Controller{SkipNameValidation: new(true)},
+		Client:     operator.ClientOptions(),
+	})
+	require.NoError(t, err)
+	rec := &pvr.SonarrReconciler{Client: mgr.GetClient(), Scheme: mgr.GetScheme(), Recorder: events.NewFakeRecorder(100)}
+	require.NoError(t, rec.SetupWithManager(mgr))
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	go func() { _ = mgr.Start(ctx) }()
+
+	require.NoError(t, c.Create(ctx, &corev1.Secret{
+		ObjectMeta: meta("app-credentials"), Data: map[string][]byte{"api-key": []byte("k")},
+	}))
+	sonarr := &pvrv1alpha1.Sonarr{ObjectMeta: meta("sonarr"), Spec: pvrv1alpha1.SonarrSpec{
+		Connection: appConn(fakeListAppServer(t)), Reconcile: orphan(),
+		Notifications: []commonv1alpha1.Notification{{
+			Name: "Jellyfin", AppRef: commonv1alpha1.AppRef{Kind: "Jellyfin", Name: "jf"},
+		}},
+	}}
+	require.NoError(t, c.Create(ctx, sonarr))
+	message := func() string {
+		var got pvrv1alpha1.Sonarr
+		if c.Get(ctx, client.ObjectKeyFromObject(sonarr), &got) != nil {
+			return ""
+		}
+		if cond := apimeta.FindStatusCondition(got.Status.Conditions, engine.ConditionSynced); cond != nil {
+			return cond.Message
+		}
+		return ""
+	}
+	require.Eventually(t, func() bool { return strings.Contains(message(), `Jellyfin "jf" not found`) },
+		10*time.Second, 100*time.Millisecond, "the missing Jellyfin was never reported: %s", message())
+
+	jellyfin := &mediaserversv1alpha1.Jellyfin{ObjectMeta: meta("jf"), Spec: mediaserversv1alpha1.JellyfinSpec{
+		Connection: mediaserversv1alpha1.JellyfinConnection{URL: "http://jellyfin:8096"},
+		AdminUser: mediaserversv1alpha1.JellyfinAdminUser{
+			UsernameSecretRef: commonv1alpha1.SecretKeyRef{Name: "jf-admin", Key: "username"},
+			PasswordSecretRef: commonv1alpha1.SecretKeyRef{Name: "jf-admin", Key: "password"},
+		},
+		Reconcile: orphan(),
+	}}
+	require.NoError(t, c.Create(ctx, jellyfin))
+	require.Eventually(t, func() bool { return strings.Contains(message(), `Jellyfin "jf" sets no API key Secret`) },
+		10*time.Second, 100*time.Millisecond, "creating the Jellyfin did not reconcile the Sonarr: %s", message())
+
+	jellyfin.Spec.Connection.APIKeySecretRef = &commonv1alpha1.SecretKeyRef{Name: "jf-key", Key: "api-key"}
+	require.NoError(t, c.Update(ctx, jellyfin))
+	require.Eventually(t, func() bool { return strings.Contains(message(), `secret "jf-key" not found`) },
+		10*time.Second, 100*time.Millisecond, "giving the Jellyfin a key did not reconcile the Sonarr: %s", message())
+
+	require.NoError(t, c.Create(ctx, &corev1.Secret{
+		ObjectMeta: meta("jf-key"), Data: map[string][]byte{"api-key": []byte("k")},
+	}))
+	require.Eventually(t, func() bool {
+		m := message()
+		return m != "" && !strings.Contains(m, "jf-key")
+	}, 10*time.Second, 100*time.Millisecond, "creating the Jellyfin's Secret did not reconcile the Sonarr: %s", message())
+}
