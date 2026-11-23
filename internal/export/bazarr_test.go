@@ -17,7 +17,9 @@ const fakeBazarrSettings = `{
 	"general": {"use_sonarr": true, "use_radarr": false, "minimum_score": 90, "hi_extension": "hi",
 		"enabled_providers": ["opensubtitlescom", "podnapisi"], "enabled_languages": ["fr"],
 		"path_mappings": [["/tv", "/media/tv"]], "path_mappings_movie": [], "chmod": "0640",
-		"serie_default_enabled": true, "serie_default_profile": 2, "movie_default_enabled": false, "movie_default_profile": 1},
+		"serie_default_enabled": true, "serie_default_profile": 2, "movie_default_enabled": false, "movie_default_profile": 1,
+		"adaptive_searching_delay": "2w", "adaptive_searching_delta": "3d", "days_to_upgrade_subs": 14,
+		"serie_tag_enabled": true, "remove_profile_tags": ["no-subs"], "wanted_search_frequency_movie": 24},
 	"sonarr": {"ip": "sonarr", "port": 8989, "base_url": "/", "apikey": "sonarr-key", "series_sync": 60, "ssl": false,
 		"excluded_tags": ["no-subs"], "excluded_series_types": []},
 	"radarr": {"ip": "radarr", "apikey": "radarr-key"},
@@ -28,10 +30,11 @@ const fakeBazarrSettings = `{
 }`
 
 const fakeBazarrProfiles = `[
-	{"profileId": 1, "name": "English", "cutoff": null, "mustContain": [], "mustNotContain": [], "originalFormat": false,
-		"items": [{"id": 1, "language": "en", "hi": "False", "forced": "True", "audio_exclude": "False"}]},
-	{"profileId": 2, "name": "Picky", "cutoff": 1, "mustContain": ["x"], "mustNotContain": [], "originalFormat": false,
-		"items": [{"id": 3, "language": "es", "hi": "False", "forced": "False", "audio_exclude": "False"}]}
+	{"profileId": 1, "name": "English", "cutoff": 65535, "mustContain": [], "mustNotContain": [], "originalFormat": 0,
+		"tag": null, "items": [{"id": 1, "language": "en", "hi": "False", "forced": "True", "audio_exclude": "False"}]},
+	{"profileId": 2, "name": "Picky", "cutoff": 3, "mustContain": ["x"], "mustNotContain": ["CAM"], "originalFormat": 1,
+		"tag": "spanish", "items": [{"id": 3, "language": "es", "hi": "False", "forced": "False", "audio_exclude": "False",
+		"audio_only_include": "True"}]}
 ]`
 
 func exportBazarrFrom(t *testing.T) (*subtitlesv1alpha1.Bazarr, Result) {
@@ -80,6 +83,13 @@ func TestBazarrSettingsMapBackToSpecFields(t *testing.T) {
 	assert.Equal(t, "Picky", cfg.Spec.General.SeriesDefaultProfile, "the profile id is exported by name")
 	assert.Empty(t, cfg.Spec.General.MovieDefaultProfile, "a default that is off isn't exported")
 	assert.Equal(t, []string{"no-subs"}, cfg.Spec.SonarrConnection.ExcludedTags)
+	general := cfg.Spec.General
+	assert.Equal(t, "2w", general.AdaptiveSearchingDelay)
+	assert.Equal(t, "3d", general.AdaptiveSearchingDelta)
+	assert.Equal(t, int32(14), *general.DaysToUpgradeSubs)
+	assert.True(t, *general.SeriesTagEnabled)
+	assert.Equal(t, []string{"no-subs"}, general.RemoveProfileTags)
+	assert.Equal(t, int32(24), *general.WantedSearchFrequencyMovie)
 	assert.Empty(t, cfg.Spec.SonarrConnection.ExcludedSeriesTypes)
 }
 
@@ -104,17 +114,57 @@ func TestBazarrProviderSecretsMoveToTheSecret(t *testing.T) {
 	assert.Empty(t, cfg.Spec.Providers[1].Settings)
 }
 
-func TestBazarrProfilesWarnAboutWhatTheConfigWouldClear(t *testing.T) {
+func TestBazarrExportsProfileCutoffFiltersAndTag(t *testing.T) {
 	cfg, res := exportBazarrFrom(t)
 	require.Len(t, cfg.Spec.Languages.Profiles, 2)
 	english := cfg.Spec.Languages.Profiles[0]
 	assert.Equal(t, int32(1), *english.ProfileId)
 	assert.True(t, *english.Items[0].Forced)
 	assert.False(t, *english.Items[0].HI)
-	assert.Contains(t, res.Warnings, `language profile "Picky": the config can't express its cutoff, must-contain, `+
-		`must-not-contain or original-format setting, and applying the config would clear it`)
+	assert.Equal(t, "any", english.Cutoff)
+	assert.Nil(t, english.OriginalFormat, "originalFormat off is Bazarr's default")
+	assert.Empty(t, english.Tag)
+
+	picky := cfg.Spec.Languages.Profiles[1]
+	assert.Equal(t, "es", picky.Cutoff, "the cutoff is named, so renumbering the items keeps it")
+	assert.Equal(t, []string{"x"}, picky.MustContain)
+	assert.Equal(t, []string{"CAM"}, picky.MustNotContain)
+	assert.True(t, *picky.OriginalFormat)
+	assert.Equal(t, "spanish", picky.Tag)
+	assert.True(t, *picky.Items[0].AudioOnlyInclude)
 	assert.Contains(t, res.Warnings, `language profile "Picky": Bazarr numbers its items differently than the config, `+
 		`so applying the config would renumber them`)
+}
+
+func TestBazarrCutoffExportsOnlyWhatTheConfigCanName(t *testing.T) {
+	items := []map[string]any{
+		{"id": float64(1), "language": "en", "hi": "False", "forced": "False"},
+		{"id": float64(2), "language": "en", "hi": "True", "forced": "False"},
+		{"id": float64(3), "language": "en", "hi": "False", "forced": "False"},
+	}
+	for _, tt := range []struct {
+		cutoff  any
+		want    string
+		ok      bool
+		warning string
+	}{
+		{nil, "", false, ""},
+		{float64(2), "en:hi", true, ""},
+		{float64(1), "en", true, ""},
+		{float64(3), "", false, `language profile "p": its cutoff is a later of two en items, which the config can't name, ` +
+			`so cutoff is left out`},
+		{float64(9), "", false, `language profile "p": its cutoff is an item it doesn't have, so cutoff is left out`},
+	} {
+		r := &reader{}
+		got, ok := r.bazarrCutoff("p", tt.cutoff, items)
+		assert.Equal(t, tt.want, got, "%v", tt.cutoff)
+		assert.Equal(t, tt.ok, ok, "%v", tt.cutoff)
+		if tt.warning != "" {
+			assert.Equal(t, []string{tt.warning}, r.warnings)
+		} else {
+			assert.Empty(t, r.warnings)
+		}
+	}
 }
 
 func TestBazarrExportsConfiguredNotificationProvidersWithTheirURLInTheSecret(t *testing.T) {

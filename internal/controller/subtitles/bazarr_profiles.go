@@ -10,6 +10,7 @@ import (
 	"strconv"
 
 	subtitlesv1alpha1 "github.com/kyleseneker/arrchitect/api/subtitles/v1alpha1"
+	bazarrclient "github.com/kyleseneker/arrchitect/internal/client/bazarr"
 	"github.com/kyleseneker/arrchitect/internal/engine"
 )
 
@@ -21,7 +22,7 @@ const (
 // bazarrProfiles is the language profile list to save. Bazarr deletes every
 // stored profile a save leaves out, so the list carries the profiles the spec
 // doesn't declare and leaves out only those prune deletes. A declared profile
-// that exists keeps what the spec can't express, such as its cutoff.
+// that exists keeps the settings the spec leaves unset.
 type bazarrProfiles struct {
 	existing []map[string]any
 	declared []string
@@ -56,14 +57,13 @@ func planBazarrProfiles(declaredJSON string, existing []map[string]any, prune bo
 	}
 	send := make([]map[string]any, 0, len(declared)+len(existing))
 	for _, d := range declared {
+		base := bazarrclient.NewProfileDefaults
 		if e, ok := stored[profileKey(d)]; ok {
-			kept := maps.Clone(e)
-			for _, k := range []string{"profileId", "name", "items"} {
-				kept[k] = d[k]
-			}
-			d = kept
+			base = e
 		}
-		send = append(send, d)
+		profile := maps.Clone(base)
+		maps.Copy(profile, d)
+		send = append(send, profile)
 	}
 	for _, e := range existing {
 		key := profileKey(e)

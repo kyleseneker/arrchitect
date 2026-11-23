@@ -190,6 +190,9 @@ func TestSettingNameConvertsCamelCaseAndHonoursOverrides(t *testing.T) {
 		{"sonarr", "httpTimeout", "http_timeout"},
 		{"sonarr", "host", "ip"},
 		{"sonarr", "syncInterval", "series_sync"},
+		{"general", "seriesTagEnabled", "serie_tag_enabled"},
+		{"general", "adaptiveSearchingDelay", "adaptive_searching_delay"},
+		{"general", "wantedSearchFrequencyMovie", "wanted_search_frequency_movie"},
 		{"radarr", "syncInterval", "movies_sync"},
 	}
 	for _, c := range cases {
@@ -202,12 +205,13 @@ func TestBuildLanguageProfilesMatchesBazarrSchema(t *testing.T) {
 	profiles := []subtitlesv1alpha1.BazarrLanguageProfile{
 		{Name: "English", Items: []subtitlesv1alpha1.BazarrLanguageItem{{Language: "en", HI: &hi}}},
 	}
-	out := buildLanguageProfiles(profiles)
+	out, err := buildLanguageProfiles(profiles)
+	require.NoError(t, err)
 	require.Len(t, out, 1)
 	p := out[0]
 
-	for _, k := range []string{"profileId", "name", "items", "cutoff", "mustContain", "mustNotContain", "originalFormat"} {
-		assert.Contains(t, p, k, "Bazarr indexes %q unconditionally and raises KeyError", k)
+	for k := range NewProfileDefaults {
+		assert.NotContains(t, p, k, "an unset key is the controller's to fill or keep")
 	}
 	assert.Equal(t, 1, p["profileId"], "profileId defaults to a 1-based index")
 
@@ -217,6 +221,34 @@ func TestBuildLanguageProfilesMatchesBazarrSchema(t *testing.T) {
 	assert.Equal(t, "True", items[0]["hi"], "Bazarr stores item flags as True/False strings")
 	assert.Equal(t, "False", items[0]["forced"])
 	assert.Equal(t, "False", items[0]["audio_exclude"])
+	assert.Equal(t, "False", items[0]["audio_only_include"])
+}
+
+func TestBuildLanguageProfilesSendsTheDeclaredFilters(t *testing.T) {
+	profile := subtitlesv1alpha1.BazarrLanguageProfile{
+		Name: "English", MustContain: []string{"WEB"}, MustNotContain: []string{}, OriginalFormat: new(true), Tag: "english",
+		Items: []subtitlesv1alpha1.BazarrLanguageItem{
+			{Language: "en"}, {Language: "en", HI: new(true)}, {Language: "en", Forced: new(true), AudioOnlyInclude: new(true)},
+		},
+	}
+	for cutoff, want := range map[string]any{"en": 1, "en:hi": 2, "en:forced": 3, "any": AnyCutoff, "none": nil} {
+		profile.Cutoff = cutoff
+		out, err := buildLanguageProfiles([]subtitlesv1alpha1.BazarrLanguageProfile{profile})
+		require.NoError(t, err)
+		assert.Equal(t, want, out[0]["cutoff"], cutoff)
+		assert.Contains(t, out[0], "cutoff", cutoff)
+	}
+	out, err := buildLanguageProfiles([]subtitlesv1alpha1.BazarrLanguageProfile{profile})
+	require.NoError(t, err)
+	assert.Equal(t, []string{"WEB"}, out[0]["mustContain"])
+	assert.Equal(t, []string{}, out[0]["mustNotContain"], "an empty list must clear Bazarr's")
+	assert.Equal(t, true, out[0]["originalFormat"])
+	assert.Equal(t, "english", out[0]["tag"])
+	assert.Equal(t, "True", out[0]["items"].([]map[string]any)[2]["audio_only_include"])
+
+	profile.Cutoff = "fr"
+	_, err = buildLanguageProfiles([]subtitlesv1alpha1.BazarrLanguageProfile{profile})
+	require.EqualError(t, err, `profile "English": cutoff "fr" names none of its items`)
 }
 
 func TestStructToFormDataSendsListsAsRepeatedValues(t *testing.T) {

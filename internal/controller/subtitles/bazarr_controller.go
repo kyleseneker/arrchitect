@@ -487,8 +487,8 @@ func bazarrScalarText(v any) string {
 	}
 }
 
-// sameBazarrProfiles compares only the keys the operator sends. Bazarr adds
-// keys of its own (tag) and reports originalFormat as 0/1; Covers allows both.
+// sameBazarrProfiles compares only the keys the operator sends. Bazarr reports
+// originalFormat as 0/1, which Covers allows.
 func sameBazarrProfiles(current []map[string]any, desiredJSON string) bool {
 	var want []any
 	if err := json.Unmarshal([]byte(desiredJSON), &want); err != nil {

@@ -246,6 +246,28 @@ func TestAdmissionRules(t *testing.T) {
     passwordSecretRef: {name: app, key: password}
   preferences: {bannedIps: [10.0.0.0/8]}`,
 			rejected: "bannedIps holds IP addresses"},
+		{name: "Bazarr search tuning and profile filters", kind: "Bazarr", spec: conn + `
+  general: {adaptiveSearchingDelay: 2w, adaptiveSearchingDelta: 3d, daysToUpgradeSubs: 30, upgradeFrequency: 876000,
+    seriesTagEnabled: true, removeProfileTags: [no-subs]}
+  languages:
+    profiles:
+      - profileId: 1
+        name: English
+        items: [{language: en}, {language: es, audioOnlyInclude: true}]
+        cutoff: "en:hi"
+        mustContain: [WEB]
+        tag: english`},
+		{name: "a Bazarr upgrade frequency Bazarr refuses", kind: "Bazarr", spec: conn + `
+  general: {upgradeFrequency: 8}`,
+			rejected: "Unsupported value"},
+		{name: "a Bazarr profile item both excluded and included by audio", kind: "Bazarr", spec: conn + `
+  languages:
+    profiles: [{profileId: 1, name: English, items: [{language: en, audioExclude: true, audioOnlyInclude: true}]}]`,
+			rejected: "audioExclude and audioOnlyInclude can't both be true"},
+		{name: "a Bazarr profile tag with capitals", kind: "Bazarr", spec: conn + `
+  languages:
+    profiles: [{profileId: 1, name: English, items: [{language: en}], tag: English}]`,
+			rejected: "should match"},
 		{name: "SABnzbd login, quota and duplicate handling", kind: "Sabnzbd", spec: conn + `
   general: {duplicateDetection: tag, smartDuplicateDetection: pause, preQueueScript: check.sh}
   servers: [{name: Primary, host: news.example.com, port: 563, timeout: 20, sslCiphers: AES128}]
