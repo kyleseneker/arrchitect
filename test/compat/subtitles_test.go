@@ -45,7 +45,8 @@ func TestBazarr(t *testing.T) {
 	})
 	_, err := hc.DoForm(context.Background(), "/api/system/settings", url.Values{"languages-profiles": {
 		`[{"profileId":99,"name":"Hand-made","cutoff":null,"mustContain":[],"mustNotContain":[],"originalFormat":false,` +
-			`"items":[{"id":1,"language":"en","hi":"True","forced":"False","audio_exclude":"False"}]}]`,
+			`"items":[{"id":1,"language":"en","hi":"True","forced":"False","audio_exclude":"False",` +
+			`"audio_only_include":"False"}]}]`,
 	}})
 	require.NoError(t, err, "creating a hand-made language profile")
 	proxy := newRecordingProxy(t, bazarr.url())
@@ -54,8 +55,12 @@ func TestBazarr(t *testing.T) {
 		fixture: "bazarr.yaml",
 		update: `[
 			{"op": "replace", "path": "/spec/general/minimumScore", "value": 85},
-			{"op": "replace", "path": "/spec/notifications/0/enabled", "value": false}
+			{"op": "replace", "path": "/spec/notifications/0/enabled", "value": false},
+			{"op": "replace", "path": "/spec/languages/profiles/0/cutoff", "value": "es"}
 		]`,
+		verifyUpdate: func(t *testing.T) {
+			assert.Equal(t, float64(2), bazarrProfile(t, hc, "English")["cutoff"])
+		},
 		export: "bazarr",
 		vars: map[string]string{
 			"URL": proxy.url(), "HOST": hostIP,
@@ -89,6 +94,16 @@ func TestBazarr(t *testing.T) {
 			assert.Equal(t, []any{"daily"}, sonarrSettings["excluded_series_types"])
 			assert.Equal(t, []string{"English", "Hand-made"}, bazarrProfileNames(t, hc),
 				"saving the declared profile lost the hand-made one")
+			assert.Equal(t, "2w", general["adaptive_searching_delay"])
+			assert.Equal(t, float64(14), general["days_to_upgrade_subs"])
+			assert.Equal(t, true, general["serie_tag_enabled"])
+			assert.Equal(t, []any{"no-subs"}, general["remove_profile_tags"])
+			english := bazarrProfile(t, hc, "English")
+			assert.Equal(t, float64(1), english["cutoff"])
+			assert.Equal(t, []any{"WEB"}, english["mustContain"])
+			assert.Equal(t, []any{"CAM"}, english["mustNotContain"])
+			assert.InDelta(t, 1, english["originalFormat"], 0)
+			assert.Equal(t, "english", english["tag"])
 			languages, err := hc.GetJSONList(context.Background(), "/api/system/languages")
 			require.NoError(t, err)
 			var enabled []string
@@ -104,6 +119,19 @@ func TestBazarr(t *testing.T) {
 			assert.Equal(t, []string{"Hand-made"}, bazarrProfileNames(t, hc))
 		},
 	})
+}
+
+func bazarrProfile(t *testing.T, hc *engine.HTTPClient, name string) map[string]any {
+	t.Helper()
+	profiles, err := hc.GetJSONList(context.Background(), "/api/system/languages/profiles")
+	require.NoError(t, err)
+	for _, p := range profiles {
+		if p["name"] == name {
+			return p
+		}
+	}
+	require.Failf(t, "no such language profile", "%s", name)
+	return nil
 }
 
 func bazarrProfileNames(t *testing.T, hc *engine.HTTPClient) []string {

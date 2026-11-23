@@ -190,10 +190,6 @@ func (r *reader) bazarrProfiles(profiles []map[string]any) []any {
 	out := make([]any, 0, len(profiles))
 	for _, p := range profiles {
 		name, _ := p["name"].(string)
-		if p["cutoff"] != nil || len(texts(p["mustContain"])) > 0 || len(texts(p["mustNotContain"])) > 0 || p["originalFormat"] == true {
-			r.warn("language profile %q: the config can't express its cutoff, must-contain, must-not-contain or "+
-				"original-format setting, and applying the config would clear it", name)
-		}
 		var items []any
 		for j, it := range list(p["items"]) {
 			if num(it["id"]) != float64(j+1) {
@@ -201,15 +197,60 @@ func (r *reader) bazarrProfiles(profiles []map[string]any) []any {
 					"the config would renumber them", name)
 			}
 			items = append(items, map[string]any{
-				"language":     it["language"],
-				"hi":           bazarrFlag(it["hi"]),
-				"forced":       bazarrFlag(it["forced"]),
-				"audioExclude": bazarrFlag(it["audio_exclude"]),
+				"language":         it["language"],
+				"hi":               bazarrFlag(it["hi"]),
+				"forced":           bazarrFlag(it["forced"]),
+				"audioExclude":     bazarrFlag(it["audio_exclude"]),
+				"audioOnlyInclude": bazarrFlag(it["audio_only_include"]),
 			})
 		}
-		out = append(out, map[string]any{"profileId": p["profileId"], "name": name, "items": items})
+		profile := map[string]any{"profileId": p["profileId"], "name": name, "items": items}
+		if cutoff, ok := r.bazarrCutoff(name, p["cutoff"], list(p["items"])); ok {
+			profile["cutoff"] = cutoff
+		}
+		if words := texts(p["mustContain"]); len(words) > 0 {
+			profile["mustContain"] = words
+		}
+		if words := texts(p["mustNotContain"]); len(words) > 0 {
+			profile["mustNotContain"] = words
+		}
+		if p["originalFormat"] == true || num(p["originalFormat"]) == 1 {
+			profile["originalFormat"] = true
+		}
+		if tag, _ := p["tag"].(string); tag != "" {
+			profile["tag"] = tag
+		}
+		out = append(out, profile)
 	}
 	return out
+}
+
+// bazarrCutoff names a profile's cutoff item as the config does. A profile
+// without a cutoff has none to export.
+func (r *reader) bazarrCutoff(profile string, cutoff any, items []map[string]any) (string, bool) {
+	id := num(cutoff)
+	switch id {
+	case 0:
+		return "", false
+	case bazarrclient.AnyCutoff:
+		return "any", true
+	}
+	seen := map[string]bool{}
+	for _, it := range items {
+		label := bazarrclient.ItemLabel(fmt.Sprint(it["language"]), bazarrFlag(it["hi"]), bazarrFlag(it["forced"]))
+		if num(it["id"]) != id {
+			seen[label] = true
+			continue
+		}
+		if seen[label] {
+			r.warn("language profile %q: its cutoff is a later of two %s items, which the config can't name, "+
+				"so cutoff is left out", profile, label)
+			return "", false
+		}
+		return label, true
+	}
+	r.warn("language profile %q: its cutoff is an item it doesn't have, so cutoff is left out", profile)
+	return "", false
 }
 
 func bazarrFlag(v any) bool {

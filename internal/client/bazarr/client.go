@@ -28,11 +28,30 @@ func (c *Client) Ping(ctx context.Context) error {
 	return c.hc.Ping(ctx, "/api/system/health")
 }
 
-// buildLanguageProfiles renders profiles in the shape Bazarr's languages-profiles
-// handler indexes into. cutoff, mustContain, mustNotContain and originalFormat are
-// read unconditionally, so a profile missing any of them raises a KeyError and no
+// AnyCutoff is the cutoff Bazarr stores for "any": the search ends at whichever
+// item is found first.
+const AnyCutoff = 65535
+
+// NewProfileDefaults are the profile keys Bazarr's languages-profiles handler
+// reads unconditionally, with the values a new profile gets when the spec
+// leaves them unset. A profile missing any of them raises a KeyError and no
 // profile is stored.
-func buildLanguageProfiles(profiles []subtitlesv1alpha1.BazarrLanguageProfile) []map[string]any {
+var NewProfileDefaults = map[string]any{"cutoff": nil, "mustContain": []string{}, "mustNotContain": []string{}, "originalFormat": false}
+
+// ItemLabel names a profile item as Bazarr's cutoff selector shows it.
+func ItemLabel(language string, hi, forced bool) string {
+	switch {
+	case hi:
+		return language + ":hi"
+	case forced:
+		return language + ":forced"
+	}
+	return language
+}
+
+// buildLanguageProfiles renders profiles in the shape Bazarr's languages-profiles
+// handler takes, with only the optional keys the spec sets.
+func buildLanguageProfiles(profiles []subtitlesv1alpha1.BazarrLanguageProfile) ([]map[string]any, error) {
 	out := make([]map[string]any, 0, len(profiles))
 	for i, p := range profiles {
 		id := i + 1
@@ -42,24 +61,53 @@ func buildLanguageProfiles(profiles []subtitlesv1alpha1.BazarrLanguageProfile) [
 		items := make([]map[string]any, 0, len(p.Items))
 		for j, it := range p.Items {
 			items = append(items, map[string]any{
-				"id":            j + 1,
-				"language":      it.Language,
-				"hi":            boolStr(it.HI),
-				"forced":        boolStr(it.Forced),
-				"audio_exclude": boolStr(it.AudioExclude),
+				"id":                 j + 1,
+				"language":           it.Language,
+				"hi":                 boolStr(it.HI),
+				"forced":             boolStr(it.Forced),
+				"audio_exclude":      boolStr(it.AudioExclude),
+				"audio_only_include": boolStr(it.AudioOnlyInclude),
 			})
 		}
-		out = append(out, map[string]any{
-			"profileId":      id,
-			"name":           p.Name,
-			"items":          items,
-			"cutoff":         nil,
-			"mustContain":    []string{},
-			"mustNotContain": []string{},
-			"originalFormat": false,
-		})
+		profile := map[string]any{"profileId": id, "name": p.Name, "items": items}
+		if p.Cutoff != "" {
+			cutoff, err := cutoffID(p)
+			if err != nil {
+				return nil, err
+			}
+			profile["cutoff"] = cutoff
+		}
+		if p.MustContain != nil {
+			profile["mustContain"] = slices.Clone(p.MustContain)
+		}
+		if p.MustNotContain != nil {
+			profile["mustNotContain"] = slices.Clone(p.MustNotContain)
+		}
+		if p.OriginalFormat != nil {
+			profile["originalFormat"] = *p.OriginalFormat
+		}
+		if p.Tag != "" {
+			profile["tag"] = p.Tag
+		}
+		out = append(out, profile)
 	}
-	return out
+	return out, nil
+}
+
+// cutoffID is the item id Bazarr stores for a profile's cutoff.
+func cutoffID(p subtitlesv1alpha1.BazarrLanguageProfile) (any, error) {
+	switch p.Cutoff {
+	case "none":
+		return nil, nil
+	case "any":
+		return AnyCutoff, nil
+	}
+	for j, it := range p.Items {
+		if ItemLabel(it.Language, it.HI != nil && *it.HI, it.Forced != nil && *it.Forced) == p.Cutoff {
+			return j + 1, nil
+		}
+	}
+	return nil, fmt.Errorf("profile %q: cutoff %q names none of its items", p.Name, p.Cutoff)
 }
 
 // boolStr renders a bool the way Bazarr stores profile item flags.
@@ -114,7 +162,11 @@ func LanguagesForm(langs *subtitlesv1alpha1.BazarrLanguages) (url.Values, error)
 		form[EnabledLanguagesField] = slices.Clone(langs.Enabled)
 	}
 	if len(langs.Profiles) > 0 {
-		profilesJSON, err := json.Marshal(buildLanguageProfiles(langs.Profiles))
+		profiles, err := buildLanguageProfiles(langs.Profiles)
+		if err != nil {
+			return nil, err
+		}
+		profilesJSON, err := json.Marshal(profiles)
 		if err != nil {
 			return nil, fmt.Errorf("marshaling language profiles: %w", err)
 		}
@@ -126,9 +178,12 @@ func LanguagesForm(langs *subtitlesv1alpha1.BazarrLanguages) (url.Values, error)
 // settingNameOverrides maps a spec field to the Bazarr setting it drives where
 // snake_case alone does not get there.
 var settingNameOverrides = map[string]map[string]string{
-	"general": {"seriesDefaultProfile": "serie_default_profile", "movieDefaultProfile": "movie_default_profile"},
-	"sonarr":  {"host": "ip", "basePath": "base_url", "syncInterval": "series_sync"},
-	"radarr":  {"host": "ip", "basePath": "base_url", "syncInterval": "movies_sync"},
+	"general": {
+		"seriesDefaultProfile": "serie_default_profile", "movieDefaultProfile": "movie_default_profile",
+		"seriesTagEnabled": "serie_tag_enabled",
+	},
+	"sonarr": {"host": "ip", "basePath": "base_url", "syncInterval": "series_sync"},
+	"radarr": {"host": "ip", "basePath": "base_url", "syncInterval": "movies_sync"},
 }
 
 // SettingName converts a spec field name to the key Bazarr stores it under.

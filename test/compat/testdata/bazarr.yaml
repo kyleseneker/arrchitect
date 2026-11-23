@@ -16,10 +16,19 @@ spec:
     useScenename: true
     usePostprocessing: false
     adaptiveSearching: true
+    adaptiveSearchingDelay: 2w
+    adaptiveSearchingDelta: 3d
     multithreading: true
     upgradeSubs: true
     upgradeFrequency: 12
+    daysToUpgradeSubs: 14
+    upgradeManual: false
     wantedSearchFrequency: 6
+    wantedSearchFrequencyMovie: 24
+    seriesTagEnabled: true
+    movieTagEnabled: false
+    removeProfileTags:
+      - no-subs
     utf8Encode: true
     ignorePgsSubs: false
     ignoreVobsubSubs: false
@@ -96,6 +105,15 @@ spec:
             hi: false
             forced: false
             audioExclude: false
+          - language: es
+            audioOnlyInclude: true
+        cutoff: en
+        mustContain:
+          - WEB
+        mustNotContain:
+          - CAM
+        originalFormat: true
+        tag: english
   notifications:
     - name: Discord
       enabled: true

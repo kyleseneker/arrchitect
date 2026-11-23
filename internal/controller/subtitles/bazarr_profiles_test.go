@@ -13,6 +13,7 @@ import (
 
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
 	subtitlesv1alpha1 "github.com/kyleseneker/arrchitect/api/subtitles/v1alpha1"
+	bazarrclient "github.com/kyleseneker/arrchitect/internal/client/bazarr"
 	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
 )
 
@@ -84,6 +85,36 @@ func TestBazarrKeepsWhatADeclaredProfileLeavesOut(t *testing.T) {
 	assert.Equal(t, float64(1), sent[0]["originalFormat"])
 }
 
+func TestBazarrDeclaredProfileSettingsReplaceBazarrs(t *testing.T) {
+	stored := storedProfile(1, "declared")
+	stored["cutoff"] = float64(1)
+	stored["mustContain"] = []any{"WEB"}
+	stored["tag"] = "old"
+	app := &fakeBazarr{profiles: []map[string]any{stored}}
+	cfg := profilesConfig(app.serve(t), 1, 2)
+	cfg.Spec.Languages.Profiles[0].Cutoff = "any"
+	cfg.Spec.Languages.Profiles[0].MustContain = []string{"BluRay"}
+	cfg.Spec.Languages.Profiles[0].Tag = "english"
+
+	runBazarr(t, cfg, bazarrSecrets())
+
+	raw, ok := app.formValue(profilesField)
+	require.True(t, ok, "the profiles were not saved")
+	var sent []map[string]any
+	require.NoError(t, json.Unmarshal([]byte(raw), &sent))
+	require.Len(t, sent, 2)
+	assert.Equal(t, float64(bazarrclient.AnyCutoff), sent[0]["cutoff"])
+	assert.Equal(t, []any{"BluRay"}, sent[0]["mustContain"])
+	assert.Equal(t, "english", sent[0]["tag"])
+	assert.Equal(t, []any{}, sent[0]["mustNotContain"], "an unset setting must keep Bazarr's")
+
+	assert.Nil(t, sent[1]["cutoff"])
+	assert.Contains(t, sent[1], "cutoff", "a new profile needs every key Bazarr reads")
+	assert.Equal(t, []any{}, sent[1]["mustContain"])
+	assert.Equal(t, []any{}, sent[1]["mustNotContain"])
+	assert.Equal(t, false, sent[1]["originalFormat"])
+}
+
 func TestBazarrPrunesOnlyProfilesItCreated(t *testing.T) {
 	app := &fakeBazarr{profiles: []map[string]any{
 		storedProfile(1, "declared"), storedProfile(2, "old"), storedProfile(3, "hand-made"),
@@ -111,6 +142,7 @@ func TestBazarrObserveReportsAProfilePruneWouldDelete(t *testing.T) {
 			app := &fakeBazarr{profiles: []map[string]any{storedProfile(1, "declared"), storedProfile(2, "old")}}
 			app.profiles[0]["items"] = []any{map[string]any{
 				"id": float64(1), "language": "en", "hi": "False", "forced": "False", "audio_exclude": "False",
+				"audio_only_include": "False",
 			}}
 			cfg := profilesConfig(app.serve(t), 1)
 			observe := "observe"

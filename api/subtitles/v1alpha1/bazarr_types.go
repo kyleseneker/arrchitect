@@ -80,10 +80,14 @@ type BazarrGeneral struct {
 
 	// minimumScore is the minimum subtitle match score for series.
 	// +optional
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=100
 	MinimumScore *int32 `json:"minimumScore,omitempty"`
 
 	// minimumScoreMovie is the minimum subtitle match score for movies.
 	// +optional
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=100
 	MinimumScoreMovie *int32 `json:"minimumScoreMovie,omitempty"`
 
 	// useScenename uses scene names for subtitle searching.
@@ -110,13 +114,63 @@ type BazarrGeneral struct {
 	// +optional
 	UpgradeSubs *bool `json:"upgradeSubs,omitempty"`
 
-	// upgradeFrequency is the frequency in hours to check for subtitle upgrades.
+	// upgradeFrequency is how often, in hours, Bazarr looks for better
+	// subtitles. 876000, a hundred years, is how Bazarr turns it off.
 	// +optional
+	// +kubebuilder:validation:Enum=6;12;24;168;876000
 	UpgradeFrequency *int32 `json:"upgradeFrequency,omitempty"`
 
-	// wantedSearchFrequency is the frequency in hours to search for wanted subtitles.
+	// daysToUpgradeSubs is how many days back Bazarr looks for subtitles to upgrade.
 	// +optional
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=30
+	DaysToUpgradeSubs *int32 `json:"daysToUpgradeSubs,omitempty"`
+
+	// upgradeManual also upgrades subtitles that were downloaded or translated by hand.
+	// +optional
+	UpgradeManual *bool `json:"upgradeManual,omitempty"`
+
+	// wantedSearchFrequency is how often, in hours, Bazarr searches for missing
+	// episode subtitles. 876000, a hundred years, is how Bazarr turns it off.
+	// +optional
+	// +kubebuilder:validation:Enum=6;12;24;168;876000
 	WantedSearchFrequency *int32 `json:"wantedSearchFrequency,omitempty"`
+
+	// wantedSearchFrequencyMovie is how often, in hours, Bazarr searches for
+	// missing movie subtitles. 876000, a hundred years, is how Bazarr turns it off.
+	// +optional
+	// +kubebuilder:validation:Enum=6;12;24;168;876000
+	WantedSearchFrequencyMovie *int32 `json:"wantedSearchFrequencyMovie,omitempty"`
+
+	// adaptiveSearchingDelay is how long after the first search adaptiveSearching
+	// starts searching less often.
+	// +optional
+	// +kubebuilder:validation:Enum=1w;2w;3w;4w
+	AdaptiveSearchingDelay string `json:"adaptiveSearchingDelay,omitempty"`
+
+	// adaptiveSearchingDelta is how often adaptiveSearching searches once it
+	// searches less often.
+	// +optional
+	// +kubebuilder:validation:Enum=3d;1w;2w;3w;4w
+	AdaptiveSearchingDelta string `json:"adaptiveSearchingDelta,omitempty"`
+
+	// seriesTagEnabled gives a series the language profile whose tag matches
+	// one of its Sonarr tags.
+	// +optional
+	SeriesTagEnabled *bool `json:"seriesTagEnabled,omitempty"`
+
+	// movieTagEnabled gives a movie the language profile whose tag matches one
+	// of its Radarr tags.
+	// +optional
+	MovieTagEnabled *bool `json:"movieTagEnabled,omitempty"`
+
+	// removeProfileTags lists Sonarr and Radarr tags that take a series' or
+	// movie's language profile away when seriesTagEnabled or movieTagEnabled is on.
+	// +optional
+	// +listType=set
+	// +kubebuilder:validation:items:Pattern=`^[a-z0-9_-]+$`
+	// +kubebuilder:validation:items:MaxLength=64
+	RemoveProfileTags []string `json:"removeProfileTags,omitempty"`
 
 	// utf8Encode encodes subtitles to UTF-8.
 	// +optional
@@ -136,12 +190,12 @@ type BazarrGeneral struct {
 
 	// embeddedSubtitlesParser is the parser used for embedded subtitles.
 	// +optional
-	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:Enum=ffprobe;mediainfo
 	EmbeddedSubtitlesParser string `json:"embeddedSubtitlesParser,omitempty"`
 
 	// hiExtension is the file extension used for hearing-impaired subtitle files.
 	// +optional
-	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:Enum=hi;cc;sdh
 	HiExtension string `json:"hiExtension,omitempty"`
 
 	// pathMappings translate Sonarr's paths into the paths Bazarr sees the same
@@ -271,6 +325,7 @@ type BazarrAppConnection struct {
 
 	// httpTimeout is the HTTP request timeout in seconds.
 	// +optional
+	// +kubebuilder:validation:Enum=60;120;180;240;300;600
 	HttpTimeout *int32 `json:"httpTimeout,omitempty"`
 
 	// fullUpdate controls how often a full library sync is performed.
@@ -290,6 +345,8 @@ type BazarrAppConnection struct {
 	// excludedTags leaves out items with any of these tags.
 	// +optional
 	// +listType=set
+	// +kubebuilder:validation:items:Pattern=`^[a-z0-9_-]+$`
+	// +kubebuilder:validation:items:MaxLength=64
 	ExcludedTags []string `json:"excludedTags,omitempty"`
 
 	// excludedSeriesTypes leaves out series of these types. Only applicable
@@ -334,6 +391,8 @@ type BazarrSubSync struct {
 
 	// subsyncThreshold is the minimum score threshold for series subtitle sync.
 	// +optional
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=100
 	SubsyncThreshold *int32 `json:"subsyncThreshold,omitempty"`
 
 	// useSubsyncMovieThreshold enables a score threshold for movie subtitle sync.
@@ -342,6 +401,8 @@ type BazarrSubSync struct {
 
 	// subsyncMovieThreshold is the minimum score threshold for movie subtitle sync.
 	// +optional
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=100
 	SubsyncMovieThreshold *int32 `json:"subsyncMovieThreshold,omitempty"`
 }
 
@@ -393,9 +454,46 @@ type BazarrLanguageProfile struct {
 	// +optional
 	// +listType=atomic
 	Items []BazarrLanguageItem `json:"items,omitempty"`
+
+	// cutoff is the item whose subtitle ends the search for the others, named
+	// as Bazarr shows it: the language code, with :hi or :forced for such an
+	// item, such as en or en:hi. any ends it at whichever item is found first,
+	// and none searches for every item.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=32
+	Cutoff string `json:"cutoff,omitempty"`
+
+	// mustContain lists words or regular expressions one of which a
+	// subtitle's release information must contain.
+	// +optional
+	// +listType=set
+	// +kubebuilder:validation:items:MinLength=1
+	MustContain []string `json:"mustContain,omitempty"`
+
+	// mustNotContain lists words or regular expressions that rule out a
+	// subtitle whose release information contains one, ignoring case.
+	// +optional
+	// +listType=set
+	// +kubebuilder:validation:items:MinLength=1
+	MustNotContain []string `json:"mustNotContain,omitempty"`
+
+	// originalFormat keeps downloaded subtitles in their own format instead
+	// of converting them.
+	// +optional
+	OriginalFormat *bool `json:"originalFormat,omitempty"`
+
+	// tag is the Sonarr or Radarr tag that gives a series or movie this
+	// profile when general.seriesTagEnabled or movieTagEnabled is on.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=64
+	// +kubebuilder:validation:Pattern=`^[a-z0-9_-]+$`
+	Tag string `json:"tag,omitempty"`
 }
 
 // BazarrLanguageItem defines a language entry within a language profile.
+// +kubebuilder:validation:XValidation:rule="!(has(self.audioExclude) && self.audioExclude && has(self.audioOnlyInclude) && self.audioOnlyInclude)",message="audioExclude and audioOnlyInclude can't both be true"
 type BazarrLanguageItem struct {
 	// language is the ISO 639-1 language code.
 	// +required
@@ -413,6 +511,11 @@ type BazarrLanguageItem struct {
 	// audioExclude excludes this language if audio already matches.
 	// +optional
 	AudioExclude *bool `json:"audioExclude,omitempty"`
+
+	// audioOnlyInclude wants this language only when the media has an audio
+	// track in it.
+	// +optional
+	AudioOnlyInclude *bool `json:"audioOnlyInclude,omitempty"`
 }
 
 // BazarrStatus defines the observed state of Bazarr.

@@ -120,6 +120,27 @@ spec:
                     description: adaptiveSearching enables adaptive searching for
                       subtitles.
                     type: boolean
+                  adaptiveSearchingDelay:
+                    description: |-
+                      adaptiveSearchingDelay is how long after the first search adaptiveSearching
+                      starts searching less often.
+                    enum:
+                    - 1w
+                    - 2w
+                    - 3w
+                    - 4w
+                    type: string
+                  adaptiveSearchingDelta:
+                    description: |-
+                      adaptiveSearchingDelta is how often adaptiveSearching searches once it
+                      searches less often.
+                    enum:
+                    - 3d
+                    - 1w
+                    - 2w
+                    - 3w
+                    - 4w
+                    type: string
                   chmod:
                     description: chmod is the octal permissions chmodEnabled sets
                       on subtitle files, such as 0640.
@@ -130,15 +151,27 @@ spec:
                     description: chmodEnabled enables setting file permissions on
                       subtitle files.
                     type: boolean
+                  daysToUpgradeSubs:
+                    description: daysToUpgradeSubs is how many days back Bazarr looks
+                      for subtitles to upgrade.
+                    format: int32
+                    maximum: 30
+                    minimum: 0
+                    type: integer
                   embeddedSubtitlesParser:
                     description: embeddedSubtitlesParser is the parser used for embedded
                       subtitles.
-                    minLength: 1
+                    enum:
+                    - ffprobe
+                    - mediainfo
                     type: string
                   hiExtension:
                     description: hiExtension is the file extension used for hearing-impaired
                       subtitle files.
-                    minLength: 1
+                    enum:
+                    - hi
+                    - cc
+                    - sdh
                     type: string
                   ignoreAssSubs:
                     description: ignoreAssSubs ignores ASS/SSA subtitles.
@@ -153,11 +186,15 @@ spec:
                     description: minimumScore is the minimum subtitle match score
                       for series.
                     format: int32
+                    maximum: 100
+                    minimum: 0
                     type: integer
                   minimumScoreMovie:
                     description: minimumScoreMovie is the minimum subtitle match score
                       for movies.
                     format: int32
+                    maximum: 100
+                    minimum: 0
                     type: integer
                   movieDefaultProfile:
                     description: |-
@@ -165,6 +202,11 @@ spec:
                       get. Setting it turns the default on.
                     minLength: 1
                     type: string
+                  movieTagEnabled:
+                    description: |-
+                      movieTagEnabled gives a movie the language profile whose tag matches one
+                      of its Radarr tags.
+                    type: boolean
                   multithreading:
                     description: multithreading enables multithreaded subtitle downloading.
                     type: boolean
@@ -246,12 +288,27 @@ spec:
                     maximum: 100
                     minimum: 0
                     type: integer
+                  removeProfileTags:
+                    description: |-
+                      removeProfileTags lists Sonarr and Radarr tags that take a series' or
+                      movie's language profile away when seriesTagEnabled or movieTagEnabled is on.
+                    items:
+                      maxLength: 64
+                      pattern: ^[a-z0-9_-]+$
+                      type: string
+                    type: array
+                    x-kubernetes-list-type: set
                   seriesDefaultProfile:
                     description: |-
                       seriesDefaultProfile is the language profile, by name, that new series
                       get. Setting it turns the default on.
                     minLength: 1
                     type: string
+                  seriesTagEnabled:
+                    description: |-
+                      seriesTagEnabled gives a series the language profile whose tag matches
+                      one of its Sonarr tags.
+                    type: boolean
                   subfolder:
                     description: |-
                       subfolder is where subtitles are saved: next to the media file, in a
@@ -267,10 +324,21 @@ spec:
                     minLength: 1
                     type: string
                   upgradeFrequency:
-                    description: upgradeFrequency is the frequency in hours to check
-                      for subtitle upgrades.
+                    description: |-
+                      upgradeFrequency is how often, in hours, Bazarr looks for better
+                      subtitles. 876000, a hundred years, is how Bazarr turns it off.
+                    enum:
+                    - 6
+                    - 12
+                    - 24
+                    - 168
+                    - 876000
                     format: int32
                     type: integer
+                  upgradeManual:
+                    description: upgradeManual also upgrades subtitles that were downloaded
+                      or translated by hand.
+                    type: boolean
                   upgradeSubs:
                     description: upgradeSubs enables automatic subtitle upgrades when
                       better ones are found.
@@ -306,8 +374,27 @@ spec:
                     description: utf8Encode encodes subtitles to UTF-8.
                     type: boolean
                   wantedSearchFrequency:
-                    description: wantedSearchFrequency is the frequency in hours to
-                      search for wanted subtitles.
+                    description: |-
+                      wantedSearchFrequency is how often, in hours, Bazarr searches for missing
+                      episode subtitles. 876000, a hundred years, is how Bazarr turns it off.
+                    enum:
+                    - 6
+                    - 12
+                    - 24
+                    - 168
+                    - 876000
+                    format: int32
+                    type: integer
+                  wantedSearchFrequencyMovie:
+                    description: |-
+                      wantedSearchFrequencyMovie is how often, in hours, Bazarr searches for
+                      missing movie subtitles. 876000, a hundred years, is how Bazarr turns it off.
+                    enum:
+                    - 6
+                    - 12
+                    - 24
+                    - 168
+                    - 876000
                     format: int32
                     type: integer
                 type: object
@@ -327,6 +414,15 @@ spec:
                       description: BazarrLanguageProfile defines a language profile
                         for subtitle selection.
                       properties:
+                        cutoff:
+                          description: |-
+                            cutoff is the item whose subtitle ends the search for the others, named
+                            as Bazarr shows it: the language code, with :hi or :forced for such an
+                            item, such as en or en:hi. any ends it at whichever item is found first,
+                            and none searches for every item.
+                          maxLength: 32
+                          minLength: 1
+                          type: string
                         items:
                           description: items defines the language items in this profile.
                           items:
@@ -336,6 +432,11 @@ spec:
                               audioExclude:
                                 description: audioExclude excludes this language if
                                   audio already matches.
+                                type: boolean
+                              audioOnlyInclude:
+                                description: |-
+                                  audioOnlyInclude wants this language only when the media has an audio
+                                  track in it.
                                 type: boolean
                               forced:
                                 description: forced indicates whether forced subtitles
@@ -352,17 +453,53 @@ spec:
                             required:
                             - language
                             type: object
+                            x-kubernetes-validations:
+                            - message: audioExclude and audioOnlyInclude can't both
+                                be true
+                              rule: '!(has(self.audioExclude) && self.audioExclude
+                                && has(self.audioOnlyInclude) && self.audioOnlyInclude)'
                           type: array
                           x-kubernetes-list-type: atomic
+                        mustContain:
+                          description: |-
+                            mustContain lists words or regular expressions one of which a
+                            subtitle's release information must contain.
+                          items:
+                            minLength: 1
+                            type: string
+                          type: array
+                          x-kubernetes-list-type: set
+                        mustNotContain:
+                          description: |-
+                            mustNotContain lists words or regular expressions that rule out a
+                            subtitle whose release information contains one, ignoring case.
+                          items:
+                            minLength: 1
+                            type: string
+                          type: array
+                          x-kubernetes-list-type: set
                         name:
                           description: name is the display name of the language profile.
                           minLength: 1
                           type: string
+                        originalFormat:
+                          description: |-
+                            originalFormat keeps downloaded subtitles in their own format instead
+                            of converting them.
+                          type: boolean
                         profileId:
                           description: profileId is the unique identifier for this
                             profile.
                           format: int32
                           type: integer
+                        tag:
+                          description: |-
+                            tag is the Sonarr or Radarr tag that gives a series or movie this
+                            profile when general.seriesTagEnabled or movieTagEnabled is on.
+                          maxLength: 64
+                          minLength: 1
+                          pattern: ^[a-z0-9_-]+$
+                          type: string
                       required:
                       - name
                       - profileId
@@ -560,6 +697,8 @@ spec:
                   excludedTags:
                     description: excludedTags leaves out items with any of these tags.
                     items:
+                      maxLength: 64
+                      pattern: ^[a-z0-9_-]+$
                       type: string
                     type: array
                     x-kubernetes-list-type: set
@@ -577,6 +716,13 @@ spec:
                     type: string
                   httpTimeout:
                     description: httpTimeout is the HTTP request timeout in seconds.
+                    enum:
+                    - 60
+                    - 120
+                    - 180
+                    - 240
+                    - 300
+                    - 600
                     format: int32
                     type: integer
                   onlyMonitored:
@@ -737,6 +883,8 @@ spec:
                   excludedTags:
                     description: excludedTags leaves out items with any of these tags.
                     items:
+                      maxLength: 64
+                      pattern: ^[a-z0-9_-]+$
                       type: string
                     type: array
                     x-kubernetes-list-type: set
@@ -754,6 +902,13 @@ spec:
                     type: string
                   httpTimeout:
                     description: httpTimeout is the HTTP request timeout in seconds.
+                    enum:
+                    - 60
+                    - 120
+                    - 180
+                    - 240
+                    - 300
+                    - 600
                     format: int32
                     type: integer
                   onlyMonitored:
@@ -795,11 +950,15 @@ spec:
                     description: subsyncMovieThreshold is the minimum score threshold
                       for movie subtitle sync.
                     format: int32
+                    maximum: 100
+                    minimum: 0
                     type: integer
                   subsyncThreshold:
                     description: subsyncThreshold is the minimum score threshold for
                       series subtitle sync.
                     format: int32
+                    maximum: 100
+                    minimum: 0
                     type: integer
                   useSubsync:
                     description: useSubsync enables automatic subtitle synchronization.
