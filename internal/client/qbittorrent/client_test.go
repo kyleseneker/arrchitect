@@ -3,6 +3,7 @@ package qbittorrent
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -46,6 +47,18 @@ func TestLogin_Failure(t *testing.T) {
 	err := c.Login(context.Background())
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "login failed")
+}
+
+func TestLoginRefusedNamesTheHostHeaderPort(t *testing.T) {
+	c := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+	})
+	err := c.Login(context.Background())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "the URL's port is qBittorrent's own")
+	apiErr, ok := errors.AsType[*engine.APIError](err)
+	require.True(t, ok)
+	assert.Equal(t, http.StatusUnauthorized, apiErr.StatusCode)
 }
 
 func TestPing(t *testing.T) {

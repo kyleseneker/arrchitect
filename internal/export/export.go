@@ -82,10 +82,13 @@ type app struct {
 	apiKey     bool
 	login      bool
 	keyInstead bool
-	token      bool
-	options    []engine.HTTPClientOption
-	newObj     func() client.Object
-	export     func(r *reader) (map[string]any, error)
+	// hostPort is an app that refuses a request whose Host header names
+	// another port than its own, as through a port-forward.
+	hostPort bool
+	token    bool
+	options  []engine.HTTPClientOption
+	newObj   func() client.Object
+	export   func(r *reader) (map[string]any, error)
 	// objects maps the spec sections whose items are resources of their own to
 	// the kind each item becomes.
 	objects map[string]objectKind
@@ -137,7 +140,7 @@ var apps = map[string]app{
 		newObj: func() client.Object { return &indexersv1alpha1.FlareSolverr{} },
 	},
 	"qbittorrent": {
-		auth: engine.AuthCookie, login: true, export: exportQBittorrent,
+		auth: engine.AuthCookie, login: true, hostPort: true, export: exportQBittorrent,
 		options: []engine.HTTPClientOption{engine.WithDisableRedirect()},
 		newObj:  func() client.Object { return &downloadsv1alpha1.QBittorrent{} },
 	},
@@ -430,6 +433,11 @@ func explain(o Options, err error) error {
 			flags = "--username and --password"
 		case a.token:
 			flags = "--token"
+		}
+		if a.hostPort {
+			return fmt.Errorf("reading %s at %s: the app refused the request (status %d); check %s, and that --url's "+
+				"port is the app's own: it refuses a request addressed to any other, as through a port-forward to "+
+				"another local port", o.App, o.URL, apiErr.StatusCode, flags)
 		}
 		return fmt.Errorf("reading %s at %s: the app refused the credentials (status %d); check %s",
 			o.App, o.URL, apiErr.StatusCode, flags)
