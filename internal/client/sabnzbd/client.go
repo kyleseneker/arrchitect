@@ -31,16 +31,19 @@ var Switches = map[string]string{
 	"ignoreSamples":             "ignore_samples",
 	"deobfuscateFinalFilenames": "deobfuscate_final_filenames",
 	"scriptCanFail":             "script_can_fail",
+	"allowProperDuplicates":     "dupes_propercheck",
 }
 
 // Texts maps SabnzbdGeneral's text settings to their misc keys.
 var Texts = map[string]string{
-	"downloadSpeedLimit": "bandwidth_max",
-	"historyRetention":   "history_retention_option",
-	"permissions":        "permissions",
-	"downloadFree":       "download_free",
-	"completeFree":       "complete_free",
-	"cacheLimit":         "cache_limit",
+	"downloadSpeedLimit":  "bandwidth_max",
+	"historyRetention":    "history_retention_option",
+	"permissions":         "permissions",
+	"downloadFree":        "download_free",
+	"completeFree":        "complete_free",
+	"cacheLimit":          "cache_limit",
+	"preQueueScript":      "pre_script",
+	"queueCompleteScript": "end_queue_script",
 }
 
 // Numbers maps SabnzbdGeneral's number settings to their misc keys.
@@ -65,12 +68,19 @@ type Choice struct {
 
 var jobActions = map[string]string{"off": "0", "pause": "1", "fail": "2"}
 
+var duplicateActions = map[string]string{"off": "0", "discard": "1", "pause": "2", "fail": "3", "tag": "4"}
+
 // Choices maps SabnzbdGeneral's named choices to their misc keys and values.
 var Choices = map[string]Choice{
 	"encryptedRarAction":       {"pause_on_pwrar", jobActions},
 	"unwantedExtensionsAction": {"action_on_unwanted_extensions", jobActions},
 	"unwantedExtensionsMode":   {"unwanted_extensions_mode", map[string]string{"blocklist": "0", "allowlist": "1"}},
+	"duplicateDetection":       {"no_dupes", duplicateActions},
+	"smartDuplicateDetection":  {"no_smart_dupes", duplicateActions},
 }
+
+// QuotaPeriods maps quota period names to quota_period values.
+var QuotaPeriods = map[string]string{"day": "d", "week": "w", "month": "m", "manual": "x"}
 
 // SSLVerify maps sslVerify names to a server's ssl_verify values.
 var SSLVerify = map[string]string{"strict": "3", "medium": "2", "minimal": "1", "disabled": "0"}

@@ -246,6 +246,25 @@ func TestAdmissionRules(t *testing.T) {
     passwordSecretRef: {name: app, key: password}
   preferences: {bannedIps: [10.0.0.0/8]}`,
 			rejected: "bannedIps holds IP addresses"},
+		{name: "SABnzbd login, quota and duplicate handling", kind: "Sabnzbd", spec: conn + `
+  general: {duplicateDetection: tag, smartDuplicateDetection: pause, preQueueScript: check.sh}
+  servers: [{name: Primary, host: news.example.com, port: 563, timeout: 20, sslCiphers: AES128}]
+  login: {usernameSecretRef: {name: app, key: username}, passwordSecretRef: {name: app, key: password}}
+  quota: {size: 1.5T, period: week, resetDay: 7, resetTime: "3:00", resume: true}`},
+		{name: "a SABnzbd quota without a size", kind: "Sabnzbd", spec: conn + `
+  quota: {period: month}`,
+			rejected: "size is required unless enabled is false"},
+		{name: "a turned-off SABnzbd quota", kind: "Sabnzbd", spec: conn + `
+  quota: {enabled: false}`},
+		{name: "a weekly SABnzbd quota on day 8", kind: "Sabnzbd", spec: conn + `
+  quota: {size: 500G, period: week, resetDay: 8}`,
+			rejected: "a weekly quota resets on day 1 (Monday) to 7"},
+		{name: "a SABnzbd quota size SABnzbd reads as nothing", kind: "Sabnzbd", spec: conn + `
+  quota: {size: 500GB}`,
+			rejected: "should match"},
+		{name: "a SABnzbd server timeout SABnzbd raises to 20", kind: "Sabnzbd", spec: conn + `
+  servers: [{name: Primary, host: news.example.com, port: 563, timeout: 10}]`,
+			rejected: "should be greater than or equal to 20"},
 		{name: "deletionPolicy delete on Plex", kind: "Plex", spec: `
   connection:
     url: http://plex:32400

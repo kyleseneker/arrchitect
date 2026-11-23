@@ -86,11 +86,21 @@ func (r *SabnzbdReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	if err != nil {
 		syncErrors = append(syncErrors, fmt.Sprintf("apprise: %v", err))
 	}
-	writes := append(planSabnzbd(current, config.Spec, servers, string(config.UID)), planKeywords(current, "apprise", apprise)...)
+	login, err := r.sabnzbdLoginValues(ctx, &config)
+	if err != nil {
+		syncErrors = append(syncErrors, fmt.Sprintf("login: %v", err))
+	}
+	observe := ctrlcommon.ObserveOnly(config.Spec.Reconcile)
+	plan := func(current map[string]any) []sabWrite {
+		writes := planSabnzbd(current, config.Spec, servers, string(config.UID))
+		writes = append(writes, planKeywords(current, "apprise", apprise)...)
+		return append(writes, planLogin(current, login, string(config.UID), observe)...)
+	}
+	writes := plan(current)
 
 	owned := engine.NewOwnership("sabnzbd", config.GetManagedResources())
 	prune := ctrlcommon.PruneEnabled(config.Spec.Reconcile)
-	if ctrlcommon.ObserveOnly(config.Spec.Reconcile) {
+	if observe {
 		observed := &engine.Writes{App: "sabnzbd", Observe: true}
 		for _, w := range writes {
 			observed.RecordDrift(w.resourceType, w.name)
@@ -109,7 +119,8 @@ func (r *SabnzbdReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		if current, err = sc.GetConfig(ctx); err != nil {
 			syncErrors = append(syncErrors, fmt.Sprintf("re-reading config: %v", err))
 		} else {
-			again := append(planSabnzbd(current, config.Spec, servers, string(config.UID)), planKeywords(current, "apprise", apprise)...)
+			again, refused := sabnzbdRefused(writes, plan(current))
+			syncErrors = append(syncErrors, refused...)
 			syncErrors = append(syncErrors, applySabnzbd(ctx, sc, again, owned)...)
 		}
 	}
@@ -175,7 +186,7 @@ func sabnzbdValues(section any) map[string]string {
 			vals[key] = field.String()
 		}
 		if key, ok := sabnzbdclient.Numbers[name]; ok {
-			vals[key] = strconv.FormatInt(field.Elem().Int(), 10)
+			vals[key] = strconv.FormatInt(reflect.Indirect(field).Int(), 10)
 		}
 		if key, ok := sabnzbdclient.Lists[name]; ok {
 			vals[key] = strings.Join(field.Interface().([]string), ",")
@@ -229,7 +240,54 @@ func sabnzbdServerValues(srv downloadsv1alpha1.SabnzbdServer) map[string]string 
 	if srv.SSLVerify != "" {
 		vals["ssl_verify"] = sabnzbdclient.SSLVerify[srv.SSLVerify]
 	}
+	if srv.SSLCiphers != "" {
+		vals["ssl_ciphers"] = srv.SSLCiphers
+	}
 	return vals
+}
+
+func sabnzbdQuotaValues(q downloadsv1alpha1.SabnzbdQuota) map[string]string {
+	vals := map[string]string{}
+	if q.Enabled != nil && !*q.Enabled {
+		vals["quota_size"] = ""
+	} else if q.Size != "" {
+		vals["quota_size"] = q.Size
+	}
+	if q.Period != "" {
+		vals["quota_period"] = sabnzbdclient.QuotaPeriods[q.Period]
+	}
+	// SABnzbd reads quota_day as "<day> <hh:mm>", and a lone hh:mm as a day.
+	if q.ResetDay != 0 || q.ResetTime != "" {
+		vals["quota_day"] = strings.TrimSpace(fmt.Sprintf("%d %s", max(q.ResetDay, 1), q.ResetTime))
+	}
+	if q.Resume != nil {
+		vals["quota_resume"] = ctrlcommon.BoolTo01(*q.Resume)
+	}
+	return vals
+}
+
+// sabnzbdRefused splits the second pass's writes into those to retry and the
+// settings SABnzbd didn't keep. SABnzbd answers a setting it refuses, such as a
+// script it can't find, as if it took it, so a setting that still differs
+// after being written is reported instead of rewritten every pass. Servers and
+// categories are retried: a fresh SABnzbd drops the first category write.
+func sabnzbdRefused(first, again []sabWrite) ([]sabWrite, []string) {
+	written := map[string]string{}
+	for _, w := range first {
+		if w.section == "misc" || w.section == "apprise" {
+			written[w.section+"."+w.name] = w.values["value"]
+		}
+	}
+	var retry []sabWrite
+	var refused []string
+	for _, w := range again {
+		if v, ok := written[w.section+"."+w.name]; ok && v == w.values["value"] {
+			refused = append(refused, fmt.Sprintf("%s(%s.%s): SABnzbd didn't keep the value written", w.resourceType, w.section, w.name))
+			continue
+		}
+		retry = append(retry, w)
+	}
+	return retry, refused
 }
 
 // applySabnzbd performs the planned writes and returns the failures.
@@ -426,6 +484,57 @@ func (r *SabnzbdReconciler) sabnzbdAppriseValues(ctx context.Context, config *do
 	return values, nil
 }
 
+// sabnzbdLoginValues reads the web interface login from its Secrets.
+func (r *SabnzbdReconciler) sabnzbdLoginValues(ctx context.Context, config *downloadsv1alpha1.Sabnzbd) (map[string]string, error) {
+	l := config.Spec.Login
+	if l == (downloadsv1alpha1.SabnzbdLogin{}) {
+		return nil, nil
+	}
+	values := map[string]string{}
+	for field, ref := range map[string]commonv1alpha1.SecretKeyRef{"username": l.UsernameSecretRef, "password": l.PasswordSecretRef} {
+		value, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, ref)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", field, err)
+		}
+		values[field] = value
+	}
+	return values, nil
+}
+
+// planLogin plans the web interface login. The password reads back masked
+// once set, so a change is noticed through the remembered digest.
+func planLogin(current map[string]any, login map[string]string, owner string, observe bool) []sabWrite {
+	if login == nil {
+		return nil
+	}
+	writes := planKeywords(current, "misc", map[string]string{"username": login["username"]})
+	misc, _ := current["misc"].(map[string]any)
+	stored, _ := misc["password"].(string)
+	password := login["password"]
+	w := sabWrite{section: "misc", name: "password", values: map[string]string{"value": password}, resourceType: "settings"}
+	if password == "" {
+		if stored != "" {
+			writes = append(writes, w)
+		}
+		return writes
+	}
+	w.secretKey = fmt.Sprintf("sabnzbd/%s/misc/password", owner)
+	w.secretDigest = maskedDigest("password", password)
+	if !reconciler.IsMasked(stored) || reconciler.SecretsDiffer(w.secretKey, w.secretDigest, observe) {
+		writes = append(writes, w)
+	}
+	return writes
+}
+
+// maskedDigest is the digest of a secret SABnzbd reads back masked.
+func maskedDigest(field, value string) string {
+	out, err := reconciler.MergeDesired(map[string]any{field: "**********"}, map[string]any{field: value})
+	if err != nil {
+		return ""
+	}
+	return out.SecretDigest
+}
+
 // planSabnzbd compares the declared settings with get_config and returns only
 // the writes needed. Writing every setting on every pass made each reconcile a
 // burst of set_config calls and hid which settings actually drifted.
@@ -435,12 +544,13 @@ func planSabnzbd(
 	var writes []sabWrite
 	observe := ctrlcommon.ObserveOnly(spec.Reconcile)
 
-	misc := map[string]string{}
+	// Folders go first: SABnzbd takes a script only once script_dir holds it.
+	if spec.Folders != nil {
+		writes = append(writes, planKeywords(current, "misc", buildSabnzbdFolderValues(spec.Folders))...)
+	}
+	misc := sabnzbdQuotaValues(spec.Quota)
 	if spec.General != nil {
 		maps.Copy(misc, buildSabnzbdGeneralValues(spec.General))
-	}
-	if spec.Folders != nil {
-		maps.Copy(misc, buildSabnzbdFolderValues(spec.Folders))
 	}
 	writes = append(writes, planKeywords(current, "misc", misc)...)
 
@@ -449,6 +559,7 @@ func planSabnzbd(
 		if !ok {
 			continue
 		}
+		vals = withServerQuota(current, srv.Name, vals)
 		key := fmt.Sprintf("sabnzbd/%s/server/%q", owner, srv.Name)
 		if w, needed := planNamed(current, "servers", srv.Name, vals, key, observe); needed {
 			w.resourceType = "servers"
@@ -490,11 +601,24 @@ func planNamed(current map[string]any, section, name string, vals map[string]str
 	// A new entry reads back with its password masked; remember what is
 	// written now, or the next pass rewrites it once.
 	if password, ok := vals["password"]; ok {
-		if out, err := reconciler.MergeDesired(map[string]any{"password": "**********"}, map[string]any{"password": password}); err == nil {
-			w.secretDigest = out.SecretDigest
-		}
+		w.secretDigest = maskedDigest("password", password)
 	}
 	return w, true
+}
+
+// withServerQuota adds the server's stored quota to a write. SABnzbd restarts
+// a server's quota count whenever a write's quota differs from the stored one,
+// and a write without a quota counts as one that differs.
+func withServerQuota(current map[string]any, name string, vals map[string]string) map[string]string {
+	entries, _ := current["servers"].([]any)
+	for _, e := range entries {
+		entry, _ := e.(map[string]any)
+		if quota, _ := entry["quota"].(string); entry["name"] == name && quota != "" {
+			vals = maps.Clone(vals)
+			vals["quota"] = quota
+		}
+	}
+	return vals
 }
 
 func sabnzbdCategoryValues(cat downloadsv1alpha1.SabnzbdCategory) map[string]string {

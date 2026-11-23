@@ -288,7 +288,7 @@ func TestSabnzbdValuesUseSABnzbdsForms(t *testing.T) {
 		UnwantedExtensionsMode:   "blocklist",
 		UnwantedExtensionsAction: "pause",
 		HistoryRetention:         "days-delete",
-		HistoryRetentionNumber:   new(int32(30)),
+		HistoryRetentionNumber:   30,
 		Permissions:              "775",
 	})
 	assert.Equal(t, map[string]string{
@@ -466,4 +466,130 @@ func TestSabnzbdAppriseTurnsOnOnlyTheListedEvents(t *testing.T) {
 	assert.Contains(t, written, "apprise_enable")
 	assert.NotContains(t, written, "apprise_target_complete_enable", "a switch already on, stored as 1, was rewritten")
 	assert.NotContains(t, written, "apprise_target_failed_enable", "a switch already on, read back as true, was rewritten")
+}
+
+func TestSabnzbdQuotaValuesUseSABnzbdsForms(t *testing.T) {
+	for _, tt := range []struct {
+		quota downloadsv1alpha1.SabnzbdQuota
+		want  map[string]string
+	}{
+		{
+			downloadsv1alpha1.SabnzbdQuota{Size: "500G", Period: "week", ResetDay: 1, ResetTime: "03:00", Resume: new(true)},
+			map[string]string{"quota_size": "500G", "quota_period": "w", "quota_day": "1 03:00", "quota_resume": "1"},
+		},
+		{downloadsv1alpha1.SabnzbdQuota{Enabled: new(false), Size: "500G"}, map[string]string{"quota_size": ""}},
+		{downloadsv1alpha1.SabnzbdQuota{Size: "1T", ResetTime: "5:30"}, map[string]string{"quota_size": "1T", "quota_day": "1 5:30"}},
+		{downloadsv1alpha1.SabnzbdQuota{Size: "1T", ResetDay: 15}, map[string]string{"quota_size": "1T", "quota_day": "15"}},
+		{downloadsv1alpha1.SabnzbdQuota{}, map[string]string{}},
+	} {
+		assert.Equal(t, tt.want, sabnzbdQuotaValues(tt.quota), "%+v", tt.quota)
+	}
+}
+
+func TestSabnzbdPlanWritesFoldersBeforeScripts(t *testing.T) {
+	spec := downloadsv1alpha1.SabnzbdSpec{
+		Folders: &downloadsv1alpha1.SabnzbdFolders{ScriptDir: "/scripts"},
+		General: &downloadsv1alpha1.SabnzbdGeneral{PreQueueScript: "check.sh", QueueCompleteScript: "done.sh"},
+	}
+	writes := planSabnzbd(map[string]any{}, spec, nil, "scripts")
+	names := make([]string, 0, len(writes))
+	for _, w := range writes {
+		names = append(names, w.name)
+	}
+	assert.Equal(t, []string{"script_dir", "end_queue_script", "pre_script"}, names)
+}
+
+func TestSabnzbdPlanKeepsTheServersQuota(t *testing.T) {
+	spec := sabnzbdSpec()
+	spec.Folders, spec.Categories = nil, nil
+	servers := map[string]map[string]string{"Primary": sabnzbdServerValues(spec.Servers[0])}
+	current := func(quota string) map[string]any {
+		return map[string]any{"servers": []any{map[string]any{
+			"name": "Primary", "host": "old.example.com", "port": float64(563), "ssl": true, "quota": quota,
+		}}}
+	}
+
+	writes := planSabnzbd(current("500G"), spec, servers, "quota")
+	require.Len(t, writes, 1)
+	assert.Equal(t, "500G", writes[0].values["quota"])
+	assert.NotContains(t, servers["Primary"], "quota", "the resolved server values were changed")
+
+	writes = planSabnzbd(current(""), spec, servers, "quota")
+	require.Len(t, writes, 1)
+	assert.NotContains(t, writes[0].values, "quota")
+}
+
+func TestSabnzbdServerValuesSendTheCiphers(t *testing.T) {
+	vals := sabnzbdServerValues(downloadsv1alpha1.SabnzbdServer{Host: "news", Port: 563, SSLCiphers: "AES128"})
+	assert.Equal(t, "AES128", vals["ssl_ciphers"])
+}
+
+func TestSabnzbdPlanLoginRemembersTheMaskedPassword(t *testing.T) {
+	owner := freshOwner()
+	login := map[string]string{"username": "admin", "password": "s3cret"}
+
+	writes := planLogin(map[string]any{"misc": map[string]any{"username": "", "password": ""}}, login, owner, false)
+	require.Len(t, writes, 2)
+	assert.Equal(t, "username", writes[0].name)
+	assert.Equal(t, "password", writes[1].name)
+	assert.Equal(t, "s3cret", writes[1].values["value"])
+	reconciler.RecordSecrets(writes[1].secretKey, writes[1].secretDigest)
+
+	set := map[string]any{"misc": map[string]any{"username": "admin", "password": "**********"}}
+	assert.Empty(t, planLogin(set, login, owner, false))
+
+	login["password"] = "rotated"
+	writes = planLogin(set, login, owner, false)
+	require.Len(t, writes, 1)
+	assert.Equal(t, "rotated", writes[0].values["value"])
+
+	assert.Empty(t, planLogin(set, map[string]string{"username": "admin", "password": "s3cret"}, freshOwner(), true),
+		"observe mode counted a password it never saw written")
+
+	writes = planLogin(set, map[string]string{"username": "", "password": ""}, owner, false)
+	require.Len(t, writes, 2, "empty values must turn the login off")
+	assert.Empty(t, writes[1].values["value"])
+
+	assert.Nil(t, planLogin(set, nil, owner, false))
+}
+
+func TestSabnzbdReportsSettingsSABnzbdDidNotKeep(t *testing.T) {
+	app := &fakeSabnzbd{config: map[string]any{
+		"misc":       map[string]any{"pre_script": "None"},
+		"categories": []any{map[string]any{"name": "tv", "dir": "old"}},
+	}}
+	cfg := sabnzbdConfig(app.serve(t))
+	cfg.Spec.General = &downloadsv1alpha1.SabnzbdGeneral{PreQueueScript: "missing.sh"}
+	cfg.Spec.Categories = []downloadsv1alpha1.SabnzbdCategory{{Name: "tv", Dir: "tv"}}
+
+	scheme := runtime.NewScheme()
+	require.NoError(t, clientgoscheme.AddToScheme(scheme))
+	require.NoError(t, downloadsv1alpha1.AddToScheme(scheme))
+	c := fake.NewClientBuilder().WithScheme(scheme).
+		WithStatusSubresource(&downloadsv1alpha1.Sabnzbd{}).WithObjects(cfg, sabnzbdSecret()).Build()
+	r := &SabnzbdReconciler{Client: c, Scheme: scheme, Recorder: events.NewFakeRecorder(50)}
+	_, err := r.Reconcile(context.Background(), ctrl.Request{Name: "sabnzbd", Namespace: "media"})
+	require.NoError(t, err)
+
+	writes := map[string]int{}
+	app.mu.Lock()
+	for _, call := range app.calls {
+		if call.Get("mode") == "set_config" {
+			writes[call.Get("keyword")]++
+		}
+	}
+	app.mu.Unlock()
+	assert.Equal(t, 1, writes["pre_script"], "a setting SABnzbd refused was written again")
+	assert.Equal(t, 2, writes["tv"], "a category must be written again, as a fresh SABnzbd drops the first write")
+
+	var got downloadsv1alpha1.Sabnzbd
+	require.NoError(t, c.Get(context.Background(), ctrl.Request{Name: "sabnzbd", Namespace: "media"}.NamespacedName, &got))
+	var synced metav1.Condition
+	for _, cond := range got.Status.Conditions {
+		if cond.Type == "Synced" {
+			synced = cond
+		}
+	}
+	assert.Equal(t, metav1.ConditionFalse, synced.Status)
+	assert.Contains(t, synced.Message, "settings(misc.pre_script): SABnzbd didn't keep the value written")
 }

@@ -39,6 +39,9 @@ func TestSabnzbd(t *testing.T) {
 		return nil
 	})
 	sab.exec(t, "mkdir -p /downloads/complete /downloads/incomplete /downloads/nzb-backup && chown -R abc:abc /downloads")
+	sab.exec(t, `mkdir -p /config/scripts &&
+		for s in check.sh done.sh; do printf '#!/bin/sh\nexit 0\n' > /config/scripts/$s; done &&
+		chmod +x /config/scripts/*.sh && chown -R abc:abc /config/scripts`)
 	waitFor(t, "sabnzbd", 2*time.Minute, func() error {
 		_, err := sabnzbdGet(sab.url(), key, "version")
 		return err
@@ -50,13 +53,17 @@ func TestSabnzbd(t *testing.T) {
 		update: `[
 			{"op": "replace", "path": "/spec/servers/0/connections", "value": 25},
 			{"op": "replace", "path": "/spec/categories/1/priority", "value": "normal"},
-			{"op": "replace", "path": "/spec/apprise/events", "value": ["complete"]}
+			{"op": "replace", "path": "/spec/apprise/events", "value": ["complete"]},
+			{"op": "replace", "path": "/spec/quota/size", "value": "1T"}
 		]`,
+		verifyUpdate: func(t *testing.T) {
+			assert.Equal(t, "1T", sabnzbdConfigOf(t, sab.url(), key).Misc["quota_size"])
+		},
 		export: "sabnzbd",
 		vars:   map[string]string{"URL": proxy.url()},
 		secrets: map[string]string{
 			"api-key": key, "usenet-username": "compat", "usenet-password": "usenet-secret",
-			"apprise-urls": "discord://compat/token",
+			"apprise-urls": "discord://compat/token", "sab-username": "compat-admin", "sab-password": "sab-secret",
 		},
 		newObj: func() ctrlcommon.ConfigResource { return &downloadsv1alpha1.Sabnzbd{} },
 		reconciler: func(c client.Client) reconcile.Reconciler {
@@ -84,6 +91,16 @@ func TestSabnzbd(t *testing.T) {
 			assert.Equal(t, "days-delete", cfg.Misc["history_retention_option"])
 			assert.Equal(t, "775", cfg.Misc["permissions"])
 			assert.Equal(t, []any{"sabnzbd.media"}, cfg.Misc["host_whitelist"])
+			assert.InDelta(t, 4, cfg.Misc["no_dupes"], 0)
+			assert.InDelta(t, 2, cfg.Misc["no_smart_dupes"], 0)
+			assert.Equal(t, "check.sh", cfg.Misc["pre_script"], "SABnzbd refused the pre-queue script")
+			assert.Equal(t, "done.sh", cfg.Misc["end_queue_script"])
+			assert.Equal(t, "500G", cfg.Misc["quota_size"])
+			assert.Equal(t, "w", cfg.Misc["quota_period"])
+			assert.Equal(t, "1 03:00", cfg.Misc["quota_day"])
+			assert.Equal(t, "compat-admin", cfg.Misc["username"])
+			assert.Equal(t, "**********", cfg.Misc["password"], "the login password wasn't set")
+			assert.Equal(t, "AES128", cfg.Servers[0]["ssl_ciphers"])
 			for _, c := range cfg.Categories {
 				if c["name"] == "tv" {
 					assert.Equal(t, "2", c["pp"])

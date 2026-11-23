@@ -246,6 +246,11 @@ spec:
               general:
                 description: general configures general SABnzbd settings.
                 properties:
+                  allowProperDuplicates:
+                    description: |-
+                      allowProperDuplicates lets a PROPER, REAL or REPACK release past smart
+                      duplicate detection.
+                    type: boolean
                   autoSort:
                     description: autoSort sorts the queue by age whenever an NZB is
                       added.
@@ -286,6 +291,17 @@ spec:
                       "100M", "0" for unlimited).
                     minLength: 1
                     type: string
+                  duplicateDetection:
+                    description: |-
+                      duplicateDetection is what SABnzbd does with a job whose name or NZB
+                      matches one it has downloaded before.
+                    enum:
+                    - "off"
+                    - discard
+                    - pause
+                    - fail
+                    - tag
+                    type: string
                   enableAllPar:
                     description: enableAllPar downloads every par2 file, not only
                       those a repair needs.
@@ -325,7 +341,7 @@ spec:
                     description: historyRetentionNumber is the number of jobs or days
                       historyRetention keeps.
                     format: int32
-                    minimum: 0
+                    minimum: 1
                     type: integer
                   hostWhitelist:
                     description: |-
@@ -352,12 +368,24 @@ spec:
                   preCheck:
                     description: preCheck enables NZB pre-check for completion.
                     type: boolean
+                  preQueueScript:
+                    description: |-
+                      preQueueScript is the script, in folders.scriptDir, that runs before an
+                      NZB enters the queue. None runs no script.
+                    minLength: 1
+                    type: string
                   propagationDelay:
                     description: propagationDelay holds back jobs posted less than
                       this many minutes ago.
                     format: int32
                     minimum: 0
                     type: integer
+                  queueCompleteScript:
+                    description: |-
+                      queueCompleteScript is the script, in folders.scriptDir, that runs when
+                      the queue finishes downloading. None runs no script.
+                    minLength: 1
+                    type: string
                   safePostProcessing:
                     description: safePostProcessing post-processes only jobs that
                       passed verification.
@@ -370,6 +398,17 @@ spec:
                     description: sfvCheck verifies jobs without par2 files against
                       their SFV files.
                     type: boolean
+                  smartDuplicateDetection:
+                    description: |-
+                      smartDuplicateDetection is what SABnzbd does with a job its file name
+                      analysis finds is a duplicate, such as the same episode in another release.
+                    enum:
+                    - "off"
+                    - discard
+                    - pause
+                    - fail
+                    - tag
+                    type: string
                   topOnly:
                     description: topOnly fetches articles only for the job at the
                       top of the queue.
@@ -400,6 +439,99 @@ spec:
                     - allowlist
                     type: string
                 type: object
+              login:
+                description: |-
+                  login is the user name and password SABnzbd's web interface asks for.
+                  The operator connects with the API key, so the login doesn't affect it.
+                properties:
+                  passwordSecretRef:
+                    description: passwordSecretRef is the Secret key holding the password.
+                    properties:
+                      key:
+                        description: key is the key within the Secret.
+                        minLength: 1
+                        type: string
+                      name:
+                        description: name is the name of the Secret.
+                        minLength: 1
+                        type: string
+                    required:
+                    - key
+                    - name
+                    type: object
+                  usernameSecretRef:
+                    description: usernameSecretRef is the Secret key holding the user
+                      name.
+                    properties:
+                      key:
+                        description: key is the key within the Secret.
+                        minLength: 1
+                        type: string
+                      name:
+                        description: name is the name of the Secret.
+                        minLength: 1
+                        type: string
+                    required:
+                    - key
+                    - name
+                    type: object
+                required:
+                - passwordSecretRef
+                - usernameSecretRef
+                type: object
+              quota:
+                description: |-
+                  quota limits how much SABnzbd downloads in a period; it pauses when the
+                  quota is used up.
+                minProperties: 1
+                properties:
+                  enabled:
+                    description: enabled turns the quota on. It is on unless this
+                      is false.
+                    type: boolean
+                  period:
+                    description: period is how often the quota resets. manual resets
+                      it only by hand.
+                    enum:
+                    - day
+                    - week
+                    - month
+                    - manual
+                    type: string
+                  resetDay:
+                    description: |-
+                      resetDay is the day the quota resets: 1 (Monday) to 7 for a weekly quota,
+                      or the day of the month for a monthly one. Without it the quota resets on
+                      day 1.
+                    format: int32
+                    maximum: 31
+                    minimum: 1
+                    type: integer
+                  resetTime:
+                    description: |-
+                      resetTime is the time of day the quota resets, as hh:mm. Without it the
+                      quota resets at midnight.
+                    maxLength: 5
+                    minLength: 4
+                    pattern: ^([01]?[0-9]|2[0-3]):[0-5][0-9]$
+                    type: string
+                  resume:
+                    description: resume resumes downloading when the quota resets.
+                    type: boolean
+                  size:
+                    description: size is how much SABnzbd downloads in a period before
+                      it pauses, such as 500G.
+                    maxLength: 20
+                    minLength: 1
+                    pattern: ^[0-9]+(\.[0-9]+)?[KMGTPkmgtp]?$
+                    type: string
+                type: object
+                x-kubernetes-validations:
+                - message: size is required unless enabled is false
+                  rule: has(self.size) || (has(self.enabled) && !self.enabled)
+                - message: a weekly quota resets on day 1 (Monday) to 7
+                  rule: '!has(self.resetDay) || !has(self.period) || self.period !=
+                    ''week'' || self.resetDay <= 7'
               reconcile:
                 description: reconcile configures reconciliation behavior (e.g., sync
                   interval).
@@ -455,6 +587,8 @@ spec:
                     connections:
                       description: connections is the number of simultaneous connections.
                       format: int32
+                      maximum: 500
+                      minimum: 0
                       type: integer
                     enable:
                       description: |-
@@ -498,6 +632,8 @@ spec:
                     priority:
                       description: priority is the server priority. 0 = highest.
                       format: int32
+                      maximum: 99
+                      minimum: 0
                       type: integer
                     required:
                       description: |-
@@ -508,10 +644,17 @@ spec:
                       description: retention is the server retention in days. 0 =
                         unlimited.
                       format: int32
+                      minimum: 0
                       type: integer
                     ssl:
                       description: ssl enables SSL/TLS connection.
                       type: boolean
+                    sslCiphers:
+                      description: |-
+                        sslCiphers is the OpenSSL cipher list for the server's TLS connection,
+                        such as AES128; a weaker cipher can be faster on a slow CPU.
+                      minLength: 1
+                      type: string
                     sslVerify:
                       description: sslVerify is how strictly the server's certificate
                         is checked when ssl is on.
@@ -525,7 +668,8 @@ spec:
                       description: timeout is how many seconds SABnzbd waits for the
                         server to answer.
                       format: int32
-                      minimum: 1
+                      maximum: 240
+                      minimum: 20
                       type: integer
                     usernameSecretRef:
                       description: usernameSecretRef references a Secret containing

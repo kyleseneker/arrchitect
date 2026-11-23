@@ -42,10 +42,16 @@ spec:
     propagationDelay: 5
     hostWhitelist:
       - sabnzbd.media
+    duplicateDetection: tag
+    smartDuplicateDetection: pause
+    allowProperDuplicates: false
+    preQueueScript: check.sh
+    queueCompleteScript: done.sh
   folders:
     completeDir: /downloads/complete
     incompleteDir: /downloads/incomplete
     nzbBackupDir: /downloads/nzb-backup
+    scriptDir: /config/scripts
   servers:
     - name: Primary
       host: news.example.com
@@ -59,6 +65,7 @@ spec:
       optional: false
       required: true
       timeout: 30
+      sslCiphers: AES128
       usernameSecretRef:
         name: compat-credentials
         key: usenet-username
@@ -83,3 +90,16 @@ spec:
     events:
       - complete
       - failed
+  login:
+    usernameSecretRef:
+      name: compat-credentials
+      key: sab-username
+    passwordSecretRef:
+      name: compat-credentials
+      key: sab-password
+  quota:
+    size: 500G
+    period: week
+    resetDay: 1
+    resetTime: "03:00"
+    resume: true

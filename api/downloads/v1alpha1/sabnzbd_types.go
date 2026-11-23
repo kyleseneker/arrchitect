@@ -39,6 +39,70 @@ type SabnzbdSpec struct {
 	// as Discord or Telegram.
 	// +optional
 	Apprise SabnzbdApprise `json:"apprise,omitzero"`
+
+	// login is the user name and password SABnzbd's web interface asks for.
+	// The operator connects with the API key, so the login doesn't affect it.
+	// +optional
+	Login SabnzbdLogin `json:"login,omitzero"`
+
+	// quota limits how much SABnzbd downloads in a period; it pauses when the
+	// quota is used up.
+	// +optional
+	Quota SabnzbdQuota `json:"quota,omitzero"`
+}
+
+// SabnzbdLogin is SABnzbd's web interface login. Empty values in the Secret
+// turn the login off.
+type SabnzbdLogin struct {
+	// usernameSecretRef is the Secret key holding the user name.
+	// +required
+	UsernameSecretRef commonv1alpha1.SecretKeyRef `json:"usernameSecretRef,omitempty"`
+
+	// passwordSecretRef is the Secret key holding the password.
+	// +required
+	PasswordSecretRef commonv1alpha1.SecretKeyRef `json:"passwordSecretRef,omitempty"`
+}
+
+// SabnzbdQuota limits how much SABnzbd downloads in a period.
+// +kubebuilder:validation:MinProperties=1
+// +kubebuilder:validation:XValidation:rule="has(self.size) || (has(self.enabled) && !self.enabled)",message="size is required unless enabled is false"
+// +kubebuilder:validation:XValidation:rule="!has(self.resetDay) || !has(self.period) || self.period != 'week' || self.resetDay <= 7",message="a weekly quota resets on day 1 (Monday) to 7"
+type SabnzbdQuota struct {
+	// enabled turns the quota on. It is on unless this is false.
+	// +optional
+	Enabled *bool `json:"enabled,omitempty"`
+
+	// size is how much SABnzbd downloads in a period before it pauses, such as 500G.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=20
+	// +kubebuilder:validation:Pattern=`^[0-9]+(\.[0-9]+)?[KMGTPkmgtp]?$`
+	Size string `json:"size,omitempty"`
+
+	// period is how often the quota resets. manual resets it only by hand.
+	// +optional
+	// +kubebuilder:validation:Enum=day;week;month;manual
+	Period string `json:"period,omitempty"`
+
+	// resetDay is the day the quota resets: 1 (Monday) to 7 for a weekly quota,
+	// or the day of the month for a monthly one. Without it the quota resets on
+	// day 1.
+	// +optional
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=31
+	ResetDay int32 `json:"resetDay,omitempty"`
+
+	// resetTime is the time of day the quota resets, as hh:mm. Without it the
+	// quota resets at midnight.
+	// +optional
+	// +kubebuilder:validation:MinLength=4
+	// +kubebuilder:validation:MaxLength=5
+	// +kubebuilder:validation:Pattern=`^([01]?[0-9]|2[0-3]):[0-5][0-9]$`
+	ResetTime string `json:"resetTime,omitempty"`
+
+	// resume resumes downloading when the quota resets.
+	// +optional
+	Resume *bool `json:"resume,omitempty"`
 }
 
 // SabnzbdGeneral configures general SABnzbd settings.
@@ -139,8 +203,8 @@ type SabnzbdGeneral struct {
 
 	// historyRetentionNumber is the number of jobs or days historyRetention keeps.
 	// +optional
-	// +kubebuilder:validation:Minimum=0
-	HistoryRetentionNumber *int32 `json:"historyRetentionNumber,omitempty"`
+	// +kubebuilder:validation:Minimum=1
+	HistoryRetentionNumber int32 `json:"historyRetentionNumber,omitempty"`
 
 	// permissions are the octal permissions set on completed downloads, such as 775.
 	// +optional
@@ -177,6 +241,35 @@ type SabnzbdGeneral struct {
 	// +optional
 	// +listType=set
 	HostWhitelist []string `json:"hostWhitelist,omitempty"`
+
+	// duplicateDetection is what SABnzbd does with a job whose name or NZB
+	// matches one it has downloaded before.
+	// +optional
+	// +kubebuilder:validation:Enum=off;discard;pause;fail;tag
+	DuplicateDetection string `json:"duplicateDetection,omitempty"`
+
+	// smartDuplicateDetection is what SABnzbd does with a job its file name
+	// analysis finds is a duplicate, such as the same episode in another release.
+	// +optional
+	// +kubebuilder:validation:Enum=off;discard;pause;fail;tag
+	SmartDuplicateDetection string `json:"smartDuplicateDetection,omitempty"`
+
+	// allowProperDuplicates lets a PROPER, REAL or REPACK release past smart
+	// duplicate detection.
+	// +optional
+	AllowProperDuplicates *bool `json:"allowProperDuplicates,omitempty"`
+
+	// preQueueScript is the script, in folders.scriptDir, that runs before an
+	// NZB enters the queue. None runs no script.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	PreQueueScript string `json:"preQueueScript,omitempty"`
+
+	// queueCompleteScript is the script, in folders.scriptDir, that runs when
+	// the queue finishes downloading. None runs no script.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	QueueCompleteScript string `json:"queueCompleteScript,omitempty"`
 }
 
 // SabnzbdServer defines a Usenet server connection.
@@ -211,14 +304,19 @@ type SabnzbdServer struct {
 
 	// connections is the number of simultaneous connections.
 	// +optional
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=500
 	Connections *int32 `json:"connections,omitempty"`
 
 	// priority is the server priority. 0 = highest.
 	// +optional
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=99
 	Priority *int32 `json:"priority,omitempty"`
 
 	// retention is the server retention in days. 0 = unlimited.
 	// +optional
+	// +kubebuilder:validation:Minimum=0
 	Retention *int32 `json:"retention,omitempty"`
 
 	// enable controls whether this server is active. A new server is enabled
@@ -242,8 +340,15 @@ type SabnzbdServer struct {
 
 	// timeout is how many seconds SABnzbd waits for the server to answer.
 	// +optional
-	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Minimum=20
+	// +kubebuilder:validation:Maximum=240
 	Timeout int32 `json:"timeout,omitempty"`
+
+	// sslCiphers is the OpenSSL cipher list for the server's TLS connection,
+	// such as AES128; a weaker cipher can be faster on a slow CPU.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	SSLCiphers string `json:"sslCiphers,omitempty"`
 }
 
 // SabnzbdCategory defines a download category.

@@ -3813,13 +3813,58 @@ _Appears in:_
 | `scriptCanFail` _boolean_ | scriptCanFail lets a job's post-processing script fail without failing the job. |  | Optional: \{\} <br /> |
 | `cleanupList` _string array_ | cleanupList lists file extensions, without the dot, to delete after a job. |  | Optional: \{\} <br /> |
 | `historyRetention` _string_ | historyRetention decides how long jobs stay in the history. |  | Enum: [all number-archive number-delete days-archive days-delete all-archive all-delete] <br />Optional: \{\} <br /> |
-| `historyRetentionNumber` _integer_ | historyRetentionNumber is the number of jobs or days historyRetention keeps. |  | Minimum: 0 <br />Optional: \{\} <br /> |
+| `historyRetentionNumber` _integer_ | historyRetentionNumber is the number of jobs or days historyRetention keeps. |  | Minimum: 1 <br />Optional: \{\} <br /> |
 | `permissions` _string_ | permissions are the octal permissions set on completed downloads, such as 775. |  | MinLength: 1 <br />Pattern: `^[0-7]\{3,4\}$` <br />Optional: \{\} <br /> |
 | `downloadFree` _string_ | downloadFree is the free space the incomplete folder needs to keep<br />downloading, such as 500M. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `completeFree` _string_ | completeFree is the free space the complete folder needs to keep<br />downloading, such as 10G. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `cacheLimit` _string_ | cacheLimit is the memory used to cache articles, such as 1G. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `propagationDelay` _integer_ | propagationDelay holds back jobs posted less than this many minutes ago. |  | Minimum: 0 <br />Optional: \{\} <br /> |
 | `hostWhitelist` _string array_ | hostWhitelist lists the host names SABnzbd answers on besides IP<br />addresses, localhost and names ending in .local, which cover<br />*.svc.cluster.local. It replaces SABnzbd's list, so it must include the<br />host in connection.url unless that is one of those. |  | Optional: \{\} <br /> |
+| `duplicateDetection` _string_ | duplicateDetection is what SABnzbd does with a job whose name or NZB<br />matches one it has downloaded before. |  | Enum: [off discard pause fail tag] <br />Optional: \{\} <br /> |
+| `smartDuplicateDetection` _string_ | smartDuplicateDetection is what SABnzbd does with a job its file name<br />analysis finds is a duplicate, such as the same episode in another release. |  | Enum: [off discard pause fail tag] <br />Optional: \{\} <br /> |
+| `allowProperDuplicates` _boolean_ | allowProperDuplicates lets a PROPER, REAL or REPACK release past smart<br />duplicate detection. |  | Optional: \{\} <br /> |
+| `preQueueScript` _string_ | preQueueScript is the script, in folders.scriptDir, that runs before an<br />NZB enters the queue. None runs no script. |  | MinLength: 1 <br />Optional: \{\} <br /> |
+| `queueCompleteScript` _string_ | queueCompleteScript is the script, in folders.scriptDir, that runs when<br />the queue finishes downloading. None runs no script. |  | MinLength: 1 <br />Optional: \{\} <br /> |
+
+
+#### SabnzbdLogin
+
+
+
+SabnzbdLogin is SABnzbd's web interface login. Empty values in the Secret
+turn the login off.
+
+
+
+_Appears in:_
+- [SabnzbdSpec](#sabnzbdspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `usernameSecretRef` _[SecretKeyRef](#secretkeyref)_ | usernameSecretRef is the Secret key holding the user name. |  | Required: \{\} <br /> |
+| `passwordSecretRef` _[SecretKeyRef](#secretkeyref)_ | passwordSecretRef is the Secret key holding the password. |  | Required: \{\} <br /> |
+
+
+#### SabnzbdQuota
+
+
+
+SabnzbdQuota limits how much SABnzbd downloads in a period.
+
+_Validation:_
+- MinProperties: 1
+
+_Appears in:_
+- [SabnzbdSpec](#sabnzbdspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `enabled` _boolean_ | enabled turns the quota on. It is on unless this is false. |  | Optional: \{\} <br /> |
+| `size` _string_ | size is how much SABnzbd downloads in a period before it pauses, such as 500G. |  | MaxLength: 20 <br />MinLength: 1 <br />Pattern: `^[0-9]+(\.[0-9]+)?[KMGTPkmgtp]?$` <br />Optional: \{\} <br /> |
+| `period` _string_ | period is how often the quota resets. manual resets it only by hand. |  | Enum: [day week month manual] <br />Optional: \{\} <br /> |
+| `resetDay` _integer_ | resetDay is the day the quota resets: 1 (Monday) to 7 for a weekly quota,<br />or the day of the month for a monthly one. Without it the quota resets on<br />day 1. |  | Maximum: 31 <br />Minimum: 1 <br />Optional: \{\} <br /> |
+| `resetTime` _string_ | resetTime is the time of day the quota resets, as hh:mm. Without it the<br />quota resets at midnight. |  | MaxLength: 5 <br />MinLength: 4 <br />Pattern: `^([01]?[0-9]\|2[0-3]):[0-5][0-9]$` <br />Optional: \{\} <br /> |
+| `resume` _boolean_ | resume resumes downloading when the quota resets. |  | Optional: \{\} <br /> |
 
 
 #### SabnzbdServer
@@ -3841,14 +3886,15 @@ _Appears in:_
 | `ssl` _boolean_ | ssl enables SSL/TLS connection. |  | Optional: \{\} <br /> |
 | `usernameSecretRef` _[SecretKeyRef](#secretkeyref)_ | usernameSecretRef references a Secret containing the username. |  | Optional: \{\} <br /> |
 | `passwordSecretRef` _[SecretKeyRef](#secretkeyref)_ | passwordSecretRef references a Secret containing the password. |  | Optional: \{\} <br /> |
-| `connections` _integer_ | connections is the number of simultaneous connections. |  | Optional: \{\} <br /> |
-| `priority` _integer_ | priority is the server priority. 0 = highest. |  | Optional: \{\} <br /> |
-| `retention` _integer_ | retention is the server retention in days. 0 = unlimited. |  | Optional: \{\} <br /> |
+| `connections` _integer_ | connections is the number of simultaneous connections. |  | Maximum: 500 <br />Minimum: 0 <br />Optional: \{\} <br /> |
+| `priority` _integer_ | priority is the server priority. 0 = highest. |  | Maximum: 99 <br />Minimum: 0 <br />Optional: \{\} <br /> |
+| `retention` _integer_ | retention is the server retention in days. 0 = unlimited. |  | Minimum: 0 <br />Optional: \{\} <br /> |
 | `enable` _boolean_ | enable controls whether this server is active. A new server is enabled<br />unless this is false. |  | Optional: \{\} <br /> |
 | `sslVerify` _string_ | sslVerify is how strictly the server's certificate is checked when ssl is on. |  | Enum: [strict medium minimal disabled] <br />Optional: \{\} <br /> |
 | `optional` _boolean_ | optional lets SABnzbd stop using the server for a while when it fails. |  | Optional: \{\} <br /> |
 | `required` _boolean_ | required makes SABnzbd wait for the server when it fails instead of<br />skipping it. |  | Optional: \{\} <br /> |
-| `timeout` _integer_ | timeout is how many seconds SABnzbd waits for the server to answer. |  | Minimum: 1 <br />Optional: \{\} <br /> |
+| `timeout` _integer_ | timeout is how many seconds SABnzbd waits for the server to answer. |  | Maximum: 240 <br />Minimum: 20 <br />Optional: \{\} <br /> |
+| `sslCiphers` _string_ | sslCiphers is the OpenSSL cipher list for the server's TLS connection,<br />such as AES128; a weaker cipher can be faster on a slow CPU. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 
 
 #### SabnzbdSpec
@@ -3871,6 +3917,8 @@ _Appears in:_
 | `categories` _[SabnzbdCategory](#sabnzbdcategory) array_ | categories defines download categories. |  | Optional: \{\} <br /> |
 | `folders` _[SabnzbdFolders](#sabnzbdfolders)_ | folders configures download and temp folder paths. |  | Optional: \{\} <br /> |
 | `apprise` _[SabnzbdApprise](#sabnzbdapprise)_ | apprise sends SABnzbd's notifications through Apprise, to services such<br />as Discord or Telegram. |  | MinProperties: 1 <br />Optional: \{\} <br /> |
+| `login` _[SabnzbdLogin](#sabnzbdlogin)_ | login is the user name and password SABnzbd's web interface asks for.<br />The operator connects with the API key, so the login doesn't affect it. |  | Optional: \{\} <br /> |
+| `quota` _[SabnzbdQuota](#sabnzbdquota)_ | quota limits how much SABnzbd downloads in a period; it pauses when the<br />quota is used up. |  | MinProperties: 1 <br />Optional: \{\} <br /> |
 
 
 #### SabnzbdStatus
@@ -3928,6 +3976,7 @@ _Appears in:_
 - [RadarrDownloadClientSpec](#radarrdownloadclientspec)
 - [ReadarrDownloadClientSpec](#readarrdownloadclientspec)
 - [SabnzbdApprise](#sabnzbdapprise)
+- [SabnzbdLogin](#sabnzbdlogin)
 - [SabnzbdServer](#sabnzbdserver)
 - [SeerrConnection](#seerrconnection)
 - [SeerrJellyfinAuth](#seerrjellyfinauth)
