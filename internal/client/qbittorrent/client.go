@@ -3,7 +3,9 @@ package qbittorrent
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"net/http"
 	"net/url"
 	"strings"
 
@@ -138,6 +140,10 @@ func (c *Client) Login(ctx context.Context) error {
 	form.Set("password", c.password)
 
 	body, err := c.hc.DoForm(ctx, "/api/v2/auth/login", form)
+	if apiErr, ok := errors.AsType[*engine.APIError](err); ok && apiErr.StatusCode == http.StatusUnauthorized {
+		return fmt.Errorf("qBittorrent refused the sign-in: check the credentials, and that the URL's port is "+
+			"qBittorrent's own, as it refuses a request addressed to any other: %w", err)
+	}
 	if err != nil {
 		return fmt.Errorf("executing login request: %w", err)
 	}

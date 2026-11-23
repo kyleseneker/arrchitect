@@ -3,6 +3,8 @@ package export
 import (
 	"context"
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -74,6 +76,21 @@ func TestRunSplitsObjectsWithKindsOfTheirOwn(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotContains(t, string(raw), "indexers")
 	assert.NotContains(t, string(raw), "downloadClients")
+}
+
+func TestRunExplainsARefusedRequestForTheCredentialsUsed(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+	}))
+	t.Cleanup(srv.Close)
+
+	_, err := Run(context.Background(), Options{App: "qbittorrent", URL: srv.URL, Username: "u", Password: "p"})
+	require.ErrorContains(t, err, "the app refused the request (status 401); check --username and --password, "+
+		"and that --url's port is the app's own")
+	_, err = Run(context.Background(), Options{App: "jellyfin", URL: srv.URL, APIKey: "k"})
+	require.ErrorContains(t, err, "the app refused the credentials (status 401); check --api-key")
+	_, err = Run(context.Background(), Options{App: "jellyfin", URL: srv.URL, Username: "u", Password: "p"})
+	require.ErrorContains(t, err, "the app refused the credentials (status 401); check --username and --password")
 }
 
 func TestObjectNameIsAValidResourceName(t *testing.T) {
