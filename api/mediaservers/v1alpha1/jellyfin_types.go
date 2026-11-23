@@ -61,7 +61,6 @@ type JellyfinSpec struct {
 }
 
 // JellyfinConnection defines how the operator connects to Jellyfin.
-// Jellyfin uses admin credentials rather than an API key.
 type JellyfinConnection struct {
 	// url is the base URL of the Jellyfin instance (e.g., http://jellyfin.media.svc.cluster.local:8096).
 	// +required

@@ -41,7 +41,7 @@ kubectl -n media run export --rm -i --quiet --restart=Never \
 | `--url` | URL to read the app from |
 | `--connection-url` | URL the operator should use, if different from `--url` |
 | `--api-key` | API key, or `$ARRCHITECT_API_KEY` |
-| `--username`, `--password` | Login for qBittorrent and Jellyfin, or `$ARRCHITECT_USERNAME` and `$ARRCHITECT_PASSWORD` |
+| `--username`, `--password` | Login for qBittorrent and Jellyfin, or `$ARRCHITECT_USERNAME` and `$ARRCHITECT_PASSWORD`. Jellyfin also takes `--api-key` instead, leaving the admin user's values to fill in |
 | `--token` | Plex token, or `$ARRCHITECT_TOKEN` |
 | `--name` | Name of the resource; defaults to the app |
 | `--namespace` | Namespace of the resource and Secret |

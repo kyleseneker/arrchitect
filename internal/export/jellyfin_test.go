@@ -64,6 +64,36 @@ func TestJellyfinExportsSettingsLibrariesAndTheAdminUser(t *testing.T) {
 	assert.Equal(t, "mixed", cfg.Spec.Libraries[1].CollectionType)
 	assert.Equal(t, "username", cfg.Spec.AdminUser.UsernameSecretRef.Key)
 	assert.Equal(t, map[string]string{"username": "admin", "password": "pw"}, res.Secret.StringData)
+	assert.Nil(t, cfg.Spec.Connection.APIKeySecretRef)
+}
+
+func TestJellyfinExportsWithAnAPIKeyInsteadOfSigningIn(t *testing.T) {
+	var tokens []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		tokens = append(tokens, r.Header.Get("Authorization"))
+		switch r.URL.Path {
+		case "/Users/AuthenticateByName":
+			t.Error("export signed in although it had an API key")
+		case "/Library/VirtualFolders":
+			_, _ = w.Write([]byte(`[]`))
+		default:
+			_, _ = w.Write([]byte(`{}`))
+		}
+	}))
+	t.Cleanup(srv.Close)
+
+	res, err := Run(context.Background(), Options{App: "jellyfin", URL: srv.URL, APIKey: "key"})
+	require.NoError(t, err)
+	cfg, ok := res.Config.(*mediaserversv1alpha1.Jellyfin)
+	require.True(t, ok)
+	require.NotNil(t, cfg.Spec.Connection.APIKeySecretRef)
+	assert.Equal(t, map[string]string{"api-key": "key"}, res.Secret.StringData)
+	assert.Equal(t, apiKeyKey, cfg.Spec.Connection.APIKeySecretRef.Key)
+	assert.ElementsMatch(t, []string{"username", "password"}, res.Unfilled, "the admin user still has to be filled in")
+	require.NotEmpty(t, tokens)
+	for _, token := range tokens {
+		assert.Contains(t, token, `Token="key"`)
+	}
 }
 
 // Jellyfin keeps the fetchers a library disables and those a type option

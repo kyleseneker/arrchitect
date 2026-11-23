@@ -12,7 +12,11 @@ import (
 
 func exportJellyfin(r *reader) (map[string]any, error) {
 	jf := jellyfinclient.NewClient(r.hc)
-	if err := jf.Authenticate(r.ctx, r.username, r.password); err != nil {
+	signIn := func() error { return jf.Authenticate(r.ctx, r.username, r.password) }
+	if r.apiKey != "" {
+		signIn = func() error { return jf.UseAPIKey(r.ctx, r.apiKey) }
+	}
+	if err := signIn(); err != nil {
 		return nil, err
 	}
 	server, err := jf.GetConfig(r.ctx, "/System/Configuration")

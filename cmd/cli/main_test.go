@@ -51,11 +51,18 @@ func TestExportRequiresAnAppURLAndKey(t *testing.T) {
 }
 
 func TestExportRequiresALoginForApps(t *testing.T) {
+	t.Setenv("ARRCHITECT_API_KEY", "")
 	t.Setenv("ARRCHITECT_USERNAME", "")
 	t.Setenv("ARRCHITECT_PASSWORD", "")
 	_, _, err := runCLI(t, "export", "qbittorrent", "--url", "http://qbittorrent", "--username", "admin")
 	require.EqualError(t, err,
 		"qbittorrent needs --username and --password, or $ARRCHITECT_USERNAME and $ARRCHITECT_PASSWORD")
+	_, _, err = runCLI(t, "export", "qbittorrent", "--url", "http://qbittorrent", "--api-key", "k")
+	require.EqualError(t, err,
+		"qbittorrent needs --username and --password, or $ARRCHITECT_USERNAME and $ARRCHITECT_PASSWORD")
+	_, _, err = runCLI(t, "export", "jellyfin", "--url", "http://jellyfin")
+	require.EqualError(t, err,
+		"jellyfin needs --api-key, or --username and --password, or $ARRCHITECT_USERNAME and $ARRCHITECT_PASSWORD")
 }
 
 func TestExportRequiresATokenForPlex(t *testing.T) {

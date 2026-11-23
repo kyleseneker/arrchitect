@@ -78,13 +78,14 @@ type Result struct {
 }
 
 type app struct {
-	auth    engine.AuthType
-	apiKey  bool
-	login   bool
-	token   bool
-	options []engine.HTTPClientOption
-	newObj  func() client.Object
-	export  func(r *reader) (map[string]any, error)
+	auth       engine.AuthType
+	apiKey     bool
+	login      bool
+	keyInstead bool
+	token      bool
+	options    []engine.HTTPClientOption
+	newObj     func() client.Object
+	export     func(r *reader) (map[string]any, error)
 	// objects maps the spec sections whose items are resources of their own to
 	// the kind each item becomes.
 	objects map[string]objectKind
@@ -145,7 +146,7 @@ var apps = map[string]app{
 		newObj: func() client.Object { return &downloadsv1alpha1.Sabnzbd{} },
 	},
 	"jellyfin": {
-		auth: engine.AuthMediaBrowser, login: true, export: exportJellyfin,
+		auth: engine.AuthMediaBrowser, login: true, keyInstead: true, export: exportJellyfin,
 		newObj: func() client.Object { return &mediaserversv1alpha1.Jellyfin{} },
 	},
 	"plex": {
@@ -185,6 +186,11 @@ func NeedsAPIKey(app string) bool {
 // NeedsLogin reports whether export signs in to app with a username and password.
 func NeedsLogin(app string) bool {
 	return apps[app].login
+}
+
+// TakesAPIKey reports whether an API key can stand in for app's login.
+func TakesAPIKey(app string) bool {
+	return apps[app].keyInstead
 }
 
 // NeedsToken reports whether export reads app with a token.
@@ -254,7 +260,7 @@ func Run(ctx context.Context, o Options) (Result, error) {
 		conn = map[string]any{}
 	}
 	conn["url"] = o.ConnectionURL
-	if a.apiKey {
+	if a.apiKey || (a.keyInstead && o.APIKey != "") {
 		conn["apiKeySecretRef"] = map[string]any{"name": o.SecretName, "key": apiKeyKey}
 	}
 	spec["connection"] = conn
@@ -417,9 +423,10 @@ func explain(o Options, err error) error {
 	var syntaxErr *json.SyntaxError
 	switch {
 	case errors.As(err, &apiErr) && (apiErr.StatusCode == http.StatusUnauthorized || apiErr.StatusCode == http.StatusForbidden):
+		a := apps[o.App]
 		flags := "--api-key"
-		switch a := apps[o.App]; {
-		case a.login:
+		switch {
+		case a.login && (o.APIKey == "" || !a.keyInstead):
 			flags = "--username and --password"
 		case a.token:
 			flags = "--token"
