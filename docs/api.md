@@ -828,7 +828,6 @@ _Appears in:_
 
 
 JellyfinConnection defines how the operator connects to Jellyfin.
-Jellyfin uses admin credentials rather than an API key.
 
 
 

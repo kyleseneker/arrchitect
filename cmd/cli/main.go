@@ -111,9 +111,14 @@ func exportCommand(ctx context.Context, args []string, stdout, stderr io.Writer)
 	if o.Token == "" && export.NeedsToken(o.App) {
 		return fmt.Errorf("%s needs --token or $ARRCHITECT_TOKEN", o.App)
 	}
-	if (o.Username == "" || o.Password == "") && export.NeedsLogin(o.App) {
-		return fmt.Errorf("%s needs --username and --password, or $ARRCHITECT_USERNAME and $ARRCHITECT_PASSWORD",
-			o.App)
+	if (o.Username == "" || o.Password == "") && export.NeedsLogin(o.App) &&
+		(o.APIKey == "" || !export.TakesAPIKey(o.App)) {
+		key := ""
+		if export.TakesAPIKey(o.App) {
+			key = "--api-key, or "
+		}
+		return fmt.Errorf("%s needs %s--username and --password, or $ARRCHITECT_USERNAME and $ARRCHITECT_PASSWORD",
+			o.App, key)
 	}
 	if *exclude != "" {
 		o.Exclude = strings.Split(*exclude, ",")
