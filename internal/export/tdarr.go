@@ -108,6 +108,10 @@ func (r *reader) tdarrLibrary(doc map[string]any, variables []map[string]any) ma
 		"processLibrary", "processTranscodes", "processHealthChecks", "scanOnStart", "scheduledScanFindNew",
 		"scannerThreadCount", "ffmpeg", "priority", "flowId", "foldersToIgnoreCaseInsensitive", "filterResolutionsSkip",
 		"filterCodecsSkip", "filterContainersSkip", "filterHardlinked", "useFsEvents", "folderWatchScanInterval")
+	// A library made in Tdarr's UI holds "" here until the box is first ticked.
+	if _, ok := lib["foldersToIgnoreCaseInsensitive"].(bool); !ok {
+		delete(lib, "foldersToIgnoreCaseInsensitive")
+	}
 	id, _ := doc["_id"].(string)
 	name, _ := doc["name"].(string)
 	lib["id"] = id

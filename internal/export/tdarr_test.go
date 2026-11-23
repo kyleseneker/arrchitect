@@ -15,13 +15,13 @@ import (
 
 var fakeTdarrCollections = map[string]string{
 	"LibrarySettingsJSONDB": `[{"_id":"movies","name":"Movies","folder":"/media/movies","handbrakescan":false,"ffmpegscan":true,
-		"filterCodecsSkip":"hevc","filterHardlinked":true,"folderWatchScanInterval":30,
+		"filterCodecsSkip":"hevc","filterHardlinked":true,"folderWatchScanInterval":30,"foldersToIgnoreCaseInsensitive":true,
 		"decisionMaker":{"settingsFlows":true,"settingsPlugin":false},"priority":1,"flowId":"flow1",
 		"schedule":[{"checked":true},{"checked":false}],
 		"pluginIDs":[{"_id":"plugin2","id":"Second","checked":true,"source":"Community","priority":1,"InputsDB":{}},
 			{"_id":"plugin1","id":"First","checked":true,"source":"Community","priority":0,"InputsDB":{}},
 			{"_id":"plugin3","id":"Off","checked":false,"source":"Community","priority":2,"InputsDB":{}}],"variables":{"user":{"fromDoc":"a","shared":"doc"}}},
-		{"_id":"tv","name":"TV","folder":"/media/tv","decisionMaker":{"settingsFlows":false,"settingsPlugin":false,"settingsVideo":true}}]`,
+		{"_id":"tv","name":"TV","folder":"/media/tv","foldersToIgnoreCaseInsensitive":"","decisionMaker":{"settingsFlows":false,"settingsPlugin":false,"settingsVideo":true}}]`,
 	"VariablesJSONDB": `[{"key":"shared","value":"db","type":"library:movies"},{"key":"other","value":"x","type":"library:tv"},
 		{"key":"global","value":"g","type":"global"}]`,
 	"FlowsJSONDB": `[{"_id":"flow1","name":"Remux","description":"","flowPlugins":[{"id":"n1"}],"flowEdges":[]}]`,
@@ -63,6 +63,8 @@ func TestTdarrExportsLibrariesFlowsAndWorkers(t *testing.T) {
 	assert.Equal(t, "hevc", movies.FilterCodecsSkip)
 	assert.True(t, *movies.FilterHardlinked)
 	assert.Equal(t, int32(30), movies.FolderWatchScanInterval)
+	assert.True(t, *movies.FoldersToIgnoreCaseInsensitive)
+	assert.Nil(t, cfg.Spec.Libraries[1].FoldersToIgnoreCaseInsensitive, "a library made in Tdarr's UI holds an empty string")
 
 	settings := cfg.Spec.Settings
 	require.NotNil(t, settings)
