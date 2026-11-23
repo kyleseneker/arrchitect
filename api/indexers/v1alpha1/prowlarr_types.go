@@ -72,6 +72,7 @@ type ProwlarrSpec struct {
 	// +optional
 	// +listType=map
 	// +listMapKey=name
+	// +kubebuilder:validation:XValidation:rule="self.all(n, !has(n.appRef))",message="Prowlarr has no media server notifications to refer to"
 	Notifications []commonv1alpha1.Notification `json:"notifications,omitempty"`
 }
 

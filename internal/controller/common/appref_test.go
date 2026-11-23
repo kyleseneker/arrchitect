@@ -104,6 +104,66 @@ func TestResolveAppRefTakesEachKindsConnection(t *testing.T) {
 	}
 }
 
+func TestResolveNotificationsFillsInTheMediaServer(t *testing.T) {
+	c := appRefClient(t,
+		&mediaserversv1alpha1.Jellyfin{Name: "jellyfin", Namespace: "media", Spec: mediaserversv1alpha1.JellyfinSpec{
+			Connection: mediaserversv1alpha1.JellyfinConnection{URL: "http://jellyfin:8096", APIKeySecretRef: ref("keys", "jellyfin")},
+		}},
+		&mediaserversv1alpha1.Jellyfin{Name: "nokey", Namespace: "media", Spec: mediaserversv1alpha1.JellyfinSpec{
+			Connection: mediaserversv1alpha1.JellyfinConnection{URL: "http://nokey:8096"},
+		}},
+		&mediaserversv1alpha1.Plex{Name: "plex", Namespace: "media", Spec: mediaserversv1alpha1.PlexSpec{
+			Connection: mediaserversv1alpha1.PlexConnection{URL: "https://plex.example.com/plex/", TokenSecretRef: *ref("keys", "plex")},
+		}},
+	)
+	updateLibrary := commonv1alpha1.ConfigField{Name: "updateLibrary", Value: &commonv1alpha1.FieldValue{Raw: []byte("true")}}
+	in := []commonv1alpha1.Notification{
+		{Name: "Discord", Implementation: "Discord"},
+		{Name: "Jellyfin", AppRef: commonv1alpha1.AppRef{Kind: "Jellyfin", Name: "jellyfin"},
+			Fields: []commonv1alpha1.ConfigField{updateLibrary}},
+		{Name: "Plex", AppRef: commonv1alpha1.AppRef{Kind: "Plex", Name: "plex"}},
+	}
+	out, err := ResolveNotifications(context.Background(), c, nil, "media", in)
+	require.NoError(t, err)
+	assert.Equal(t, in[0], out[0])
+	assert.NotZero(t, in[1].AppRef, "the resource's own notifications are left alone")
+
+	fields := func(n commonv1alpha1.Notification) map[string]string {
+		got := map[string]string{}
+		for _, f := range n.Fields {
+			if f.Value != nil {
+				got[f.Name] = string(f.Value.Raw)
+			} else {
+				got[f.Name] = f.ValueFrom.SecretKeyRef.Name + "/" + f.ValueFrom.SecretKeyRef.Key
+			}
+		}
+		return got
+	}
+	assert.Zero(t, out[1].AppRef)
+	assert.Equal(t, "MediaBrowser", out[1].Implementation)
+	assert.Equal(t, map[string]string{"updateLibrary": "true", "host": `"jellyfin"`, "port": "8096", "useSsl": "false",
+		"apiKey": "keys/jellyfin"}, fields(out[1]), "no urlBase for a server at the root")
+	assert.Equal(t, "PlexServer", out[2].Implementation)
+	assert.Equal(t, map[string]string{"host": `"plex.example.com"`, "port": "443", "useSsl": "true", "urlBase": `"/plex"`,
+		"authToken": "keys/plex"}, fields(out[2]))
+
+	for _, tt := range []struct {
+		n    commonv1alpha1.Notification
+		want string
+	}{
+		{commonv1alpha1.Notification{Name: "Jellyfin", AppRef: commonv1alpha1.AppRef{Kind: "Jellyfin", Name: "jellyfin"},
+			Fields: []commonv1alpha1.ConfigField{{Name: "host", Value: &commonv1alpha1.FieldValue{Raw: []byte(`"x"`)}}}},
+			`notification "Jellyfin": appRef fills in host, so leave that field out`},
+		{commonv1alpha1.Notification{Name: "NoKey", AppRef: commonv1alpha1.AppRef{Kind: "Jellyfin", Name: "nokey"}},
+			`notification "NoKey" appRef: Jellyfin "nokey" sets no API key Secret`},
+		{commonv1alpha1.Notification{Name: "Gone", AppRef: commonv1alpha1.AppRef{Kind: "Plex", Name: "gone"}},
+			`notification "Gone" appRef: Plex "gone" not found`},
+	} {
+		_, err := ResolveNotifications(context.Background(), c, nil, "media", []commonv1alpha1.Notification{tt.n})
+		require.EqualError(t, err, tt.want)
+	}
+}
+
 func TestResolveAppRefNamesOnlyTheReference(t *testing.T) {
 	c := appRefClient(t, &pvrv1alpha1.Sonarr{Name: "sonarr", Namespace: "other", Spec: pvrv1alpha1.SonarrSpec{
 		Connection: commonv1alpha1.AppConnection{URL: "http://sonarr.other:8989"},

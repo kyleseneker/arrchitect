@@ -67,6 +67,23 @@ func startFakes(t *testing.T) string {
 	mux.HandleFunc("/webhook", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
+	// Jellyfin and Plex as a notification's test reaches them, under a URL base.
+	mux.HandleFunc("/jellyfin/System/Configuration", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{}`))
+	})
+	mux.HandleFunc("/jellyfin/Notifications/Admin", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	})
+	mux.HandleFunc("/plex/identity", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"MediaContainer":{"machineIdentifier":"compat","version":"1.41.0"}}`))
+	})
+	mux.HandleFunc("/plex/library/sections", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"MediaContainer":{"Directory":[{"key":"1","type":"show"},{"key":"2","type":"movie"},` +
+			`{"key":"3","type":"artist"}]}}`))
+	})
 	// Custom import lists, one item each: some apps reject a list that returns nothing.
 	lists := map[string]string{
 		"/lists/sonarr": `[{"title":"Breaking Bad","tvdbId":81189}]`,

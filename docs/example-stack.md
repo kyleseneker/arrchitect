@@ -221,7 +221,8 @@ spec:
   [Sharing apps with other tools](other-tools.md#prowlarr).
 - [jellyfin-stack.yaml](../examples/jellyfin-stack.yaml) and
   [plex-stack.yaml](../examples/plex-stack.yaml) wire a fuller stack the same
-  way, with Radarr, a media server and, for Plex, Seerr.
+  way, with Radarr, a media server whose library Sonarr and Radarr refresh on
+  import and, for Plex, Seerr.
 
 ## Other apps
 

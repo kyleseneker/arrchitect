@@ -21,11 +21,13 @@ type RadarrReconciler struct {
 	client.Client
 	Scheme   *runtime.Scheme
 	Recorder events.EventRecorder
+	Apps     ctrlcommon.Apps
 }
 
 // +kubebuilder:rbac:groups=arrchitect.dev,resources=radarrs,verbs=get;list;watch;update;patch
 // +kubebuilder:rbac:groups=arrchitect.dev,resources=radarrs/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=arrchitect.dev,resources=radarrs/finalizers,verbs=update
+// +kubebuilder:rbac:groups=arrchitect.dev,resources=jellyfins;plexes,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
 
 func (r *RadarrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -35,7 +37,7 @@ func (r *RadarrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	}
 	s := config.Spec
 	return reconcilePVR(ctx, r.Client, r.Recorder, pvrConfig{
-		app: pvrclient.Radarr, obj: &config, spec: s, connection: s.Connection, policy: s.Reconcile,
+		app: pvrclient.Radarr, apps: r.Apps, obj: &config, spec: s, connection: s.Connection, policy: s.Reconcile,
 		options: pvrclient.Options{
 			RootFolders:        s.RootFolders,
 			RemotePathMappings: s.RemotePathMappings,
@@ -52,11 +54,18 @@ func (r *RadarrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 }
 
 func (r *RadarrReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
+	b := ctrl.NewControllerManagedBy(mgr).
 		For(&pvrv1alpha1.Radarr{}, builder.WithPredicates(ctrlcommon.ConfigChangedPredicate())).
-		WatchesMetadata(&corev1.Secret{}, ctrlcommon.EnqueueForSecret(r.Client, &pvrv1alpha1.RadarrList{})).
-		Named("radarr").
-		Complete(r)
+		WatchesMetadata(&corev1.Secret{}, ctrlcommon.EnqueueForSecretThroughRefs(r.Client, &pvrv1alpha1.RadarrList{}, radarrAppRefs))
+	b, err := ctrlcommon.WatchAppRefs(mgr, b, r.Apps, &pvrv1alpha1.Radarr{}, &pvrv1alpha1.RadarrList{}, radarrAppRefs, "Jellyfin", "Plex")
+	if err != nil {
+		return err
+	}
+	return b.Named("radarr").Complete(r)
+}
+
+func radarrAppRefs(o client.Object) []commonv1alpha1.AppRef {
+	return notificationAppRefs(o.(*pvrv1alpha1.Radarr).Spec.Notifications)
 }
 
 // radarrInstance reads the Radarr an object names.

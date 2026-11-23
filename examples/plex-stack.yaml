@@ -29,6 +29,17 @@ spec:
     seasonFolderFormat: "Season {season:00}"
   rootFolders:
     - path: /data/media/tv
+  notifications:
+    - name: Plex
+      appRef:
+        kind: Plex
+        name: plex
+      onDownload: true
+      onUpgrade: true
+      onRename: true
+      fields:
+        - name: updateLibrary
+          value: true
 ---
 apiVersion: arrchitect.dev/v1alpha1
 kind: SonarrDownloadClient
@@ -65,6 +76,17 @@ spec:
     movieFolderFormat: "{Movie CleanTitle} ({Release Year})"
   rootFolders:
     - path: /data/media/movies
+  notifications:
+    - name: Plex
+      appRef:
+        kind: Plex
+        name: plex
+      onDownload: true
+      onUpgrade: true
+      onRename: true
+      fields:
+        - name: updateLibrary
+          value: true
 ---
 apiVersion: arrchitect.dev/v1alpha1
 kind: RadarrDownloadClient

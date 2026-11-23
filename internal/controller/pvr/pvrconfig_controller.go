@@ -18,6 +18,7 @@ import (
 
 type pvrConfig struct {
 	app        pvrclient.App
+	apps       ctrlcommon.Apps
 	obj        ctrlcommon.ConfigResource
 	spec       any
 	connection commonv1alpha1.AppConnection
@@ -45,7 +46,9 @@ func reconcilePVR(ctx context.Context, c client.Client, recorder events.EventRec
 
 	var unresolved []string
 	var err error
-	if opts.Notifications, err = ctrlcommon.ResolveNotificationSecrets(ctx, c, namespace, opts.Notifications); err != nil {
+	if opts.Notifications, err = ctrlcommon.ResolveNotifications(ctx, c, cfg.apps, namespace, opts.Notifications); err != nil {
+		unresolved = append(unresolved, fmt.Sprintf("notifications: %v", err))
+	} else if opts.Notifications, err = ctrlcommon.ResolveNotificationSecrets(ctx, c, namespace, opts.Notifications); err != nil {
 		unresolved = append(unresolved, fmt.Sprintf("notifications: %v", err))
 	}
 	if opts.ImportLists, err = ctrlcommon.ResolveImportListSecrets(ctx, c, namespace, opts.ImportLists); err != nil {
@@ -63,6 +66,17 @@ func reconcilePVR(ctx context.Context, c client.Client, recorder events.EventRec
 	ctrlcommon.UpdateResultStatus(ctx, c, obj, result)
 
 	return ctrl.Result{RequeueAfter: ctrlcommon.ReconcileInterval(cfg.policy)}, nil
+}
+
+// notificationAppRefs returns the media servers notifications refer to.
+func notificationAppRefs(notifications []commonv1alpha1.Notification) []commonv1alpha1.AppRef {
+	var refs []commonv1alpha1.AppRef
+	for _, n := range notifications {
+		if n.AppRef != (commonv1alpha1.AppRef{}) {
+			refs = append(refs, n.AppRef)
+		}
+	}
+	return refs
 }
 
 // withApp fills in what the options take from the app itself.

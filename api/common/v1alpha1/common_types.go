@@ -703,14 +703,23 @@ type ReleaseProfile struct {
 }
 
 // Notification defines a notification (a "Connect" entry) in Sonarr, Radarr, Lidarr, Readarr or Prowlarr.
+// +kubebuilder:validation:XValidation:rule="has(self.appRef) ? !has(self.implementation) && !has(self.configContract) : has(self.implementation)",message="set appRef, or implementation, not both"
 type Notification struct {
 	// name is the display name of the notification.
 	// +required
 	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name,omitempty"`
 
+	// appRef names the media server's resource, a Jellyfin or Plex, whose
+	// connection is used in place of implementation, configContract and the
+	// host, port, useSsl, urlBase and apiKey or authToken fields. That Jellyfin
+	// must set its connection's apiKeySecretRef.
+	// +optional
+	// +kubebuilder:validation:XValidation:rule="self.kind in ['Jellyfin', 'Plex']",message="a notification refers to a Jellyfin or Plex"
+	AppRef AppRef `json:"appRef,omitzero"`
+
 	// implementation is the notification type (e.g., Discord, Slack, Webhook, Email).
-	// +required
+	// +optional
 	// +kubebuilder:validation:MinLength=1
 	Implementation string `json:"implementation,omitempty"`
 
