@@ -1,11 +1,15 @@
 package export
 
 import (
+	"context"
+	"errors"
 	"maps"
+	"net/http"
 	"slices"
 	"strings"
 
 	autobrrclient "github.com/kyleseneker/arrchitect/internal/client/autobrr"
+	"github.com/kyleseneker/arrchitect/internal/engine"
 	"github.com/kyleseneker/arrchitect/internal/reconciler"
 )
 
@@ -13,7 +17,7 @@ func exportAutobrr(r *reader) (map[string]any, error) {
 	ac := autobrrclient.NewClient(r.hc)
 	spec := map[string]any{}
 
-	proxies, err := ac.ListProxies(r.ctx)
+	proxies, err := r.autobrrRead("proxies", "proxies", ac.ListProxies)
 	if err != nil {
 		return nil, err
 	}
@@ -34,7 +38,7 @@ func exportAutobrr(r *reader) (map[string]any, error) {
 	}
 	setList(spec, "proxies", ps)
 
-	clients, err := ac.ListDownloadClients(r.ctx)
+	clients, err := r.autobrrRead("downloaders", "downloadClients", ac.ListDownloadClients)
 	if err != nil {
 		return nil, err
 	}
@@ -46,7 +50,7 @@ func exportAutobrr(r *reader) (map[string]any, error) {
 	}
 	setList(spec, "downloadClients", dcs)
 
-	indexers, err := ac.ListIndexers(r.ctx)
+	indexers, err := r.autobrrRead("indexers", "indexers", ac.ListIndexers)
 	if err != nil {
 		return nil, err
 	}
@@ -62,7 +66,7 @@ func exportAutobrr(r *reader) (map[string]any, error) {
 	}
 	setList(spec, "indexers", idxs)
 
-	networks, err := ac.ListIRCNetworks(r.ctx)
+	networks, err := r.autobrrRead("irc", "ircNetworks", ac.ListIRCNetworks)
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +76,7 @@ func exportAutobrr(r *reader) (map[string]any, error) {
 	}
 	setList(spec, "ircNetworks", ircs)
 
-	feeds, err := ac.ListFeeds(r.ctx)
+	feeds, err := r.autobrrRead("feeds", "feeds", ac.ListFeeds)
 	if err != nil {
 		return nil, err
 	}
@@ -82,7 +86,7 @@ func exportAutobrr(r *reader) (map[string]any, error) {
 	}
 	setList(spec, "feeds", fs)
 
-	filters, err := ac.ListFilters(r.ctx)
+	filters, err := r.autobrrRead("filters", "filters", ac.ListFilters)
 	if err != nil {
 		return nil, err
 	}
@@ -101,7 +105,7 @@ func exportAutobrr(r *reader) (map[string]any, error) {
 	}
 	setList(spec, "filters", out)
 
-	notifications, err := ac.ListNotifications(r.ctx)
+	notifications, err := r.autobrrRead("notifications", "notifications", ac.ListNotifications)
 	if err != nil {
 		return nil, err
 	}
@@ -113,7 +117,7 @@ func exportAutobrr(r *reader) (map[string]any, error) {
 	}
 	setList(spec, "notifications", ns)
 
-	lists, err := ac.ListLists(r.ctx)
+	lists, err := r.autobrrRead("lists", "lists", ac.ListLists)
 	if err != nil {
 		return nil, err
 	}
@@ -123,6 +127,18 @@ func exportAutobrr(r *reader) (map[string]any, error) {
 	}
 	setList(spec, "lists", ls)
 	return spec, nil
+}
+
+// autobrrRead lists the items under one API key scope. Autobrr 1.91 refuses a
+// key without that scope, and the export leaves field out.
+func (r *reader) autobrrRead(scope, field string, list func(context.Context) ([]map[string]any, error)) ([]map[string]any, error) {
+	items, err := list(r.ctx)
+	var apiErr *engine.APIError
+	if errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusForbidden {
+		r.warn("the API key can't read %s (scope %s:read), so %s is left out", scope, scope, field)
+		return nil, nil
+	}
+	return items, err
 }
 
 func (r *reader) autobrrDownloadClient(c map[string]any) map[string]any {

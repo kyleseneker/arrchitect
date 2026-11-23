@@ -120,3 +120,15 @@ func TestOwnershipRecordsWhatItCreatesOnce(t *testing.T) {
 	o.Created("feeds", "a")
 	assert.Equal(t, map[string][]string{"feeds": {"a"}}, o.Managed())
 }
+
+func TestOwnershipOwnsOnlyKindsWithCreatedItems(t *testing.T) {
+	o := NewOwnership("ownership-test", map[string][]string{"feeds": {"a"}, "lists": {}})
+	assert.True(t, o.Owns("feeds"))
+	assert.False(t, o.Owns("lists"))
+	assert.False(t, o.Owns("proxies"))
+
+	o.Created("proxies", "vpn")
+	assert.True(t, o.Owns("proxies"))
+	require.NoError(t, o.Cleanup("proxies", []string{"vpn"}, func(string) error { return nil }))
+	assert.False(t, o.Owns("proxies"))
+}

@@ -125,3 +125,42 @@ func TestAutobrrDeletesListsBeforeWhatTheyNameAndProxiesLast(t *testing.T) {
 		"DELETE /api/lists/2", "DELETE /api/filters/3", "DELETE /api/downloaders/4", "DELETE /api/proxy/6",
 	}, autobrrWrites(app))
 }
+
+var unscopedKinds = []string{"notification", "lists", "proxy"}
+
+func TestAutobrrPruneListsOnlyKindsItOwns(t *testing.T) {
+	app := &fakeAutobrr{forbidden: unscopedKinds, existing: map[string][]map[string]any{"indexer": genericIndexer, "feeds": {
+		{"id": float64(5), "name": "old"}, {"id": float64(7), "name": "kept"},
+	}}}
+	cfg := autobrrConfig(app.serve(t))
+	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{Prune: new(true)}
+	cfg.Spec.Feeds = []automationv1alpha1.AutobrrFeed{{Name: "kept", Type: "RSS", URL: "http://feed", IndexerRef: "Generic"}}
+	cfg.SetManagedResources(map[string][]string{"feeds": {"old", "kept"}})
+
+	c := runAutobrr(t, cfg, true)
+
+	assert.True(t, app.saw(http.MethodDelete, "/api/feeds/5"))
+	for _, kind := range unscopedKinds {
+		assert.False(t, app.saw(http.MethodGet, "/api/"+kind), "listed %s, which the operator owns nothing of", kind)
+	}
+	assert.Equal(t, conditionTrue, autobrrSynced(t, c))
+}
+
+func TestAutobrrCleanupListsOnlyKindsItOwns(t *testing.T) {
+	app := &fakeAutobrr{forbidden: append([]string{"filters"}, unscopedKinds...), existing: map[string][]map[string]any{
+		"downloaders": {{"id": float64(4), "name": "qBit"}},
+	}}
+	cfg := autobrrConfig(app.serve(t))
+	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{DeletionPolicy: ctrlcommon.DeletionPolicyDelete}
+	cfg.SetManagedResources(map[string][]string{"downloadClients": {"qBit"}})
+	now := metav1.NewTime(time.Now())
+	cfg.DeletionTimestamp = &now
+	cfg.Finalizers = []string{ctrlcommon.Finalizer}
+
+	runAutobrr(t, cfg, true)
+
+	assert.Equal(t, []string{"DELETE /api/downloaders/4"}, autobrrWrites(app))
+	for _, kind := range append([]string{"filters"}, unscopedKinds...) {
+		assert.False(t, app.saw(http.MethodGet, "/api/"+kind), "listed %s, which the operator owns nothing of", kind)
+	}
+}

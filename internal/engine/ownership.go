@@ -32,6 +32,12 @@ func (o *Ownership) Created(kind, name string) {
 	}
 }
 
+// Owns reports whether the operator created any item of kind. Prune and
+// cleanup have nothing to delete in a kind it doesn't own.
+func (o *Ownership) Owns(kind string) bool {
+	return len(o.managed[kind]) > 0
+}
+
 // Candidates lists the owned items of kind that exist but are no longer
 // declared. A kind with nothing declared has none, so leaving a list out of a
 // resource never empties it.

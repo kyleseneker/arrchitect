@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -53,10 +54,12 @@ var fakeAutobrrAPI = map[string]string{
 		"limit_ratio":1.5,"content_layout":"SUBFOLDER_CREATE","paused":false,"webhook_headers":[]}]`,
 }
 
-func exportAutobrrForTest(t *testing.T) (*automationv1alpha1.Autobrr, Result) {
+// exportAutobrrForTest exports the fake Autobrr, refusing the forbidden paths
+// as Autobrr 1.91 refuses an API key without their scope.
+func exportAutobrrForTest(t *testing.T, forbidden ...string) (*automationv1alpha1.Autobrr, Result) {
 	t.Helper()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get("X-API-Token") != "k" {
+		if r.Header.Get("X-API-Token") != "k" || slices.Contains(forbidden, r.URL.Path) {
 			w.WriteHeader(http.StatusForbidden)
 			return
 		}
@@ -135,6 +138,18 @@ func TestAutobrrExportsEachResourceWithSecretsInTheSecret(t *testing.T) {
 	assert.Equal(t, "SUBFOLDER_CREATE", action.ContentLayout)
 	assert.Nil(t, action.Paused)
 	assert.Empty(t, action.WebhookHeaders)
+}
+
+func TestAutobrrExportLeavesOutWhatTheKeyCantRead(t *testing.T) {
+	cfg, res := exportAutobrrForTest(t, "/api/proxy", "/api/irc", "/api/notification")
+
+	assert.Empty(t, cfg.Spec.Proxies)
+	assert.Empty(t, cfg.Spec.IRCNetworks)
+	assert.Empty(t, cfg.Spec.Notifications)
+	assert.NotEmpty(t, cfg.Spec.Indexers)
+	assert.NotEmpty(t, cfg.Spec.Lists)
+	assert.Contains(t, res.Warnings, "the API key can't read proxies (scope proxies:read), so proxies is left out")
+	assert.Contains(t, res.Warnings, "the API key can't read irc (scope irc:read), so ircNetworks is left out")
 }
 
 func TestAutobrrExportsNotificationsButNotTheBuiltinOne(t *testing.T) {

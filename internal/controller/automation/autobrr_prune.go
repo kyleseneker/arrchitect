@@ -76,7 +76,7 @@ func (s *autobrrSync) pruneUndeclared(ctx context.Context, spec *automationv1alp
 	}
 	declared := declaredNames(spec)
 	for _, l := range s.lists() {
-		if failed[l.kind] {
+		if failed[l.kind] || !s.owned.Owns(l.kind) {
 			continue
 		}
 		names, ids, err := listed(ctx, l.list)
@@ -109,20 +109,27 @@ func (s *autobrrSync) pruneActions(ctx context.Context, filter automationv1alpha
 }
 
 // cleanup deletes everything the operator created, for deletionPolicy delete.
+// Like prune, it never lists a kind the operator owns nothing of: an Autobrr
+// 1.91 API key may have no scope for it.
 func (s *autobrrSync) cleanup(ctx context.Context) error {
-	filters, ids, err := listed(ctx, s.ac.ListFilters)
-	if err != nil {
-		return err
-	}
 	var errs []error
-	for _, name := range filters {
-		existing, actionIDs, err := s.filterActions(ctx, name, ids[name])
-		if err == nil {
-			err = s.owned.Cleanup(actionsKind, existing, func(n string) error { return s.ac.DeleteAction(ctx, actionIDs[n]) })
+	if s.owned.Owns(actionsKind) {
+		filters, ids, err := listed(ctx, s.ac.ListFilters)
+		if err != nil {
+			return err
 		}
-		errs = append(errs, err)
+		for _, name := range filters {
+			existing, actionIDs, err := s.filterActions(ctx, name, ids[name])
+			if err == nil {
+				err = s.owned.Cleanup(actionsKind, existing, func(n string) error { return s.ac.DeleteAction(ctx, actionIDs[n]) })
+			}
+			errs = append(errs, err)
+		}
 	}
 	for _, l := range s.lists() {
+		if !s.owned.Owns(l.kind) {
+			continue
+		}
 		names, ids, err := listed(ctx, l.list)
 		if err == nil {
 			err = s.owned.Cleanup(l.kind, names, func(name string) error { return l.remove(ctx, ids[name]) })
