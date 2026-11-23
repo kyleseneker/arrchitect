@@ -200,6 +200,11 @@ func (in *QBittorrentPreferences) DeepCopyInto(out *QBittorrentPreferences) {
 		*out = new(bool)
 		**out = **in
 	}
+	if in.BypassLocalAuth != nil {
+		in, out := &in.BypassLocalAuth, &out.BypassLocalAuth
+		*out = new(bool)
+		**out = **in
+	}
 	if in.WebUIHostHeaderValidationEnabled != nil {
 		in, out := &in.WebUIHostHeaderValidationEnabled, &out.WebUIHostHeaderValidationEnabled
 		*out = new(bool)

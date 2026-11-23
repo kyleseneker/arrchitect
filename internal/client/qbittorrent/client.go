@@ -59,6 +59,7 @@ var Preferences = map[string]string{
 	"webUiPort":                          "web_ui_port",
 	"bypassAuthSubnetWhitelistEnabled":   "bypass_auth_subnet_whitelist_enabled",
 	"bypassAuthSubnetWhitelist":          "bypass_auth_subnet_whitelist",
+	"bypassLocalAuth":                    "bypass_local_auth",
 	"webUiHostHeaderValidationEnabled":   "web_ui_host_header_validation_enabled",
 	"webUiCsrfProtectionEnabled":         "web_ui_csrf_protection_enabled",
 	"webUiClickjackingProtectionEnabled": "web_ui_clickjacking_protection_enabled",

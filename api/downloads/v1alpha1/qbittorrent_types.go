@@ -157,9 +157,16 @@ type QBittorrentPreferences struct {
 	// +kubebuilder:validation:MinLength=1
 	BypassAuthSubnetWhitelist string `json:"bypassAuthSubnetWhitelist,omitempty"`
 
+	// bypassLocalAuth lets clients on localhost skip the WebUI login, such as a
+	// VPN sidecar that sets listenPort to the port the VPN forwards.
+	// +optional
+	BypassLocalAuth *bool `json:"bypassLocalAuth,omitempty"`
+
 	// webUiHostHeaderValidationEnabled has the Web UI refuse requests whose
-	// Host header isn't in webUiDomainList. List the Service name the operator
-	// connects through there as well, or its requests are refused too.
+	// Host header names another port than its own, or a host not in
+	// webUiDomainList. List the Service name the operator connects through
+	// there as well, and give the Service the Web UI's port, or the operator's
+	// requests are refused too.
 	// +optional
 	WebUIHostHeaderValidationEnabled *bool `json:"webUiHostHeaderValidationEnabled,omitempty"`
 
