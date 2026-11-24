@@ -60,6 +60,12 @@ func (e *pvrExport) spec() (map[string]any, error) {
 	if e.qualityProfiles, err = e.names("/qualityprofile", "name"); err != nil {
 		return nil, err
 	}
+	if config, ok := spec["importListConfig"].(map[string]any); ok {
+		if label, ok := e.tags[num(config["listSyncTag"])]; ok && config["listSyncLevel"] == "keepAndTag" {
+			config["listSyncTagLabel"] = label
+		}
+		delete(config, "listSyncTag")
+	}
 	if e.downloadClients, err = e.names("/downloadclient", "name"); err != nil {
 		return nil, err
 	}

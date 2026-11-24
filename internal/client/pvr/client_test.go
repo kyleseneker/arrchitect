@@ -62,8 +62,9 @@ func TestDefinitionAddsTheAppsOwnSections(t *testing.T) {
 		}
 		return out
 	}
-	assert.Len(t, paths(Sonarr), 5)
+	assert.Equal(t, "/api/v3/config/importlist", paths(Sonarr)["importListConfig"])
 	assert.Equal(t, "/api/v3/config/metadata", paths(Radarr)["metadataConfig"])
+	assert.Equal(t, "/api/v3/config/importlist", paths(Radarr)["importListConfig"])
 	assert.Equal(t, "/api/v1/config/metadataprovider", paths(Lidarr)["metadataProvider"])
 	assert.NotContains(t, paths(Lidarr), "development", "Lidarr has no development section")
 	assert.Equal(t, "/api/v1/config/metadataprovider", paths(Readarr)["metadataProvider"])
@@ -1572,6 +1573,19 @@ func TestAutoTagsResolveTheProfilesAndTagsTheyNameAndConverge(t *testing.T) {
 	require.Len(t, both.Errors, 1)
 	assert.Contains(t, both.Errors[0], "autoTags(Anime HD): Profile: qualityProfileName fills in value, so leave that field out")
 	assert.Len(t, app.writes, 1)
+}
+
+func TestResolveListSyncTagNamesTheTagByLabel(t *testing.T) {
+	hc := (&rebuildAPI{items: map[string][]map[string]any{"tag": {{"id": float64(4), "label": "unlisted"}}}}).client(t)
+	sections := map[string]any{"importListConfig": map[string]any{"listSyncLevel": "keepAndTag", "listSyncTagLabel": "Unlisted"}}
+	require.NoError(t, resolveListSyncTag(context.Background(), hc, "v3", sections, nil))
+	assert.Equal(t, map[string]any{"listSyncLevel": "keepAndTag", "listSyncTag": 4}, sections["importListConfig"])
+
+	sections = map[string]any{"importListConfig": map[string]any{"listSyncLevel": "keepAndTag", "listSyncTagLabel": "gone"}}
+	assert.EqualError(t, resolveListSyncTag(context.Background(), hc, "v3", sections, nil),
+		`listSyncTagLabel: reference "gone" does not exist`)
+	require.NoError(t, resolveListSyncTag(context.Background(), hc, "v3", sections, []string{"gone"}),
+		"observe mode plans a tag the resource declares")
 }
 
 func TestMetadataConsumersUpdateInPlaceAndConverge(t *testing.T) {

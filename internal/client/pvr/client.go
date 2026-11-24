@@ -44,6 +44,7 @@ var sectionPaths = map[string]string{
 	"metadataProvider": "/config/metadataprovider",
 	"development":      "/config/development",
 	"metadataConfig":   "/config/metadata",
+	"importListConfig": "/config/importlist",
 }
 
 var bookAndMusicImportListFields = ImportListFields{
@@ -62,6 +63,7 @@ var (
 			AutomaticAdd: "enableAutomaticAdd", Monitor: "shouldMonitor", Search: "searchForMissingEpisodes",
 			MonitorNewItems: "monitorNewItems",
 		},
+		Sections: []string{"importListConfig"},
 		Choices: map[string]map[string]map[string]int{"naming": {
 			"colonReplacementFormat": {"delete": 0, "dash": 1, "spaceDash": 2, "spaceDashSpace": 3, "smart": 4, "custom": 5},
 			"multiEpisodeStyle":      {"extend": 0, "duplicate": 1, "repeat": 2, "scene": 3, "range": 4, "prefixedRange": 5},
@@ -70,7 +72,7 @@ var (
 	Radarr = App{
 		Name: "radarr", Kind: "Radarr", APIVersion: "v3", CategoryField: "movieCategory", ReleaseProfiles: true,
 		ImportListFields: ImportListFields{Enable: "enabled", AutomaticAdd: "enableAuto", Monitor: "monitor", Search: "searchOnAdd"},
-		Sections:         []string{"metadataConfig"},
+		Sections:         []string{"metadataConfig", "importListConfig"},
 	}
 	Lidarr = App{
 		Name: "lidarr", Kind: "Lidarr", APIVersion: "v1", CategoryField: "musicCategory", MetadataProfiles: true,
@@ -991,6 +993,10 @@ func Reconcile(ctx context.Context, client *engine.HTTPClient, apiVersion string
 	if err != nil {
 		result.Errors = append(result.Errors, err.Error())
 	}
+	if err := resolveListSyncTag(ctx, client, apiVersion, sections, opts.planned["tags"]); err != nil {
+		delete(sections, "importListConfig")
+		result.Errors = append(result.Errors, fmt.Sprintf("importListConfig: %v", err))
+	}
 	mergeResult(&result, engine.ReconcileApp(ctx, client, def, sections, resources, policy, result.Managed))
 	result.Errors = append(result.Errors, fieldProblems...)
 
@@ -1045,6 +1051,28 @@ func Reconcile(ctx context.Context, client *engine.HTTPClient, apiVersion string
 	}
 
 	return result, nil
+}
+
+// resolveListSyncTag puts the ID of the tag Sonarr's listSyncTagLabel names in
+// listSyncTag.
+func resolveListSyncTag(ctx context.Context, client *engine.HTTPClient, apiVersion string, sections map[string]any, planned []string) error {
+	config, _ := sections["importListConfig"].(map[string]any)
+	label, _ := config["listSyncTagLabel"].(string)
+	if label == "" {
+		return nil
+	}
+	tags, err := engine.FetchNamedIDs(ctx, client, fmt.Sprintf("/api/%s/tag", apiVersion), "label")
+	if err != nil {
+		return err
+	}
+	tags.Plan(planned...)
+	id, err := tags.Resolve(engine.TagLabel(label))
+	if err != nil {
+		return fmt.Errorf("listSyncTagLabel: %w", err)
+	}
+	delete(config, "listSyncTagLabel")
+	config["listSyncTag"] = id
+	return nil
 }
 
 // plannedNames lists what the resource declares that others in it may refer to

@@ -177,6 +177,8 @@ spec:
       minSize: 12.5
       maxSize: 400
       preferredSize: 350
+  importListConfig:
+    listSyncLevel: logOnly
   metadataConfig:
     certificationCountry: gb
   metadataConsumers:

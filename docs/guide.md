@@ -298,6 +298,7 @@ references can use names instead:
   sends the indexer's releases to that download client.
 - `indexerName` on Sonarr and Radarr release profiles, which limits the profile
   to that indexer.
+- `importListConfig.listSyncTagLabel` in Sonarr.
 - In Sonarr, Radarr and Lidarr auto tags: `tagLabels`, and
   `qualityProfileName`, `metadataProfileName` (Lidarr) and `tagLabel` on
   conditions, in place of the condition's `value` ID.
