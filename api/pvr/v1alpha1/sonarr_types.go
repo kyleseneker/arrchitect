@@ -79,6 +79,12 @@ type SonarrSpec struct {
 	// +listMapKey=implementation
 	MetadataConsumers []commonv1alpha1.MetadataConsumer `json:"metadataConsumers,omitempty"`
 
+	// autoTags tags the app's items that match each auto tag's conditions.
+	// +optional
+	// +listType=map
+	// +listMapKey=name
+	AutoTags []commonv1alpha1.AutoTag `json:"autoTags,omitempty"`
+
 	// delayProfiles defines delay profiles. The app checks tagged profiles in
 	// the order listed, and the default profile, the one without tags, last.
 	// Only operator-created profiles can be pruned, so the default never is.

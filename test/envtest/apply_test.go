@@ -346,6 +346,32 @@ func TestAdmissionRules(t *testing.T) {
 		{name: "a Readarr notification to Jellyfin by reference", kind: "Readarr", spec: conn + `
   notifications: [{name: Jellyfin, appRef: {kind: Jellyfin, name: jellyfin}}]`,
 			rejected: "Readarr has no Jellyfin notification"},
+		{name: "a Sonarr auto tag", kind: "Sonarr", spec: conn + `
+  autoTags:
+    - name: Anime HD
+      removeTagsAutomatically: true
+      tagLabels: [anime-hd]
+      specifications:
+        - {name: Profile, implementation: QualityProfileSpecification, required: true, qualityProfileName: HD-1080p}
+        - {name: Tagged, implementation: TagSpecification, tagLabel: anime}
+        - {name: Genre, implementation: GenreSpecification, fields: [{name: value, value: [Anime]}]}`},
+		{name: "an auto tag naming a profile on a tag condition", kind: "Radarr", spec: conn + `
+  autoTags:
+    - name: x
+      tagLabels: [a]
+      specifications: [{name: t, implementation: TagSpecification, qualityProfileName: HD}]`,
+			rejected: "qualityProfileName is for a QualityProfileSpecification"},
+		{name: "a Lidarr auto tag naming a metadata profile", kind: "Lidarr", spec: conn + `
+  autoTags:
+    - name: x
+      tagLabels: [a]
+      specifications: [{name: m, implementation: MetadataProfileSpecification, metadataProfileName: Standard}]`},
+		{name: "an auto tag without tags", kind: "Sonarr", spec: conn + `
+  autoTags: [{name: x, specifications: [{name: m, implementation: MonitoredSpecification}]}]`,
+			rejected: "tagLabels: Required value"},
+		{name: "an auto tag without conditions", kind: "Sonarr", spec: conn + `
+  autoTags: [{name: x, tagLabels: [a], specifications: []}]`,
+			rejected: "should have at least 1 items"},
 		{name: "Radarr certification country", kind: "Radarr", spec: conn + `
   metadataConfig: {certificationCountry: gb}`},
 		{name: "a Radarr certification country TMDb doesn't rate", kind: "Radarr", spec: conn + `

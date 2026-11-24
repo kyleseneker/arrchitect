@@ -55,6 +55,10 @@ var fakeSonarrAPI = map[string]string{
 		"enableAutomaticAdd":true,"shouldMonitor":"all","qualityProfileId":4,"rootFolderPath":"/tv","seasonFolder":true,
 		"seriesType":"standard","searchForMissingEpisodes":false,"monitorNewItems":"none","tags":[1],"fields":[{"name":"accessToken","value":"********","privacy":"password"}]}]`,
 	"/importlist/schema": `[{"implementation":"TraktListImport","fields":[]}]`,
+	"/autotagging": `[{"id":1,"name":"Anime HD","removeTagsAutomatically":true,"tags":[1],"specifications":[
+		{"name":"HD","implementation":"QualityProfileSpecification","negate":false,"required":true,"fields":[{"name":"value","value":4}]},
+		{"name":"Tagged","implementation":"TagSpecification","negate":true,"required":false,"fields":[{"name":"value","value":1}]},
+		{"name":"Genre","implementation":"GenreSpecification","negate":false,"required":false,"fields":[{"name":"value","value":["Anime"]}]}]}]`,
 	"/metadata": `[
 		{"id":1,"name":"Kodi (XBMC) / Emby","implementation":"XbmcMetadata","configContract":"XbmcMetadataSettings","enable":true,
 			"fields":[{"name":"seriesMetadata","value":true},{"name":"episodeImages","value":false}]},
@@ -122,6 +126,22 @@ func objectsOf[T client.Object](res Result) []T {
 		}
 	}
 	return out
+}
+
+func TestPVRAutoTagsNameTheProfilesAndTagsTheirConditionsMatch(t *testing.T) {
+	cfg, _ := exportSonarr(t, Options{})
+	require.Len(t, cfg.Spec.AutoTags, 1)
+	at := cfg.Spec.AutoTags[0]
+	assert.Equal(t, "Anime HD", at.Name)
+	assert.Equal(t, new(true), at.RemoveTagsAutomatically)
+	assert.Equal(t, []string{"anime"}, at.TagLabels)
+	require.Len(t, at.Specifications, 3)
+	assert.Equal(t, "HD", at.Specifications[0].QualityProfileName)
+	assert.Empty(t, at.Specifications[0].Fields)
+	assert.Equal(t, "anime", at.Specifications[1].TagLabel)
+	assert.Equal(t, new(true), at.Specifications[1].Negate)
+	assert.Equal(t, []commonv1alpha1.ConfigField{{Name: "value", Value: &commonv1alpha1.FieldValue{Raw: []byte(`["Anime"]`)}}},
+		at.Specifications[2].Fields)
 }
 
 func TestPVRMetadataConsumersExportOnlyTheOnesTurnedOn(t *testing.T) {

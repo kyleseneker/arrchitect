@@ -617,6 +617,91 @@ type CustomFormatSpecification struct {
 	Fields []ConfigField `json:"fields,omitempty"`
 }
 
+// AutoTag tags the series, movies or artists that match its conditions.
+type AutoTag struct {
+	// name is the auto tag's name.
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name,omitempty"`
+
+	// removeTagsAutomatically takes the tags off an item that stops matching.
+	// +optional
+	RemoveTagsAutomatically *bool `json:"removeTagsAutomatically,omitempty"`
+
+	// tagLabels are the tags the auto tag applies, by label, resolved against
+	// the app on each reconciliation.
+	// +required
+	// +listType=set
+	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:items:MinLength=1
+	TagLabels []string `json:"tagLabels,omitempty"`
+
+	// specifications are the conditions an item must match: every required one
+	// and at least one of the others. Conditions left out are removed.
+	// +required
+	// +listType=map
+	// +listMapKey=name
+	// +kubebuilder:validation:MinItems=1
+	Specifications []AutoTagSpecification `json:"specifications,omitempty"`
+}
+
+// AutoTagSpecification is one condition of an auto tag. A condition on a
+// quality profile, metadata profile or tag names it rather than giving its id.
+// +kubebuilder:validation:XValidation:rule="!has(self.qualityProfileName) || self.implementation == 'QualityProfileSpecification'",message="qualityProfileName is for a QualityProfileSpecification"
+// +kubebuilder:validation:XValidation:rule="!has(self.metadataProfileName) || self.implementation == 'MetadataProfileSpecification'",message="metadataProfileName is for a MetadataProfileSpecification"
+// +kubebuilder:validation:XValidation:rule="!has(self.tagLabel) || self.implementation == 'TagSpecification'",message="tagLabel is for a TagSpecification"
+type AutoTagSpecification struct {
+	// name is the condition's name.
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name,omitempty"`
+
+	// implementation is the condition type: GenreSpecification,
+	// MonitoredSpecification, QualityProfileSpecification,
+	// RootFolderSpecification, StatusSpecification or TagSpecification;
+	// OriginalLanguageSpecification and YearSpecification in Sonarr and Radarr;
+	// SeriesTypeSpecification in Sonarr; KeywordSpecification,
+	// RuntimeSpecification and StudioSpecification in Radarr;
+	// MetadataProfileSpecification in Lidarr.
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=64
+	Implementation string `json:"implementation,omitempty"`
+
+	// negate inverts the condition.
+	// +optional
+	Negate *bool `json:"negate,omitempty"`
+
+	// required makes the condition one every match must meet.
+	// +optional
+	Required *bool `json:"required,omitempty"`
+
+	// qualityProfileName names the quality profile a
+	// QualityProfileSpecification matches, in place of its value field.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	QualityProfileName string `json:"qualityProfileName,omitempty"`
+
+	// metadataProfileName names the metadata profile a Lidarr
+	// MetadataProfileSpecification matches, in place of its value field.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	MetadataProfileName string `json:"metadataProfileName,omitempty"`
+
+	// tagLabel names the tag a TagSpecification matches, in place of its value
+	// field.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	TagLabel string `json:"tagLabel,omitempty"`
+
+	// fields sets the condition's other values, such as a genre list in value,
+	// a root folder path in value, or min and max for a year.
+	// +optional
+	// +listType=map
+	// +listMapKey=name
+	Fields []ConfigField `json:"fields,omitempty"`
+}
+
 // Tag defines a tag that can be used to link resources together
 // (download clients, indexers, notifications, etc.).
 type Tag struct {

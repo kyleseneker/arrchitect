@@ -48,6 +48,7 @@ func (r *LidarrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 			ImportLists:            s.ImportLists,
 			QualityDefinitions:     s.QualityDefinitions,
 			MetadataConsumers:      s.MetadataConsumers,
+			AutoTags:               s.AutoTags,
 			DelayProfiles:          s.DelayProfiles,
 			LidarrMetadataProfiles: s.MetadataProfiles,
 		},

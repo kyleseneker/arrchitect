@@ -102,6 +102,9 @@ func (e *pvrExport) spec() (map[string]any, error) {
 	if e.app.ReleaseProfiles {
 		resources = append(resources, resource{"releaseProfiles", "/releaseprofile", "", e.releaseProfile})
 	}
+	if e.app.Name != "readarr" {
+		resources = append(resources, resource{"autoTags", "/autotagging", "", e.autoTag})
+	}
 	switch e.app.Name {
 	case "lidarr":
 		resources = append(resources, resource{"metadataProfiles", "/metadataprofile", "", lidarrMetadataProfile})
@@ -372,6 +375,43 @@ func customFormat(item map[string]any, _ map[string]map[string]any) map[string]a
 	}
 	cf["specifications"] = specs
 	return cf
+}
+
+// autoTagReferences are the conditions whose value is an ID, and the field
+// that names it instead.
+var autoTagReferences = map[string]string{
+	"QualityProfileSpecification":  "qualityProfileName",
+	"MetadataProfileSpecification": "metadataProfileName",
+	"TagSpecification":             "tagLabel",
+}
+
+func (e *pvrExport) autoTag(item map[string]any, _ map[string]map[string]any) map[string]any {
+	at := pick(item, "name", "removeTagsAutomatically")
+	at["tagLabels"] = e.tagLabels(item)
+	specifications := list(item["specifications"])
+	specs := make([]any, 0, len(specifications))
+	for _, s := range specifications {
+		spec := pick(s, "name", "implementation", "negate", "required")
+		impl, _ := s["implementation"].(string)
+		names := map[string]map[float64]string{
+			"qualityProfileName": e.qualityProfiles, "metadataProfileName": e.metadataProfiles, "tagLabel": e.tags,
+		}[autoTagReferences[impl]]
+		var fields []any
+		for _, f := range fieldList(s) {
+			if f["value"] == nil {
+				continue
+			}
+			if name, ok := names[num(f["value"])]; ok && f["name"] == "value" {
+				spec[autoTagReferences[impl]] = name
+				continue
+			}
+			fields = append(fields, pick(f, "name", "value"))
+		}
+		spec["fields"] = fields
+		specs = append(specs, spec)
+	}
+	at["specifications"] = specs
+	return at
 }
 
 func qualityProfile(item map[string]any, _ map[string]map[string]any) map[string]any {

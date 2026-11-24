@@ -207,6 +207,23 @@ spec:
           value: true
         - name: episodeImages
           value: false
+  autoTags:
+    - name: Compat Anime
+      removeTagsAutomatically: true
+      tagLabels: [hdr]
+      specifications:
+        - name: Profile
+          implementation: QualityProfileSpecification
+          required: true
+          qualityProfileName: HD-1080p
+        - name: Anime
+          implementation: TagSpecification
+          tagLabel: Anime
+        - name: Genre
+          implementation: GenreSpecification
+          fields:
+            - name: value
+              value: [Animation]
   delayProfiles:
     - tagLabels:
         - Anime

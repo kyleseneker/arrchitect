@@ -212,7 +212,7 @@ prune, removing an item from the resource only stops managing it.
 
 | App | Pruned |
 |---|---|
-| Sonarr, Radarr, Lidarr, Readarr | notifications, import lists, custom formats, quality profiles, remote path mappings, delay profiles; release profiles in Sonarr and Radarr; metadata profiles in Lidarr and Readarr |
+| Sonarr, Radarr, Lidarr, Readarr | notifications, import lists, custom formats, quality profiles, remote path mappings, delay profiles; release profiles in Sonarr and Radarr; auto tags in Sonarr, Radarr and Lidarr; metadata profiles in Lidarr and Readarr |
 | Prowlarr | applications, indexers, proxies, download clients, notifications |
 | FlareSolverr | sessions |
 | Tdarr | library variables |
@@ -298,6 +298,9 @@ references can use names instead:
   sends the indexer's releases to that download client.
 - `indexerName` on Sonarr and Radarr release profiles, which limits the profile
   to that indexer.
+- In Sonarr, Radarr and Lidarr auto tags: `tagLabels`, and
+  `qualityProfileName`, `metadataProfileName` (Lidarr) and `tagLabel` on
+  conditions, in place of the condition's `value` ID.
 - `activeProfileName` on Seerr's Sonarr and Radarr connections, looked up from
   that Sonarr or Radarr.
 - In Autobrr: `indexers` on filters, `clientRef` on actions, `indexerRef` on
