@@ -55,6 +55,13 @@ var fakeSonarrAPI = map[string]string{
 		"enableAutomaticAdd":true,"shouldMonitor":"all","qualityProfileId":4,"rootFolderPath":"/tv","seasonFolder":true,
 		"seriesType":"standard","searchForMissingEpisodes":false,"monitorNewItems":"none","tags":[1],"fields":[{"name":"accessToken","value":"********","privacy":"password"}]}]`,
 	"/importlist/schema": `[{"implementation":"TraktListImport","fields":[]}]`,
+	"/metadata": `[
+		{"id":1,"name":"Kodi (XBMC) / Emby","implementation":"XbmcMetadata","configContract":"XbmcMetadataSettings","enable":true,
+			"fields":[{"name":"seriesMetadata","value":true},{"name":"episodeImages","value":false}]},
+		{"id":2,"name":"Roksbox","implementation":"RoksboxMetadata","configContract":"RoksboxMetadataSettings","enable":false,
+			"fields":[{"name":"episodeMetadata","value":true}]}]`,
+	"/metadata/schema": `[{"implementation":"XbmcMetadata","fields":[{"name":"seriesMetadata","value":true},{"name":"episodeImages","value":true}]},
+		{"implementation":"RoksboxMetadata","fields":[{"name":"episodeMetadata","value":false}]}]`,
 	"/qualitydefinition": `[
 		{"id":1,"quality":{"id":1,"name":"SDTV"},"title":"SDTV","minSize":2,"maxSize":100,"preferredSize":95},
 		{"id":2,"quality":{"id":7,"name":"Bluray-1080p"},"title":"Blu-ray 1080p","minSize":17.1,"maxSize":null,"preferredSize":null},
@@ -115,6 +122,14 @@ func objectsOf[T client.Object](res Result) []T {
 		}
 	}
 	return out
+}
+
+func TestPVRMetadataConsumersExportOnlyTheOnesTurnedOn(t *testing.T) {
+	cfg, _ := exportSonarr(t, Options{})
+	assert.Equal(t, []commonv1alpha1.MetadataConsumer{{
+		Implementation: "XbmcMetadata",
+		Fields:         []commonv1alpha1.MetadataConsumerField{{Name: "episodeImages", Value: &commonv1alpha1.FieldValue{Raw: []byte("false")}}},
+	}}, cfg.Spec.MetadataConsumers)
 }
 
 func TestPVRSettingsKeepOnlyFieldsTheCRDHas(t *testing.T) {

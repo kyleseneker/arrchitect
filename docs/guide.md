@@ -199,6 +199,10 @@ megabytes per minute of runtime in Sonarr and Radarr, kilobits per second in
 Lidarr. A `maxSize` or `preferredSize` of 0 means unlimited. Readarr has no
 preferred size.
 
+Metadata consumers are a fixed set too: Sonarr, Radarr and Lidarr keep one of
+each type, off until turned on. The operator updates the ones listed, matched
+by `implementation`, and leaves the rest alone. Readarr has none.
+
 ## Prune
 
 With `spec.reconcile.prune: true`, the operator deletes items it created once
@@ -222,8 +226,9 @@ prune, removing an item from the resource only stops managing it.
 The API server rejects `prune: true` on Jellyfin and Plex.
 
 - A list with no declared items is not pruned.
-- Settings, root folders, tags, quality definitions, libraries and Prowlarr
-  sync profiles are never pruned, and neither is the default delay profile.
+- Settings, root folders, tags, quality definitions, metadata consumers,
+  libraries and Prowlarr sync profiles are never pruned, and neither is the
+  default delay profile.
 - A pass that would delete more than 25 items of one kind deletes none of them.
 - Observe mode never prunes. It reports each item prune would delete as a
   difference.

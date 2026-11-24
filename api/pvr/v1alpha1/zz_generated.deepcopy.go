@@ -605,6 +605,13 @@ func (in *LidarrSpec) DeepCopyInto(out *LidarrSpec) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	if in.MetadataConsumers != nil {
+		in, out := &in.MetadataConsumers, &out.MetadataConsumers
+		*out = make([]commonv1alpha1.MetadataConsumer, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
+	}
 	if in.DelayProfiles != nil {
 		in, out := &in.DelayProfiles, &out.DelayProfiles
 		*out = make([]commonv1alpha1.DelayProfile, len(*in))
@@ -1248,6 +1255,13 @@ func (in *RadarrSpec) DeepCopyInto(out *RadarrSpec) {
 	if in.QualityDefinitions != nil {
 		in, out := &in.QualityDefinitions, &out.QualityDefinitions
 		*out = make([]commonv1alpha1.QualityDefinition, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
+	}
+	if in.MetadataConsumers != nil {
+		in, out := &in.MetadataConsumers, &out.MetadataConsumers
+		*out = make([]commonv1alpha1.MetadataConsumer, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
@@ -2598,6 +2612,13 @@ func (in *SonarrSpec) DeepCopyInto(out *SonarrSpec) {
 	if in.QualityDefinitions != nil {
 		in, out := &in.QualityDefinitions, &out.QualityDefinitions
 		*out = make([]commonv1alpha1.QualityDefinition, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
+	}
+	if in.MetadataConsumers != nil {
+		in, out := &in.MetadataConsumers, &out.MetadataConsumers
+		*out = make([]commonv1alpha1.MetadataConsumer, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}

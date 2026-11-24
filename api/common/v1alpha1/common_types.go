@@ -428,6 +428,43 @@ type QualityProfileFormatItem struct {
 	Score *int32 `json:"score,omitempty"`
 }
 
+// MetadataConsumer configures one of the metadata writers the app keeps one
+// of per type, such as the Kodi (XBMC) / Emby one that writes NFO files and
+// images beside the media.
+type MetadataConsumer struct {
+	// implementation is the consumer's type: XbmcMetadata (Kodi (XBMC) / Emby),
+	// RoksboxMetadata or WdtvMetadata; PlexMetadata or KometaMetadata in Sonarr;
+	// MediaBrowserMetadata (Emby legacy) in Radarr.
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	Implementation string `json:"implementation,omitempty"`
+
+	// enable turns the consumer on.
+	// +optional
+	// +kubebuilder:default=true
+	Enable *bool `json:"enable,omitempty"`
+
+	// fields sets the consumer's settings by name, such as seriesMetadata or
+	// movieImages, as the app's /metadata/schema lists them. Fields left out
+	// keep their values.
+	// +optional
+	// +listType=map
+	// +listMapKey=name
+	Fields []MetadataConsumerField `json:"fields,omitempty"`
+}
+
+// MetadataConsumerField is one setting of a metadata consumer.
+type MetadataConsumerField struct {
+	// name is the field name.
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name,omitempty"`
+
+	// value is the field value: a string, number or boolean.
+	// +required
+	Value *FieldValue `json:"value,omitempty"`
+}
+
 // QualityDefinition sets the size limits of one of the app's qualities. Sizes
 // use the units of the app's quality settings: megabytes per minute of runtime
 // in Sonarr and Radarr, kilobits per second in Lidarr.

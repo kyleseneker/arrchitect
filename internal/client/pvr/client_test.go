@@ -1523,6 +1523,59 @@ func TestQualityDefinitionsUpdateInPlaceAndConverge(t *testing.T) {
 	assert.Len(t, app.writes, 1)
 }
 
+func TestMetadataConsumersUpdateInPlaceAndConverge(t *testing.T) {
+	app := &rebuildAPI{items: map[string][]map[string]any{
+		"metadata": {
+			{"id": float64(1), "name": "Kodi (XBMC) / Emby", "implementation": "XbmcMetadata", "configContract": "XbmcMetadataSettings",
+				"enable": false, "fields": []any{
+					map[string]any{"name": "seriesMetadata", "value": true},
+					map[string]any{"name": "episodeImages", "value": false},
+				}},
+			{"id": float64(2), "name": "Roksbox", "implementation": "RoksboxMetadata", "enable": false, "fields": []any{}},
+		},
+	}}
+	hc := app.client(t)
+	opts := Options{MetadataConsumers: []commonv1alpha1.MetadataConsumer{{
+		Implementation: "XbmcMetadata", Enable: new(true),
+		Fields: []commonv1alpha1.MetadataConsumerField{{Name: "episodeImages", Value: fieldValue("true")}},
+	}}}
+
+	result, err := Reconcile(context.Background(), hc, "v3", struct{}{}, opts, engine.SyncPolicy{}, nil)
+	require.NoError(t, err)
+	require.Empty(t, result.Errors)
+	assert.Equal(t, []string{"PUT metadata/1"}, app.writes)
+	kodi := app.items["metadata"][0]
+	assert.Equal(t, true, kodi["enable"])
+	assert.Equal(t, "Kodi (XBMC) / Emby", kodi["name"])
+	assert.Equal(t, []any{
+		map[string]any{"name": "seriesMetadata", "value": true},
+		map[string]any{"name": "episodeImages", "value": true},
+	}, kodi["fields"], "fields left out keep their values")
+	assert.Empty(t, result.Managed, "the app's consumers are never the operator's to delete")
+
+	second, err := Reconcile(context.Background(), hc, "v3", struct{}{}, opts, engine.SyncPolicy{}, nil)
+	require.NoError(t, err)
+	require.Empty(t, second.Errors)
+	assert.Len(t, app.writes, 1, "second pass must not write")
+
+	opts.MetadataConsumers = []commonv1alpha1.MetadataConsumer{{Implementation: "KodiMetadata"}}
+	missing, err := Reconcile(context.Background(), hc, "v3", struct{}{}, opts, engine.SyncPolicy{}, nil)
+	require.NoError(t, err)
+	require.Len(t, missing.Errors, 1)
+	assert.Contains(t, missing.Errors[0], "metadataConsumers(KodiMetadata): the app has no such consumer; it has RoksboxMetadata, XbmcMetadata")
+
+	opts.MetadataConsumers = []commonv1alpha1.MetadataConsumer{{
+		Implementation: "XbmcMetadata",
+		Fields:         []commonv1alpha1.MetadataConsumerField{{Name: "movieImages", Value: fieldValue("true")}},
+	}}
+	unknown, err := Reconcile(context.Background(), hc, "v3", struct{}{}, opts, engine.SyncPolicy{}, nil)
+	require.NoError(t, err)
+	require.Len(t, unknown.Errors, 1)
+	assert.Contains(t, unknown.Errors[0],
+		"metadataConsumers(XbmcMetadata): XbmcMetadata does not accept field(s) movieImages; it accepts: episodeImages, seriesMetadata")
+	assert.Len(t, app.writes, 1)
+}
+
 // delayAPI keeps delay profiles as Sonarr, Radarr and Readarr do, or as Lidarr
 // does with items: a tag in one profile only, tags required on all but the
 // default, and reorder renumbering the tagged profiles.
