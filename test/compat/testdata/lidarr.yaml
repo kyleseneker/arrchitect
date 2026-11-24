@@ -161,6 +161,11 @@ spec:
       minSize: 100
       maxSize: 400
       preferredSize: 350
+  metadataConsumers:
+    - implementation: XbmcMetadata
+      fields:
+        - name: albumImages
+          value: false
   delayProfiles:
     - tagLabels:
         - favorites

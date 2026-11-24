@@ -346,6 +346,17 @@ func TestAdmissionRules(t *testing.T) {
 		{name: "a Readarr notification to Jellyfin by reference", kind: "Readarr", spec: conn + `
   notifications: [{name: Jellyfin, appRef: {kind: Jellyfin, name: jellyfin}}]`,
 			rejected: "Readarr has no Jellyfin notification"},
+		{name: "Sonarr metadata consumers", kind: "Sonarr", spec: conn + `
+  metadataConsumers:
+    - implementation: XbmcMetadata
+      fields: [{name: seriesMetadata, value: true}, {name: seriesMetadataUrl, value: false}]
+    - {implementation: RoksboxMetadata, enable: false}`},
+		{name: "a metadata consumer field without a value", kind: "Radarr", spec: conn + `
+  metadataConsumers: [{implementation: XbmcMetadata, fields: [{name: movieImages}]}]`,
+			rejected: "value: Required value"},
+		{name: "a metadata consumer listed twice", kind: "Lidarr", spec: conn + `
+  metadataConsumers: [{implementation: XbmcMetadata}, {implementation: XbmcMetadata, enable: false}]`,
+			rejected: "Duplicate value"},
 		{name: "Readarr metadata settings and source", kind: "Readarr", spec: conn + `
   metadataProvider: {writeBookTags: sync, updateCovers: true, embedMetadata: false, writeAudioTags: newFiles}
   development: {metadataSource: "https://api.bookinfo.pro"}`},

@@ -139,6 +139,8 @@ func Definition(apiVersion string, sections ...string) engine.AppDefinition {
 				Name: "releaseProfiles", Path: prefix + "/releaseprofile", MatchField: "name", Policy: engine.CreateOrUpdate, Prunable: true,
 				CreateDefaults: map[string]any{"enabled": true, "required": []any{}, "ignored": []any{}, "indexerId": 0, "tags": []any{}},
 			},
+			// The app keeps one metadata consumer per type, created at startup.
+			{Name: "metadataConsumers", Path: prefix + "/metadata", MatchField: "implementation", Policy: engine.UpdateOnly},
 			// importLists last — may reference quality profiles by name.
 			{
 				Name: "importLists", Path: prefix + "/importlist", MatchField: "name", Policy: engine.CreateOrUpdate, Prunable: true,
@@ -223,6 +225,7 @@ type Options struct {
 	// well as adding to them.
 	QualityDefinitions []commonv1alpha1.QualityDefinition
 	DelayProfiles      []commonv1alpha1.DelayProfile
+	MetadataConsumers  []commonv1alpha1.MetadataConsumer
 
 	// schemas caches each provider kind's /schema listing for one reconcile.
 	schemas map[string][]map[string]any
@@ -295,6 +298,9 @@ func Resources(ctx context.Context, client *engine.HTTPClient, apiVersion string
 		}},
 		{"releaseProfiles", len(opts.ReleaseProfiles), func() ([]map[string]any, error) {
 			return releaseProfileResources(ctx, client, apiVersion, opts.ReleaseProfiles, tagIDs)
+		}},
+		{"metadataConsumers", len(opts.MetadataConsumers), func() ([]map[string]any, error) {
+			return metadataConsumerResources(ctx, client, apiVersion, opts.MetadataConsumers)
 		}},
 	}
 
@@ -1180,6 +1186,46 @@ func qualityDefinitionResources(
 		payload, err := qualityDefinitionPayload(qd, definition, preferred)
 		if err != nil {
 			return nil, fmt.Errorf("qualityDefinitions(%s): %w", qd.Quality, err)
+		}
+		out = append(out, payload)
+	}
+	return out, nil
+}
+
+// metadataConsumerResources builds updates for the declared consumers,
+// checking each type and field name against the consumers the app has.
+func metadataConsumerResources(
+	ctx context.Context, client *engine.HTTPClient, apiVersion string, declared []commonv1alpha1.MetadataConsumer,
+) ([]map[string]any, error) {
+	current, err := client.GetJSONList(ctx, fmt.Sprintf("/api/%s/metadata", apiVersion))
+	if err != nil {
+		return nil, err
+	}
+	byImplementation := make(map[string]map[string]any, len(current))
+	for _, c := range current {
+		impl, _ := c["implementation"].(string)
+		byImplementation[impl] = c
+	}
+	out := make([]map[string]any, 0, len(declared))
+	for _, mc := range declared {
+		consumer, ok := byImplementation[mc.Implementation]
+		if !ok {
+			return nil, fmt.Errorf("metadataConsumers(%s): the app has no such consumer; it has %s",
+				mc.Implementation, strings.Join(slices.Sorted(maps.Keys(byImplementation)), ", "))
+		}
+		payload := map[string]any{"implementation": mc.Implementation}
+		SetOptionalBool(payload, "enable", mc.Enable)
+		if len(mc.Fields) > 0 {
+			names := make([]string, 0, len(mc.Fields))
+			fields := make([]any, 0, len(mc.Fields))
+			for _, f := range mc.Fields {
+				names = append(names, f.Name)
+				fields = append(fields, map[string]any{"name": f.Name, "value": f.Value.ToInterface()})
+			}
+			if err := ValidateFieldNames([]map[string]any{consumer}, mc.Implementation, names); err != nil {
+				return nil, fmt.Errorf("metadataConsumers(%s): %w", mc.Implementation, err)
+			}
+			payload["fields"] = fields
 		}
 		out = append(out, payload)
 	}

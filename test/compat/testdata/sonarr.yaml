@@ -200,6 +200,13 @@ spec:
       minSize: 50.4
       maxSize: 0
       preferredSize: 0
+  metadataConsumers:
+    - implementation: XbmcMetadata
+      fields:
+        - name: seriesMetadataUrl
+          value: true
+        - name: episodeImages
+          value: false
   delayProfiles:
     - tagLabels:
         - Anime

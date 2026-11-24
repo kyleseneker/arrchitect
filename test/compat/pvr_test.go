@@ -60,7 +60,8 @@ func TestSonarr(t *testing.T) {
 			{"op": "replace", "path": "/spec/notifications/0/onRename", "value": false},
 			{"op": "replace", "path": "/spec/importLists/0/seasonFolder", "value": false},
 			{"op": "replace", "path": "/spec/delayProfiles/0/usenetDelay", "value": 90},
-			{"op": "add", "path": "/spec/releaseProfiles/0/indexerName", "value": "Compat Torznab"}
+			{"op": "add", "path": "/spec/releaseProfiles/0/indexerName", "value": "Compat Torznab"},
+			{"op": "replace", "path": "/spec/metadataConsumers/0/fields/1/value", "value": true}
 		]`,
 		export: "sonarr",
 		vars: map[string]string{
@@ -106,6 +107,8 @@ func TestSonarr(t *testing.T) {
 			require.NoError(t, err)
 			require.Len(t, lists, 1)
 			assert.Equal(t, "all", lists[0]["shouldMonitor"], "import list monitor did not reach Sonarr")
+			requireMetadataConsumer(t, hc, "/api/v3/metadata", "XbmcMetadata",
+				map[string]any{"seriesMetadataUrl": true, "episodeImages": false})
 
 			webdl := requireNamed(t, hc, "/api/v3/customformat", "WEBDL")
 			assert.Equal(t, true, webdl["includeCustomFormatWhenRenaming"], "a field the resource leaves out stays as it was")
@@ -183,6 +186,8 @@ func TestRadarr(t *testing.T) {
 		verify: func(t *testing.T) {
 			hc := directClient(t, radarr.url(), key)
 			requireMediaServerNotification(t, hc, "/api/v3/notification", "Compat Jellyfin", "MediaBrowser", "/jellyfin")
+			requireMetadataConsumer(t, hc, "/api/v3/metadata", "XbmcMetadata",
+				map[string]any{"movieMetadataURL": true, "movieImages": false})
 			requireMediaServerNotification(t, hc, "/api/v3/notification", "Compat Plex", "PlexServer", "/plex")
 			naming, err := hc.GetJSON(context.Background(), "/api/v3/config/naming")
 			require.NoError(t, err)
@@ -264,6 +269,7 @@ func TestLidarr(t *testing.T) {
 		verify: func(t *testing.T) {
 			hc := directClient(t, lidarr.url(), key)
 			requireMediaServerNotification(t, hc, "/api/v1/notification", "Compat Jellyfin", "MediaBrowser", "/jellyfin")
+			requireMetadataConsumer(t, hc, "/api/v1/metadata", "XbmcMetadata", map[string]any{"albumImages": false})
 			metadata, err := hc.GetJSON(context.Background(), "/api/v1/config/metadataprovider")
 			require.NoError(t, err)
 			assert.Equal(t, fakes+"/musicinfo", metadata["metadataSource"])
@@ -380,6 +386,28 @@ func TestReadarr(t *testing.T) {
 		cleanup: ownedGone(directClient(t, readarr.url(), key), pvrclient.Definition("v1"),
 			"qualityProfiles/Books", "metadataProfiles/English Books"),
 	})
+}
+
+// requireMetadataConsumer checks that the app's consumer of a type is on, with
+// the given field values.
+func requireMetadataConsumer(t *testing.T, hc interface {
+	GetJSONList(context.Context, string) ([]map[string]any, error)
+}, path, implementation string, want map[string]any) {
+	t.Helper()
+	consumers, err := hc.GetJSONList(context.Background(), path)
+	require.NoError(t, err)
+	i := slices.IndexFunc(consumers, func(c map[string]any) bool { return c["implementation"] == implementation })
+	require.GreaterOrEqual(t, i, 0, "no %s consumer", implementation)
+	assert.Equal(t, true, consumers[i]["enable"], "%s is off", implementation)
+	got := map[string]any{}
+	fields, _ := consumers[i]["fields"].([]any)
+	for _, f := range fields {
+		field, _ := f.(map[string]any)
+		if name, _ := field["name"].(string); want[name] != nil {
+			got[name] = field["value"]
+		}
+	}
+	assert.Equal(t, want, got)
 }
 
 // requireMediaServerNotification checks that a notification by reference

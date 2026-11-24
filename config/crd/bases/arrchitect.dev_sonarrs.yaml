@@ -608,6 +608,60 @@ spec:
                       copying or hardlinking.
                     type: boolean
                 type: object
+              metadataConsumers:
+                description: |-
+                  metadataConsumers configures the app's metadata writers, which it keeps
+                  one of per type: none is created or pruned, and consumers left out keep
+                  their settings.
+                items:
+                  description: |-
+                    MetadataConsumer configures one of the metadata writers the app keeps one
+                    of per type, such as the Kodi (XBMC) / Emby one that writes NFO files and
+                    images beside the media.
+                  properties:
+                    enable:
+                      default: true
+                      description: enable turns the consumer on.
+                      type: boolean
+                    fields:
+                      description: |-
+                        fields sets the consumer's settings by name, such as seriesMetadata or
+                        movieImages, as the app's /metadata/schema lists them. Fields left out
+                        keep their values.
+                      items:
+                        description: MetadataConsumerField is one setting of a metadata
+                          consumer.
+                        properties:
+                          name:
+                            description: name is the field name.
+                            minLength: 1
+                            type: string
+                          value:
+                            description: 'value is the field value: a string, number
+                              or boolean.'
+                            x-kubernetes-preserve-unknown-fields: true
+                        required:
+                        - name
+                        - value
+                        type: object
+                      type: array
+                      x-kubernetes-list-map-keys:
+                      - name
+                      x-kubernetes-list-type: map
+                    implementation:
+                      description: |-
+                        implementation is the consumer's type: XbmcMetadata (Kodi (XBMC) / Emby),
+                        RoksboxMetadata or WdtvMetadata; PlexMetadata or KometaMetadata in Sonarr;
+                        MediaBrowserMetadata (Emby legacy) in Radarr.
+                      minLength: 1
+                      type: string
+                  required:
+                  - implementation
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - implementation
+                x-kubernetes-list-type: map
               naming:
                 description: naming configures episode and series naming formats.
                 properties:

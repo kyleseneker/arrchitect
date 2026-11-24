@@ -108,7 +108,40 @@ func (e *pvrExport) spec() (map[string]any, error) {
 	case "readarr":
 		resources = append(resources, resource{"metadataProfiles", "/metadataprofile", "", readarrMetadataProfile})
 	}
-	return spec, e.resources(spec, resources)
+	if err := e.resources(spec, resources); err != nil {
+		return nil, err
+	}
+	return spec, e.metadataConsumers(spec)
+}
+
+// metadataConsumers exports the consumers that are on. The app keeps one of
+// every type whether it is used or not.
+func (e *pvrExport) metadataConsumers(spec map[string]any) error {
+	items, err := e.list("/metadata")
+	if err != nil {
+		return err
+	}
+	var defaults map[string]map[string]any
+	var out []any
+	for _, item := range items {
+		if on, _ := item["enable"].(bool); !on {
+			continue
+		}
+		if defaults == nil {
+			if defaults, err = e.defaults("/metadata/schema"); err != nil {
+				return err
+			}
+		}
+		consumer := pick(item, "implementation")
+		if fields := e.fields(item, defaults, nil, "metadata consumer", false); len(fields) > 0 {
+			consumer["fields"] = fields
+		}
+		out = append(out, consumer)
+	}
+	if len(out) > 0 {
+		spec["metadataConsumers"] = out
+	}
+	return nil
 }
 
 func lidarrMetadataProfile(item map[string]any, _ map[string]map[string]any) map[string]any {

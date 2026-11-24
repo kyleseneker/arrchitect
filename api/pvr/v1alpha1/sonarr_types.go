@@ -71,6 +71,14 @@ type SonarrSpec struct {
 	// +listMapKey=quality
 	QualityDefinitions []commonv1alpha1.QualityDefinition `json:"qualityDefinitions,omitempty"`
 
+	// metadataConsumers configures the app's metadata writers, which it keeps
+	// one of per type: none is created or pruned, and consumers left out keep
+	// their settings.
+	// +optional
+	// +listType=map
+	// +listMapKey=implementation
+	MetadataConsumers []commonv1alpha1.MetadataConsumer `json:"metadataConsumers,omitempty"`
+
 	// delayProfiles defines delay profiles. The app checks tagged profiles in
 	// the order listed, and the default profile, the one without tags, last.
 	// Only operator-created profiles can be pruned, so the default never is.

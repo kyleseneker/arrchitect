@@ -972,6 +972,7 @@ _Validation:_
 
 _Appears in:_
 - [ConfigField](#configfield)
+- [MetadataConsumerField](#metadataconsumerfield)
 
 
 
@@ -1746,6 +1747,7 @@ _Appears in:_
 | `qualityProfiles` _[QualityProfile](#qualityprofile) array_ | qualityProfiles defines quality profiles for controlling download quality preferences. |  | Optional: \{\} <br /> |
 | `customFormats` _[CustomFormat](#customformat) array_ | customFormats defines custom format scoring rules for release selection. |  | Optional: \{\} <br /> |
 | `qualityDefinitions` _[QualityDefinition](#qualitydefinition) array_ | qualityDefinitions sets the size limits of the app's qualities. The app<br />has a fixed set of qualities, so none is created or pruned, and qualities<br />left out keep their limits. |  | Optional: \{\} <br /> |
+| `metadataConsumers` _[MetadataConsumer](#metadataconsumer) array_ | metadataConsumers configures the app's metadata writers, which it keeps<br />one of per type: none is created or pruned, and consumers left out keep<br />their settings. |  | Optional: \{\} <br /> |
 | `delayProfiles` _[DelayProfile](#delayprofile) array_ | delayProfiles defines delay profiles. The app checks tagged profiles in<br />the order listed, and the default profile, the one without tags, last.<br />Only operator-created profiles can be pruned, so the default never is. |  | MaxItems: 50 <br />Optional: \{\} <br /> |
 | `metadataProfiles` _[LidarrMetadataProfile](#lidarrmetadataprofile) array_ | metadataProfiles defines metadata profiles, matched by name: which album<br />types and release statuses Lidarr considers for an artist. Root folders<br />and import lists can name a profile declared here. |  | Optional: \{\} <br /> |
 | `tags` _[Tag](#tag) array_ | tags defines tags for linking resources together. |  | Optional: \{\} <br /> |
@@ -2185,6 +2187,45 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `type` _string_ | type is the kind of item, such as downloadClients. |  | MinLength: 1 <br />Required: \{\} <br /> |
 | `names` _string array_ | names are the items of that type the operator created. |  | Required: \{\} <br /> |
+
+
+#### MetadataConsumer
+
+
+
+MetadataConsumer configures one of the metadata writers the app keeps one
+of per type, such as the Kodi (XBMC) / Emby one that writes NFO files and
+images beside the media.
+
+
+
+_Appears in:_
+- [LidarrSpec](#lidarrspec)
+- [RadarrSpec](#radarrspec)
+- [SonarrSpec](#sonarrspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `implementation` _string_ | implementation is the consumer's type: XbmcMetadata (Kodi (XBMC) / Emby),<br />RoksboxMetadata or WdtvMetadata; PlexMetadata or KometaMetadata in Sonarr;<br />MediaBrowserMetadata (Emby legacy) in Radarr. |  | MinLength: 1 <br />Required: \{\} <br /> |
+| `enable` _boolean_ | enable turns the consumer on. | true | Optional: \{\} <br /> |
+| `fields` _[MetadataConsumerField](#metadataconsumerfield) array_ | fields sets the consumer's settings by name, such as seriesMetadata or<br />movieImages, as the app's /metadata/schema lists them. Fields left out<br />keep their values. |  | Optional: \{\} <br /> |
+
+
+#### MetadataConsumerField
+
+
+
+MetadataConsumerField is one setting of a metadata consumer.
+
+
+
+_Appears in:_
+- [MetadataConsumer](#metadataconsumer)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `name` _string_ | name is the field name. |  | MinLength: 1 <br />Required: \{\} <br /> |
+| `value` _[FieldValue](#fieldvalue)_ | value is the field value: a string, number or boolean. |  | Type:  <br />Required: \{\} <br /> |
 
 
 #### Notification
@@ -3253,6 +3294,7 @@ _Appears in:_
 | `qualityProfiles` _[QualityProfile](#qualityprofile) array_ | qualityProfiles defines quality profiles for controlling download quality preferences. |  | Optional: \{\} <br /> |
 | `customFormats` _[CustomFormat](#customformat) array_ | customFormats defines custom format scoring rules for release selection. |  | Optional: \{\} <br /> |
 | `qualityDefinitions` _[QualityDefinition](#qualitydefinition) array_ | qualityDefinitions sets the size limits of the app's qualities. The app<br />has a fixed set of qualities, so none is created or pruned, and qualities<br />left out keep their limits. |  | Optional: \{\} <br /> |
+| `metadataConsumers` _[MetadataConsumer](#metadataconsumer) array_ | metadataConsumers configures the app's metadata writers, which it keeps<br />one of per type: none is created or pruned, and consumers left out keep<br />their settings. |  | Optional: \{\} <br /> |
 | `delayProfiles` _[DelayProfile](#delayprofile) array_ | delayProfiles defines delay profiles. The app checks tagged profiles in<br />the order listed, and the default profile, the one without tags, last.<br />Only operator-created profiles can be pruned, so the default never is. |  | MaxItems: 50 <br />Optional: \{\} <br /> |
 | `releaseProfiles` _[ReleaseProfile](#releaseprofile) array_ | releaseProfiles defines release profiles: terms a release must or must not<br />contain, matched by name. |  | Optional: \{\} <br /> |
 | `tags` _[Tag](#tag) array_ | tags defines tags for linking resources together. |  | Optional: \{\} <br /> |
@@ -4659,6 +4701,7 @@ _Appears in:_
 | `qualityProfiles` _[QualityProfile](#qualityprofile) array_ | qualityProfiles defines quality profiles for controlling download quality preferences. |  | Optional: \{\} <br /> |
 | `customFormats` _[CustomFormat](#customformat) array_ | customFormats defines custom format scoring rules for release selection. |  | Optional: \{\} <br /> |
 | `qualityDefinitions` _[QualityDefinition](#qualitydefinition) array_ | qualityDefinitions sets the size limits of the app's qualities. The app<br />has a fixed set of qualities, so none is created or pruned, and qualities<br />left out keep their limits. |  | Optional: \{\} <br /> |
+| `metadataConsumers` _[MetadataConsumer](#metadataconsumer) array_ | metadataConsumers configures the app's metadata writers, which it keeps<br />one of per type: none is created or pruned, and consumers left out keep<br />their settings. |  | Optional: \{\} <br /> |
 | `delayProfiles` _[DelayProfile](#delayprofile) array_ | delayProfiles defines delay profiles. The app checks tagged profiles in<br />the order listed, and the default profile, the one without tags, last.<br />Only operator-created profiles can be pruned, so the default never is. |  | MaxItems: 50 <br />Optional: \{\} <br /> |
 | `releaseProfiles` _[ReleaseProfile](#releaseprofile) array_ | releaseProfiles defines release profiles: terms a release must or must not<br />contain, matched by name. |  | Optional: \{\} <br /> |
 | `tags` _[Tag](#tag) array_ | tags defines tags for linking resources together. |  | Optional: \{\} <br /> |

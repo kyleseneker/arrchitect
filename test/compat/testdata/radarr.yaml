@@ -177,6 +177,13 @@ spec:
       minSize: 12.5
       maxSize: 400
       preferredSize: 350
+  metadataConsumers:
+    - implementation: XbmcMetadata
+      fields:
+        - name: movieMetadataURL
+          value: true
+        - name: movieImages
+          value: false
   delayProfiles:
     - tagLabels:
         - uhd
