@@ -1,0 +1,29 @@
+name: Question
+description: Ask how to do something with Arrchitect
+labels: [question]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please redact API keys, tokens, and anything else you wouldn't post publicly
+        before pasting configs or logs.
+
+  - type: textarea
+    id: goal
+    attributes:
+      label: What are you trying to do?
+    validations:
+      required: true
+
+  - type: textarea
+    id: tried
+    attributes:
+      label: What have you tried?
+      description: The resource you applied, the docs you followed, and what happened.
+
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: Arrchitect and the apps involved.
+      placeholder: "Arrchitect 0.7.0, Sonarr 4.0.20"
