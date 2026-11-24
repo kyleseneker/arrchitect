@@ -10,7 +10,35 @@ sources:
 keywords:
   - sonarr
   - radarr
+  - lidarr
+  - readarr
   - prowlarr
+  - flaresolverr
+  - bazarr
+  - qbittorrent
+  - sabnzbd
   - jellyfin
   - plex
+  - seerr
+  - jellyseerr
+  - maintainerr
+  - tdarr
+  - autobrr
   - operator
+  - homelab
+maintainers:
+  - name: kyleseneker
+    url: https://github.com/kyleseneker
+annotations:
+  artifacthub.io/operator: "true"
+  artifacthub.io/license: Apache-2.0
+  artifacthub.io/links: |
+    - name: User guide
+      url: https://github.com/kyleseneker/arrchitect/blob/main/docs/guide.md
+    - name: API reference
+      url: https://github.com/kyleseneker/arrchitect/blob/main/docs/api.md
+    - name: Stability and support
+      url: https://github.com/kyleseneker/arrchitect/blob/main/docs/stability.md
+  artifacthub.io/images: |
+    - name: arrchitect
+      image: ghcr.io/kyleseneker/arrchitect:0.1.0

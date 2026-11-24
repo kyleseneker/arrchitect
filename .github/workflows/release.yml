@@ -61,6 +61,7 @@ jobs:
           VERSION=${GITHUB_REF_NAME#v}
           sed -i "s/^version:.*/version: ${VERSION}/" chart/arrchitect/Chart.yaml
           sed -i "s/^appVersion:.*/appVersion: \"${VERSION}\"/" chart/arrchitect/Chart.yaml
+          sed -i "s|image: ghcr.io/kyleseneker/arrchitect:.*|image: ghcr.io/kyleseneker/arrchitect:${VERSION}|" chart/arrchitect/Chart.yaml
       - uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
           registry: ghcr.io
