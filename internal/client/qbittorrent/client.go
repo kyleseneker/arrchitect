@@ -40,8 +40,8 @@ var SchedulerDays = map[string]int{
 
 // Preferences maps the preferences qBittorrent stores as written to their keys.
 // Paths, the share ratio and its action, speed limits, schedule days, excluded
-// file names, the Web UI's domain and proxy lists, banned IPs, added trackers
-// and the proxy's credentials need converting.
+// file names, the Web UI's domain and proxy lists, banned IPs, added trackers,
+// the proxy's credentials and the RSS smart episode filters need converting.
 var Preferences = map[string]string{
 	"locale":                             "locale",
 	"tempPathEnabled":                    "temp_path_enabled",
@@ -106,6 +106,12 @@ var Preferences = map[string]string{
 	"proxyBittorrent":                    "proxy_bittorrent",
 	"proxyPeerConnections":               "proxy_peer_connections",
 	"proxyRss":                           "proxy_rss",
+	"rssProcessingEnabled":               "rss_processing_enabled",
+	"rssRefreshInterval":                 "rss_refresh_interval",
+	"rssFetchDelay":                      "rss_fetch_delay",
+	"rssMaxArticlesPerFeed":              "rss_max_articles_per_feed",
+	"rssAutoDownloadingEnabled":          "rss_auto_downloading_enabled",
+	"rssDownloadRepackProperEpisodes":    "rss_download_repack_proper_episodes",
 	"proxyMisc":                          "proxy_misc",
 	"ipFilterEnabled":                    "ip_filter_enabled",
 	"ipFilterPath":                       "ip_filter_path",
@@ -221,5 +227,77 @@ func (c *Client) EditCategory(ctx context.Context, name, savePath string) error 
 	form.Set("savePath", savePath)
 
 	_, err := c.hc.DoForm(ctx, "/api/v2/torrents/editCategory", form)
+	return err
+}
+
+// RSSItems lists qBittorrent's RSS feeds by path, with their URLs, and its
+// folders. Paths join folder and feed names with a backslash.
+func (c *Client) RSSItems(ctx context.Context) (feeds map[string]string, folders map[string]bool, err error) {
+	root, err := c.hc.GetJSON(ctx, "/api/v2/rss/items")
+	if err != nil {
+		return nil, nil, err
+	}
+	feeds, folders = map[string]string{}, map[string]bool{}
+	var walk func(prefix string, items map[string]any)
+	walk = func(prefix string, items map[string]any) {
+		for name, value := range items {
+			item, _ := value.(map[string]any)
+			if url, ok := item["url"].(string); ok {
+				feeds[prefix+name] = url
+				continue
+			}
+			folders[prefix+name] = true
+			walk(prefix+name+`\`, item)
+		}
+	}
+	walk("", root)
+	return feeds, folders, nil
+}
+
+// AddRSSFolder adds an RSS folder at path. Its parent folder must exist.
+func (c *Client) AddRSSFolder(ctx context.Context, path string) error {
+	_, err := c.hc.DoForm(ctx, "/api/v2/rss/addFolder", url.Values{"path": {path}})
+	return err
+}
+
+// AddRSSFeed adds a feed at path. Its folder must exist, and no other feed may
+// have its URL.
+func (c *Client) AddRSSFeed(ctx context.Context, feedURL, path string) error {
+	_, err := c.hc.DoForm(ctx, "/api/v2/rss/addFeed", url.Values{"url": {feedURL}, "path": {path}})
+	return err
+}
+
+// SetRSSFeedURL changes the URL of the feed at path.
+func (c *Client) SetRSSFeedURL(ctx context.Context, path, feedURL string) error {
+	_, err := c.hc.DoForm(ctx, "/api/v2/rss/setFeedURL", url.Values{"path": {path}, "url": {feedURL}})
+	return err
+}
+
+// RemoveRSSItem removes the feed or folder at path.
+func (c *Client) RemoveRSSItem(ctx context.Context, path string) error {
+	_, err := c.hc.DoForm(ctx, "/api/v2/rss/removeItem", url.Values{"path": {path}})
+	return err
+}
+
+// RSSRules returns the RSS download rules by name.
+func (c *Client) RSSRules(ctx context.Context) (map[string]any, error) {
+	return c.hc.GetJSON(ctx, "/api/v2/rss/rules")
+}
+
+// SetRSSRule adds or replaces a rule. qBittorrent rebuilds the rule from def
+// alone, so def must carry everything the rule keeps, its match history
+// included.
+func (c *Client) SetRSSRule(ctx context.Context, name string, def map[string]any) error {
+	body, err := json.Marshal(def)
+	if err != nil {
+		return fmt.Errorf("marshaling rule: %w", err)
+	}
+	_, err = c.hc.DoForm(ctx, "/api/v2/rss/setRule", url.Values{"ruleName": {name}, "ruleDef": {string(body)}})
+	return err
+}
+
+// RemoveRSSRule removes a rule.
+func (c *Client) RemoveRSSRule(ctx context.Context, name string) error {
+	_, err := c.hc.DoForm(ctx, "/api/v2/rss/removeRule", url.Values{"ruleName": {name}})
 	return err
 }

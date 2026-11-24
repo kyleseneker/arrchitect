@@ -519,6 +519,52 @@ spec:
                     description: randomPort picks a different listening port on each
                       start.
                     type: boolean
+                  rssAutoDownloadingEnabled:
+                    description: |-
+                      rssAutoDownloadingEnabled has qBittorrent download what its RSS rules
+                      match.
+                    type: boolean
+                  rssDownloadRepackProperEpisodes:
+                    description: |-
+                      rssDownloadRepackProperEpisodes downloads REPACK and PROPER releases of
+                      episodes a rule with the smart filter already matched.
+                    type: boolean
+                  rssFetchDelay:
+                    description: |-
+                      rssFetchDelay is the delay, in seconds, between two requests to the same
+                      host.
+                    format: int32
+                    maximum: 2147483646
+                    minimum: 0
+                    type: integer
+                  rssMaxArticlesPerFeed:
+                    description: rssMaxArticlesPerFeed is how many articles qBittorrent
+                      keeps per feed.
+                    format: int32
+                    maximum: 2147483646
+                    minimum: 0
+                    type: integer
+                  rssProcessingEnabled:
+                    description: rssProcessingEnabled has qBittorrent fetch its RSS
+                      feeds.
+                    type: boolean
+                  rssRefreshInterval:
+                    description: |-
+                      rssRefreshInterval is how often, in minutes, qBittorrent fetches each
+                      feed.
+                    format: int32
+                    maximum: 999999
+                    minimum: 1
+                    type: integer
+                  rssSmartEpisodeFilters:
+                    description: |-
+                      rssSmartEpisodeFilters are the regular expressions the smart filter finds
+                      season and episode numbers with.
+                    items:
+                      minLength: 1
+                      type: string
+                    type: array
+                    x-kubernetes-list-type: atomic
                   savePath:
                     description: savePath is the default save path for downloads.
                     minLength: 1
@@ -734,6 +780,141 @@ spec:
                 - message: deletionPolicy delete conflicts with driftPolicy observe
                   rule: '!has(self.deletionPolicy) || self.deletionPolicy != ''delete''
                     || !has(self.driftPolicy) || self.driftPolicy != ''observe'''
+              rssFeeds:
+                description: |-
+                  rssFeeds are the RSS feeds qBittorrent reads. Folders a feed's name puts
+                  it in are created. Turn on preferences.rssProcessingEnabled for
+                  qBittorrent to fetch them.
+                items:
+                  description: QBittorrentRSSFeed is an RSS feed qBittorrent reads.
+                  properties:
+                    name:
+                      description: |-
+                        name is the feed's path in qBittorrent's RSS list, with a backslash
+                        between folders, such as Anime\SubsPlease.
+                      minLength: 1
+                      pattern: ^[^\\]+(\\[^\\]+)*$
+                      type: string
+                    url:
+                      description: url is the feed's address.
+                      minLength: 1
+                      pattern: ^https?://
+                      type: string
+                  required:
+                  - name
+                  - url
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
+              rssRules:
+                description: |-
+                  rssRules are qBittorrent's RSS download rules. Turn on
+                  preferences.rssAutoDownloadingEnabled for qBittorrent to apply them.
+                items:
+                  description: |-
+                    QBittorrentRSSRule is an RSS download rule: qBittorrent downloads what its
+                    feeds publish that the rule matches.
+                  properties:
+                    affectedFeeds:
+                      description: affectedFeeds are the URLs of the feeds the rule
+                        applies to.
+                      items:
+                        pattern: ^https?://
+                        type: string
+                      type: array
+                      x-kubernetes-list-type: set
+                    enabled:
+                      description: enabled turns the rule on.
+                      type: boolean
+                    episodeFilter:
+                      description: |-
+                        episodeFilter limits matches to seasons and episodes, such as 1x2;8-15;
+                        or 2x25-;.
+                      type: string
+                    ignoreDays:
+                      description: |-
+                        ignoreDays ignores further matches for this many days after one; 0
+                        disables it.
+                      format: int32
+                      minimum: 0
+                      type: integer
+                    mustContain:
+                      description: |-
+                        mustContain is what an article's title must contain: words, wildcards
+                        and | for alternatives, or a regular expression with useRegex.
+                      type: string
+                    mustNotContain:
+                      description: mustNotContain is what an article's title must
+                        not contain.
+                      type: string
+                    name:
+                      description: name is the rule's name.
+                      minLength: 1
+                      type: string
+                    priority:
+                      description: 'priority orders the rules: higher goes first.'
+                      format: int32
+                      type: integer
+                    smartFilter:
+                      description: smartFilter downloads each episode once, using
+                        the smart episode filters.
+                      type: boolean
+                    torrentParams:
+                      description: torrentParams sets how the torrents the rule adds
+                        are added.
+                      minProperties: 1
+                      properties:
+                        addToTopOfQueue:
+                          description: addToTopOfQueue puts the torrents first in
+                            the queue.
+                          type: boolean
+                        category:
+                          description: category is the category the torrents get.
+                          type: string
+                        contentLayout:
+                          description: |-
+                            contentLayout arranges the torrents' files: Original, Subfolder, or
+                            NoSubfolder.
+                          enum:
+                          - Original
+                          - Subfolder
+                          - NoSubfolder
+                          type: string
+                        savePath:
+                          description: |-
+                            savePath is where the torrents are saved, in place of the category's or
+                            the default path.
+                          minLength: 1
+                          type: string
+                        stopped:
+                          description: stopped adds the torrents stopped.
+                          type: boolean
+                        tags:
+                          description: tags are the tags the torrents get.
+                          items:
+                            minLength: 1
+                            type: string
+                          type: array
+                          x-kubernetes-list-type: set
+                        useAutoTMM:
+                          description: |-
+                            useAutoTMM has automatic torrent management choose the torrents' paths
+                            from their category.
+                          type: boolean
+                      type: object
+                    useRegex:
+                      description: useRegex reads mustContain and mustNotContain as
+                        regular expressions.
+                      type: boolean
+                  required:
+                  - name
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
             required:
             - connection
             type: object

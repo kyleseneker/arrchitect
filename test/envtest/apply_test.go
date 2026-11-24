@@ -246,6 +246,42 @@ func TestAdmissionRules(t *testing.T) {
     passwordSecretRef: {name: app, key: password}
   preferences: {bannedIps: [10.0.0.0/8]}`,
 			rejected: "bannedIps holds IP addresses"},
+		{name: "qBittorrent RSS feeds and rules", kind: "QBittorrent", spec: `
+  connection:
+    url: http://qbittorrent:8080
+    usernameSecretRef: {name: app, key: username}
+    passwordSecretRef: {name: app, key: password}
+  preferences: {rssProcessingEnabled: true, rssAutoDownloadingEnabled: true, rssRefreshInterval: 30}
+  rssFeeds:
+    - {name: 'Anime\SubsPlease', url: "https://subsplease.example/rss"}
+    - {name: Shows, url: "https://shows.example/rss"}
+  rssRules:
+    - name: Show
+      affectedFeeds: ["https://shows.example/rss"]
+      mustContain: Show 1080p
+      smartFilter: true
+      torrentParams: {category: tv, tags: [rss], contentLayout: Subfolder}`},
+		{name: "a qBittorrent RSS feed path ending in a backslash", kind: "QBittorrent", spec: `
+  connection:
+    url: http://qbittorrent:8080
+    usernameSecretRef: {name: app, key: username}
+    passwordSecretRef: {name: app, key: password}
+  rssFeeds: [{name: 'Anime\', url: "https://subsplease.example/rss"}]`,
+			rejected: "should match"},
+		{name: "a qBittorrent RSS refresh interval of 0", kind: "QBittorrent", spec: `
+  connection:
+    url: http://qbittorrent:8080
+    usernameSecretRef: {name: app, key: username}
+    passwordSecretRef: {name: app, key: password}
+  preferences: {rssRefreshInterval: 0}`,
+			rejected: "should be greater than or equal to 1"},
+		{name: "empty RSS rule torrent params", kind: "QBittorrent", spec: `
+  connection:
+    url: http://qbittorrent:8080
+    usernameSecretRef: {name: app, key: username}
+    passwordSecretRef: {name: app, key: password}
+  rssRules: [{name: Show, torrentParams: {}}]`,
+			rejected: "should have at least 1 properties"},
 		{name: "Bazarr search tuning and profile filters", kind: "Bazarr", spec: conn + `
   general: {adaptiveSearchingDelay: 2w, adaptiveSearchingDelta: 3d, daysToUpgradeSubs: 30, upgradeFrequency: 876000,
     seriesTagEnabled: true, removeProfileTags: [no-subs]}

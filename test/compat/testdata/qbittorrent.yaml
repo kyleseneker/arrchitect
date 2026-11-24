@@ -96,6 +96,15 @@ spec:
     proxyBittorrent: false
     proxyPeerConnections: false
     proxyRss: false
+    rssProcessingEnabled: true
+    rssRefreshInterval: 45
+    rssFetchDelay: 3
+    rssMaxArticlesPerFeed: 75
+    rssAutoDownloadingEnabled: false
+    rssDownloadRepackProperEpisodes: true
+    rssSmartEpisodeFilters:
+      - 's(\d+)e(\d+)'
+      - '(\d+)x(\d+)'
     proxyMisc: false
     ipFilterEnabled: false
     ipFilterPath: /config/ipfilter.dat
@@ -114,3 +123,18 @@ spec:
       savePath: /downloads/complete/tv
     - name: movies
       savePath: /downloads/complete/movies
+  rssFeeds:
+    - name: 'Compat\Shows'
+      url: https://shows.example.invalid/rss
+    - name: Movies
+      url: https://movies.example.invalid/rss
+  rssRules:
+    - name: Compat Show
+      affectedFeeds: [https://shows.example.invalid/rss]
+      mustContain: Compat Show 1080p
+      mustNotContain: x265
+      smartFilter: true
+      torrentParams:
+        category: tv
+        tags: [rss]
+        contentLayout: Subfolder
