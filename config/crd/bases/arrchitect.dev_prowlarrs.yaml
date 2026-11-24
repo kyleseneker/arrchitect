@@ -162,6 +162,42 @@ spec:
                       - message: an application refers to a Sonarr, Radarr, Lidarr
                           or Readarr
                         rule: self.kind in ['Sonarr', 'Radarr', 'Lidarr', 'Readarr']
+                    authPasswordSecretRef:
+                      description: |-
+                        authPasswordSecretRef references a Secret key holding the password for
+                        HTTP basic auth in front of the application. Needs Prowlarr 2.4.0 or
+                        later.
+                      properties:
+                        key:
+                          description: key is the key within the Secret.
+                          minLength: 1
+                          type: string
+                        name:
+                          description: name is the name of the Secret.
+                          minLength: 1
+                          type: string
+                      required:
+                      - key
+                      - name
+                      type: object
+                    authUsernameSecretRef:
+                      description: |-
+                        authUsernameSecretRef references a Secret key holding the username for
+                        HTTP basic auth in front of the application, such as at a reverse proxy.
+                        Needs Prowlarr 2.4.0 or later.
+                      properties:
+                        key:
+                          description: key is the key within the Secret.
+                          minLength: 1
+                          type: string
+                        name:
+                          description: name is the name of the Secret.
+                          minLength: 1
+                          type: string
+                      required:
+                      - key
+                      - name
+                      type: object
                     baseUrl:
                       description: baseUrl is the base URL of the application.
                       minLength: 1

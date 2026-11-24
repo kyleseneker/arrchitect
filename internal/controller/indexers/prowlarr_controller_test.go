@@ -434,3 +434,53 @@ func TestProwlarrMissingAppRefSkipsOnlyApplications(t *testing.T) {
 	assert.Equal(t, "SyncFailed", synced.Reason)
 	assert.Contains(t, synced.Message, `applications: application "Radarr" appRef: Radarr "radarr" not found`)
 }
+
+func TestProwlarrApplicationBasicAuthNeedsProwlarr24(t *testing.T) {
+	application := indexersv1alpha1.ProwlarrApplication{
+		Name: "Radarr", Implementation: "Radarr", BaseUrl: "https://radarr.example",
+		APIKeySecretRef:       &commonv1alpha1.SecretKeyRef{Name: "prowlarr-credentials", Key: "api-key"},
+		AuthUsernameSecretRef: &commonv1alpha1.SecretKeyRef{Name: "prowlarr-credentials", Key: "auth-username"},
+		AuthPasswordSecretRef: &commonv1alpha1.SecretKeyRef{Name: "prowlarr-credentials", Key: "auth-password"},
+	}
+	secret := func() *corev1.Secret {
+		s := prowlarrSecret()
+		s.Data["auth-username"] = []byte("proxy")
+		s.Data["auth-password"] = []byte("hunter2")
+		return s
+	}
+	schema := func(fields ...string) []map[string]any {
+		list := make([]any, 0, len(fields))
+		for _, f := range fields {
+			list = append(list, map[string]any{"name": f})
+		}
+		return []map[string]any{{"implementation": "Radarr", "fields": list}}
+	}
+
+	current := &fakeProwlarr{existing: map[string][]map[string]any{
+		"applications/schema": schema("baseUrl", "apiKey", "authUsername", "authPassword"),
+	}}
+	cfg := prowlarrConfig(current.serve(t))
+	cfg.Spec.Applications = []indexersv1alpha1.ProwlarrApplication{application}
+	runProwlarr(t, cfg, secret())
+	posts := current.postsTo("/api/v1/applications")
+	require.Len(t, posts, 1)
+	fields := map[string]any{}
+	for _, f := range posts[0]["fields"].([]any) {
+		m := f.(map[string]any)
+		fields[m["name"].(string)] = m["value"]
+	}
+	assert.Equal(t, "proxy", fields["authUsername"])
+	assert.Equal(t, "hunter2", fields["authPassword"])
+
+	older := &fakeProwlarr{existing: map[string][]map[string]any{"applications/schema": schema("baseUrl", "apiKey")}}
+	cfg = prowlarrConfig(older.serve(t))
+	cfg.Spec.Applications = []indexersv1alpha1.ProwlarrApplication{application}
+	c := runProwlarr(t, cfg, secret())
+	assert.Empty(t, older.postsTo("/api/v1/applications"))
+	var got indexersv1alpha1.Prowlarr
+	require.NoError(t, c.Get(context.Background(), types.NamespacedName{Name: "prowlarr", Namespace: "media"}, &got))
+	synced := meta.FindStatusCondition(got.Status.Conditions, "Synced")
+	require.NotNil(t, synced)
+	assert.Contains(t, synced.Message,
+		`application "Radarr" authUsernameSecretRef: Radarr applications have no authUsername in this Prowlarr; it needs Prowlarr 2.4.0 or later`)
+}

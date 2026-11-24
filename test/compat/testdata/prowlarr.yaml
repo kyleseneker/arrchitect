@@ -23,6 +23,12 @@ spec:
         kind: Sonarr
         name: sonarr
       prowlarrUrl: ${PROWLARR_URL}
+      authUsernameSecretRef:
+        name: compat-credentials
+        key: app-auth-username
+      authPasswordSecretRef:
+        name: compat-credentials
+        key: app-auth-password
       syncCategories: [5000, 5040]
       animeSyncCategories: [5070]
       syncAnimeStandardFormatSearch: false

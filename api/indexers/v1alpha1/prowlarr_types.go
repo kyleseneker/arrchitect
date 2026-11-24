@@ -148,6 +148,18 @@ type ProwlarrApplication struct {
 	// +optional
 	APIKeySecretRef *commonv1alpha1.SecretKeyRef `json:"apiKeySecretRef,omitempty"`
 
+	// authUsernameSecretRef references a Secret key holding the username for
+	// HTTP basic auth in front of the application, such as at a reverse proxy.
+	// Needs Prowlarr 2.4.0 or later.
+	// +optional
+	AuthUsernameSecretRef *commonv1alpha1.SecretKeyRef `json:"authUsernameSecretRef,omitempty"`
+
+	// authPasswordSecretRef references a Secret key holding the password for
+	// HTTP basic auth in front of the application. Needs Prowlarr 2.4.0 or
+	// later.
+	// +optional
+	AuthPasswordSecretRef *commonv1alpha1.SecretKeyRef `json:"authPasswordSecretRef,omitempty"`
+
 	// syncCategories is the list of category IDs to sync to this application.
 	// +optional
 	// +listType=set

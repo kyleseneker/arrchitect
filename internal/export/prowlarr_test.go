@@ -19,7 +19,8 @@ var fakeProwlarrAPI = map[string]string{
 	"/applications": `[{"id":1,"name":"Sonarr","syncLevel":"fullSync","implementation":"Sonarr","configContract":"SonarrSettings","tags":[],
 		"fields":[{"name":"prowlarrUrl","value":"http://prowlarr:9696"},{"name":"baseUrl","value":"http://sonarr:8989"},
 		{"name":"apiKey","value":"********"},{"name":"syncCategories","value":[5000,5040]},{"name":"animeSyncCategories","value":[5070]},
-		{"name":"syncRejectBlocklistedTorrentHashesWhileGrabbing","value":true},{"name":"authUsername","value":"me"}]}]`,
+		{"name":"syncRejectBlocklistedTorrentHashesWhileGrabbing","value":true},{"name":"authUsername","value":"me"},
+		{"name":"authPassword","value":"********"},{"name":"newerSetting","value":"x"}]}]`,
 	"/applications/schema": `[{"implementation":"Sonarr","fields":[{"name":"animeSyncCategories","value":[]}]}]`,
 	"/indexer": `[{"id":1,"name":"Tracker","implementation":"Cardigann","configContract":"CardigannSettings","enable":true,
 		"priority":25,"appProfileId":1,"tags":[1],"fields":[{"name":"definitionFile","value":"tracker"},
@@ -89,7 +90,9 @@ func TestProwlarrApplicationReferencesItsKeyAndWarnsAboutUnmodelledFields(t *tes
 	assert.Contains(t, res.Unfilled, "application-sonarr-api-key")
 	assert.Equal(t, []int32{5070}, a.AnimeSyncCategories)
 	assert.True(t, *a.SyncRejectBlocklistedTorrentHashesWhileGrabbing)
-	assert.Contains(t, res.Warnings, `application "Sonarr": the config has no authUsername, so it stays as set in Prowlarr`)
+	assert.Equal(t, "me", res.Secret.StringData[a.AuthUsernameSecretRef.Key])
+	assert.Contains(t, res.Unfilled, a.AuthPasswordSecretRef.Key, "a masked password is left for the user to fill in")
+	assert.Contains(t, res.Warnings, `application "Sonarr": the config has no newerSetting, so it stays as set in Prowlarr`)
 }
 
 func TestProwlarrProxyExportsPortAndCredentials(t *testing.T) {

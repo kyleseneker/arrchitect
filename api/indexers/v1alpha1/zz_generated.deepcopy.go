@@ -254,6 +254,16 @@ func (in *ProwlarrApplication) DeepCopyInto(out *ProwlarrApplication) {
 		*out = new(commonv1alpha1.SecretKeyRef)
 		**out = **in
 	}
+	if in.AuthUsernameSecretRef != nil {
+		in, out := &in.AuthUsernameSecretRef, &out.AuthUsernameSecretRef
+		*out = new(commonv1alpha1.SecretKeyRef)
+		**out = **in
+	}
+	if in.AuthPasswordSecretRef != nil {
+		in, out := &in.AuthPasswordSecretRef, &out.AuthPasswordSecretRef
+		*out = new(commonv1alpha1.SecretKeyRef)
+		**out = **in
+	}
 	if in.SyncCategories != nil {
 		in, out := &in.SyncCategories, &out.SyncCategories
 		*out = make([]int32, len(*in))

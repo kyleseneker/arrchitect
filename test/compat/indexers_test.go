@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -51,8 +52,10 @@ func TestProwlarr(t *testing.T) {
 			"api-key": key, "sonarr-api-key": sonarrKey,
 			"qbittorrent-username": qbittorrentUser, "qbittorrent-password": qbitPassword,
 			"proxy-username": "compat", "proxy-password": randomKey(),
+			"app-auth-username": "compat-user", "app-auth-password": randomKey(),
 		},
-		newObj: func() ctrlcommon.ConfigResource { return &indexersv1alpha1.Prowlarr{} },
+		newerFields: []string{"/spec/applications/0/authUsernameSecretRef", "/spec/applications/0/authPasswordSecretRef"},
+		newObj:      func() ctrlcommon.ConfigResource { return &indexersv1alpha1.Prowlarr{} },
 		reconciler: func(c client.Client) reconcile.Reconciler {
 			return &indexers.ProwlarrReconciler{Client: c, Scheme: c.Scheme(), Recorder: events.NewFakeRecorder(100)}
 		},
@@ -61,7 +64,13 @@ func TestProwlarr(t *testing.T) {
 		verify: func(t *testing.T) {
 			hc := directClient(t, prowlarr.url(), key)
 			requireNamed(t, hc, "/api/v1/appprofile", "Compat Profile")
-			requireNamed(t, hc, "/api/v1/applications", "Sonarr")
+			application := requireNamed(t, hc, "/api/v1/applications", "Sonarr")
+			if atNewest() {
+				fields, _ := application["fields"].([]any)
+				i := slices.IndexFunc(fields, func(f any) bool { return f.(map[string]any)["name"] == "authUsername" })
+				require.GreaterOrEqual(t, i, 0, "the application has no authUsername")
+				assert.Equal(t, "compat-user", fields[i].(map[string]any)["value"])
+			}
 			requireNamed(t, hc, "/api/v1/indexer", "Compat Torznab")
 			requireNamed(t, hc, "/api/v1/downloadclient", "qBittorrent")
 			requireNamed(t, hc, "/api/v1/notification", "Compat Webhook")

@@ -15,6 +15,7 @@ import (
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
 	indexersv1alpha1 "github.com/kyleseneker/arrchitect/api/indexers/v1alpha1"
 	prowlarrclient "github.com/kyleseneker/arrchitect/internal/client/prowlarr"
+	pvrclient "github.com/kyleseneker/arrchitect/internal/client/pvr"
 	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
 	"github.com/kyleseneker/arrchitect/internal/engine"
 	"github.com/kyleseneker/arrchitect/internal/reconciler"
@@ -121,7 +122,7 @@ func (r *ProwlarrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		unresolved = append(unresolved, fmt.Sprintf("notifications: %v", nerr))
 	}
 
-	appPayloads, aerr := r.buildApplicationPayloads(ctx, &config, tagIDs)
+	appPayloads, aerr := r.buildApplicationPayloads(ctx, hc, &config, tagIDs)
 	if aerr != nil {
 		unresolved = append(unresolved, fmt.Sprintf("applications: %v", aerr))
 	}
@@ -153,8 +154,11 @@ func (r *ProwlarrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 // buildApplicationPayloads resolves each application's reference and API key
 // Secret and builds its payload.
-func (r *ProwlarrReconciler) buildApplicationPayloads(ctx context.Context, config *indexersv1alpha1.Prowlarr, tagIDs map[string]int) ([]map[string]any, error) {
+func (r *ProwlarrReconciler) buildApplicationPayloads(
+	ctx context.Context, hc *engine.HTTPClient, config *indexersv1alpha1.Prowlarr, tagIDs map[string]int,
+) ([]map[string]any, error) {
 	payloads := make([]map[string]any, 0, len(config.Spec.Applications))
+	var schema []map[string]any
 	for _, app := range config.Spec.Applications {
 		if app.AppRef != nil {
 			ref, err := ctrlcommon.ResolveAppRef(ctx, r.Client, r.Apps, config.Namespace, *app.AppRef)
@@ -169,13 +173,51 @@ func (r *ProwlarrReconciler) buildApplicationPayloads(ctx context.Context, confi
 		if app.APIKeySecretRef == nil {
 			return nil, fmt.Errorf("application %q has no API key Secret", app.Name)
 		}
-		appAPIKey, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, *app.APIKeySecretRef)
-		if err != nil {
-			return nil, fmt.Errorf("application %q apiKeySecretRef: %w", app.Name, err)
+		secrets := map[string]string{}
+		for _, ref := range []struct {
+			field, name string
+			ref         *commonv1alpha1.SecretKeyRef
+		}{
+			{"apiKey", "apiKeySecretRef", app.APIKeySecretRef},
+			{"authUsername", "authUsernameSecretRef", app.AuthUsernameSecretRef},
+			{"authPassword", "authPasswordSecretRef", app.AuthPasswordSecretRef},
+		} {
+			if ref.ref == nil {
+				continue
+			}
+			if ref.field != "apiKey" {
+				if err := requireApplicationField(ctx, hc, &schema, app, ref.field); err != nil {
+					return nil, fmt.Errorf("application %q %s: %w", app.Name, ref.name, err)
+				}
+			}
+			value, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, *ref.ref)
+			if err != nil {
+				return nil, fmt.Errorf("application %q %s: %w", app.Name, ref.name, err)
+			}
+			secrets[ref.field] = value
 		}
-		payloads = append(payloads, prowlarrclient.BuildProwlarrApplicationPayload(app, appAPIKey, tagIDs))
+		payloads = append(payloads, prowlarrclient.BuildProwlarrApplicationPayload(app, secrets, tagIDs))
 	}
 	return payloads, nil
+}
+
+// requireApplicationField fails when Prowlarr's schema for the application's
+// implementation lacks field, as Prowlarr before 2.4.0 lacks basic auth. It
+// reads the schema once, into schema.
+func requireApplicationField(
+	ctx context.Context, hc *engine.HTTPClient, schema *[]map[string]any, app indexersv1alpha1.ProwlarrApplication, field string,
+) error {
+	if *schema == nil {
+		list, err := hc.GetJSONList(ctx, "/api/v1/applications/schema")
+		if err != nil {
+			return fmt.Errorf("reading Prowlarr's application schema: %w", err)
+		}
+		*schema = list
+	}
+	if names, ok := pvrclient.SchemaFieldNames(*schema, app.Implementation); ok && !names[field] {
+		return fmt.Errorf("%s applications have no %s in this Prowlarr; it needs Prowlarr 2.4.0 or later", app.Implementation, field)
+	}
+	return nil
 }
 
 // buildProxyPayloads resolves each proxy's credential Secrets and builds its
