@@ -8,6 +8,9 @@ self-hosted media apps as Kubernetes resources. Arrchitect configures the apps
 you already deploy, however you deploy them, and connects them to each other;
 it doesn't deploy them.
 
+Arrchitect is alpha: the API is `v1alpha1`, and a minor release can change it.
+See [stability and support](docs/stability.md) for what each release promises.
+
 ## Features
 
 - Settings, download clients, indexers, quality profiles, notifications and other app configuration as YAML
@@ -15,7 +18,7 @@ it doesn't deploy them.
 - Credentials read from Kubernetes Secrets
 - Optional pruning, limited to what the operator created
 - `arrchitect export` to generate config from an app you already run
-- Tested in CI against each app running in a container, at its current and previous version
+- Tested in CI against each app running in a container, at both ends of its supported range
 
 ## Supported apps
 
@@ -50,7 +53,8 @@ Install the chart. It runs every app's controller unless you turn some off in
 
 ```bash
 helm install arrchitect oci://ghcr.io/kyleseneker/charts/arrchitect \
-  --namespace media --set apps.plex=false --set apps.autobrr=false
+  --namespace media --create-namespace \
+  --set apps.plex=false --set apps.autobrr=false
 ```
 
 Then apply a config. [examples/minimal-sonarr.yaml](examples/minimal-sonarr.yaml)
@@ -77,7 +81,8 @@ To start from an existing setup instead, see
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). Report security issues as described in
+See [CONTRIBUTING.md](CONTRIBUTING.md). Everyone taking part follows the
+[code of conduct](CODE_OF_CONDUCT.md). Report security issues as described in
 [SECURITY.md](SECURITY.md).
 
 ## License
