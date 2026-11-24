@@ -42,7 +42,7 @@ type BazarrReconciler struct {
 // +kubebuilder:rbac:groups=arrchitect.dev,resources=bazarrs/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=arrchitect.dev,resources=bazarrs/finalizers,verbs=update
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
-// +kubebuilder:rbac:groups=arrchitect.dev,resources=sonarrs;radarrs,verbs=get;list;watch
+// +kubebuilder:rbac:groups=arrchitect.dev,resources=sonarrs;radarrs;jellyfins,verbs=get;list;watch
 
 func (r *BazarrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
@@ -105,6 +105,9 @@ func (r *BazarrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	}
 	if err := resolveBazarrDefaultProfiles(ctx, bc, config.Spec, desired); err != nil {
 		problems = append(problems, fmt.Sprintf("general: %v", err))
+	}
+	if err := resolveBazarrJellyfinLibraries(ctx, bc, desired); err != nil {
+		problems = append(problems, fmt.Sprintf("jellyfin: %v", err))
 	}
 	changes := bazarrChanges(desired, settings, profiles.stored(), enabled)
 	if items, err := r.bazarrNotificationChanges(ctx, config.Namespace, config.Spec.Notifications, settings); err != nil {
@@ -199,6 +202,14 @@ func (r *BazarrReconciler) bazarrDesired(ctx context.Context, config *subtitlesv
 		}
 		form.Set(fmt.Sprintf("settings-%s-apikey", c.section), key)
 	}
+	if spec.Jellyfin != nil {
+		jellyfin, err := r.bazarrJellyfinForm(ctx, config.Namespace, spec.Jellyfin)
+		if err != nil {
+			problems = append(problems, fmt.Sprintf("jellyfin: %v", err))
+		} else {
+			merge(jellyfin)
+		}
+	}
 	if len(spec.Providers) > 0 {
 		providers, err := r.bazarrProviderForm(ctx, config.Namespace, spec.Providers)
 		if err != nil {
@@ -241,12 +252,134 @@ func (r *BazarrReconciler) resolveConnection(
 func bazarrAppRefs(o client.Object) []commonv1alpha1.AppRef {
 	spec := o.(*subtitlesv1alpha1.Bazarr).Spec
 	var refs []commonv1alpha1.AppRef
-	for _, ref := range []*commonv1alpha1.AppRef{spec.SonarrConnection.AppRef, spec.RadarrConnection.AppRef} {
+	candidates := []*commonv1alpha1.AppRef{spec.SonarrConnection.AppRef, spec.RadarrConnection.AppRef}
+	if spec.Jellyfin != nil {
+		candidates = append(candidates, spec.Jellyfin.AppRef)
+	}
+	for _, ref := range candidates {
 		if ref != nil {
 			refs = append(refs, *ref)
 		}
 	}
 	return refs
+}
+
+// bazarrJellyfinForm renders Bazarr's Jellyfin integration, turned on, with
+// the declared library names; resolveBazarrJellyfinLibraries adds their ids.
+func (r *BazarrReconciler) bazarrJellyfinForm(
+	ctx context.Context, namespace string, jf *subtitlesv1alpha1.BazarrJellyfin,
+) (url.Values, error) {
+	if jf.AppRef != nil {
+		app, err := ctrlcommon.ResolveAppRef(ctx, r.Client, r.Apps, namespace, *jf.AppRef)
+		if err != nil {
+			return nil, fmt.Errorf("appRef: %w", err)
+		}
+		if app.APIKeySecretRef == nil {
+			return nil, fmt.Errorf("appRef: Jellyfin %q sets no API key Secret", jf.AppRef.Name)
+		}
+		resolved := *jf
+		resolved.URL, resolved.APIKeySecretRef = app.URL, app.APIKeySecretRef
+		jf = &resolved
+	}
+	if jf.APIKeySecretRef == nil {
+		return nil, fmt.Errorf("no API key Secret")
+	}
+	key, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, namespace, *jf.APIKeySecretRef)
+	if err != nil {
+		return nil, fmt.Errorf("resolving apiKeySecretRef: %w", err)
+	}
+	form := url.Values{
+		"settings-general-use_jellyfin": {"true"},
+		"settings-jellyfin-url":         {strings.TrimSuffix(jf.URL, "/")},
+		"settings-jellyfin-apikey":      {key},
+	}
+	if jf.RefreshMethod != "" {
+		form.Set("settings-jellyfin-refresh_method", jf.RefreshMethod)
+	}
+	for _, l := range []struct {
+		kind  string
+		names []string
+	}{{"movie", jf.MovieLibraries}, {"series", jf.SeriesLibraries}} {
+		if len(l.names) > 0 {
+			form["settings-jellyfin-"+l.kind+"_library"] = slices.Clone(l.names)
+			form.Set("settings-jellyfin-update_"+l.kind+"_library", "true")
+		}
+	}
+	return form, nil
+}
+
+// bazarrJellyfinLibraryKinds pairs each kind of library Bazarr refreshes with
+// the Jellyfin collection type it must be.
+var bazarrJellyfinLibraryKinds = []struct{ kind, collection, label string }{
+	{"movie", "movies", "movie"}, {"series", "tvshows", "TV"},
+}
+
+// resolveBazarrJellyfinLibraries adds the ids of the declared Jellyfin
+// libraries, which Bazarr finds items by. It asks Bazarr, so the lookup takes
+// the path Bazarr's own refreshes will. A kind whose libraries aren't all
+// found keeps its stored settings.
+func resolveBazarrJellyfinLibraries(ctx context.Context, bc *bazarrclient.Client, form url.Values) error {
+	var libraries []bazarrclient.JellyfinLibrary
+	listed := false
+	var errs []error
+	for _, k := range bazarrJellyfinLibraryKinds {
+		key := "settings-jellyfin-" + k.kind + "_library"
+		names := form[key]
+		if len(names) == 0 {
+			continue
+		}
+		if !listed {
+			var err error
+			libraries, err = bc.JellyfinLibraries(ctx, form.Get("settings-jellyfin-url"), form.Get("settings-jellyfin-apikey"))
+			if err != nil {
+				for _, other := range bazarrJellyfinLibraryKinds {
+					dropBazarrJellyfinLibraries(form, other.kind)
+				}
+				return fmt.Errorf("listing Jellyfin's libraries, which needs Bazarr 1.6.0 or later: %w", err)
+			}
+			listed = true
+		}
+		ids, err := jellyfinLibraryIDs(libraries, names, k.collection, k.label)
+		if err != nil {
+			dropBazarrJellyfinLibraries(form, k.kind)
+			errs = append(errs, fmt.Errorf("%sLibraries: %w", k.kind, err))
+			continue
+		}
+		form[key+"_ids"] = ids
+	}
+	return errors.Join(errs...)
+}
+
+func dropBazarrJellyfinLibraries(form url.Values, kind string) {
+	key := "settings-jellyfin-" + kind + "_library"
+	form.Del(key)
+	form.Del(key + "_ids")
+	form.Del("settings-jellyfin-update_" + kind + "_library")
+}
+
+// jellyfinLibraryIDs looks each name up among the libraries of one collection
+// type.
+func jellyfinLibraryIDs(libraries []bazarrclient.JellyfinLibrary, names []string, collection, label string) ([]string, error) {
+	if len(libraries) == 0 {
+		return nil, errors.New("no Jellyfin libraries came back from Bazarr; check that it reaches Jellyfin with this URL and API key")
+	}
+	ids := make([]string, 0, len(names))
+	for _, name := range names {
+		i := slices.IndexFunc(libraries, func(l bazarrclient.JellyfinLibrary) bool {
+			return l.Name == name && l.Type == collection
+		})
+		if i < 0 {
+			var have []string
+			for _, l := range libraries {
+				if l.Type == collection {
+					have = append(have, strconv.Quote(l.Name))
+				}
+			}
+			return nil, fmt.Errorf("no Jellyfin %s library named %q; Bazarr finds [%s]", label, name, strings.Join(have, ", "))
+		}
+		ids = append(ids, libraries[i].ID)
+	}
+	return ids, nil
 }
 
 // bazarrPathMappings sends each mapping as Bazarr's form does, "from,to".
@@ -518,7 +651,7 @@ func (r *BazarrReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	b := ctrl.NewControllerManagedBy(mgr).
 		For(&subtitlesv1alpha1.Bazarr{}, builder.WithPredicates(ctrlcommon.ConfigChangedPredicate())).
 		WatchesMetadata(&corev1.Secret{}, ctrlcommon.EnqueueForSecretThroughRefs(r.Client, &subtitlesv1alpha1.BazarrList{}, bazarrAppRefs))
-	b, err := ctrlcommon.WatchAppRefs(mgr, b, r.Apps, &subtitlesv1alpha1.Bazarr{}, &subtitlesv1alpha1.BazarrList{}, bazarrAppRefs, "Sonarr", "Radarr")
+	b, err := ctrlcommon.WatchAppRefs(mgr, b, r.Apps, &subtitlesv1alpha1.Bazarr{}, &subtitlesv1alpha1.BazarrList{}, bazarrAppRefs, "Sonarr", "Radarr", "Jellyfin")
 	if err != nil {
 		return err
 	}

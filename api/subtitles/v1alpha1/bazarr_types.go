@@ -45,6 +45,13 @@ type BazarrSpec struct {
 	// +kubebuilder:validation:XValidation:rule="!has(self.appRef) || self.appRef.kind == 'Radarr'",message="radarrConnection refers to a Radarr"
 	RadarrConnection BazarrAppConnection `json:"radarrConnection,omitzero"`
 
+	// jellyfin has Bazarr refresh a movie or episode in Jellyfin after its
+	// subtitles change, so they show without waiting for a library scan.
+	// Setting it turns Bazarr's Jellyfin integration on. Needs Bazarr 1.6.0 or
+	// later.
+	// +optional
+	Jellyfin *BazarrJellyfin `json:"jellyfin,omitempty"`
+
 	// subSync configures subtitle synchronization settings.
 	// +optional
 	SubSync *BazarrSubSync `json:"subSync,omitempty"`
@@ -359,6 +366,53 @@ type BazarrAppConnection struct {
 	// excludeSeasonZero leaves out specials. Only applicable when used with Sonarr.
 	// +optional
 	ExcludeSeasonZero *bool `json:"excludeSeasonZero,omitempty"`
+}
+
+// BazarrJellyfin connects Bazarr to Jellyfin and names the libraries it
+// refreshes items in.
+// +kubebuilder:validation:XValidation:rule="has(self.appRef) ? !has(self.url) && !has(self.apiKeySecretRef) : has(self.url) && has(self.apiKeySecretRef)",message="set appRef, or url and apiKeySecretRef, not both"
+type BazarrJellyfin struct {
+	// appRef names the Jellyfin resource whose connection URL and API key are
+	// used in place of url and apiKeySecretRef. That resource must set its
+	// connection's apiKeySecretRef.
+	// +optional
+	// +kubebuilder:validation:XValidation:rule="self.kind == 'Jellyfin'",message="jellyfin refers to a Jellyfin"
+	AppRef *commonv1alpha1.AppRef `json:"appRef,omitempty"`
+
+	// url is the Jellyfin URL as Bazarr reaches it (e.g., http://jellyfin:8096).
+	// +optional
+	// +kubebuilder:validation:Pattern=`^https?://`
+	// +kubebuilder:validation:MinLength=1
+	URL string `json:"url,omitempty"`
+
+	// apiKeySecretRef references a Secret containing a Jellyfin API key.
+	// +optional
+	APIKeySecretRef *commonv1alpha1.SecretKeyRef `json:"apiKeySecretRef,omitempty"`
+
+	// movieLibraries names the Jellyfin movie libraries Bazarr finds a movie
+	// in, and turns on refreshing a movie whose subtitles change. Left out,
+	// Bazarr keeps its movie library settings.
+	// +optional
+	// +listType=set
+	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:items:MinLength=1
+	MovieLibraries []string `json:"movieLibraries,omitempty"`
+
+	// seriesLibraries names the Jellyfin TV libraries Bazarr finds a series in,
+	// and turns on refreshing an episode whose subtitles change. Left out,
+	// Bazarr keeps its series library settings.
+	// +optional
+	// +listType=set
+	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:items:MinLength=1
+	SeriesLibraries []string `json:"seriesLibraries,omitempty"`
+
+	// refreshMethod is how Bazarr tells Jellyfin: immediate refreshes the item
+	// at once, and async reports the changed file for Jellyfin to pick up with
+	// other changes.
+	// +optional
+	// +kubebuilder:validation:Enum=immediate;async
+	RefreshMethod string `json:"refreshMethod,omitempty"`
 }
 
 // BazarrNotification sets up one of Bazarr's notification providers.

@@ -46,6 +46,15 @@ spec:
     httpTimeout: 300
     fullUpdate: Daily
     syncInterval: 60
+  jellyfin:
+    url: http://arr-jellyfin.arr.svc.cluster.local:8096
+    apiKeySecretRef:
+      name: jellyfin-credentials
+      key: api-key
+    movieLibraries:
+      - Movies
+    seriesLibraries:
+      - TV Shows
   subSync:
     useSubsync: false
     subsyncThreshold: 90

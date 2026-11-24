@@ -28,6 +28,7 @@ func TestBazarr(t *testing.T) {
 	bazarr := startContainer(t, containerSpec{name: "bazarr", image: bazarrImage, port: 6767, env: linuxserverEnv})
 	sonarr, sonarrKey := startPVR(t, "sonarr", sonarrImage, 8989, "v3")
 	radarr, radarrKey := startPVR(t, "radarr", radarrImage, 7878, "v3")
+	fakes := startFakes(t)
 
 	var key string
 	waitFor(t, "bazarr api key", 3*time.Minute, func() error {
@@ -62,12 +63,15 @@ func TestBazarr(t *testing.T) {
 			assert.Equal(t, float64(2), bazarrProfile(t, hc, "English")["cutoff"])
 		},
 		export: "bazarr",
+		// Bazarr's Jellyfin integration arrived in 1.6.0.
+		newerFields: []string{"/spec/jellyfin"},
 		vars: map[string]string{
-			"URL": proxy.url(), "HOST": hostIP,
+			"URL": proxy.url(), "HOST": hostIP, "FAKES": fakes,
 			"SONARR_PORT": strconv.Itoa(sonarr.port), "RADARR_PORT": strconv.Itoa(radarr.port),
 		},
 		secrets: map[string]string{
 			"api-key": key, "sonarr-api-key": sonarrKey, "radarr-api-key": radarrKey, "discord-url": "discord://compat/token",
+			"jellyfin-api-key": "compat-jellyfin-key",
 		},
 		newObj: func() ctrlcommon.ConfigResource { return &subtitlesv1alpha1.Bazarr{} },
 		reconciler: func(c client.Client) reconcile.Reconciler {
@@ -114,6 +118,18 @@ func TestBazarr(t *testing.T) {
 			}
 			slices.Sort(enabled)
 			assert.Equal(t, []string{"en", "es"}, enabled, "the declared languages are not the enabled ones")
+			if atNewest() {
+				assert.Equal(t, true, general["use_jellyfin"])
+				jellyfin, _ := settings["jellyfin"].(map[string]any)
+				assert.Equal(t, fakes+"/jellyfin", jellyfin["url"])
+				assert.Equal(t, "compat-jellyfin-key", jellyfin["apikey"])
+				assert.Equal(t, []any{"Movies"}, jellyfin["movie_library"])
+				assert.Equal(t, []any{"compat-movies"}, jellyfin["movie_library_ids"], "the library's id, as Bazarr lists it")
+				assert.Equal(t, []any{"compat-shows"}, jellyfin["series_library_ids"])
+				assert.Equal(t, true, jellyfin["update_movie_library"])
+				assert.Equal(t, true, jellyfin["update_series_library"])
+				assert.Equal(t, "async", jellyfin["refresh_method"])
+			}
 		},
 		cleanup: func(t *testing.T, _ map[string][]string) {
 			assert.Equal(t, []string{"Hand-made"}, bazarrProfileNames(t, hc))

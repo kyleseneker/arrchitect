@@ -400,6 +400,23 @@ func TestAdmissionRules(t *testing.T) {
 		{name: "a Bazarr sonarrConnection referring to Radarr", kind: "Bazarr", spec: conn + `
   sonarrConnection: {appRef: {kind: Radarr, name: radarr}}`,
 			rejected: "sonarrConnection refers to a Sonarr"},
+		{name: "Bazarr Jellyfin by reference", kind: "Bazarr", spec: conn + `
+  jellyfin:
+    appRef: {kind: Jellyfin, name: jellyfin}
+    movieLibraries: [Movies]
+    seriesLibraries: [TV Shows]
+    refreshMethod: async`},
+		{name: "Bazarr Jellyfin by URL", kind: "Bazarr", spec: conn + `
+  jellyfin: {url: "http://jellyfin:8096", apiKeySecretRef: {name: jellyfin, key: api-key}}`},
+		{name: "Bazarr Jellyfin by reference and URL", kind: "Bazarr", spec: conn + `
+  jellyfin: {appRef: {kind: Jellyfin, name: jellyfin}, url: "http://jellyfin:8096"}`,
+			rejected: "set appRef, or url and apiKeySecretRef, not both"},
+		{name: "Bazarr Jellyfin by URL without a key", kind: "Bazarr", spec: conn + `
+  jellyfin: {url: "http://jellyfin:8096"}`,
+			rejected: "set appRef, or url and apiKeySecretRef, not both"},
+		{name: "a Bazarr jellyfin referring to Plex", kind: "Bazarr", spec: conn + `
+  jellyfin: {appRef: {kind: Plex, name: plex}}`,
+			rejected: "jellyfin refers to a Jellyfin"},
 		{name: "Maintainerr connections by reference", kind: "Maintainerr", spec: `
   connection: {url: http://maintainerr:6246}
   mediaServer: {plex: {appRef: {kind: Plex, name: plex}}}
