@@ -66,6 +66,11 @@ type LidarrSpec struct {
 	// +optional
 	UI *LidarrUI `json:"ui,omitempty"`
 
+	// metadataProvider configures the tags Lidarr writes into audio files and
+	// the metadata server it uses.
+	// +optional
+	MetadataProvider *LidarrMetadataProvider `json:"metadataProvider,omitempty"`
+
 	// rootFolders defines music library root folder paths.
 	// +optional
 	// +listType=map
@@ -342,6 +347,32 @@ type LidarrUI struct {
 	// uiLanguage is the UI language ID.
 	// +optional
 	UILanguage *int32 `json:"uiLanguage,omitempty"`
+}
+
+// LidarrMetadataProvider configures Lidarr's metadata settings.
+type LidarrMetadataProvider struct {
+	// metadataSource is the URL of a metadata server Lidarr uses in place of
+	// its own. Lidarr's UI doesn't show this setting.
+	// +optional
+	// +kubebuilder:validation:Pattern=`^https?://`
+	// +kubebuilder:validation:MinLength=1
+	MetadataSource string `json:"metadataSource,omitempty"`
+
+	// writeAudioTags is when Lidarr tags audio files with metadata: no, newFiles
+	// for new downloads only, allFiles when files are first imported (altering
+	// existing files), or sync to keep every file in sync with MusicBrainz.
+	// +optional
+	// +kubebuilder:validation:Enum=no;newFiles;allFiles;sync
+	WriteAudioTags string `json:"writeAudioTags,omitempty"`
+
+	// scrubAudioTags removes existing tags from files, leaving only those
+	// Lidarr adds.
+	// +optional
+	ScrubAudioTags *bool `json:"scrubAudioTags,omitempty"`
+
+	// embedCoverArt embeds album art into audio files when Lidarr writes tags.
+	// +optional
+	EmbedCoverArt *bool `json:"embedCoverArt,omitempty"`
 }
 
 // LidarrStatus defines the observed state of Lidarr.

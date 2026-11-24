@@ -292,6 +292,20 @@ spec:
                 - message: only one delay profile can be without tags
                   rule: self.filter(p, !has(p.tagLabels) || size(p.tagLabels) == 0).size()
                     <= 1
+              development:
+                description: development holds the settings on Readarr's hidden development
+                  page.
+                properties:
+                  metadataSource:
+                    description: |-
+                      metadataSource is the URL of a metadata server Readarr uses in place of
+                      its own, such as a replacement for the retired official one.
+                    minLength: 1
+                    pattern: ^https?://
+                    type: string
+                required:
+                - metadataSource
+                type: object
               downloadClientConfig:
                 description: downloadClientConfig configures global download client
                   behavior.
@@ -661,6 +675,46 @@ spec:
                 x-kubernetes-list-map-keys:
                 - name
                 x-kubernetes-list-type: map
+              metadataProvider:
+                description: |-
+                  metadataProvider configures the metadata Readarr sends to Calibre and
+                  writes into audio files.
+                properties:
+                  embedMetadata:
+                    description: embedMetadata has Calibre write metadata into the
+                      book files themselves.
+                    type: boolean
+                  scrubAudioTags:
+                    description: |-
+                      scrubAudioTags removes existing tags from audiobook files, leaving only
+                      those Readarr adds.
+                    type: boolean
+                  updateCovers:
+                    description: updateCovers sets book covers in Calibre to match
+                      Readarr's.
+                    type: boolean
+                  writeAudioTags:
+                    description: |-
+                      writeAudioTags is when Readarr tags audiobook files with metadata: no,
+                      newFiles for new downloads only, allFiles when files are first imported
+                      (altering existing files), or sync to keep every file in sync.
+                    enum:
+                    - "no"
+                    - newFiles
+                    - allFiles
+                    - sync
+                    type: string
+                  writeBookTags:
+                    description: |-
+                      writeBookTags is when Readarr sends metadata to Calibre: newFiles for new
+                      downloads only, allFiles when files are first imported (altering existing
+                      files), or sync to keep every file in sync.
+                    enum:
+                    - newFiles
+                    - allFiles
+                    - sync
+                    type: string
+                type: object
               naming:
                 description: naming configures author and book naming formats.
                 properties:

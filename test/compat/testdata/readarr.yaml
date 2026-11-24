@@ -47,6 +47,14 @@ spec:
     timeFormat: "h(:mm)a"
     theme: dark
     uiLanguage: 1
+  metadataProvider:
+    writeBookTags: sync
+    updateCovers: true
+    embedMetadata: true
+    writeAudioTags: newFiles
+    scrubAudioTags: true
+  development:
+    metadataSource: ${FAKES}/bookinfo
   metadataProfiles:
     - name: English Books
       minPopularity: 0

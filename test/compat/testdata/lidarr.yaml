@@ -51,6 +51,11 @@ spec:
     timeFormat: "h(:mm)a"
     theme: dark
     uiLanguage: 1
+  metadataProvider:
+    metadataSource: ${FAKES}/musicinfo
+    writeAudioTags: sync
+    scrubAudioTags: true
+    embedCoverArt: true
   metadataProfiles:
     - name: Albums Only
       primaryAlbumTypes:

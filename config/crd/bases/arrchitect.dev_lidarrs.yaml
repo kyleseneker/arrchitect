@@ -657,6 +657,39 @@ spec:
                 x-kubernetes-list-map-keys:
                 - name
                 x-kubernetes-list-type: map
+              metadataProvider:
+                description: |-
+                  metadataProvider configures the tags Lidarr writes into audio files and
+                  the metadata server it uses.
+                properties:
+                  embedCoverArt:
+                    description: embedCoverArt embeds album art into audio files when
+                      Lidarr writes tags.
+                    type: boolean
+                  metadataSource:
+                    description: |-
+                      metadataSource is the URL of a metadata server Lidarr uses in place of
+                      its own. Lidarr's UI doesn't show this setting.
+                    minLength: 1
+                    pattern: ^https?://
+                    type: string
+                  scrubAudioTags:
+                    description: |-
+                      scrubAudioTags removes existing tags from files, leaving only those
+                      Lidarr adds.
+                    type: boolean
+                  writeAudioTags:
+                    description: |-
+                      writeAudioTags is when Lidarr tags audio files with metadata: no, newFiles
+                      for new downloads only, allFiles when files are first imported (altering
+                      existing files), or sync to keep every file in sync with MusicBrainz.
+                    enum:
+                    - "no"
+                    - newFiles
+                    - allFiles
+                    - sync
+                    type: string
+                type: object
               naming:
                 description: naming configures artist and track naming formats.
                 properties:

@@ -264,6 +264,11 @@ func TestLidarr(t *testing.T) {
 		verify: func(t *testing.T) {
 			hc := directClient(t, lidarr.url(), key)
 			requireMediaServerNotification(t, hc, "/api/v1/notification", "Compat Jellyfin", "MediaBrowser", "/jellyfin")
+			metadata, err := hc.GetJSON(context.Background(), "/api/v1/config/metadataprovider")
+			require.NoError(t, err)
+			assert.Equal(t, fakes+"/musicinfo", metadata["metadataSource"])
+			assert.Equal(t, "sync", metadata["writeAudioTags"])
+			assert.Equal(t, true, metadata["embedCoverArt"])
 			requireMediaServerNotification(t, hc, "/api/v1/notification", "Compat Plex", "PlexServer", "/plex")
 			requireNamed(t, hc, "/api/v1/rootfolder", "music")
 			requireNamed(t, hc, "/api/v1/downloadclient", "qBittorrent")
@@ -319,7 +324,8 @@ func TestReadarr(t *testing.T) {
 			{"op": "replace", "path": "/spec/notifications/0/onRename", "value": false},
 			{"op": "replace", "path": "/spec/delayProfiles/0/torrentDelay", "value": 45},
 			{"op": "replace", "path": "/spec/metadataProfiles/0/minPages", "value": 30},
-			{"op": "replace", "path": "/spec/rootFolders/0/defaultTagLabels", "value": []}
+			{"op": "replace", "path": "/spec/rootFolders/0/defaultTagLabels", "value": []},
+			{"op": "replace", "path": "/spec/metadataProvider/writeBookTags", "value": "newFiles"}
 		]`,
 		export:  "readarr",
 		vars:    map[string]string{"URL": proxy.url(), "HOST": hostIP, "FAKES": fakes},
@@ -347,6 +353,13 @@ func TestReadarr(t *testing.T) {
 		verify: func(t *testing.T) {
 			hc := directClient(t, readarr.url(), key)
 			requireMediaServerNotification(t, hc, "/api/v1/notification", "Compat Plex", "PlexServer", "/plex")
+			metadata, err := hc.GetJSON(context.Background(), "/api/v1/config/metadataprovider")
+			require.NoError(t, err)
+			assert.Equal(t, "sync", metadata["writeBookTags"])
+			assert.Equal(t, true, metadata["embedMetadata"])
+			development, err := hc.GetJSON(context.Background(), "/api/v1/config/development")
+			require.NoError(t, err)
+			assert.Equal(t, fakes+"/bookinfo", development["metadataSource"])
 			requireNamed(t, hc, "/api/v1/rootfolder", "books")
 			requireNamed(t, hc, "/api/v1/indexer", "Compat Torznab")
 			requireNamed(t, hc, "/api/v1/qualityprofile", "Books")

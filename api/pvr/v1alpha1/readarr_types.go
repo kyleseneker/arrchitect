@@ -86,6 +86,15 @@ type ReadarrSpec struct {
 	// +optional
 	UI *ReadarrUI `json:"ui,omitempty"`
 
+	// metadataProvider configures the metadata Readarr sends to Calibre and
+	// writes into audio files.
+	// +optional
+	MetadataProvider *ReadarrMetadataProvider `json:"metadataProvider,omitempty"`
+
+	// development holds the settings on Readarr's hidden development page.
+	// +optional
+	Development ReadarrDevelopment `json:"development,omitzero"`
+
 	// rootFolders defines book library root folder paths.
 	// +optional
 	// +listType=map
@@ -343,6 +352,47 @@ type ReadarrUI struct {
 	// uiLanguage is the UI language ID.
 	// +optional
 	UILanguage *int32 `json:"uiLanguage,omitempty"`
+}
+
+// ReadarrMetadataProvider configures Readarr's metadata settings.
+type ReadarrMetadataProvider struct {
+	// writeBookTags is when Readarr sends metadata to Calibre: newFiles for new
+	// downloads only, allFiles when files are first imported (altering existing
+	// files), or sync to keep every file in sync.
+	// +optional
+	// +kubebuilder:validation:Enum=newFiles;allFiles;sync
+	WriteBookTags string `json:"writeBookTags,omitempty"`
+
+	// updateCovers sets book covers in Calibre to match Readarr's.
+	// +optional
+	UpdateCovers *bool `json:"updateCovers,omitempty"`
+
+	// embedMetadata has Calibre write metadata into the book files themselves.
+	// +optional
+	EmbedMetadata *bool `json:"embedMetadata,omitempty"`
+
+	// writeAudioTags is when Readarr tags audiobook files with metadata: no,
+	// newFiles for new downloads only, allFiles when files are first imported
+	// (altering existing files), or sync to keep every file in sync.
+	// +optional
+	// +kubebuilder:validation:Enum=no;newFiles;allFiles;sync
+	WriteAudioTags string `json:"writeAudioTags,omitempty"`
+
+	// scrubAudioTags removes existing tags from audiobook files, leaving only
+	// those Readarr adds.
+	// +optional
+	ScrubAudioTags *bool `json:"scrubAudioTags,omitempty"`
+}
+
+// ReadarrDevelopment configures the settings on Readarr's hidden development
+// page.
+type ReadarrDevelopment struct {
+	// metadataSource is the URL of a metadata server Readarr uses in place of
+	// its own, such as a replacement for the retired official one.
+	// +required
+	// +kubebuilder:validation:Pattern=`^https?://`
+	// +kubebuilder:validation:MinLength=1
+	MetadataSource string `json:"metadataSource,omitempty"`
 }
 
 // ReadarrStatus defines the observed state of Readarr.

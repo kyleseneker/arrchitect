@@ -346,6 +346,24 @@ func TestAdmissionRules(t *testing.T) {
 		{name: "a Readarr notification to Jellyfin by reference", kind: "Readarr", spec: conn + `
   notifications: [{name: Jellyfin, appRef: {kind: Jellyfin, name: jellyfin}}]`,
 			rejected: "Readarr has no Jellyfin notification"},
+		{name: "Readarr metadata settings and source", kind: "Readarr", spec: conn + `
+  metadataProvider: {writeBookTags: sync, updateCovers: true, embedMetadata: false, writeAudioTags: newFiles}
+  development: {metadataSource: "https://api.bookinfo.pro"}`},
+		{name: "a Readarr development section without a source", kind: "Readarr", spec: conn + `
+  development: {}`,
+			rejected: "metadataSource: Required value"},
+		{name: "a Readarr metadata source that isn't a URL", kind: "Readarr", spec: conn + `
+  development: {metadataSource: api.bookinfo.pro}`,
+			rejected: "should match '^https?://'"},
+		{name: "Readarr book tags off", kind: "Readarr", spec: conn + `
+  metadataProvider: {writeBookTags: "no"}`,
+			rejected: "Unsupported value"},
+		{name: "Lidarr metadata settings and source", kind: "Lidarr", spec: conn + `
+  metadataProvider:
+    metadataSource: "https://metadata.example"
+    writeAudioTags: sync
+    scrubAudioTags: true
+    embedCoverArt: true`},
 		{name: "a Prowlarr notification by reference", kind: "Prowlarr", spec: conn + `
   notifications: [{name: Plex, appRef: {kind: Plex, name: plex}}]`,
 			rejected: "Prowlarr has no media server notifications to refer to"},

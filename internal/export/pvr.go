@@ -37,7 +37,7 @@ type pvrExport struct {
 
 func (e *pvrExport) spec() (map[string]any, error) {
 	spec := map[string]any{}
-	for _, s := range pvrclient.Definition(e.app.APIVersion).Settings {
+	for _, s := range pvrclient.Definition(e.app.APIVersion, e.app.Sections...).Settings {
 		section, err := e.hc.GetJSON(e.ctx, s.Path)
 		if err != nil {
 			return nil, err
@@ -45,6 +45,12 @@ func (e *pvrExport) spec() (map[string]any, error) {
 		delete(section, "id")
 		e.nameChoices(s.Name, section)
 		spec[s.Name] = section
+	}
+	// An empty metadataSource is Readarr's own server, which development can't name.
+	if dev, ok := spec["development"].(map[string]any); ok {
+		if source, _ := dev["metadataSource"].(string); source == "" {
+			delete(spec, "development")
+		}
 	}
 
 	var err error
