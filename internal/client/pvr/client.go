@@ -43,6 +43,7 @@ type App struct {
 var sectionPaths = map[string]string{
 	"metadataProvider": "/config/metadataprovider",
 	"development":      "/config/development",
+	"metadataConfig":   "/config/metadata",
 }
 
 var bookAndMusicImportListFields = ImportListFields{
@@ -69,6 +70,7 @@ var (
 	Radarr = App{
 		Name: "radarr", Kind: "Radarr", APIVersion: "v3", CategoryField: "movieCategory", ReleaseProfiles: true,
 		ImportListFields: ImportListFields{Enable: "enabled", AutomaticAdd: "enableAuto", Monitor: "monitor", Search: "searchOnAdd"},
+		Sections:         []string{"metadataConfig"},
 	}
 	Lidarr = App{
 		Name: "lidarr", Kind: "Lidarr", APIVersion: "v1", CategoryField: "musicCategory", MetadataProfiles: true,

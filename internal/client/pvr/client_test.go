@@ -63,7 +63,7 @@ func TestDefinitionAddsTheAppsOwnSections(t *testing.T) {
 		return out
 	}
 	assert.Len(t, paths(Sonarr), 5)
-	assert.Len(t, paths(Radarr), 5)
+	assert.Equal(t, "/api/v3/config/metadata", paths(Radarr)["metadataConfig"])
 	assert.Equal(t, "/api/v1/config/metadataprovider", paths(Lidarr)["metadataProvider"])
 	assert.NotContains(t, paths(Lidarr), "development", "Lidarr has no development section")
 	assert.Equal(t, "/api/v1/config/metadataprovider", paths(Readarr)["metadataProvider"])

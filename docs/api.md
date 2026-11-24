@@ -3248,6 +3248,22 @@ _Appears in:_
 | `scriptImportPath` _string_ | scriptImportPath is the script run for each import when useScriptImport<br />is on. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 
 
+#### RadarrMetadataConfig
+
+
+
+RadarrMetadataConfig configures Radarr's metadata options.
+
+
+
+_Appears in:_
+- [RadarrSpec](#radarrspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `certificationCountry` _string_ | certificationCountry is the country whose movie certifications (age<br />ratings) Radarr uses. |  | Enum: [au br ca fr de gb in ie it nz ro es us] <br />Required: \{\} <br /> |
+
+
 #### RadarrNaming
 
 
@@ -3289,6 +3305,7 @@ _Appears in:_
 | `indexerConfig` _[RadarrIndexerConfig](#radarrindexerconfig)_ | indexerConfig configures global indexer settings. |  | Optional: \{\} <br /> |
 | `downloadClientConfig` _[RadarrDownloadClientConfig](#radarrdownloadclientconfig)_ | downloadClientConfig configures global download client behavior. |  | Optional: \{\} <br /> |
 | `ui` _[RadarrUI](#radarrui)_ | ui configures UI display settings. |  | Optional: \{\} <br /> |
+| `metadataConfig` _[RadarrMetadataConfig](#radarrmetadataconfig)_ | metadataConfig configures Radarr's metadata options. |  | Optional: \{\} <br /> |
 | `rootFolders` _[RootFolder](#rootfolder) array_ | rootFolders defines media library root folder paths. |  | Optional: \{\} <br /> |
 | `remotePathMappings` _[RemotePathMapping](#remotepathmapping) array_ | remotePathMappings translates paths reported by remote download clients.<br />Entries are matched by host and remotePath. Only operator-created entries can be pruned. |  | Optional: \{\} <br /> |
 | `qualityProfiles` _[QualityProfile](#qualityprofile) array_ | qualityProfiles defines quality profiles for controlling download quality preferences. |  | Optional: \{\} <br /> |

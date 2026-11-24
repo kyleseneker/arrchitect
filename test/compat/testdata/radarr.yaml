@@ -177,6 +177,8 @@ spec:
       minSize: 12.5
       maxSize: 400
       preferredSize: 350
+  metadataConfig:
+    certificationCountry: gb
   metadataConsumers:
     - implementation: XbmcMetadata
       fields:
