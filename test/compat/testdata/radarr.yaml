@@ -186,6 +186,20 @@ spec:
           value: true
         - name: movieImages
           value: false
+  autoTags:
+    - name: Compat Kids
+      tagLabels: [kids]
+      specifications:
+        - name: Profile
+          implementation: QualityProfileSpecification
+          qualityProfileName: HD-1080p
+        - name: Recent
+          implementation: YearSpecification
+          fields:
+            - name: min
+              value: 2000
+            - name: max
+              value: 2030
   delayProfiles:
     - tagLabels:
         - uhd

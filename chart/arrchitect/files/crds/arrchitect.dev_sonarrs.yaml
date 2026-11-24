@@ -55,6 +55,156 @@ spec:
           spec:
             description: spec is the desired state of the Sonarr.
             properties:
+              autoTags:
+                description: autoTags tags the app's items that match each auto tag's
+                  conditions.
+                items:
+                  description: AutoTag tags the series, movies or artists that match
+                    its conditions.
+                  properties:
+                    name:
+                      description: name is the auto tag's name.
+                      minLength: 1
+                      type: string
+                    removeTagsAutomatically:
+                      description: removeTagsAutomatically takes the tags off an item
+                        that stops matching.
+                      type: boolean
+                    specifications:
+                      description: |-
+                        specifications are the conditions an item must match: every required one
+                        and at least one of the others. Conditions left out are removed.
+                      items:
+                        description: |-
+                          AutoTagSpecification is one condition of an auto tag. A condition on a
+                          quality profile, metadata profile or tag names it rather than giving its id.
+                        properties:
+                          fields:
+                            description: |-
+                              fields sets the condition's other values, such as a genre list in value,
+                              a root folder path in value, or min and max for a year.
+                            items:
+                              description: |-
+                                ConfigField is a named field of a provider's configuration. It sets value
+                                or valueFrom, not both.
+                              maxProperties: 2
+                              properties:
+                                name:
+                                  description: name is the field name.
+                                  minLength: 1
+                                  type: string
+                                value:
+                                  description: 'value is the field value: a string,
+                                    number, boolean or list.'
+                                  x-kubernetes-preserve-unknown-fields: true
+                                valueFrom:
+                                  description: valueFrom reads the field value from
+                                    a source.
+                                  properties:
+                                    secretKeyRef:
+                                      description: secretKeyRef reads the value from
+                                        a key of a Secret in the resource's namespace.
+                                      properties:
+                                        key:
+                                          description: key is the key within the Secret.
+                                          minLength: 1
+                                          type: string
+                                        name:
+                                          description: name is the name of the Secret.
+                                          minLength: 1
+                                          type: string
+                                      required:
+                                      - key
+                                      - name
+                                      type: object
+                                  required:
+                                  - secretKeyRef
+                                  type: object
+                              required:
+                              - name
+                              type: object
+                            type: array
+                            x-kubernetes-list-map-keys:
+                            - name
+                            x-kubernetes-list-type: map
+                          implementation:
+                            description: |-
+                              implementation is the condition type: GenreSpecification,
+                              MonitoredSpecification, QualityProfileSpecification,
+                              RootFolderSpecification, StatusSpecification or TagSpecification;
+                              OriginalLanguageSpecification and YearSpecification in Sonarr and Radarr;
+                              SeriesTypeSpecification in Sonarr; KeywordSpecification,
+                              RuntimeSpecification and StudioSpecification in Radarr;
+                              MetadataProfileSpecification in Lidarr.
+                            maxLength: 64
+                            minLength: 1
+                            type: string
+                          metadataProfileName:
+                            description: |-
+                              metadataProfileName names the metadata profile a Lidarr
+                              MetadataProfileSpecification matches, in place of its value field.
+                            minLength: 1
+                            type: string
+                          name:
+                            description: name is the condition's name.
+                            minLength: 1
+                            type: string
+                          negate:
+                            description: negate inverts the condition.
+                            type: boolean
+                          qualityProfileName:
+                            description: |-
+                              qualityProfileName names the quality profile a
+                              QualityProfileSpecification matches, in place of its value field.
+                            minLength: 1
+                            type: string
+                          required:
+                            description: required makes the condition one every match
+                              must meet.
+                            type: boolean
+                          tagLabel:
+                            description: |-
+                              tagLabel names the tag a TagSpecification matches, in place of its value
+                              field.
+                            minLength: 1
+                            type: string
+                        required:
+                        - implementation
+                        - name
+                        type: object
+                        x-kubernetes-validations:
+                        - message: qualityProfileName is for a QualityProfileSpecification
+                          rule: '!has(self.qualityProfileName) || self.implementation
+                            == ''QualityProfileSpecification'''
+                        - message: metadataProfileName is for a MetadataProfileSpecification
+                          rule: '!has(self.metadataProfileName) || self.implementation
+                            == ''MetadataProfileSpecification'''
+                        - message: tagLabel is for a TagSpecification
+                          rule: '!has(self.tagLabel) || self.implementation == ''TagSpecification'''
+                      minItems: 1
+                      type: array
+                      x-kubernetes-list-map-keys:
+                      - name
+                      x-kubernetes-list-type: map
+                    tagLabels:
+                      description: |-
+                        tagLabels are the tags the auto tag applies, by label, resolved against
+                        the app on each reconciliation.
+                      items:
+                        minLength: 1
+                        type: string
+                      minItems: 1
+                      type: array
+                      x-kubernetes-list-type: set
+                  required:
+                  - name
+                  - specifications
+                  - tagLabels
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
               connection:
                 description: connection defines how to connect to the Sonarr instance.
                 properties:

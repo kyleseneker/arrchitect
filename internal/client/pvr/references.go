@@ -31,5 +31,5 @@ func hasTagLabels(opts Options) bool {
 			return true
 		}
 	}
-	return false
+	return len(opts.AutoTags) > 0
 }

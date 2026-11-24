@@ -166,6 +166,17 @@ spec:
       fields:
         - name: albumImages
           value: false
+  autoTags:
+    - name: Compat Albums
+      tagLabels: [live]
+      specifications:
+        - name: Albums
+          implementation: MetadataProfileSpecification
+          metadataProfileName: Albums Only
+        - name: Favorites
+          implementation: TagSpecification
+          negate: true
+          tagLabel: favorites
   delayProfiles:
     - tagLabels:
         - favorites

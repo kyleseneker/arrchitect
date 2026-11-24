@@ -141,6 +141,12 @@ func Definition(apiVersion string, sections ...string) engine.AppDefinition {
 				Name: "releaseProfiles", Path: prefix + "/releaseprofile", MatchField: "name", Policy: engine.CreateOrUpdate, Prunable: true,
 				CreateDefaults: map[string]any{"enabled": true, "required": []any{}, "ignored": []any{}, "indexerId": 0, "tags": []any{}},
 			},
+			// Auto tags after the tags and quality profiles their conditions name.
+			{
+				Name: "autoTags", Path: prefix + "/autotagging", MatchField: "name", Policy: engine.CreateOrUpdate, Prunable: true,
+				CreateDefaults: map[string]any{"removeTagsAutomatically": false, "specifications": []any{}},
+				ExactLists:     []string{"specifications"},
+			},
 			// The app keeps one metadata consumer per type, created at startup.
 			{Name: "metadataConsumers", Path: prefix + "/metadata", MatchField: "implementation", Policy: engine.UpdateOnly},
 			// importLists last — may reference quality profiles by name.
@@ -228,6 +234,7 @@ type Options struct {
 	QualityDefinitions []commonv1alpha1.QualityDefinition
 	DelayProfiles      []commonv1alpha1.DelayProfile
 	MetadataConsumers  []commonv1alpha1.MetadataConsumer
+	AutoTags           []commonv1alpha1.AutoTag
 
 	// schemas caches each provider kind's /schema listing for one reconcile.
 	schemas map[string][]map[string]any
@@ -300,6 +307,9 @@ func Resources(ctx context.Context, client *engine.HTTPClient, apiVersion string
 		}},
 		{"releaseProfiles", len(opts.ReleaseProfiles), func() ([]map[string]any, error) {
 			return releaseProfileResources(ctx, client, apiVersion, opts.ReleaseProfiles, tagIDs)
+		}},
+		{"autoTags", len(opts.AutoTags), func() ([]map[string]any, error) {
+			return autoTagResources(ctx, client, apiVersion, opts, tagIDs)
 		}},
 		{"metadataConsumers", len(opts.MetadataConsumers), func() ([]map[string]any, error) {
 			return metadataConsumerResources(ctx, client, apiVersion, opts.MetadataConsumers)
@@ -976,6 +986,7 @@ func Reconcile(ctx context.Context, client *engine.HTTPClient, apiVersion string
 	base.RootFolders = nil
 	base.ImportLists = nil
 	base.DelayProfiles = nil
+	base.AutoTags = nil
 	resources, err := Resources(ctx, client, apiVersion, base)
 	if err != nil {
 		result.Errors = append(result.Errors, err.Error())
@@ -994,6 +1005,17 @@ func Reconcile(ctx context.Context, client *engine.HTTPClient, apiVersion string
 			result.Errors = append(result.Errors, fmt.Sprintf("qualityProfiles: %v", qerr))
 		} else {
 			mergeResult(&result, engine.ReconcileApp(ctx, client, def, nil, qpRes, policy, result.Managed))
+		}
+	}
+
+	// Auto tag conditions name quality profiles and metadata profiles.
+	if len(opts.AutoTags) > 0 {
+		stage := Options{AutoTags: opts.AutoTags, planned: opts.planned}
+		atRes, aerr := Resources(ctx, client, apiVersion, stage)
+		if aerr != nil {
+			result.Errors = append(result.Errors, fmt.Sprintf("autoTags: %v", aerr))
+		} else {
+			mergeResult(&result, engine.ReconcileApp(ctx, client, def, nil, atRes, policy, result.Managed))
 		}
 	}
 
@@ -1192,6 +1214,83 @@ func qualityDefinitionResources(
 		out = append(out, payload)
 	}
 	return out, nil
+}
+
+// autoTagResources builds the declared auto tags, resolving the tags they
+// apply and the quality profiles, metadata profiles and tags their conditions
+// name to the app's IDs.
+func autoTagResources(
+	ctx context.Context, client *engine.HTTPClient, apiVersion string, opts Options, tagIDs engine.NamedIDs,
+) ([]map[string]any, error) {
+	var profiles, metadataProfiles engine.NamedIDs
+	for _, at := range opts.AutoTags {
+		for _, spec := range at.Specifications {
+			var err error
+			if spec.QualityProfileName != "" && profiles == nil {
+				if profiles, err = engine.FetchNamedIDs(ctx, client, fmt.Sprintf("/api/%s/qualityprofile", apiVersion), "name"); err != nil {
+					return nil, err
+				}
+				profiles.Plan(opts.planned["qualityProfiles"]...)
+			}
+			if spec.MetadataProfileName != "" && metadataProfiles == nil {
+				if metadataProfiles, err = engine.FetchNamedIDs(ctx, client, fmt.Sprintf("/api/%s/metadataprofile", apiVersion), "name"); err != nil {
+					return nil, err
+				}
+				metadataProfiles.Plan(opts.planned["metadataProfiles"]...)
+			}
+		}
+	}
+	out := make([]map[string]any, 0, len(opts.AutoTags))
+	for _, at := range opts.AutoTags {
+		tags, err := tagIDs.ResolveTags(at.TagLabels)
+		if err != nil {
+			return nil, fmt.Errorf("autoTags(%s): %w", at.Name, err)
+		}
+		specs := make([]map[string]any, 0, len(at.Specifications))
+		for _, spec := range at.Specifications {
+			payload, err := autoTagSpecificationPayload(spec, profiles, metadataProfiles, tagIDs)
+			if err != nil {
+				return nil, fmt.Errorf("autoTags(%s): %s: %w", at.Name, spec.Name, err)
+			}
+			specs = append(specs, payload)
+		}
+		payload := map[string]any{"name": at.Name, "tags": BuildTagsPayload(tags), "specifications": specs}
+		SetOptionalBool(payload, "removeTagsAutomatically", at.RemoveTagsAutomatically)
+		out = append(out, payload)
+	}
+	return out, nil
+}
+
+// autoTagSpecificationPayload builds one condition, putting the ID of the
+// profile or tag it names in its value field.
+func autoTagSpecificationPayload(
+	spec commonv1alpha1.AutoTagSpecification, profiles, metadataProfiles, tagIDs engine.NamedIDs,
+) (map[string]any, error) {
+	fields := BuildFieldsPayload(spec.Fields)
+	for _, ref := range []struct {
+		field, name string
+		ids         engine.NamedIDs
+	}{
+		{"qualityProfileName", spec.QualityProfileName, profiles},
+		{"metadataProfileName", spec.MetadataProfileName, metadataProfiles},
+		{"tagLabel", engine.TagLabel(spec.TagLabel), tagIDs},
+	} {
+		if ref.name == "" {
+			continue
+		}
+		if slices.ContainsFunc(fields, func(f map[string]any) bool { return f["name"] == "value" }) {
+			return nil, fmt.Errorf("%s fills in value, so leave that field out", ref.field)
+		}
+		id, err := ref.ids.Resolve(ref.name)
+		if err != nil {
+			return nil, err
+		}
+		fields = append(fields, map[string]any{"name": "value", "value": id})
+	}
+	payload := map[string]any{"name": spec.Name, "implementation": spec.Implementation, "fields": fields}
+	SetOptionalBool(payload, "negate", spec.Negate)
+	SetOptionalBool(payload, "required", spec.Required)
+	return payload, nil
 }
 
 // metadataConsumerResources builds updates for the declared consumers,

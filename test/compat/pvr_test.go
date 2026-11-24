@@ -61,7 +61,8 @@ func TestSonarr(t *testing.T) {
 			{"op": "replace", "path": "/spec/importLists/0/seasonFolder", "value": false},
 			{"op": "replace", "path": "/spec/delayProfiles/0/usenetDelay", "value": 90},
 			{"op": "add", "path": "/spec/releaseProfiles/0/indexerName", "value": "Compat Torznab"},
-			{"op": "replace", "path": "/spec/metadataConsumers/0/fields/1/value", "value": true}
+			{"op": "replace", "path": "/spec/metadataConsumers/0/fields/1/value", "value": true},
+			{"op": "replace", "path": "/spec/autoTags/0/specifications/2/fields/0/value", "value": ["Animation", "Anime"]}
 		]`,
 		export: "sonarr",
 		vars: map[string]string{
@@ -94,6 +95,8 @@ func TestSonarr(t *testing.T) {
 		observe: true,
 		verify: func(t *testing.T) {
 			hc := directClient(t, sonarr.url(), key)
+			requireAutoTagReference(t, hc, "/api/v3", "Compat Anime", "Profile", "/qualityprofile", "name", "HD-1080p")
+			requireAutoTagReference(t, hc, "/api/v3", "Compat Anime", "Anime", "/tag", "label", "anime")
 			requireMediaServerNotification(t, hc, "/api/v3/notification", "Compat Jellyfin", "MediaBrowser", "/jellyfin")
 			requireMediaServerNotification(t, hc, "/api/v3/notification", "Compat Plex", "PlexServer", "/plex")
 			naming, err := hc.GetJSON(context.Background(), "/api/v3/config/naming")
@@ -185,6 +188,7 @@ func TestRadarr(t *testing.T) {
 		observe: true,
 		verify: func(t *testing.T) {
 			hc := directClient(t, radarr.url(), key)
+			requireAutoTagReference(t, hc, "/api/v3", "Compat Kids", "Profile", "/qualityprofile", "name", "HD-1080p")
 			requireMediaServerNotification(t, hc, "/api/v3/notification", "Compat Jellyfin", "MediaBrowser", "/jellyfin")
 			requireMetadataConsumer(t, hc, "/api/v3/metadata", "XbmcMetadata",
 				map[string]any{"movieMetadataURL": true, "movieImages": false})
@@ -271,6 +275,8 @@ func TestLidarr(t *testing.T) {
 		observe: true,
 		verify: func(t *testing.T) {
 			hc := directClient(t, lidarr.url(), key)
+			requireAutoTagReference(t, hc, "/api/v1", "Compat Albums", "Albums", "/metadataprofile", "name", "Albums Only")
+			requireAutoTagReference(t, hc, "/api/v1", "Compat Albums", "Favorites", "/tag", "label", "favorites")
 			requireMediaServerNotification(t, hc, "/api/v1/notification", "Compat Jellyfin", "MediaBrowser", "/jellyfin")
 			requireMetadataConsumer(t, hc, "/api/v1/metadata", "XbmcMetadata", map[string]any{"albumImages": false})
 			metadata, err := hc.GetJSON(context.Background(), "/api/v1/config/metadataprovider")
@@ -389,6 +395,25 @@ func TestReadarr(t *testing.T) {
 		cleanup: ownedGone(directClient(t, readarr.url(), key), pvrclient.Definition("v1"),
 			"qualityProfiles/Books", "metadataProfiles/English Books"),
 	})
+}
+
+// requireAutoTagReference checks that an auto tag's condition holds the ID of
+// the item listed at refPath under refField.
+func requireAutoTagReference(t *testing.T, hc interface {
+	GetJSONList(context.Context, string) ([]map[string]any, error)
+}, prefix, autoTag, condition, refPath, refField, refName string) {
+	t.Helper()
+	at := requireNamed(t, hc, prefix+"/autotagging", autoTag)
+	refs, err := hc.GetJSONList(context.Background(), prefix+refPath)
+	require.NoError(t, err)
+	i := slices.IndexFunc(refs, func(r map[string]any) bool { return r[refField] == refName })
+	require.GreaterOrEqual(t, i, 0, "no %s %q", refPath, refName)
+	specs, _ := at["specifications"].([]any)
+	j := slices.IndexFunc(specs, func(s any) bool { return s.(map[string]any)["name"] == condition })
+	require.GreaterOrEqual(t, j, 0, "%s has no condition %q", autoTag, condition)
+	fields, _ := specs[j].(map[string]any)["fields"].([]any)
+	require.NotEmpty(t, fields)
+	assert.Equal(t, refs[i]["id"], fields[0].(map[string]any)["value"])
 }
 
 // requireMetadataConsumer checks that the app's consumer of a type is on, with

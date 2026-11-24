@@ -1523,6 +1523,57 @@ func TestQualityDefinitionsUpdateInPlaceAndConverge(t *testing.T) {
 	assert.Len(t, app.writes, 1)
 }
 
+func TestAutoTagsResolveTheProfilesAndTagsTheyNameAndConverge(t *testing.T) {
+	app := &rebuildAPI{items: map[string][]map[string]any{
+		"tag":            {{"id": float64(3), "label": "anime"}, {"id": float64(5), "label": "hd"}},
+		"qualityprofile": {{"id": float64(7), "name": "HD-1080p"}},
+	}}
+	hc := app.client(t)
+	opts := Options{AutoTags: []commonv1alpha1.AutoTag{{
+		Name: "Anime HD", TagLabels: []string{"HD"},
+		Specifications: []commonv1alpha1.AutoTagSpecification{
+			{Name: "Profile", Implementation: "QualityProfileSpecification", Required: new(true), QualityProfileName: "HD-1080p"},
+			{Name: "Anime", Implementation: "TagSpecification", TagLabel: "Anime"},
+			{Name: "Years", Implementation: "YearSpecification", Fields: []commonv1alpha1.ConfigField{
+				{Name: "min", Value: fieldValue("2000")}, {Name: "max", Value: fieldValue("2030")},
+			}},
+		},
+	}}}
+
+	result, err := Reconcile(context.Background(), hc, "v3", struct{}{}, opts, engine.SyncPolicy{}, nil)
+	require.NoError(t, err)
+	require.Empty(t, result.Errors)
+	assert.Equal(t, []string{"POST autotagging"}, app.writes)
+	created := app.items["autotagging"][0]
+	assert.Equal(t, []any{float64(5)}, created["tags"])
+	specs, _ := created["specifications"].([]any)
+	require.Len(t, specs, 3)
+	assert.Equal(t, []any{map[string]any{"name": "value", "value": float64(7)}}, specs[0].(map[string]any)["fields"])
+	assert.Equal(t, []any{map[string]any{"name": "value", "value": float64(3)}}, specs[1].(map[string]any)["fields"])
+	assert.Equal(t, map[string][]string{"autoTags": {"Anime HD"}}, result.Managed)
+
+	second, err := Reconcile(context.Background(), hc, "v3", struct{}{}, opts, engine.SyncPolicy{}, result.Managed)
+	require.NoError(t, err)
+	require.Empty(t, second.Errors)
+	assert.Len(t, app.writes, 1, "second pass must not write")
+
+	opts.AutoTags[0].Specifications[0].QualityProfileName = "Ultra-HD"
+	missing, err := Reconcile(context.Background(), hc, "v3", struct{}{}, opts, engine.SyncPolicy{}, result.Managed)
+	require.NoError(t, err)
+	require.Len(t, missing.Errors, 1)
+	assert.Contains(t, missing.Errors[0], `autoTags(Anime HD): Profile: reference "Ultra-HD" does not exist`)
+
+	opts.AutoTags[0].Specifications[0] = commonv1alpha1.AutoTagSpecification{
+		Name: "Profile", Implementation: "QualityProfileSpecification", QualityProfileName: "HD-1080p",
+		Fields: []commonv1alpha1.ConfigField{{Name: "value", Value: fieldValue("7")}},
+	}
+	both, err := Reconcile(context.Background(), hc, "v3", struct{}{}, opts, engine.SyncPolicy{}, result.Managed)
+	require.NoError(t, err)
+	require.Len(t, both.Errors, 1)
+	assert.Contains(t, both.Errors[0], "autoTags(Anime HD): Profile: qualityProfileName fills in value, so leave that field out")
+	assert.Len(t, app.writes, 1)
+}
+
 func TestMetadataConsumersUpdateInPlaceAndConverge(t *testing.T) {
 	app := &rebuildAPI{items: map[string][]map[string]any{
 		"metadata": {

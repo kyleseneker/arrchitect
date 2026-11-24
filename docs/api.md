@@ -99,6 +99,51 @@ _Appears in:_
 | `name` _string_ | name is the resource's name. |  | MaxLength: 253 <br />MinLength: 1 <br />Pattern: `^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$` <br />Required: \{\} <br /> |
 
 
+#### AutoTag
+
+
+
+AutoTag tags the series, movies or artists that match its conditions.
+
+
+
+_Appears in:_
+- [LidarrSpec](#lidarrspec)
+- [RadarrSpec](#radarrspec)
+- [SonarrSpec](#sonarrspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `name` _string_ | name is the auto tag's name. |  | MinLength: 1 <br />Required: \{\} <br /> |
+| `removeTagsAutomatically` _boolean_ | removeTagsAutomatically takes the tags off an item that stops matching. |  | Optional: \{\} <br /> |
+| `tagLabels` _string array_ | tagLabels are the tags the auto tag applies, by label, resolved against<br />the app on each reconciliation. |  | MinItems: 1 <br />items:MinLength: 1 <br />Required: \{\} <br /> |
+| `specifications` _[AutoTagSpecification](#autotagspecification) array_ | specifications are the conditions an item must match: every required one<br />and at least one of the others. Conditions left out are removed. |  | MinItems: 1 <br />Required: \{\} <br /> |
+
+
+#### AutoTagSpecification
+
+
+
+AutoTagSpecification is one condition of an auto tag. A condition on a
+quality profile, metadata profile or tag names it rather than giving its id.
+
+
+
+_Appears in:_
+- [AutoTag](#autotag)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `name` _string_ | name is the condition's name. |  | MinLength: 1 <br />Required: \{\} <br /> |
+| `implementation` _string_ | implementation is the condition type: GenreSpecification,<br />MonitoredSpecification, QualityProfileSpecification,<br />RootFolderSpecification, StatusSpecification or TagSpecification;<br />OriginalLanguageSpecification and YearSpecification in Sonarr and Radarr;<br />SeriesTypeSpecification in Sonarr; KeywordSpecification,<br />RuntimeSpecification and StudioSpecification in Radarr;<br />MetadataProfileSpecification in Lidarr. |  | MaxLength: 64 <br />MinLength: 1 <br />Required: \{\} <br /> |
+| `negate` _boolean_ | negate inverts the condition. |  | Optional: \{\} <br /> |
+| `required` _boolean_ | required makes the condition one every match must meet. |  | Optional: \{\} <br /> |
+| `qualityProfileName` _string_ | qualityProfileName names the quality profile a<br />QualityProfileSpecification matches, in place of its value field. |  | MinLength: 1 <br />Optional: \{\} <br /> |
+| `metadataProfileName` _string_ | metadataProfileName names the metadata profile a Lidarr<br />MetadataProfileSpecification matches, in place of its value field. |  | MinLength: 1 <br />Optional: \{\} <br /> |
+| `tagLabel` _string_ | tagLabel names the tag a TagSpecification matches, in place of its value<br />field. |  | MinLength: 1 <br />Optional: \{\} <br /> |
+| `fields` _[ConfigField](#configfield) array_ | fields sets the condition's other values, such as a genre list in value,<br />a root folder path in value, or min and max for a year. |  | MaxProperties: 2 <br />Optional: \{\} <br /> |
+
+
 #### Autobrr
 
 
@@ -808,6 +853,7 @@ _Validation:_
 - MaxProperties: 2
 
 _Appears in:_
+- [AutoTagSpecification](#autotagspecification)
 - [AutobrrIndexer](#autobrrindexer)
 - [AutobrrNotification](#autobrrnotification)
 - [BazarrProvider](#bazarrprovider)
@@ -1748,6 +1794,7 @@ _Appears in:_
 | `customFormats` _[CustomFormat](#customformat) array_ | customFormats defines custom format scoring rules for release selection. |  | Optional: \{\} <br /> |
 | `qualityDefinitions` _[QualityDefinition](#qualitydefinition) array_ | qualityDefinitions sets the size limits of the app's qualities. The app<br />has a fixed set of qualities, so none is created or pruned, and qualities<br />left out keep their limits. |  | Optional: \{\} <br /> |
 | `metadataConsumers` _[MetadataConsumer](#metadataconsumer) array_ | metadataConsumers configures the app's metadata writers, which it keeps<br />one of per type: none is created or pruned, and consumers left out keep<br />their settings. |  | Optional: \{\} <br /> |
+| `autoTags` _[AutoTag](#autotag) array_ | autoTags tags the app's items that match each auto tag's conditions. |  | Optional: \{\} <br /> |
 | `delayProfiles` _[DelayProfile](#delayprofile) array_ | delayProfiles defines delay profiles. The app checks tagged profiles in<br />the order listed, and the default profile, the one without tags, last.<br />Only operator-created profiles can be pruned, so the default never is. |  | MaxItems: 50 <br />Optional: \{\} <br /> |
 | `metadataProfiles` _[LidarrMetadataProfile](#lidarrmetadataprofile) array_ | metadataProfiles defines metadata profiles, matched by name: which album<br />types and release statuses Lidarr considers for an artist. Root folders<br />and import lists can name a profile declared here. |  | Optional: \{\} <br /> |
 | `tags` _[Tag](#tag) array_ | tags defines tags for linking resources together. |  | Optional: \{\} <br /> |
@@ -3312,6 +3359,7 @@ _Appears in:_
 | `customFormats` _[CustomFormat](#customformat) array_ | customFormats defines custom format scoring rules for release selection. |  | Optional: \{\} <br /> |
 | `qualityDefinitions` _[QualityDefinition](#qualitydefinition) array_ | qualityDefinitions sets the size limits of the app's qualities. The app<br />has a fixed set of qualities, so none is created or pruned, and qualities<br />left out keep their limits. |  | Optional: \{\} <br /> |
 | `metadataConsumers` _[MetadataConsumer](#metadataconsumer) array_ | metadataConsumers configures the app's metadata writers, which it keeps<br />one of per type: none is created or pruned, and consumers left out keep<br />their settings. |  | Optional: \{\} <br /> |
+| `autoTags` _[AutoTag](#autotag) array_ | autoTags tags the app's items that match each auto tag's conditions. |  | Optional: \{\} <br /> |
 | `delayProfiles` _[DelayProfile](#delayprofile) array_ | delayProfiles defines delay profiles. The app checks tagged profiles in<br />the order listed, and the default profile, the one without tags, last.<br />Only operator-created profiles can be pruned, so the default never is. |  | MaxItems: 50 <br />Optional: \{\} <br /> |
 | `releaseProfiles` _[ReleaseProfile](#releaseprofile) array_ | releaseProfiles defines release profiles: terms a release must or must not<br />contain, matched by name. |  | Optional: \{\} <br /> |
 | `tags` _[Tag](#tag) array_ | tags defines tags for linking resources together. |  | Optional: \{\} <br /> |
@@ -4719,6 +4767,7 @@ _Appears in:_
 | `customFormats` _[CustomFormat](#customformat) array_ | customFormats defines custom format scoring rules for release selection. |  | Optional: \{\} <br /> |
 | `qualityDefinitions` _[QualityDefinition](#qualitydefinition) array_ | qualityDefinitions sets the size limits of the app's qualities. The app<br />has a fixed set of qualities, so none is created or pruned, and qualities<br />left out keep their limits. |  | Optional: \{\} <br /> |
 | `metadataConsumers` _[MetadataConsumer](#metadataconsumer) array_ | metadataConsumers configures the app's metadata writers, which it keeps<br />one of per type: none is created or pruned, and consumers left out keep<br />their settings. |  | Optional: \{\} <br /> |
+| `autoTags` _[AutoTag](#autotag) array_ | autoTags tags the app's items that match each auto tag's conditions. |  | Optional: \{\} <br /> |
 | `delayProfiles` _[DelayProfile](#delayprofile) array_ | delayProfiles defines delay profiles. The app checks tagged profiles in<br />the order listed, and the default profile, the one without tags, last.<br />Only operator-created profiles can be pruned, so the default never is. |  | MaxItems: 50 <br />Optional: \{\} <br /> |
 | `releaseProfiles` _[ReleaseProfile](#releaseprofile) array_ | releaseProfiles defines release profiles: terms a release must or must not<br />contain, matched by name. |  | Optional: \{\} <br /> |
 | `tags` _[Tag](#tag) array_ | tags defines tags for linking resources together. |  | Optional: \{\} <br /> |
