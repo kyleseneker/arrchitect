@@ -148,6 +148,35 @@ func (c *Client) GetLanguageProfiles(ctx context.Context) ([]map[string]any, err
 	return c.hc.GetJSONList(ctx, "/api/system/languages/profiles")
 }
 
+// JellyfinLibrary is a movie or TV library Bazarr finds on a Jellyfin server.
+type JellyfinLibrary struct {
+	ID   string
+	Name string
+	// Type is movies or tvshows.
+	Type string
+}
+
+// JellyfinLibraries lists the movie and TV libraries Bazarr finds on the
+// Jellyfin at jellyfinURL. Bazarr answers an unreachable or refusing server
+// with no libraries rather than an error.
+func (c *Client) JellyfinLibraries(ctx context.Context, jellyfinURL, apiKey string) ([]JellyfinLibrary, error) {
+	query := url.Values{"url": {jellyfinURL}, "apikey": {apiKey}}
+	body, err := c.hc.GetJSON(ctx, "/api/jellyfin/libraries?"+query.Encode())
+	if err != nil {
+		return nil, err
+	}
+	items, _ := body["data"].([]any)
+	libraries := make([]JellyfinLibrary, 0, len(items))
+	for _, item := range items {
+		lib, _ := item.(map[string]any)
+		id, _ := lib["id"].(string)
+		name, _ := lib["name"].(string)
+		kind, _ := lib["type"].(string)
+		libraries = append(libraries, JellyfinLibrary{ID: id, Name: name, Type: kind})
+	}
+	return libraries, nil
+}
+
 // PostForm posts a raw form to the given path.
 func (c *Client) PostForm(ctx context.Context, path string, form url.Values) error {
 	_, err := c.hc.DoForm(ctx, path, form)

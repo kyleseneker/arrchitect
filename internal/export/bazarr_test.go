@@ -19,11 +19,15 @@ const fakeBazarrSettings = `{
 		"path_mappings": [["/tv", "/media/tv"]], "path_mappings_movie": [], "chmod": "0640",
 		"serie_default_enabled": true, "serie_default_profile": 2, "movie_default_enabled": false, "movie_default_profile": 1,
 		"adaptive_searching_delay": "2w", "adaptive_searching_delta": "3d", "days_to_upgrade_subs": 14,
-		"serie_tag_enabled": true, "remove_profile_tags": ["no-subs"], "wanted_search_frequency_movie": 24},
+		"serie_tag_enabled": true, "remove_profile_tags": ["no-subs"], "wanted_search_frequency_movie": 24,
+		"use_jellyfin": true},
 	"sonarr": {"ip": "sonarr", "port": 8989, "base_url": "/", "apikey": "sonarr-key", "series_sync": 60, "ssl": false,
 		"excluded_tags": ["no-subs"], "excluded_series_types": []},
 	"radarr": {"ip": "radarr", "apikey": "radarr-key"},
 	"subsync": {"use_subsync": true, "subsync_threshold": 90},
+	"jellyfin": {"url": "http://jellyfin:8096", "apikey": "jf-key", "movie_library": ["Movies"], "movie_library_ids": ["m1"],
+		"series_library": ["TV Shows"], "series_library_ids": ["t1"], "update_movie_library": true,
+		"update_series_library": false, "refresh_method": "immediate"},
 	"opensubtitlescom": {"username": "me", "password": "hunter2", "use_hash": true, "vip": false, "extra": {"nested": 1}},
 	"notifications": {"providers": [{"name": "Discord", "enabled": true, "url": "discord://id/token"},
 		{"name": "Telegram", "enabled": false, "url": null}]}
@@ -112,6 +116,18 @@ func TestBazarrProviderSecretsMoveToTheSecret(t *testing.T) {
 	assert.Equal(t, "hunter2", res.Secret.StringData["provider-opensubtitlescom-password"])
 	assert.Contains(t, res.Warnings, `provider "opensubtitlescom": the config's provider settings hold text, so extra stays as set in Bazarr`)
 	assert.Empty(t, cfg.Spec.Providers[1].Settings)
+}
+
+func TestBazarrExportsJellyfinWithTheLibrariesItRefreshes(t *testing.T) {
+	cfg, res := exportBazarrFrom(t)
+	require.NotNil(t, cfg.Spec.Jellyfin)
+	assert.Equal(t, subtitlesv1alpha1.BazarrJellyfin{
+		URL:             "http://jellyfin:8096",
+		APIKeySecretRef: &commonv1alpha1.SecretKeyRef{Name: "bazarr-credentials", Key: "jellyfin-api-key"},
+		MovieLibraries:  []string{"Movies"},
+		RefreshMethod:   "immediate",
+	}, *cfg.Spec.Jellyfin, "series libraries Bazarr doesn't refresh are left out")
+	assert.Equal(t, "jf-key", res.Secret.StringData["jellyfin-api-key"])
 }
 
 func TestBazarrExportsProfileCutoffFiltersAndTag(t *testing.T) {

@@ -50,6 +50,23 @@ func TestPostForm(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestJellyfinLibrariesAsksBazarrWithTheGivenServer(t *testing.T) {
+	c := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/jellyfin/libraries", r.URL.Path)
+		assert.Equal(t, "http://jellyfin:8096", r.URL.Query().Get("url"))
+		assert.Equal(t, "jf-key", r.URL.Query().Get("apikey"))
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"data":[{"id":"a1","name":"Movies","type":"movies"},{"id":"b2","name":"TV Shows","type":"tvshows"}]}`))
+	})
+
+	libraries, err := c.JellyfinLibraries(context.Background(), "http://jellyfin:8096", "jf-key")
+	require.NoError(t, err)
+	assert.Equal(t, []JellyfinLibrary{
+		{ID: "a1", Name: "Movies", Type: "movies"},
+		{ID: "b2", Name: "TV Shows", Type: "tvshows"},
+	}, libraries)
+}
+
 func TestLanguagesForm(t *testing.T) {
 	form, err := LanguagesForm(&subtitlesv1alpha1.BazarrLanguages{
 		Enabled:  []string{"en", "es"},

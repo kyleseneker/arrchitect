@@ -80,6 +80,15 @@ spec:
     syncInterval: 60
     excludedTags:
       - nosubs
+  jellyfin:
+    appRef:
+      kind: Jellyfin
+      name: jellyfin
+    movieLibraries:
+      - Movies
+    seriesLibraries:
+      - Shows
+    refreshMethod: async
   subSync:
     useSubsync: true
     useSubsyncThreshold: true
@@ -131,3 +140,21 @@ spec:
     apiKeySecretRef:
       name: compat-credentials
       key: sonarr-api-key
+---
+apiVersion: arrchitect.dev/v1alpha1
+kind: Jellyfin
+metadata:
+  name: jellyfin
+spec:
+  connection:
+    url: ${FAKES}/jellyfin
+    apiKeySecretRef:
+      name: compat-credentials
+      key: jellyfin-api-key
+  adminUser:
+    usernameSecretRef:
+      name: compat-credentials
+      key: jellyfin-username
+    passwordSecretRef:
+      name: compat-credentials
+      key: jellyfin-password

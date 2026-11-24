@@ -26,6 +26,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
+	mediaserversv1alpha1 "github.com/kyleseneker/arrchitect/api/mediaservers/v1alpha1"
 	pvrv1alpha1 "github.com/kyleseneker/arrchitect/api/pvr/v1alpha1"
 	subtitlesv1alpha1 "github.com/kyleseneker/arrchitect/api/subtitles/v1alpha1"
 	bazarrclient "github.com/kyleseneker/arrchitect/internal/client/bazarr"
@@ -43,6 +44,10 @@ type fakeBazarr struct {
 	profiles []map[string]any
 	// settings is what Bazarr reports as its settings, by section.
 	settings map[string]any
+	// jellyfinLibraries is what Bazarr lists from Jellyfin, and libraryQueries
+	// the queries it was asked with.
+	jellyfinLibraries []map[string]any
+	libraryQueries    []url.Values
 }
 
 // formValue returns the first value posted for key across all requests.
@@ -129,6 +134,14 @@ func (f *fakeBazarr) serve(t *testing.T) string {
 			_ = json.NewEncoder(w).Encode([]map[string]any{{"code2": "en", "enabled": false}})
 			return
 		}
+		if r.URL.Path == "/api/jellyfin/libraries" {
+			f.mu.Lock()
+			f.libraryQueries = append(f.libraryQueries, r.URL.Query())
+			libraries := f.jellyfinLibraries
+			f.mu.Unlock()
+			_ = json.NewEncoder(w).Encode(map[string]any{"data": libraries})
+			return
+		}
 		_ = json.NewEncoder(w).Encode(map[string]any{"status": "ok"})
 	}))
 	_ = srv.Listener.Close()
@@ -166,6 +179,7 @@ func runBazarr(t *testing.T, cfg *subtitlesv1alpha1.Bazarr, objs ...client.Objec
 	require.NoError(t, clientgoscheme.AddToScheme(scheme), "adding client-go scheme")
 	require.NoError(t, subtitlesv1alpha1.AddToScheme(scheme), "adding subtitles scheme")
 	require.NoError(t, pvrv1alpha1.AddToScheme(scheme), "adding pvr scheme")
+	require.NoError(t, mediaserversv1alpha1.AddToScheme(scheme), "adding mediaservers scheme")
 	b := fake.NewClientBuilder().WithScheme(scheme).
 		WithStatusSubresource(&subtitlesv1alpha1.Bazarr{}).WithObjects(cfg)
 	for _, o := range objs {
@@ -416,6 +430,124 @@ func TestBazarrMissingAppRefSkipsOnlyThatConnection(t *testing.T) {
 	synced := meta.FindStatusCondition(got.Status.Conditions, "Synced")
 	require.NotNil(t, synced)
 	assert.Contains(t, synced.Message, `sonarrConnection: appRef: Sonarr "sonarr" not found`)
+}
+
+func jellyfinForBazarr(apiKey *commonv1alpha1.SecretKeyRef) *mediaserversv1alpha1.Jellyfin {
+	return &mediaserversv1alpha1.Jellyfin{Name: "jellyfin", Namespace: "media", Spec: mediaserversv1alpha1.JellyfinSpec{
+		Connection: mediaserversv1alpha1.JellyfinConnection{URL: "http://jellyfin.media.svc:8096/", APIKeySecretRef: apiKey},
+	}}
+}
+
+func bazarrJellyfinLibraries() []map[string]any {
+	return []map[string]any{
+		{"id": "m1", "name": "Movies", "type": "movies"},
+		{"id": "t1", "name": "TV Shows", "type": "tvshows"},
+		{"id": "t2", "name": "Anime", "type": "tvshows"},
+	}
+}
+
+func bazarrSynced(t *testing.T, c client.Client) string {
+	t.Helper()
+	var got subtitlesv1alpha1.Bazarr
+	require.NoError(t, c.Get(context.Background(), types.NamespacedName{Name: "bazarr", Namespace: "media"}, &got))
+	synced := meta.FindStatusCondition(got.Status.Conditions, "Synced")
+	require.NotNil(t, synced)
+	return synced.Message
+}
+
+func TestBazarrJellyfinByReferenceSendsItsAddressKeyAndLibraryIDs(t *testing.T) {
+	app := &fakeBazarr{jellyfinLibraries: bazarrJellyfinLibraries()}
+	cfg := bazarrConfig(app.serve(t))
+	cfg.Spec.Jellyfin = &subtitlesv1alpha1.BazarrJellyfin{
+		AppRef:          &commonv1alpha1.AppRef{Kind: "Jellyfin", Name: "jellyfin"},
+		MovieLibraries:  []string{"Movies"},
+		SeriesLibraries: []string{"TV Shows", "Anime"},
+		RefreshMethod:   "async",
+	}
+	secrets := bazarrSecrets()
+	secrets.Data["jellyfin-api-key"] = []byte("jf-key")
+
+	runBazarr(t, cfg, secrets, jellyfinForBazarr(&commonv1alpha1.SecretKeyRef{Name: "bazarr-secrets", Key: "jellyfin-api-key"}))
+
+	for key, want := range map[string]string{
+		"settings-general-use_jellyfin":           "true",
+		"settings-jellyfin-url":                   "http://jellyfin.media.svc:8096",
+		"settings-jellyfin-apikey":                "jf-key",
+		"settings-jellyfin-refresh_method":        "async",
+		"settings-jellyfin-movie_library":         "Movies",
+		"settings-jellyfin-movie_library_ids":     "m1",
+		"settings-jellyfin-update_movie_library":  "true",
+		"settings-jellyfin-update_series_library": "true",
+	} {
+		got, ok := app.formValue(key)
+		require.True(t, ok, "%s was never sent", key)
+		assert.Equal(t, want, got, key)
+	}
+	app.mu.Lock()
+	defer app.mu.Unlock()
+	require.Len(t, app.forms, 1)
+	assert.Equal(t, []string{"TV Shows", "Anime"}, app.forms[0]["settings-jellyfin-series_library"])
+	assert.Equal(t, []string{"t1", "t2"}, app.forms[0]["settings-jellyfin-series_library_ids"])
+	require.Len(t, app.libraryQueries, 1, "Bazarr was asked for Jellyfin's libraries more than once")
+	assert.Equal(t, "http://jellyfin.media.svc:8096", app.libraryQueries[0].Get("url"))
+	assert.Equal(t, "jf-key", app.libraryQueries[0].Get("apikey"))
+}
+
+func TestBazarrJellyfinLibraryItCantFindKeepsOnlyThatKindsSettings(t *testing.T) {
+	app := &fakeBazarr{jellyfinLibraries: bazarrJellyfinLibraries()}
+	cfg := bazarrConfig(app.serve(t))
+	cfg.Spec.Jellyfin = &subtitlesv1alpha1.BazarrJellyfin{
+		URL:             "http://jellyfin:8096",
+		APIKeySecretRef: &commonv1alpha1.SecretKeyRef{Name: "bazarr-secrets", Key: "sonarr-api-key"},
+		MovieLibraries:  []string{"TV Shows"},
+		SeriesLibraries: []string{"Anime"},
+	}
+
+	c := runBazarr(t, cfg, bazarrSecrets())
+
+	assert.False(t, app.anyKeyContains("movie_library"), "a movie library Bazarr can't find was sent")
+	ids, ok := app.formValue("settings-jellyfin-series_library_ids")
+	require.True(t, ok, "the series libraries were held back too")
+	assert.Equal(t, "t2", ids)
+	addr, ok := app.formValue("settings-jellyfin-url")
+	require.True(t, ok, "the connection was held back too")
+	assert.Equal(t, "http://jellyfin:8096", addr)
+	assert.Contains(t, bazarrSynced(t, c),
+		`jellyfin: movieLibraries: no Jellyfin movie library named "TV Shows"; Bazarr finds ["Movies"]`)
+}
+
+func TestBazarrJellyfinWithoutLibrariesFromBazarrSendsOnlyTheConnection(t *testing.T) {
+	app := &fakeBazarr{}
+	cfg := bazarrConfig(app.serve(t))
+	cfg.Spec.Jellyfin = &subtitlesv1alpha1.BazarrJellyfin{
+		URL:             "http://jellyfin:8096",
+		APIKeySecretRef: &commonv1alpha1.SecretKeyRef{Name: "bazarr-secrets", Key: "sonarr-api-key"},
+		MovieLibraries:  []string{"Movies"},
+	}
+
+	c := runBazarr(t, cfg, bazarrSecrets())
+
+	assert.False(t, app.anyKeyContains("_library"), "libraries were sent without their ids")
+	_, ok := app.formValue("settings-general-use_jellyfin")
+	assert.True(t, ok, "the integration was never turned on")
+	assert.Contains(t, bazarrSynced(t, c), "jellyfin: movieLibraries: no Jellyfin libraries came back from Bazarr")
+}
+
+func TestBazarrJellyfinWithoutAnAPIKeyIsReportedAndNotSent(t *testing.T) {
+	app := &fakeBazarr{jellyfinLibraries: bazarrJellyfinLibraries()}
+	cfg := bazarrConfig(app.serve(t))
+	cfg.Spec.Jellyfin = &subtitlesv1alpha1.BazarrJellyfin{
+		AppRef:         &commonv1alpha1.AppRef{Kind: "Jellyfin", Name: "jellyfin"},
+		MovieLibraries: []string{"Movies"},
+	}
+	cfg.Spec.Languages = &subtitlesv1alpha1.BazarrLanguages{Enabled: []string{"en"}}
+
+	c := runBazarr(t, cfg, bazarrSecrets(), jellyfinForBazarr(nil))
+
+	assert.False(t, app.anyKeyContains("jellyfin"), "Jellyfin settings were sent without a key")
+	_, sent := app.formValue("languages-enabled")
+	assert.True(t, sent, "the rest of Bazarr was held back too")
+	assert.Contains(t, bazarrSynced(t, c), `jellyfin: appRef: Jellyfin "jellyfin" sets no API key Secret`)
 }
 
 func bazarrNotificationSettings() map[string]any {

@@ -75,6 +75,13 @@ func startFakes(t *testing.T) string {
 	mux.HandleFunc("/jellyfin/Notifications/Admin", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
 	})
+	// Jellyfin's libraries, as Bazarr lists them to find the ones to refresh.
+	mux.HandleFunc("/jellyfin/Library/VirtualFolders", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`[{"Name":"Movies","CollectionType":"movies","ItemId":"compat-movies"},` +
+			`{"Name":"Shows","CollectionType":"tvshows","ItemId":"compat-shows"},` +
+			`{"Name":"Music","CollectionType":"music","ItemId":"compat-music"}]`))
+	})
 	mux.HandleFunc("/plex/identity", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"MediaContainer":{"machineIdentifier":"compat","version":"1.41.0"}}`))

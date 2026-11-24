@@ -106,6 +106,7 @@ spec:
 | Seerr `jellyfinAuth` | Jellyfin | the address and the admin user |
 | Seerr `plexAuth` | Plex | the address and the token |
 | Bazarr `sonarrConnection`, `radarrConnection` | Sonarr, Radarr | `host`, `port`, `ssl`, `basePath`, `apiKeySecretRef` |
+| Bazarr `jellyfin` | Jellyfin | `url`, `apiKeySecretRef`; the Jellyfin resource must set `connection.apiKeySecretRef` |
 | Maintainerr `sonarr`, `radarr` | Sonarr in `sonarr`, Radarr in `radarr` | `url`, `apiKeySecretRef` |
 | Maintainerr `seerr` | Seerr | `url`, `apiKeySecretRef` |
 | Maintainerr `mediaServer.plex` | Plex | `hostname`, `port`, `ssl`, `tokenSecretRef` |

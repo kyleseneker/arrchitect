@@ -47,6 +47,11 @@ func exportBazarr(r *reader) (map[string]any, error) {
 		conn["apiKeySecretRef"] = r.creds.ref(key, c.section, "api-key")
 		spec[c.key] = conn
 	}
+	if use, _ := general["use_jellyfin"].(bool); use {
+		if jellyfin := r.bazarrJellyfin(section("jellyfin")); jellyfin != nil {
+			spec["jellyfin"] = jellyfin
+		}
+	}
 
 	var providers []any
 	for _, name := range texts(general["enabled_providers"]) {
@@ -100,6 +105,37 @@ func exportBazarr(r *reader) (map[string]any, error) {
 		spec["notifications"] = enabledProviders
 	}
 	return spec, nil
+}
+
+// bazarrJellyfin exports Bazarr's Jellyfin integration with the libraries it
+// refreshes items in. The config names libraries only for a kind Bazarr
+// refreshes.
+func (r *reader) bazarrJellyfin(values map[string]any) map[string]any {
+	u, _ := values["url"].(string)
+	if u == "" {
+		r.warn("jellyfin: Bazarr's Jellyfin integration is on without a URL, so it is left out")
+		return nil
+	}
+	key, _ := values["apikey"].(string)
+	if reconciler.IsMasked(key) {
+		key = ""
+	}
+	out := map[string]any{"url": u, "apiKeySecretRef": r.creds.ref(key, "jellyfin", "api-key")}
+	for _, k := range []struct{ field, kind string }{{"movieLibraries", "movie"}, {"seriesLibraries", "series"}} {
+		if on, _ := values["update_"+k.kind+"_library"].(bool); !on {
+			continue
+		}
+		names := texts(values[k.kind+"_library"])
+		if len(names) == 0 {
+			r.warn("jellyfin: Bazarr refreshes %s items without naming a library, so %s is left out", k.kind, k.field)
+			continue
+		}
+		out[k.field] = names
+	}
+	if method, _ := values["refresh_method"].(string); method != "" {
+		out["refreshMethod"] = method
+	}
+	return out
 }
 
 // bazarrDefaultProfiles are settings Bazarr stores as a profile id and the
