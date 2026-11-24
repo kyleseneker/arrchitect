@@ -76,3 +76,10 @@ jobs:
           digest=$(echo "$pushed" | awk '/^Digest:/ {print $2}')
           test -n "$digest"
           cosign sign --yes "ghcr.io/kyleseneker/charts/arrchitect@${digest}"
+      - uses: oras-project/setup-oras@ac735097e22fe643015b0d19645f7c9a69942128 # v2.0.4
+      - name: Push Artifact Hub repository metadata
+        working-directory: chart
+        run: |
+          oras push ghcr.io/kyleseneker/charts/arrchitect:artifacthub.io \
+            --config /dev/null:application/vnd.cncf.artifacthub.config.v1+yaml \
+            artifacthub-repo.yml:application/vnd.cncf.artifacthub.repository-metadata.layer.v1.yaml
