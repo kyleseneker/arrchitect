@@ -40,7 +40,7 @@ body:
       description: >
         The version of the app itself, not the operator. These APIs change between
         releases without much warning, so this is usually the first thing to check.
-      placeholder: "Sonarr 4.0.10.2544"
+      placeholder: "Sonarr 4.0.20"
     validations:
       required: true
 
@@ -49,9 +49,15 @@ body:
     attributes:
       label: Operator version
       description: Chart version, image tag, or commit.
-      placeholder: "v0.12.0"
+      placeholder: "0.7.0"
     validations:
       required: true
+
+  - type: input
+    id: kubernetes-version
+    attributes:
+      label: Kubernetes version
+      placeholder: "1.36"
 
   - type: textarea
     id: what-happened
