@@ -85,6 +85,7 @@ func withApp(opts pvrclient.Options, app pvrclient.App) pvrclient.Options {
 	opts.ImportListFields = app.ImportListFields
 	opts.MetadataProfiles = app.MetadataProfiles
 	opts.Choices = app.Choices
+	opts.Sections = app.Sections
 	return opts
 }
 

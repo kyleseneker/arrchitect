@@ -54,6 +54,22 @@ func TestDefinition(t *testing.T) {
 	}
 }
 
+func TestDefinitionAddsTheAppsOwnSections(t *testing.T) {
+	paths := func(app App) map[string]string {
+		out := map[string]string{}
+		for _, s := range Definition(app.APIVersion, app.Sections...).Settings {
+			out[s.Name] = s.Path
+		}
+		return out
+	}
+	assert.Len(t, paths(Sonarr), 5)
+	assert.Len(t, paths(Radarr), 5)
+	assert.Equal(t, "/api/v1/config/metadataprovider", paths(Lidarr)["metadataProvider"])
+	assert.NotContains(t, paths(Lidarr), "development", "Lidarr has no development section")
+	assert.Equal(t, "/api/v1/config/metadataprovider", paths(Readarr)["metadataProvider"])
+	assert.Equal(t, "/api/v1/config/development", paths(Readarr)["development"])
+}
+
 func TestDefinition_ResourceOrder(t *testing.T) {
 	def := Definition("v3")
 	names := make([]string, len(def.Resources))
@@ -138,6 +154,16 @@ func TestSectionsNumberSonarrNamingChoices(t *testing.T) {
 
 	_, err = Sections(pvrv1alpha1.SonarrSpec{Naming: &pvrv1alpha1.SonarrNaming{ColonReplacementFormat: "underscore"}}, Sonarr.Choices)
 	assert.ErrorContains(t, err, `naming.colonReplacementFormat: unknown value "underscore"`)
+}
+
+func TestSectionsCarryReadarrsMetadataAndDevelopment(t *testing.T) {
+	sections, err := Sections(pvrv1alpha1.ReadarrSpec{
+		MetadataProvider: &pvrv1alpha1.ReadarrMetadataProvider{WriteBookTags: "sync", UpdateCovers: new(true)},
+		Development:      pvrv1alpha1.ReadarrDevelopment{MetadataSource: "https://api.bookinfo.pro"},
+	}, Readarr.Choices)
+	require.NoError(t, err)
+	assert.Equal(t, map[string]any{"writeBookTags": "sync", "updateCovers": true}, sections["metadataProvider"])
+	assert.Equal(t, map[string]any{"metadataSource": "https://api.bookinfo.pro"}, sections["development"])
 }
 
 func TestSectionsNumberLidarrAndReadarrColonReplacement(t *testing.T) {

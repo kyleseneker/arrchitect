@@ -1679,6 +1679,25 @@ _Appears in:_
 | `releaseStatuses` _string array_ | releaseStatuses are the release statuses to allow, such as Official. |  | items:MinLength: 1 <br />Optional: \{\} <br /> |
 
 
+#### LidarrMetadataProvider
+
+
+
+LidarrMetadataProvider configures Lidarr's metadata settings.
+
+
+
+_Appears in:_
+- [LidarrSpec](#lidarrspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `metadataSource` _string_ | metadataSource is the URL of a metadata server Lidarr uses in place of<br />its own. Lidarr's UI doesn't show this setting. |  | MinLength: 1 <br />Pattern: `^https?://` <br />Optional: \{\} <br /> |
+| `writeAudioTags` _string_ | writeAudioTags is when Lidarr tags audio files with metadata: no, newFiles<br />for new downloads only, allFiles when files are first imported (altering<br />existing files), or sync to keep every file in sync with MusicBrainz. |  | Enum: [no newFiles allFiles sync] <br />Optional: \{\} <br /> |
+| `scrubAudioTags` _boolean_ | scrubAudioTags removes existing tags from files, leaving only those<br />Lidarr adds. |  | Optional: \{\} <br /> |
+| `embedCoverArt` _boolean_ | embedCoverArt embeds album art into audio files when Lidarr writes tags. |  | Optional: \{\} <br /> |
+
+
 #### LidarrNaming
 
 
@@ -1721,6 +1740,7 @@ _Appears in:_
 | `indexerConfig` _[LidarrIndexerConfig](#lidarrindexerconfig)_ | indexerConfig configures global indexer settings. |  | Optional: \{\} <br /> |
 | `downloadClientConfig` _[LidarrDownloadClientConfig](#lidarrdownloadclientconfig)_ | downloadClientConfig configures global download client behavior. |  | Optional: \{\} <br /> |
 | `ui` _[LidarrUI](#lidarrui)_ | ui configures UI display settings. |  | Optional: \{\} <br /> |
+| `metadataProvider` _[LidarrMetadataProvider](#lidarrmetadataprovider)_ | metadataProvider configures the tags Lidarr writes into audio files and<br />the metadata server it uses. |  | Optional: \{\} <br /> |
 | `rootFolders` _[RootFolder](#rootfolder) array_ | rootFolders defines music library root folder paths. |  | Optional: \{\} <br /> |
 | `remotePathMappings` _[RemotePathMapping](#remotepathmapping) array_ | remotePathMappings translates paths reported by remote download clients.<br />Entries are matched by host and remotePath. Only operator-created entries can be pruned. |  | Optional: \{\} <br /> |
 | `qualityProfiles` _[QualityProfile](#qualityprofile) array_ | qualityProfiles defines quality profiles for controlling download quality preferences. |  | Optional: \{\} <br /> |
@@ -3303,6 +3323,23 @@ Readarr configures a Readarr instance the operator connects to.
 | `status` _[ReadarrStatus](#readarrstatus)_ | status is the observed state of the Readarr. |  | MinProperties: 1 <br />Optional: \{\} <br /> |
 
 
+#### ReadarrDevelopment
+
+
+
+ReadarrDevelopment configures the settings on Readarr's hidden development
+page.
+
+
+
+_Appears in:_
+- [ReadarrSpec](#readarrspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `metadataSource` _string_ | metadataSource is the URL of a metadata server Readarr uses in place of<br />its own, such as a replacement for the retired official one. |  | MinLength: 1 <br />Pattern: `^https?://` <br />Required: \{\} <br /> |
+
+
 #### ReadarrDownloadClient
 
 
@@ -3544,6 +3581,26 @@ _Appears in:_
 | `ignored` _string array_ | ignored are terms that skip a book whose title contains one. |  | items:MinLength: 1 <br />Optional: \{\} <br /> |
 
 
+#### ReadarrMetadataProvider
+
+
+
+ReadarrMetadataProvider configures Readarr's metadata settings.
+
+
+
+_Appears in:_
+- [ReadarrSpec](#readarrspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `writeBookTags` _string_ | writeBookTags is when Readarr sends metadata to Calibre: newFiles for new<br />downloads only, allFiles when files are first imported (altering existing<br />files), or sync to keep every file in sync. |  | Enum: [newFiles allFiles sync] <br />Optional: \{\} <br /> |
+| `updateCovers` _boolean_ | updateCovers sets book covers in Calibre to match Readarr's. |  | Optional: \{\} <br /> |
+| `embedMetadata` _boolean_ | embedMetadata has Calibre write metadata into the book files themselves. |  | Optional: \{\} <br /> |
+| `writeAudioTags` _string_ | writeAudioTags is when Readarr tags audiobook files with metadata: no,<br />newFiles for new downloads only, allFiles when files are first imported<br />(altering existing files), or sync to keep every file in sync. |  | Enum: [no newFiles allFiles sync] <br />Optional: \{\} <br /> |
+| `scrubAudioTags` _boolean_ | scrubAudioTags removes existing tags from audiobook files, leaving only<br />those Readarr adds. |  | Optional: \{\} <br /> |
+
+
 #### ReadarrNaming
 
 
@@ -3585,6 +3642,8 @@ _Appears in:_
 | `indexerConfig` _[ReadarrIndexerConfig](#readarrindexerconfig)_ | indexerConfig configures global indexer settings. |  | Optional: \{\} <br /> |
 | `downloadClientConfig` _[ReadarrDownloadClientConfig](#readarrdownloadclientconfig)_ | downloadClientConfig configures global download client behavior. |  | Optional: \{\} <br /> |
 | `ui` _[ReadarrUI](#readarrui)_ | ui configures UI display settings. |  | Optional: \{\} <br /> |
+| `metadataProvider` _[ReadarrMetadataProvider](#readarrmetadataprovider)_ | metadataProvider configures the metadata Readarr sends to Calibre and<br />writes into audio files. |  | Optional: \{\} <br /> |
+| `development` _[ReadarrDevelopment](#readarrdevelopment)_ | development holds the settings on Readarr's hidden development page. |  | Optional: \{\} <br /> |
 | `rootFolders` _[RootFolder](#rootfolder) array_ | rootFolders defines book library root folder paths. |  | Optional: \{\} <br /> |
 | `remotePathMappings` _[RemotePathMapping](#remotepathmapping) array_ | remotePathMappings translates paths reported by remote download clients.<br />Entries are matched by host and remotePath. Only operator-created entries can be pruned. |  | Optional: \{\} <br /> |
 | `qualityProfiles` _[QualityProfile](#qualityprofile) array_ | qualityProfiles defines quality profiles for controlling download quality preferences. |  | Optional: \{\} <br /> |

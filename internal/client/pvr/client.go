@@ -34,6 +34,15 @@ type App struct {
 	// Choices are settings, by section and field, that the resource names and
 	// the app stores as numbers.
 	Choices map[string]map[string]map[string]int
+	// Sections are the app's settings sections beyond those all four share.
+	Sections []string
+}
+
+// sectionPaths are the endpoints, under the API prefix, of the settings
+// sections only some of the apps have.
+var sectionPaths = map[string]string{
+	"metadataProvider": "/config/metadataprovider",
+	"development":      "/config/development",
 }
 
 var bookAndMusicImportListFields = ImportListFields{
@@ -63,27 +72,34 @@ var (
 	}
 	Lidarr = App{
 		Name: "lidarr", Kind: "Lidarr", APIVersion: "v1", CategoryField: "musicCategory", MetadataProfiles: true,
-		ImportListFields: bookAndMusicImportListFields, Choices: bookAndMusicChoices,
+		ImportListFields: bookAndMusicImportListFields, Choices: bookAndMusicChoices, Sections: []string{"metadataProvider"},
 	}
 	Readarr = App{
 		Name: "readarr", Kind: "Readarr", APIVersion: "v1", CategoryField: "bookCategory", MetadataProfiles: true,
 		ImportListFields: bookAndMusicImportListFields, Choices: bookAndMusicChoices,
+		Sections: []string{"metadataProvider", "development"},
 	}
 )
 
 // Definition returns the AppDefinition for Sonarr, Radarr, Lidarr or Readarr.
-// apiVersion is "v3" for Sonarr/Radarr, "v1" for Lidarr/Readarr.
-func Definition(apiVersion string) engine.AppDefinition {
+// apiVersion is "v3" for Sonarr/Radarr, "v1" for Lidarr/Readarr; sections
+// are the app's own settings sections (App.Sections).
+func Definition(apiVersion string, sections ...string) engine.AppDefinition {
 	prefix := fmt.Sprintf("/api/%s", apiVersion)
+	settings := make([]engine.SettingEndpoint, 0, 5+len(sections))
+	settings = append(settings,
+		engine.SettingEndpoint{Name: "mediaManagement", Path: prefix + "/config/mediamanagement"},
+		engine.SettingEndpoint{Name: "naming", Path: prefix + "/config/naming"},
+		engine.SettingEndpoint{Name: "indexerConfig", Path: prefix + "/config/indexer"},
+		engine.SettingEndpoint{Name: "downloadClientConfig", Path: prefix + "/config/downloadclient"},
+		engine.SettingEndpoint{Name: "ui", Path: prefix + "/config/ui"},
+	)
+	for _, name := range sections {
+		settings = append(settings, engine.SettingEndpoint{Name: name, Path: prefix + sectionPaths[name]})
+	}
 	return engine.AppDefinition{
 		HealthPath: prefix + "/system/status",
-		Settings: []engine.SettingEndpoint{
-			{Name: "mediaManagement", Path: prefix + "/config/mediamanagement"},
-			{Name: "naming", Path: prefix + "/config/naming"},
-			{Name: "indexerConfig", Path: prefix + "/config/indexer"},
-			{Name: "downloadClientConfig", Path: prefix + "/config/downloadclient"},
-			{Name: "ui", Path: prefix + "/config/ui"},
-		},
+		Settings:   settings,
 		Resources: []engine.ResourceEndpoint{
 			// Tags first — other resources reference tag IDs. Not prunable (may be shared).
 			{Name: "tags", Path: prefix + "/tag", MatchField: "label", Policy: engine.CreateOrUpdate},
@@ -134,7 +150,8 @@ func Definition(apiVersion string) engine.AppDefinition {
 
 // Sections builds the sections map from a Sonarr, Radarr, Lidarr or Readarr spec,
 // turning the names in choices into the numbers the app stores.
-// The spec must have the fields: MediaManagement, Naming, IndexerConfig, DownloadClientConfig, UI.
+// The spec may have the fields MediaManagement, Naming, IndexerConfig,
+// DownloadClientConfig and UI, and the app's own sections.
 func Sections(spec any, choices map[string]map[string]map[string]int) (map[string]any, error) {
 	data, err := json.Marshal(spec)
 	if err != nil {
@@ -146,16 +163,11 @@ func Sections(spec any, choices map[string]map[string]map[string]int) (map[strin
 	}
 
 	sections := make(map[string]any)
-	fieldMap := map[string]string{
-		"mediaManagement":      "mediaManagement",
-		"naming":               "naming",
-		"indexerConfig":        "indexerConfig",
-		"downloadClientConfig": "downloadClientConfig",
-		"ui":                   "ui",
-	}
-	for jsonKey, sectionName := range fieldMap {
-		if v, ok := m[jsonKey]; ok && v != nil {
-			sections[sectionName] = v
+	names := append([]string{"mediaManagement", "naming", "indexerConfig", "downloadClientConfig", "ui"},
+		slices.Collect(maps.Keys(sectionPaths))...)
+	for _, name := range names {
+		if v, ok := m[name]; ok && v != nil {
+			sections[name] = v
 		}
 	}
 	for section, fields := range choices {
@@ -194,13 +206,15 @@ type Options struct {
 	// MetadataProfiles marks apps with metadata profiles (Lidarr, Readarr): their
 	// root folders need a name and default profiles, and import lists a metadata profile.
 	MetadataProfiles bool
-	QualityProfiles  []commonv1alpha1.QualityProfile
-	CustomFormats    []commonv1alpha1.CustomFormat
-	Tags             []commonv1alpha1.Tag
-	Indexers         []commonv1alpha1.Indexer
-	Notifications    []commonv1alpha1.Notification
-	ImportLists      []commonv1alpha1.ImportList
-	ReleaseProfiles  []commonv1alpha1.ReleaseProfile
+	// Sections are the app's own settings sections (App.Sections).
+	Sections        []string
+	QualityProfiles []commonv1alpha1.QualityProfile
+	CustomFormats   []commonv1alpha1.CustomFormat
+	Tags            []commonv1alpha1.Tag
+	Indexers        []commonv1alpha1.Indexer
+	Notifications   []commonv1alpha1.Notification
+	ImportLists     []commonv1alpha1.ImportList
+	ReleaseProfiles []commonv1alpha1.ReleaseProfile
 	// LidarrMetadataProfiles and ReadarrMetadataProfiles are each app's own
 	// metadata profiles.
 	LidarrMetadataProfiles  []pvrv1alpha1.LidarrMetadataProfile
@@ -913,7 +927,7 @@ func FindCutoffID(items []commonv1alpha1.QualityProfileItem, cutoffName string) 
 
 // Reconcile runs the full reconciliation for Sonarr, Radarr, Lidarr or Readarr.
 func Reconcile(ctx context.Context, client *engine.HTTPClient, apiVersion string, spec any, opts Options, policy engine.SyncPolicy, managed map[string][]string) (engine.ReconcileResult, error) {
-	def := Definition(apiVersion)
+	def := Definition(apiVersion, opts.Sections...)
 	if opts.MetadataProfiles {
 		for i := range def.Resources {
 			if def.Resources[i].Name == "rootFolders" {

@@ -6,6 +6,7 @@ import (
 	"maps"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -68,6 +69,11 @@ var fakeSonarrAPI = map[string]string{
 
 func fakeSonarr(t *testing.T, overrides map[string]string) string {
 	t.Helper()
+	return fakePVR(t, "/api/v3", overrides)
+}
+
+func fakePVR(t *testing.T, prefix string, overrides map[string]string) string {
+	t.Helper()
 	api := maps.Clone(fakeSonarrAPI)
 	maps.Copy(api, overrides)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -75,7 +81,7 @@ func fakeSonarr(t *testing.T, overrides map[string]string) string {
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
-		body, ok := api[r.URL.Path[len("/api/v3"):]]
+		body, ok := api[strings.TrimPrefix(r.URL.Path, prefix)]
 		if !ok {
 			w.WriteHeader(http.StatusNotFound)
 			return
@@ -276,6 +282,35 @@ func TestPVRQualityProfileExportsRadarrsLanguageByName(t *testing.T) {
 	qp := qualityProfile(map[string]any{"name": "HD", "language": map[string]any{"id": float64(-2), "name": "Original"}}, nil)
 	assert.Equal(t, "Original", qp["language"])
 	assert.NotContains(t, qualityProfile(map[string]any{"name": "HD"}, nil), "language", "Sonarr's profiles have no language")
+}
+
+func exportReadarr(t *testing.T, development string) *pvrv1alpha1.Readarr {
+	t.Helper()
+	url := fakePVR(t, "/api/v1", map[string]string{
+		"/config/metadataprovider": `{"id":1,"writeAudioTags":"no","scrubAudioTags":false,"writeBookTags":"newFiles",` +
+			`"updateCovers":true,"embedMetadata":false}`,
+		"/config/development": development,
+		"/metadataprofile":    `[]`, "/rootfolder": `[]`, "/downloadclient": `[]`, "/indexer": `[]`,
+		"/notification": `[]`, "/importlist": `[]`, "/releaseprofile": `[]`, "/qualityprofile": `[]`,
+	})
+	res, err := Run(context.Background(), Options{App: "readarr", URL: url, APIKey: fakeSonarrKey})
+	require.NoError(t, err)
+	cfg, ok := res.Config.(*pvrv1alpha1.Readarr)
+	require.True(t, ok)
+	return cfg
+}
+
+func TestPVRReadarrExportsItsMetadataSettingsAndSource(t *testing.T) {
+	cfg := exportReadarr(t, `{"id":1,"metadataSource":"https://api.bookinfo.pro","consoleLogLevel":"","logSql":false,"logRotate":50}`)
+	assert.Equal(t, &pvrv1alpha1.ReadarrMetadataProvider{
+		WriteBookTags: "newFiles", UpdateCovers: new(true), EmbedMetadata: new(false), WriteAudioTags: "no", ScrubAudioTags: new(false),
+	}, cfg.Spec.MetadataProvider)
+	assert.Equal(t, pvrv1alpha1.ReadarrDevelopment{MetadataSource: "https://api.bookinfo.pro"}, cfg.Spec.Development)
+}
+
+func TestPVRReadarrLeavesOutDevelopmentOnItsOwnServer(t *testing.T) {
+	cfg := exportReadarr(t, `{"id":1,"metadataSource":"","consoleLogLevel":"","logSql":false,"logRotate":50}`)
+	assert.Zero(t, cfg.Spec.Development)
 }
 
 func TestPVRLidarrRootFolderExportsItsDefaults(t *testing.T) {
