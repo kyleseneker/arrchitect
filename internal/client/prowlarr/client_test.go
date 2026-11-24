@@ -81,7 +81,7 @@ func TestBuildProwlarrApplicationPayload(t *testing.T) {
 		TagLabels:      []string{"tag1", "tag2"},
 	}
 
-	p := BuildProwlarrApplicationPayload(app, "sonarr-api-key", map[string]int{"tag1": 1, "tag2": 2})
+	p := BuildProwlarrApplicationPayload(app, map[string]string{"apiKey": "sonarr-api-key"}, map[string]int{"tag1": 1, "tag2": 2})
 
 	assert.Equal(t, "Sonarr", p["name"])
 	assert.Equal(t, "fullSync", p["syncLevel"])
@@ -107,7 +107,7 @@ func TestBuildProwlarrApplicationPayload(t *testing.T) {
 func TestBuildProwlarrApplicationPayloadLeavesOutWhatTheResourceLeavesOut(t *testing.T) {
 	p := BuildProwlarrApplicationPayload(indexersv1alpha1.ProwlarrApplication{
 		Name: "Sonarr", Implementation: "Sonarr", ConfigContract: "SonarrSettings", BaseUrl: "http://sonarr:8989",
-	}, "key", nil)
+	}, map[string]string{"apiKey": "key"}, nil)
 
 	assert.NotContains(t, p, "syncLevel")
 	assert.NotContains(t, p, "tags")
@@ -115,6 +115,19 @@ func TestBuildProwlarrApplicationPayloadLeavesOutWhatTheResourceLeavesOut(t *tes
 		{"name": "baseUrl", "value": "http://sonarr:8989"},
 		{"name": "apiKey", "value": "key"},
 	}, p["fields"], "the Prowlarr URL and sync categories stay as Prowlarr has them")
+}
+
+func TestBuildProwlarrApplicationPayloadSendsBasicAuth(t *testing.T) {
+	p := BuildProwlarrApplicationPayload(indexersv1alpha1.ProwlarrApplication{
+		Name: "Radarr", Implementation: "Radarr", BaseUrl: "https://radarr.example",
+	}, map[string]string{"apiKey": "key", "authUsername": "proxy", "authPassword": "secret"}, nil)
+
+	assert.Equal(t, []map[string]any{
+		{"name": "baseUrl", "value": "https://radarr.example"},
+		{"name": "apiKey", "value": "key"},
+		{"name": "authUsername", "value": "proxy"},
+		{"name": "authPassword", "value": "secret"},
+	}, p["fields"])
 }
 
 func TestBuildProwlarrIndexerPayload(t *testing.T) {

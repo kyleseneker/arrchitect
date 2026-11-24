@@ -52,11 +52,21 @@ func (e *prowlarrExport) application(item map[string]any, defaults map[string]ma
 		key = ""
 	}
 	a["apiKeySecretRef"] = e.creds.ref(key, "application", name, "api-key")
+	for field, key := range map[string]string{"authUsername": "auth-username", "authPassword": "auth-password"} {
+		text, _ := values[field].(string)
+		if text == "" {
+			continue
+		}
+		if reconciler.IsMasked(text) {
+			text = ""
+		}
+		a[field+"SecretRef"] = e.creds.ref(text, "application", name, key)
+	}
 	impl, _ := item["implementation"].(string)
 	for field, value := range values {
 		switch field {
 		case "prowlarrUrl", "baseUrl", "syncCategories", "apiKey", "animeSyncCategories", "syncAnimeStandardFormatSearch",
-			"syncRejectBlocklistedTorrentHashesWhileGrabbing":
+			"syncRejectBlocklistedTorrentHashesWhileGrabbing", "authUsername", "authPassword":
 		default:
 			if !reflect.DeepEqual(value, defaults[impl][field]) {
 				e.warn("application %q: the config has no %s, so it stays as set in Prowlarr", name, field)

@@ -20,6 +20,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -527,13 +528,23 @@ func withoutFields(t *testing.T, doc string, pointers []string) string {
 	require.NoError(t, yaml.Unmarshal([]byte(doc), &obj))
 	for _, pointer := range pointers {
 		parts := strings.Split(strings.TrimPrefix(pointer, "/"), "/")
-		parent := obj
+		var node any = obj
 		for _, part := range parts[:len(parts)-1] {
-			next, ok := parent[part].(map[string]any)
-			require.True(t, ok, "%s: no object at %s", pointer, part)
-			parent = next
+			switch n := node.(type) {
+			case map[string]any:
+				node = n[part]
+			case []any:
+				i, err := strconv.Atoi(part)
+				require.True(t, err == nil && i >= 0 && i < len(n), "%s: no item %s", pointer, part)
+				node = n[i]
+			default:
+				node = nil
+			}
+			require.NotNil(t, node, "%s: nothing at %s", pointer, part)
 		}
+		parent, ok := node.(map[string]any)
 		last := parts[len(parts)-1]
+		require.True(t, ok, "%s: no object holds %s", pointer, last)
 		require.Contains(t, parent, last, "%s isn't in the fixture", pointer)
 		delete(parent, last)
 	}

@@ -127,11 +127,16 @@ func ProwlarrResources(opts ProwlarrOptions, tagIDs map[string]int) map[string][
 }
 
 // BuildProwlarrApplicationPayload builds the API payload for a Prowlarr application.
-// apiKey is the resolved secret value.
-func BuildProwlarrApplicationPayload(app indexersv1alpha1.ProwlarrApplication, apiKey string, tagIDs map[string]int) map[string]any {
+// secrets holds the resolved apiKey, authUsername and authPassword, by field name.
+func BuildProwlarrApplicationPayload(app indexersv1alpha1.ProwlarrApplication, secrets map[string]string, tagIDs map[string]int) map[string]any {
 	fields := []map[string]any{
 		{"name": "baseUrl", "value": app.BaseUrl},
-		{"name": "apiKey", "value": apiKey},
+		{"name": "apiKey", "value": secrets["apiKey"]},
+	}
+	for _, name := range []string{"authUsername", "authPassword"} {
+		if value, ok := secrets[name]; ok {
+			fields = append(fields, map[string]any{"name": name, "value": value})
+		}
 	}
 	if app.ProwlarrUrl != "" {
 		fields = append(fields, map[string]any{"name": "prowlarrUrl", "value": app.ProwlarrUrl})

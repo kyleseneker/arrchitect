@@ -2585,6 +2585,8 @@ _Appears in:_
 | `prowlarrUrl` _string_ | prowlarrUrl is the URL Prowlarr uses to reach itself (for callbacks). |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `baseUrl` _string_ | baseUrl is the base URL of the application. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `apiKeySecretRef` _[SecretKeyRef](#secretkeyref)_ | apiKeySecretRef references a Secret containing the application's API key. |  | Optional: \{\} <br /> |
+| `authUsernameSecretRef` _[SecretKeyRef](#secretkeyref)_ | authUsernameSecretRef references a Secret key holding the username for<br />HTTP basic auth in front of the application, such as at a reverse proxy.<br />Needs Prowlarr 2.4.0 or later. |  | Optional: \{\} <br /> |
+| `authPasswordSecretRef` _[SecretKeyRef](#secretkeyref)_ | authPasswordSecretRef references a Secret key holding the password for<br />HTTP basic auth in front of the application. Needs Prowlarr 2.4.0 or<br />later. |  | Optional: \{\} <br /> |
 | `syncCategories` _integer array_ | syncCategories is the list of category IDs to sync to this application. |  | Optional: \{\} <br /> |
 | `animeSyncCategories` _integer array_ | animeSyncCategories is the list of category IDs to sync as anime to a<br />Sonarr application. |  | Optional: \{\} <br /> |
 | `syncAnimeStandardFormatSearch` _boolean_ | syncAnimeStandardFormatSearch lets a Sonarr application also search for<br />anime by standard numbering. |  | Optional: \{\} <br /> |
