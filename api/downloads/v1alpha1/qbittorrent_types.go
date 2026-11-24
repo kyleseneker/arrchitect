@@ -40,6 +40,21 @@ type QBittorrentSpec struct {
 	// +listType=map
 	// +listMapKey=name
 	Categories []QBittorrentCategory `json:"categories,omitempty"`
+
+	// rssFeeds are the RSS feeds qBittorrent reads. Folders a feed's name puts
+	// it in are created. Turn on preferences.rssProcessingEnabled for
+	// qBittorrent to fetch them.
+	// +optional
+	// +listType=map
+	// +listMapKey=name
+	RSSFeeds []QBittorrentRSSFeed `json:"rssFeeds,omitempty"`
+
+	// rssRules are qBittorrent's RSS download rules. Turn on
+	// preferences.rssAutoDownloadingEnabled for qBittorrent to apply them.
+	// +optional
+	// +listType=map
+	// +listMapKey=name
+	RSSRules []QBittorrentRSSRule `json:"rssRules,omitempty"`
 }
 
 // QBittorrentConnection defines how the operator connects to qBittorrent.
@@ -455,6 +470,47 @@ type QBittorrentPreferences struct {
 	// +optional
 	ProxyMisc *bool `json:"proxyMisc,omitempty"`
 
+	// rssProcessingEnabled has qBittorrent fetch its RSS feeds.
+	// +optional
+	RSSProcessingEnabled *bool `json:"rssProcessingEnabled,omitempty"`
+
+	// rssRefreshInterval is how often, in minutes, qBittorrent fetches each
+	// feed.
+	// +optional
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=999999
+	RSSRefreshInterval int32 `json:"rssRefreshInterval,omitempty"`
+
+	// rssFetchDelay is the delay, in seconds, between two requests to the same
+	// host.
+	// +optional
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=2147483646
+	RSSFetchDelay *int32 `json:"rssFetchDelay,omitempty"`
+
+	// rssMaxArticlesPerFeed is how many articles qBittorrent keeps per feed.
+	// +optional
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=2147483646
+	RSSMaxArticlesPerFeed *int32 `json:"rssMaxArticlesPerFeed,omitempty"`
+
+	// rssAutoDownloadingEnabled has qBittorrent download what its RSS rules
+	// match.
+	// +optional
+	RSSAutoDownloadingEnabled *bool `json:"rssAutoDownloadingEnabled,omitempty"`
+
+	// rssDownloadRepackProperEpisodes downloads REPACK and PROPER releases of
+	// episodes a rule with the smart filter already matched.
+	// +optional
+	RSSDownloadRepackProperEpisodes *bool `json:"rssDownloadRepackProperEpisodes,omitempty"`
+
+	// rssSmartEpisodeFilters are the regular expressions the smart filter finds
+	// season and episode numbers with.
+	// +optional
+	// +listType=atomic
+	// +kubebuilder:validation:items:MinLength=1
+	RSSSmartEpisodeFilters []string `json:"rssSmartEpisodeFilters,omitempty"`
+
 	// ipFilterEnabled blocks the peers ipFilterPath lists.
 	// +optional
 	IPFilterEnabled *bool `json:"ipFilterEnabled,omitempty"`
@@ -535,6 +591,117 @@ type QBittorrentCategory struct {
 	// +optional
 	// +kubebuilder:validation:MinLength=1
 	SavePath string `json:"savePath,omitempty"`
+}
+
+// QBittorrentRSSFeed is an RSS feed qBittorrent reads.
+type QBittorrentRSSFeed struct {
+	// name is the feed's path in qBittorrent's RSS list, with a backslash
+	// between folders, such as Anime\SubsPlease.
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:Pattern=`^[^\\]+(\\[^\\]+)*$`
+	Name string `json:"name,omitempty"`
+
+	// url is the feed's address.
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:Pattern=`^https?://`
+	URL string `json:"url,omitempty"`
+}
+
+// QBittorrentRSSRule is an RSS download rule: qBittorrent downloads what its
+// feeds publish that the rule matches.
+type QBittorrentRSSRule struct {
+	// name is the rule's name.
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name,omitempty"`
+
+	// enabled turns the rule on.
+	// +optional
+	Enabled *bool `json:"enabled,omitempty"`
+
+	// priority orders the rules: higher goes first.
+	// +optional
+	Priority *int32 `json:"priority,omitempty"`
+
+	// affectedFeeds are the URLs of the feeds the rule applies to.
+	// +optional
+	// +listType=set
+	// +kubebuilder:validation:items:Pattern=`^https?://`
+	AffectedFeeds []string `json:"affectedFeeds,omitempty"`
+
+	// mustContain is what an article's title must contain: words, wildcards
+	// and | for alternatives, or a regular expression with useRegex.
+	// +optional
+	MustContain *string `json:"mustContain,omitempty"`
+
+	// mustNotContain is what an article's title must not contain.
+	// +optional
+	MustNotContain *string `json:"mustNotContain,omitempty"`
+
+	// useRegex reads mustContain and mustNotContain as regular expressions.
+	// +optional
+	UseRegex *bool `json:"useRegex,omitempty"`
+
+	// episodeFilter limits matches to seasons and episodes, such as 1x2;8-15;
+	// or 2x25-;.
+	// +optional
+	EpisodeFilter *string `json:"episodeFilter,omitempty"`
+
+	// smartFilter downloads each episode once, using the smart episode filters.
+	// +optional
+	SmartFilter *bool `json:"smartFilter,omitempty"`
+
+	// ignoreDays ignores further matches for this many days after one; 0
+	// disables it.
+	// +optional
+	// +kubebuilder:validation:Minimum=0
+	IgnoreDays *int32 `json:"ignoreDays,omitempty"`
+
+	// torrentParams sets how the torrents the rule adds are added.
+	// +optional
+	TorrentParams QBittorrentRSSTorrentParams `json:"torrentParams,omitzero"`
+}
+
+// QBittorrentRSSTorrentParams sets how an RSS rule adds torrents. Left out,
+// qBittorrent's defaults apply.
+// +kubebuilder:validation:MinProperties=1
+type QBittorrentRSSTorrentParams struct {
+	// category is the category the torrents get.
+	// +optional
+	Category *string `json:"category,omitempty"`
+
+	// tags are the tags the torrents get.
+	// +optional
+	// +listType=set
+	// +kubebuilder:validation:items:MinLength=1
+	Tags []string `json:"tags,omitempty"`
+
+	// savePath is where the torrents are saved, in place of the category's or
+	// the default path.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	SavePath string `json:"savePath,omitempty"`
+
+	// useAutoTMM has automatic torrent management choose the torrents' paths
+	// from their category.
+	// +optional
+	UseAutoTMM *bool `json:"useAutoTMM,omitempty"`
+
+	// stopped adds the torrents stopped.
+	// +optional
+	Stopped *bool `json:"stopped,omitempty"`
+
+	// addToTopOfQueue puts the torrents first in the queue.
+	// +optional
+	AddToTopOfQueue *bool `json:"addToTopOfQueue,omitempty"`
+
+	// contentLayout arranges the torrents' files: Original, Subfolder, or
+	// NoSubfolder.
+	// +optional
+	// +kubebuilder:validation:Enum=Original;Subfolder;NoSubfolder
+	ContentLayout string `json:"contentLayout,omitempty"`
 }
 
 // QBittorrentStatus defines the observed state of QBittorrent.

@@ -2875,6 +2875,13 @@ _Appears in:_
 | `proxyPeerConnections` _boolean_ | proxyPeerConnections sends connections to peers, not only to trackers,<br />through the proxy. |  | Optional: \{\} <br /> |
 | `proxyRss` _boolean_ | proxyRss sends RSS feed requests through the proxy. |  | Optional: \{\} <br /> |
 | `proxyMisc` _boolean_ | proxyMisc sends qBittorrent's other requests, such as update checks and<br />tracker lists, through the proxy. |  | Optional: \{\} <br /> |
+| `rssProcessingEnabled` _boolean_ | rssProcessingEnabled has qBittorrent fetch its RSS feeds. |  | Optional: \{\} <br /> |
+| `rssRefreshInterval` _integer_ | rssRefreshInterval is how often, in minutes, qBittorrent fetches each<br />feed. |  | Maximum: 999999 <br />Minimum: 1 <br />Optional: \{\} <br /> |
+| `rssFetchDelay` _integer_ | rssFetchDelay is the delay, in seconds, between two requests to the same<br />host. |  | Maximum: 2.147483646e+09 <br />Minimum: 0 <br />Optional: \{\} <br /> |
+| `rssMaxArticlesPerFeed` _integer_ | rssMaxArticlesPerFeed is how many articles qBittorrent keeps per feed. |  | Maximum: 2.147483646e+09 <br />Minimum: 0 <br />Optional: \{\} <br /> |
+| `rssAutoDownloadingEnabled` _boolean_ | rssAutoDownloadingEnabled has qBittorrent download what its RSS rules<br />match. |  | Optional: \{\} <br /> |
+| `rssDownloadRepackProperEpisodes` _boolean_ | rssDownloadRepackProperEpisodes downloads REPACK and PROPER releases of<br />episodes a rule with the smart filter already matched. |  | Optional: \{\} <br /> |
+| `rssSmartEpisodeFilters` _string array_ | rssSmartEpisodeFilters are the regular expressions the smart filter finds<br />season and episode numbers with. |  | items:MinLength: 1 <br />Optional: \{\} <br /> |
 | `ipFilterEnabled` _boolean_ | ipFilterEnabled blocks the peers ipFilterPath lists. |  | Optional: \{\} <br /> |
 | `ipFilterPath` _string_ | ipFilterPath is the blocklist file, in .dat, .p2p or .p2b format, as<br />qBittorrent sees it. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `ipFilterTrackers` _boolean_ | ipFilterTrackers applies the IP filter to trackers as well as peers. |  | Optional: \{\} <br /> |
@@ -2887,6 +2894,74 @@ _Appears in:_
 | `addTrackers` _string array_ | addTrackers are tracker URLs added to new torrents, each in its own tier. |  | MinItems: 1 <br />items:MinLength: 1 <br />items:Pattern: `^\S+$` <br />Optional: \{\} <br /> |
 | `addTrackersFromUrlEnabled` _boolean_ | addTrackersFromUrlEnabled adds the trackers listed at addTrackersUrl to<br />every new torrent. |  | Optional: \{\} <br /> |
 | `addTrackersUrl` _string_ | addTrackersUrl is a tracker list qBittorrent downloads, one tracker a<br />line. |  | MinLength: 1 <br />Pattern: `^https?://` <br />Optional: \{\} <br /> |
+
+
+#### QBittorrentRSSFeed
+
+
+
+QBittorrentRSSFeed is an RSS feed qBittorrent reads.
+
+
+
+_Appears in:_
+- [QBittorrentSpec](#qbittorrentspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `name` _string_ | name is the feed's path in qBittorrent's RSS list, with a backslash<br />between folders, such as Anime\SubsPlease. |  | MinLength: 1 <br />Pattern: `^[^\\]+(\\[^\\]+)*$` <br />Required: \{\} <br /> |
+| `url` _string_ | url is the feed's address. |  | MinLength: 1 <br />Pattern: `^https?://` <br />Required: \{\} <br /> |
+
+
+#### QBittorrentRSSRule
+
+
+
+QBittorrentRSSRule is an RSS download rule: qBittorrent downloads what its
+feeds publish that the rule matches.
+
+
+
+_Appears in:_
+- [QBittorrentSpec](#qbittorrentspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `name` _string_ | name is the rule's name. |  | MinLength: 1 <br />Required: \{\} <br /> |
+| `enabled` _boolean_ | enabled turns the rule on. |  | Optional: \{\} <br /> |
+| `priority` _integer_ | priority orders the rules: higher goes first. |  | Optional: \{\} <br /> |
+| `affectedFeeds` _string array_ | affectedFeeds are the URLs of the feeds the rule applies to. |  | items:Pattern: `^https?://` <br />Optional: \{\} <br /> |
+| `mustContain` _string_ | mustContain is what an article's title must contain: words, wildcards<br />and \| for alternatives, or a regular expression with useRegex. |  | Optional: \{\} <br /> |
+| `mustNotContain` _string_ | mustNotContain is what an article's title must not contain. |  | Optional: \{\} <br /> |
+| `useRegex` _boolean_ | useRegex reads mustContain and mustNotContain as regular expressions. |  | Optional: \{\} <br /> |
+| `episodeFilter` _string_ | episodeFilter limits matches to seasons and episodes, such as 1x2;8-15;<br />or 2x25-;. |  | Optional: \{\} <br /> |
+| `smartFilter` _boolean_ | smartFilter downloads each episode once, using the smart episode filters. |  | Optional: \{\} <br /> |
+| `ignoreDays` _integer_ | ignoreDays ignores further matches for this many days after one; 0<br />disables it. |  | Minimum: 0 <br />Optional: \{\} <br /> |
+| `torrentParams` _[QBittorrentRSSTorrentParams](#qbittorrentrsstorrentparams)_ | torrentParams sets how the torrents the rule adds are added. |  | MinProperties: 1 <br />Optional: \{\} <br /> |
+
+
+#### QBittorrentRSSTorrentParams
+
+
+
+QBittorrentRSSTorrentParams sets how an RSS rule adds torrents. Left out,
+qBittorrent's defaults apply.
+
+_Validation:_
+- MinProperties: 1
+
+_Appears in:_
+- [QBittorrentRSSRule](#qbittorrentrssrule)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `category` _string_ | category is the category the torrents get. |  | Optional: \{\} <br /> |
+| `tags` _string array_ | tags are the tags the torrents get. |  | items:MinLength: 1 <br />Optional: \{\} <br /> |
+| `savePath` _string_ | savePath is where the torrents are saved, in place of the category's or<br />the default path. |  | MinLength: 1 <br />Optional: \{\} <br /> |
+| `useAutoTMM` _boolean_ | useAutoTMM has automatic torrent management choose the torrents' paths<br />from their category. |  | Optional: \{\} <br /> |
+| `stopped` _boolean_ | stopped adds the torrents stopped. |  | Optional: \{\} <br /> |
+| `addToTopOfQueue` _boolean_ | addToTopOfQueue puts the torrents first in the queue. |  | Optional: \{\} <br /> |
+| `contentLayout` _string_ | contentLayout arranges the torrents' files: Original, Subfolder, or<br />NoSubfolder. |  | Enum: [Original Subfolder NoSubfolder] <br />Optional: \{\} <br /> |
 
 
 #### QBittorrentSpec
@@ -2906,6 +2981,8 @@ _Appears in:_
 | `reconcile` _[ReconcileConfig](#reconcileconfig)_ | reconcile configures reconciliation behavior (e.g., sync interval). |  | Optional: \{\} <br /> |
 | `preferences` _[QBittorrentPreferences](#qbittorrentpreferences)_ | preferences configures qBittorrent application preferences. |  | Optional: \{\} <br /> |
 | `categories` _[QBittorrentCategory](#qbittorrentcategory) array_ | categories defines download categories and their save paths. |  | Optional: \{\} <br /> |
+| `rssFeeds` _[QBittorrentRSSFeed](#qbittorrentrssfeed) array_ | rssFeeds are the RSS feeds qBittorrent reads. Folders a feed's name puts<br />it in are created. Turn on preferences.rssProcessingEnabled for<br />qBittorrent to fetch them. |  | Optional: \{\} <br /> |
+| `rssRules` _[QBittorrentRSSRule](#qbittorrentrssrule) array_ | rssRules are qBittorrent's RSS download rules. Turn on<br />preferences.rssAutoDownloadingEnabled for qBittorrent to apply them. |  | Optional: \{\} <br /> |
 
 
 #### QBittorrentStatus

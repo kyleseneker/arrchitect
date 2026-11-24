@@ -98,6 +98,7 @@ func TestQBPreferencePayloadCoversEverySpecField(t *testing.T) {
 			p.WebUIReverseProxiesList = []string{"10.0.0.0/8"}
 			p.BannedIPs = []string{"10.0.0.1"}
 			p.AddTrackers = []string{"udp://tracker.example.com:1337/announce"}
+			p.RSSSmartEpisodeFilters = []string{`s(\d+)e(\d+)`}
 		})
 }
 

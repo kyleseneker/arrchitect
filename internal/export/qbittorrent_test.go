@@ -30,9 +30,19 @@ func TestQBittorrentExportsPreferencesCategoriesAndLogin(t *testing.T) {
 				`"excluded_file_names":"*.lnk\n*.exe","current_network_interface":"","auto_tmm_enabled":true,` +
 				`"proxy_type":"SOCKS5","proxy_ip":"vpn","proxy_port":1080,"proxy_username":"vpn-user","proxy_password":"vpn-pass",` +
 				`"banned_IPs":"10.0.0.2\n2001:db8::1","add_trackers":"udp://a.example/announce\nudp://b.example/announce",` +
-				`"autorun_program":"","ip_filter_path":""}`))
+				`"autorun_program":"","ip_filter_path":"","rss_processing_enabled":true,"rss_refresh_interval":30,` +
+				`"rss_smart_episode_filters":"s(\\d+)e(\\d+)\n(\\d+)x(\\d+)"}`))
 		case "/api/v2/torrents/categories":
 			_, _ = w.Write([]byte(`{"tv":{"name":"tv","savePath":"/downloads/tv"},"movies":{"name":"movies","savePath":""}}`))
+		case "/api/v2/rss/items":
+			_, _ = w.Write([]byte(`{"Anime":{"SubsPlease":{"uid":"{1}","url":"https://subsplease.example/rss"}},` +
+				`"Shows":{"uid":"{2}","url":"https://shows.example/rss"}}`))
+		case "/api/v2/rss/rules":
+			_, _ = w.Write([]byte(`{"Show":{"enabled":true,"priority":0,"useRegex":false,"mustContain":"Show 1080p",` +
+				`"mustNotContain":"","episodeFilter":"","affectedFeeds":["https://shows.example/rss"],"ignoreDays":0,` +
+				`"smartFilter":true,"lastMatch":"","previouslyMatchedEpisodes":["S01E01"],"savePath":"","assignedCategory":"tv",` +
+				`"torrentParams":{"category":"tv","tags":[],"save_path":"","download_path":"","operating_mode":"AutoManaged",` +
+				`"stopped":false}}}`))
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}
@@ -67,6 +77,20 @@ func TestQBittorrentExportsPreferencesCategoriesAndLogin(t *testing.T) {
 	assert.Equal(t, []string{"udp://a.example/announce", "udp://b.example/announce"}, prefs.AddTrackers)
 	assert.Contains(t, res.Warnings, "qBittorrent's added trackers aren't each in their own tier, which is how the config writes them")
 	assert.Empty(t, prefs.AutorunProgram)
+	assert.True(t, *prefs.RSSProcessingEnabled)
+	assert.Equal(t, int32(30), prefs.RSSRefreshInterval)
+	assert.Equal(t, []string{`s(\d+)e(\d+)`, `(\d+)x(\d+)`}, prefs.RSSSmartEpisodeFilters)
+	assert.Equal(t, []downloadsv1alpha1.QBittorrentRSSFeed{
+		{Name: `Anime\SubsPlease`, URL: "https://subsplease.example/rss"},
+		{Name: "Shows", URL: "https://shows.example/rss"},
+	}, cfg.Spec.RSSFeeds)
+	require.Len(t, cfg.Spec.RSSRules, 1)
+	rule := cfg.Spec.RSSRules[0]
+	assert.Equal(t, "Show", rule.Name)
+	assert.Equal(t, "Show 1080p", *rule.MustContain)
+	assert.Equal(t, []string{"https://shows.example/rss"}, rule.AffectedFeeds)
+	assert.True(t, *rule.SmartFilter)
+	assert.Equal(t, downloadsv1alpha1.QBittorrentRSSTorrentParams{Category: new("tv"), Stopped: new(false)}, rule.TorrentParams)
 
 	assert.Equal(t, "username", cfg.Spec.Connection.UsernameSecretRef.Key)
 	assert.Equal(t, "password", cfg.Spec.Connection.PasswordSecretRef.Key)

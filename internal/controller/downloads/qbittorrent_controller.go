@@ -101,6 +101,12 @@ func (r *QBittorrentReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	if len(config.Spec.Categories) > 0 {
 		syncErrors = append(syncErrors, reconcileQBCategories(ctx, qb, config.Spec.Categories, prune, owned)...)
 	}
+	if len(config.Spec.RSSFeeds) > 0 {
+		syncErrors = append(syncErrors, reconcileQBRSSFeeds(ctx, qb, config.Spec.RSSFeeds, prune, owned)...)
+	}
+	if len(config.Spec.RSSRules) > 0 {
+		syncErrors = append(syncErrors, reconcileQBRSSRules(ctx, qb, config.Spec.RSSRules, prune, owned)...)
+	}
 
 	ctrlcommon.UpdateStatusManaged(&config, owned.Managed())
 	ctrlcommon.EmitPruneEvents(r.Recorder, &config, owned.Pruned())
@@ -154,6 +160,9 @@ func qbPreferencePayload(prefs *downloadsv1alpha1.QBittorrentPreferences, secret
 	}
 	if len(prefs.AddTrackers) > 0 {
 		out["add_trackers"] = strings.Join(prefs.AddTrackers, "\n\n")
+	}
+	if len(prefs.RSSSmartEpisodeFilters) > 0 {
+		out["rss_smart_episode_filters"] = strings.Join(prefs.RSSSmartEpisodeFilters, "\n")
 	}
 	for key, ref := range map[string]*commonv1alpha1.SecretKeyRef{
 		"proxy_username": prefs.ProxyUsernameSecretRef, "proxy_password": prefs.ProxyPasswordSecretRef,
@@ -348,7 +357,8 @@ func qbCategoryNames(categories []downloadsv1alpha1.QBittorrentCategory) []strin
 	return names
 }
 
-// cleanup deletes the categories the operator created, for deletionPolicy delete.
+// cleanup deletes the RSS rules and feeds and the categories the operator
+// created, for deletionPolicy delete.
 func (r *QBittorrentReconciler) cleanup(ctx context.Context, config *downloadsv1alpha1.QBittorrent) error {
 	qb, _, err := r.qbClient(ctx, config)
 	if err != nil {
@@ -357,11 +367,14 @@ func (r *QBittorrentReconciler) cleanup(ctx context.Context, config *downloadsv1
 	if err := qb.Login(ctx); err != nil {
 		return err
 	}
+	owned := engine.NewOwnership("qbittorrent", config.GetManagedResources())
+	if err := cleanupQBRSS(ctx, qb, owned); err != nil {
+		return err
+	}
 	existing, err := qb.ListCategories(ctx)
 	if err != nil {
 		return err
 	}
-	owned := engine.NewOwnership("qbittorrent", config.GetManagedResources())
 	return owned.Cleanup("categories", slices.Collect(maps.Keys(existing)), func(name string) error {
 		return qb.RemoveCategory(ctx, name)
 	})
@@ -418,6 +431,9 @@ func observeQBConfig(
 				return err
 			}
 		}
+	}
+	if err := observeQBRSS(ctx, qb, spec, prune, owned, w); err != nil {
+		return err
 	}
 	if len(spec.Categories) == 0 {
 		return nil

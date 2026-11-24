@@ -219,7 +219,7 @@ prune, removing an item from the resource only stops managing it.
 | Autobrr | download clients, indexers, IRC networks, feeds, filters and their actions, notifications, lists, proxies |
 | Seerr | Sonarr and Radarr servers |
 | SABnzbd | servers, categories |
-| qBittorrent | categories |
+| qBittorrent | categories, RSS feeds and rules |
 | Bazarr | language profiles, matched by `profileId` |
 | Maintainerr | rule groups, Sonarr and Radarr servers |
 

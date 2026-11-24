@@ -165,12 +165,19 @@ func TestQBittorrent(t *testing.T) {
 		fixture: "qbittorrent.yaml",
 		update: `[
 			{"op": "replace", "path": "/spec/categories/0/savePath", "value": "/downloads/complete/series"},
-			{"op": "replace", "path": "/spec/preferences/bannedIps", "value": ["10.0.0.3"]}
+			{"op": "replace", "path": "/spec/preferences/bannedIps", "value": ["10.0.0.3"]},
+			{"op": "replace", "path": "/spec/rssRules/0/mustContain", "value": "Compat Show 2160p"}
 		]`,
 		verifyUpdate: func(t *testing.T) {
-			prefs, err := qbittorrentClient(t, qbit.url(), password).GetJSON(context.Background(), "/api/v2/app/preferences")
+			hc := qbittorrentClient(t, qbit.url(), password)
+			prefs, err := hc.GetJSON(context.Background(), "/api/v2/app/preferences")
 			require.NoError(t, err)
 			assert.Equal(t, "10.0.0.3", prefs["banned_IPs"])
+			rules, err := hc.GetJSON(context.Background(), "/api/v2/rss/rules")
+			require.NoError(t, err)
+			rule, _ := rules["Compat Show"].(map[string]any)
+			assert.Equal(t, "Compat Show 2160p", rule["mustContain"])
+			assert.Equal(t, "x265", rule["mustNotContain"], "the update kept the fields it didn't change")
 		},
 		export: "qbittorrent",
 		vars:   map[string]string{"URL": proxy.url()},
@@ -213,14 +220,55 @@ func TestQBittorrent(t *testing.T) {
 			categories, err := hc.GetJSON(context.Background(), "/api/v2/torrents/categories")
 			require.NoError(t, err)
 			assert.Contains(t, categories, "movies")
+			assert.InDelta(t, 45, prefs["rss_refresh_interval"], 0)
+			assert.Equal(t, true, prefs["rss_processing_enabled"])
+			assert.Equal(t, "s(\\d+)e(\\d+)\n(\\d+)x(\\d+)", prefs["rss_smart_episode_filters"])
+			assert.Equal(t, map[string]string{
+				`Compat\Shows`: "https://shows.example.invalid/rss", "Movies": "https://movies.example.invalid/rss",
+			}, qbittorrentFeeds(t, hc))
+			rules, err := hc.GetJSON(context.Background(), "/api/v2/rss/rules")
+			require.NoError(t, err)
+			rule, _ := rules["Compat Show"].(map[string]any)
+			require.NotNil(t, rule, "the RSS rule is missing")
+			assert.Equal(t, []any{"https://shows.example.invalid/rss"}, rule["affectedFeeds"])
+			assert.Equal(t, true, rule["smartFilter"])
+			params, _ := rule["torrentParams"].(map[string]any)
+			assert.Equal(t, "tv", params["category"])
+			assert.Equal(t, []any{"rss"}, params["tags"])
+			assert.Equal(t, "Subfolder", params["content_layout"])
 		},
 		cleanup: func(t *testing.T, _ map[string][]string) {
 			hc := qbittorrentClient(t, qbit.url(), password)
 			categories, err := hc.GetJSON(context.Background(), "/api/v2/torrents/categories")
 			require.NoError(t, err)
 			assert.Empty(t, categories, "categories the operator created are still there")
+			assert.Empty(t, qbittorrentFeeds(t, hc), "RSS feeds the operator created are still there")
+			rules, err := hc.GetJSON(context.Background(), "/api/v2/rss/rules")
+			require.NoError(t, err)
+			assert.Empty(t, rules, "RSS rules the operator created are still there")
 		},
 	})
+}
+
+// qbittorrentFeeds lists qBittorrent's RSS feeds by path.
+func qbittorrentFeeds(t *testing.T, hc *engine.HTTPClient) map[string]string {
+	t.Helper()
+	root, err := hc.GetJSON(context.Background(), "/api/v2/rss/items")
+	require.NoError(t, err)
+	feeds := map[string]string{}
+	var walk func(prefix string, items map[string]any)
+	walk = func(prefix string, items map[string]any) {
+		for name, value := range items {
+			item, _ := value.(map[string]any)
+			if u, ok := item["url"].(string); ok {
+				feeds[prefix+name] = u
+				continue
+			}
+			walk(prefix+name+`\`, item)
+		}
+	}
+	walk("", root)
+	return feeds
 }
 
 // qbittorrentClient logs in to the WebUI directly for verification.

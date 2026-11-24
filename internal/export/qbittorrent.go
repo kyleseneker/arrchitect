@@ -99,12 +99,69 @@ func exportQBittorrent(r *reader) (map[string]any, error) {
 	if len(cats) > 0 {
 		spec["categories"] = cats
 	}
+	if err := exportQBRSS(r, qb, spec); err != nil {
+		return nil, err
+	}
 	return spec, nil
 }
 
-// qbExtraPreferences exports the banned addresses, added trackers and proxy
-// credentials, which qBittorrent keeps in its own forms.
+// exportQBRSS exports the RSS feeds, by path, and the download rules.
+func exportQBRSS(r *reader, qb *qbclient.Client, spec map[string]any) error {
+	feeds, _, err := qb.RSSItems(r.ctx)
+	if err != nil {
+		return err
+	}
+	var feedList []any
+	for _, path := range slices.Sorted(maps.Keys(feeds)) {
+		feedList = append(feedList, map[string]any{"name": path, "url": feeds[path]})
+	}
+	if len(feedList) > 0 {
+		spec["rssFeeds"] = feedList
+	}
+	rules, err := qb.RSSRules(r.ctx)
+	if err != nil {
+		return err
+	}
+	var ruleList []any
+	for _, name := range slices.Sorted(maps.Keys(rules)) {
+		def, _ := rules[name].(map[string]any)
+		rule := pick(def, "enabled", "priority", "affectedFeeds", "mustContain", "mustNotContain", "useRegex",
+			"episodeFilter", "smartFilter", "ignoreDays")
+		rule["name"] = name
+		params, _ := def["torrentParams"].(map[string]any)
+		out := map[string]any{}
+		for key, field := range map[string]string{
+			"category": "category", "use_auto_tmm": "useAutoTMM", "stopped": "stopped",
+			"add_to_top_of_queue": "addToTopOfQueue", "content_layout": "contentLayout",
+		} {
+			if v, ok := params[key]; ok {
+				out[field] = v
+			}
+		}
+		if tags, _ := params["tags"].([]any); len(tags) > 0 {
+			out["tags"] = tags
+		}
+		if path, _ := params["save_path"].(string); path != "" {
+			out["savePath"] = path
+		}
+		if len(out) > 0 {
+			rule["torrentParams"] = out
+		}
+		ruleList = append(ruleList, rule)
+	}
+	if len(ruleList) > 0 {
+		spec["rssRules"] = ruleList
+	}
+	return nil
+}
+
+// qbExtraPreferences exports the RSS smart episode filters, banned addresses,
+// added trackers and proxy credentials, which qBittorrent keeps in its own
+// forms.
 func (r *reader) qbExtraPreferences(preferences, prefs map[string]any) {
+	if filters, _ := prefs["rss_smart_episode_filters"].(string); filters != "" {
+		preferences["rssSmartEpisodeFilters"] = strings.Split(filters, "\n")
+	}
 	if ips, _ := prefs["banned_IPs"].(string); ips != "" {
 		preferences["bannedIps"] = strings.Fields(ips)
 	}
