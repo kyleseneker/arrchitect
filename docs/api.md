@@ -13,6 +13,7 @@ Jellyfin, that already run in or alongside the cluster.
 
 ### Resource Types
 - [Autobrr](#autobrr)
+- [Bazarr](#bazarr)
 - [FlareSolverr](#flaresolverr)
 - [Jellyfin](#jellyfin)
 - [Lidarr](#lidarr)
@@ -47,6 +48,7 @@ AppConnection defines how the operator connects to an app's API.
 
 _Appears in:_
 - [AutobrrSpec](#autobrrspec)
+- [BazarrSpec](#bazarrspec)
 - [LidarrSpec](#lidarrspec)
 - [ProwlarrSpec](#prowlarrspec)
 - [RadarrSpec](#radarrspec)
@@ -73,6 +75,8 @@ is used in place of an address and credentials.
 
 _Appears in:_
 - [AutobrrDownloadClient](#autobrrdownloadclient)
+- [BazarrAppConnection](#bazarrappconnection)
+- [BazarrJellyfin](#bazarrjellyfin)
 - [DownloadClient](#downloadclient)
 - [LidarrDownloadClientSpec](#lidarrdownloadclientspec)
 - [MaintainerrArrServer](#maintainerrarrserver)
@@ -489,6 +493,310 @@ _Appears in:_
 | `managedResources` _[ManagedResource](#managedresource) array_ | managedResources records the resources this operator created, keyed by<br />resource type. Prune only removes entries listed here, so resources<br />created outside the operator are never deleted. |  | Optional: \{\} <br /> |
 
 
+#### Bazarr
+
+
+
+Bazarr configures a Bazarr instance the operator connects to.
+
+
+
+
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `arrchitect.dev/v1alpha1` | | |
+| `kind` _string_ | `Bazarr` | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  | Optional: \{\} <br /> |
+| `spec` _[BazarrSpec](#bazarrspec)_ | spec is the desired state of the Bazarr. |  | Required: \{\} <br /> |
+| `status` _[BazarrStatus](#bazarrstatus)_ | status is the observed state of the Bazarr. |  | MinProperties: 1 <br />Optional: \{\} <br /> |
+
+
+#### BazarrAppConnection
+
+
+
+BazarrAppConnection defines a connection to a Sonarr or Radarr instance from Bazarr.
+
+_Validation:_
+- MinProperties: 1
+
+_Appears in:_
+- [BazarrSpec](#bazarrspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `appRef` _[AppRef](#appref)_ | appRef names the application's resource, whose connection is used in<br />place of host, port, basePath, ssl and apiKeySecretRef. |  | Optional: \{\} <br /> |
+| `host` _string_ | host is the hostname or IP of the application. |  | MinLength: 1 <br />Optional: \{\} <br /> |
+| `port` _integer_ | port is the port of the application. |  | Optional: \{\} <br /> |
+| `basePath` _string_ | basePath is the URL base path of the application. |  | MinLength: 1 <br />Optional: \{\} <br /> |
+| `ssl` _boolean_ | ssl enables HTTPS connections to the application. |  | Optional: \{\} <br /> |
+| `apiKeySecretRef` _[SecretKeyRef](#secretkeyref)_ | apiKeySecretRef references a Secret containing the application's API key. |  | Optional: \{\} <br /> |
+| `httpTimeout` _integer_ | httpTimeout is the HTTP request timeout in seconds. |  | Enum: [60 120 180 240 300 600] <br />Optional: \{\} <br /> |
+| `fullUpdate` _string_ | fullUpdate controls how often a full library sync is performed. |  | Enum: [Daily Weekly Manually] <br />Optional: \{\} <br /> |
+| `onlyMonitored` _boolean_ | onlyMonitored limits subtitle searches to monitored items only. |  | Optional: \{\} <br /> |
+| `syncInterval` _integer_ | syncInterval is how often, in minutes, Bazarr syncs the library. |  | Enum: [15 60 180 360 720 1440 10080] <br />Optional: \{\} <br /> |
+| `excludedTags` _string array_ | excludedTags leaves out items with any of these tags. |  | items:MaxLength: 64 <br />items:Pattern: `^[a-z0-9_-]+$` <br />Optional: \{\} <br /> |
+| `excludedSeriesTypes` _string array_ | excludedSeriesTypes leaves out series of these types. Only applicable<br />when used with Sonarr. |  | items:Enum: [standard anime daily] <br />Optional: \{\} <br /> |
+| `excludeSeasonZero` _boolean_ | excludeSeasonZero leaves out specials. Only applicable when used with Sonarr. |  | Optional: \{\} <br /> |
+
+
+#### BazarrGeneral
+
+
+
+BazarrGeneral configures general Bazarr settings.
+
+
+
+_Appears in:_
+- [BazarrSpec](#bazarrspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `useSonarr` _boolean_ | useSonarr enables the Sonarr integration. |  | Optional: \{\} <br /> |
+| `useRadarr` _boolean_ | useRadarr enables the Radarr integration. |  | Optional: \{\} <br /> |
+| `minimumScore` _integer_ | minimumScore is the minimum subtitle match score for series. |  | Maximum: 100 <br />Minimum: 0 <br />Optional: \{\} <br /> |
+| `minimumScoreMovie` _integer_ | minimumScoreMovie is the minimum subtitle match score for movies. |  | Maximum: 100 <br />Minimum: 0 <br />Optional: \{\} <br /> |
+| `useScenename` _boolean_ | useScenename uses scene names for subtitle searching. |  | Optional: \{\} <br /> |
+| `usePostprocessing` _boolean_ | usePostprocessing enables post-processing of downloaded subtitles. |  | Optional: \{\} <br /> |
+| `adaptiveSearching` _boolean_ | adaptiveSearching enables adaptive searching for subtitles. |  | Optional: \{\} <br /> |
+| `multithreading` _boolean_ | multithreading enables multithreaded subtitle downloading. |  | Optional: \{\} <br /> |
+| `chmodEnabled` _boolean_ | chmodEnabled enables setting file permissions on subtitle files. |  | Optional: \{\} <br /> |
+| `upgradeSubs` _boolean_ | upgradeSubs enables automatic subtitle upgrades when better ones are found. |  | Optional: \{\} <br /> |
+| `upgradeFrequency` _integer_ | upgradeFrequency is how often, in hours, Bazarr looks for better<br />subtitles. 876000, a hundred years, is how Bazarr turns it off. |  | Enum: [6 12 24 168 876000] <br />Optional: \{\} <br /> |
+| `daysToUpgradeSubs` _integer_ | daysToUpgradeSubs is how many days back Bazarr looks for subtitles to upgrade. |  | Maximum: 30 <br />Minimum: 0 <br />Optional: \{\} <br /> |
+| `upgradeManual` _boolean_ | upgradeManual also upgrades subtitles that were downloaded or translated by hand. |  | Optional: \{\} <br /> |
+| `wantedSearchFrequency` _integer_ | wantedSearchFrequency is how often, in hours, Bazarr searches for missing<br />episode subtitles. 876000, a hundred years, is how Bazarr turns it off. |  | Enum: [6 12 24 168 876000] <br />Optional: \{\} <br /> |
+| `wantedSearchFrequencyMovie` _integer_ | wantedSearchFrequencyMovie is how often, in hours, Bazarr searches for<br />missing movie subtitles. 876000, a hundred years, is how Bazarr turns it off. |  | Enum: [6 12 24 168 876000] <br />Optional: \{\} <br /> |
+| `adaptiveSearchingDelay` _string_ | adaptiveSearchingDelay is how long after the first search adaptiveSearching<br />starts searching less often. |  | Enum: [1w 2w 3w 4w] <br />Optional: \{\} <br /> |
+| `adaptiveSearchingDelta` _string_ | adaptiveSearchingDelta is how often adaptiveSearching searches once it<br />searches less often. |  | Enum: [3d 1w 2w 3w 4w] <br />Optional: \{\} <br /> |
+| `seriesTagEnabled` _boolean_ | seriesTagEnabled gives a series the language profile whose tag matches<br />one of its Sonarr tags. |  | Optional: \{\} <br /> |
+| `movieTagEnabled` _boolean_ | movieTagEnabled gives a movie the language profile whose tag matches one<br />of its Radarr tags. |  | Optional: \{\} <br /> |
+| `removeProfileTags` _string array_ | removeProfileTags lists Sonarr and Radarr tags that take a series' or<br />movie's language profile away when seriesTagEnabled or movieTagEnabled is on. |  | items:MaxLength: 64 <br />items:Pattern: `^[a-z0-9_-]+$` <br />Optional: \{\} <br /> |
+| `utf8Encode` _boolean_ | utf8Encode encodes subtitles to UTF-8. |  | Optional: \{\} <br /> |
+| `ignorePgsSubs` _boolean_ | ignorePgsSubs ignores PGS (image-based) subtitles. |  | Optional: \{\} <br /> |
+| `ignoreVobsubSubs` _boolean_ | ignoreVobsubSubs ignores VobSub (image-based) subtitles. |  | Optional: \{\} <br /> |
+| `ignoreAssSubs` _boolean_ | ignoreAssSubs ignores ASS/SSA subtitles. |  | Optional: \{\} <br /> |
+| `embeddedSubtitlesParser` _string_ | embeddedSubtitlesParser is the parser used for embedded subtitles. |  | Enum: [ffprobe mediainfo] <br />Optional: \{\} <br /> |
+| `hiExtension` _string_ | hiExtension is the file extension used for hearing-impaired subtitle files. |  | Enum: [hi cc sdh] <br />Optional: \{\} <br /> |
+| `pathMappings` _[BazarrPathMapping](#bazarrpathmapping) array_ | pathMappings translate Sonarr's paths into the paths Bazarr sees the same<br />files at. Bazarr separates the two with a comma, so neither may have one. |  | Optional: \{\} <br /> |
+| `pathMappingsMovie` _[BazarrPathMapping](#bazarrpathmapping) array_ | pathMappingsMovie translate Radarr's paths into the paths Bazarr sees the<br />same files at. |  | Optional: \{\} <br /> |
+| `seriesDefaultProfile` _string_ | seriesDefaultProfile is the language profile, by name, that new series<br />get. Setting it turns the default on. |  | MinLength: 1 <br />Optional: \{\} <br /> |
+| `movieDefaultProfile` _string_ | movieDefaultProfile is the language profile, by name, that new movies<br />get. Setting it turns the default on. |  | MinLength: 1 <br />Optional: \{\} <br /> |
+| `useEmbeddedSubs` _boolean_ | useEmbeddedSubs counts subtitles embedded in the media file as present. |  | Optional: \{\} <br /> |
+| `subfolder` _string_ | subfolder is where subtitles are saved: next to the media file, in a<br />folder relative to it, or in an absolute folder. |  | Enum: [current relative absolute] <br />Optional: \{\} <br /> |
+| `subfolderCustom` _string_ | subfolderCustom is the folder subfolder relative or absolute saves to. |  | MinLength: 1 <br />Optional: \{\} <br /> |
+| `chmod` _string_ | chmod is the octal permissions chmodEnabled sets on subtitle files, such as 0640. |  | MinLength: 1 <br />Pattern: `^0?[0-7]\{3\}$` <br />Optional: \{\} <br /> |
+| `postprocessingCmd` _string_ | postprocessingCmd is the command usePostprocessing runs after a subtitle<br />is downloaded. |  | MinLength: 1 <br />Optional: \{\} <br /> |
+| `usePostprocessingThreshold` _boolean_ | usePostprocessingThreshold runs postprocessingCmd for an episode subtitle<br />only when its score is below postprocessingThreshold. |  | Optional: \{\} <br /> |
+| `postprocessingThreshold` _integer_ | postprocessingThreshold is the episode subtitle score, in percent, below<br />which postprocessingCmd runs. |  | Maximum: 100 <br />Minimum: 0 <br />Optional: \{\} <br /> |
+| `usePostprocessingThresholdMovie` _boolean_ | usePostprocessingThresholdMovie runs postprocessingCmd for a movie<br />subtitle only when its score is below postprocessingThresholdMovie. |  | Optional: \{\} <br /> |
+| `postprocessingThresholdMovie` _integer_ | postprocessingThresholdMovie is the movie subtitle score, in percent,<br />below which postprocessingCmd runs. |  | Maximum: 100 <br />Minimum: 0 <br />Optional: \{\} <br /> |
+
+
+#### BazarrJellyfin
+
+
+
+BazarrJellyfin connects Bazarr to Jellyfin and names the libraries it
+refreshes items in.
+
+
+
+_Appears in:_
+- [BazarrSpec](#bazarrspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `appRef` _[AppRef](#appref)_ | appRef names the Jellyfin resource whose connection URL and API key are<br />used in place of url and apiKeySecretRef. That resource must set its<br />connection's apiKeySecretRef. |  | Optional: \{\} <br /> |
+| `url` _string_ | url is the Jellyfin URL as Bazarr reaches it (e.g., http://jellyfin:8096). |  | MinLength: 1 <br />Pattern: `^https?://` <br />Optional: \{\} <br /> |
+| `apiKeySecretRef` _[SecretKeyRef](#secretkeyref)_ | apiKeySecretRef references a Secret containing a Jellyfin API key. |  | Optional: \{\} <br /> |
+| `movieLibraries` _string array_ | movieLibraries names the Jellyfin movie libraries Bazarr finds a movie<br />in, and turns on refreshing a movie whose subtitles change. Left out,<br />Bazarr keeps its movie library settings. |  | MinItems: 1 <br />items:MinLength: 1 <br />Optional: \{\} <br /> |
+| `seriesLibraries` _string array_ | seriesLibraries names the Jellyfin TV libraries Bazarr finds a series in,<br />and turns on refreshing an episode whose subtitles change. Left out,<br />Bazarr keeps its series library settings. |  | MinItems: 1 <br />items:MinLength: 1 <br />Optional: \{\} <br /> |
+| `refreshMethod` _string_ | refreshMethod is how Bazarr tells Jellyfin: immediate refreshes the item<br />at once, and async reports the changed file for Jellyfin to pick up with<br />other changes. |  | Enum: [immediate async] <br />Optional: \{\} <br /> |
+
+
+#### BazarrLanguageItem
+
+
+
+BazarrLanguageItem defines a language entry within a language profile.
+
+
+
+_Appears in:_
+- [BazarrLanguageProfile](#bazarrlanguageprofile)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `language` _string_ | language is the ISO 639-1 language code. |  | MinLength: 1 <br />Required: \{\} <br /> |
+| `hi` _boolean_ | hi indicates whether hearing-impaired subtitles are preferred. |  | Optional: \{\} <br /> |
+| `forced` _boolean_ | forced indicates whether forced subtitles are preferred. |  | Optional: \{\} <br /> |
+| `audioExclude` _boolean_ | audioExclude excludes this language if audio already matches. |  | Optional: \{\} <br /> |
+| `audioOnlyInclude` _boolean_ | audioOnlyInclude wants this language only when the media has an audio<br />track in it. |  | Optional: \{\} <br /> |
+
+
+#### BazarrLanguageProfile
+
+
+
+BazarrLanguageProfile defines a language profile for subtitle selection.
+
+
+
+_Appears in:_
+- [BazarrLanguages](#bazarrlanguages)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `profileId` _integer_ | profileId is the unique identifier for this profile. |  | Required: \{\} <br /> |
+| `name` _string_ | name is the display name of the language profile. |  | MinLength: 1 <br />Required: \{\} <br /> |
+| `items` _[BazarrLanguageItem](#bazarrlanguageitem) array_ | items defines the language items in this profile. |  | Optional: \{\} <br /> |
+| `cutoff` _string_ | cutoff is the item whose subtitle ends the search for the others, named<br />as Bazarr shows it: the language code, with :hi or :forced for such an<br />item, such as en or en:hi. any ends it at whichever item is found first,<br />and none searches for every item. |  | MaxLength: 32 <br />MinLength: 1 <br />Optional: \{\} <br /> |
+| `mustContain` _string array_ | mustContain lists words or regular expressions one of which a<br />subtitle's release information must contain. |  | items:MinLength: 1 <br />Optional: \{\} <br /> |
+| `mustNotContain` _string array_ | mustNotContain lists words or regular expressions that rule out a<br />subtitle whose release information contains one, ignoring case. |  | items:MinLength: 1 <br />Optional: \{\} <br /> |
+| `originalFormat` _boolean_ | originalFormat keeps downloaded subtitles in their own format instead<br />of converting them. |  | Optional: \{\} <br /> |
+| `tag` _string_ | tag is the Sonarr or Radarr tag that gives a series or movie this<br />profile when general.seriesTagEnabled or movieTagEnabled is on. |  | MaxLength: 64 <br />MinLength: 1 <br />Pattern: `^[a-z0-9_-]+$` <br />Optional: \{\} <br /> |
+
+
+#### BazarrLanguages
+
+
+
+BazarrLanguages configures language settings and profiles.
+
+
+
+_Appears in:_
+- [BazarrSpec](#bazarrspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `enabled` _string array_ | enabled is the list of enabled subtitle languages as ISO 639-1 codes. |  | Optional: \{\} <br /> |
+| `profiles` _[BazarrLanguageProfile](#bazarrlanguageprofile) array_ | profiles defines language profiles for subtitle selection. |  | Optional: \{\} <br /> |
+
+
+#### BazarrNotification
+
+
+
+BazarrNotification sets up one of Bazarr's notification providers.
+
+_Validation:_
+- MinProperties: 2
+
+_Appears in:_
+- [BazarrSpec](#bazarrspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `name` _string_ | name is the provider, as Bazarr lists it, such as Discord or Telegram. |  | MinLength: 1 <br />Required: \{\} <br /> |
+| `enabled` _boolean_ | enabled turns the provider on. |  | Optional: \{\} <br /> |
+| `urlSecretRef` _[SecretKeyRef](#secretkeyref)_ | urlSecretRef is the Secret key holding the provider's Apprise URL, such<br />as discord://webhook_id/webhook_token. |  | Optional: \{\} <br /> |
+
+
+#### BazarrPathMapping
+
+
+
+BazarrPathMapping translates a path Sonarr or Radarr reports into the path
+Bazarr reads the same file at.
+
+
+
+_Appears in:_
+- [BazarrGeneral](#bazarrgeneral)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `remotePath` _string_ | remotePath is the path as Sonarr or Radarr reports it. |  | MinLength: 1 <br />Pattern: `^[^,]+$` <br />Required: \{\} <br /> |
+| `localPath` _string_ | localPath is the path inside the Bazarr container. |  | MinLength: 1 <br />Pattern: `^[^,]+$` <br />Required: \{\} <br /> |
+
+
+#### BazarrProvider
+
+
+
+BazarrProvider defines a subtitle provider configuration.
+
+
+
+_Appears in:_
+- [BazarrSpec](#bazarrspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `name` _string_ | name is the provider key (e.g., opensubtitlescom, addic7ed). |  | MinLength: 1 <br />Required: \{\} <br /> |
+| `enabled` _boolean_ | enabled controls whether this provider is active. |  | Optional: \{\} <br /> |
+| `settings` _[ConfigField](#configfield) array_ | settings are the provider's settings, each a text value or read from a<br />Secret in the resource's namespace, such as a password or API key. |  | MaxProperties: 2 <br />Optional: \{\} <br /> |
+
+
+#### BazarrSpec
+
+
+
+BazarrSpec defines the desired state of Bazarr.
+
+
+
+_Appears in:_
+- [Bazarr](#bazarr)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `connection` _[AppConnection](#appconnection)_ | connection defines how to connect to the Bazarr instance. |  | Required: \{\} <br /> |
+| `reconcile` _[ReconcileConfig](#reconcileconfig)_ | reconcile configures reconciliation behavior (e.g., sync interval). |  | Optional: \{\} <br /> |
+| `general` _[BazarrGeneral](#bazarrgeneral)_ | general configures general Bazarr settings. |  | Optional: \{\} <br /> |
+| `sonarrConnection` _[BazarrAppConnection](#bazarrappconnection)_ | sonarrConnection configures the connection to a Sonarr instance. |  | MinProperties: 1 <br />Optional: \{\} <br /> |
+| `radarrConnection` _[BazarrAppConnection](#bazarrappconnection)_ | radarrConnection configures the connection to a Radarr instance. |  | MinProperties: 1 <br />Optional: \{\} <br /> |
+| `jellyfin` _[BazarrJellyfin](#bazarrjellyfin)_ | jellyfin has Bazarr refresh a movie or episode in Jellyfin after its<br />subtitles change, so they show without waiting for a library scan.<br />Setting it turns Bazarr's Jellyfin integration on. Needs Bazarr 1.6.0 or<br />later. |  | Optional: \{\} <br /> |
+| `subSync` _[BazarrSubSync](#bazarrsubsync)_ | subSync configures subtitle synchronization settings. |  | Optional: \{\} <br /> |
+| `notifications` _[BazarrNotification](#bazarrnotification) array_ | notifications sets up Bazarr's notification providers, matched by name.<br />Bazarr lists every provider Apprise supports, and one left out keeps its<br />settings. |  | MinProperties: 2 <br />Optional: \{\} <br /> |
+| `providers` _[BazarrProvider](#bazarrprovider) array_ | providers defines subtitle provider configurations. |  | Optional: \{\} <br /> |
+| `languages` _[BazarrLanguages](#bazarrlanguages)_ | languages configures language settings and profiles. |  | Optional: \{\} <br /> |
+
+
+#### BazarrStatus
+
+
+
+BazarrStatus defines the observed state of Bazarr.
+
+_Validation:_
+- MinProperties: 1
+
+_Appears in:_
+- [Bazarr](#bazarr)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#condition-v1-meta) array_ | conditions represent the current state of the Bazarr resource. |  | Optional: \{\} <br /> |
+| `observedGeneration` _integer_ | observedGeneration is the most recent generation observed. |  | Minimum: 1 <br />Optional: \{\} <br /> |
+| `lastSyncTime` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#time-v1-meta)_ | lastSyncTime is the timestamp of the last successful reconciliation. |  | Optional: \{\} <br /> |
+| `managedResources` _[ManagedResource](#managedresource) array_ | managedResources records the resources this operator created, keyed by<br />resource type. Prune only removes entries listed here, so resources<br />created outside the operator are never deleted. |  | Optional: \{\} <br /> |
+
+
+#### BazarrSubSync
+
+
+
+BazarrSubSync configures subtitle synchronization settings.
+
+
+
+_Appears in:_
+- [BazarrSpec](#bazarrspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `useSubsync` _boolean_ | useSubsync enables automatic subtitle synchronization. |  | Optional: \{\} <br /> |
+| `useSubsyncThreshold` _boolean_ | useSubsyncThreshold enables a score threshold for series subtitle sync. |  | Optional: \{\} <br /> |
+| `subsyncThreshold` _integer_ | subsyncThreshold is the minimum score threshold for series subtitle sync. |  | Maximum: 100 <br />Minimum: 0 <br />Optional: \{\} <br /> |
+| `useSubsyncMovieThreshold` _boolean_ | useSubsyncMovieThreshold enables a score threshold for movie subtitle sync. |  | Optional: \{\} <br /> |
+| `subsyncMovieThreshold` _integer_ | subsyncMovieThreshold is the minimum score threshold for movie subtitle sync. |  | Maximum: 100 <br />Minimum: 0 <br />Optional: \{\} <br /> |
+
+
 #### ConfigField
 
 
@@ -502,6 +810,7 @@ _Validation:_
 _Appears in:_
 - [AutobrrIndexer](#autobrrindexer)
 - [AutobrrNotification](#autobrrnotification)
+- [BazarrProvider](#bazarrprovider)
 - [CustomFormatSpecification](#customformatspecification)
 - [DownloadClient](#downloadclient)
 - [Indexer](#indexer)
@@ -1829,6 +2138,7 @@ ManagedResource lists the items of one type the operator created.
 
 _Appears in:_
 - [AutobrrStatus](#autobrrstatus)
+- [BazarrStatus](#bazarrstatus)
 - [FlareSolverrStatus](#flaresolverrstatus)
 - [JellyfinStatus](#jellyfinstatus)
 - [LidarrDownloadClientStatus](#lidarrdownloadclientstatus)
@@ -3337,6 +3647,7 @@ ReconcileConfig holds common reconciliation settings shared across all config CR
 
 _Appears in:_
 - [AutobrrSpec](#autobrrspec)
+- [BazarrSpec](#bazarrspec)
 - [FlareSolverrSpec](#flaresolverrspec)
 - [JellyfinSpec](#jellyfinspec)
 - [LidarrSpec](#lidarrspec)
@@ -3686,6 +3997,9 @@ _Appears in:_
 - [AutobrrIRCChannel](#autobrrircchannel)
 - [AutobrrIRCNetwork](#autobrrircnetwork)
 - [AutobrrProxy](#autobrrproxy)
+- [BazarrAppConnection](#bazarrappconnection)
+- [BazarrJellyfin](#bazarrjellyfin)
+- [BazarrNotification](#bazarrnotification)
 - [DownloadClient](#downloadclient)
 - [JellyfinAdminUser](#jellyfinadminuser)
 - [JellyfinConnection](#jellyfinconnection)

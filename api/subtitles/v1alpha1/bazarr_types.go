@@ -152,13 +152,13 @@ type BazarrGeneral struct {
 	// adaptiveSearchingDelay is how long after the first search adaptiveSearching
 	// starts searching less often.
 	// +optional
-	// +kubebuilder:validation:Enum=1w;2w;3w;4w
+	// +kubebuilder:validation:Enum="1w";"2w";"3w";"4w"
 	AdaptiveSearchingDelay string `json:"adaptiveSearchingDelay,omitempty"`
 
 	// adaptiveSearchingDelta is how often adaptiveSearching searches once it
 	// searches less often.
 	// +optional
-	// +kubebuilder:validation:Enum=3d;1w;2w;3w;4w
+	// +kubebuilder:validation:Enum="3d";"1w";"2w";"3w";"4w"
 	AdaptiveSearchingDelta string `json:"adaptiveSearchingDelta,omitempty"`
 
 	// seriesTagEnabled gives a series the language profile whose tag matches
