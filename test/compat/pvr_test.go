@@ -188,6 +188,9 @@ func TestRadarr(t *testing.T) {
 			requireMediaServerNotification(t, hc, "/api/v3/notification", "Compat Jellyfin", "MediaBrowser", "/jellyfin")
 			requireMetadataConsumer(t, hc, "/api/v3/metadata", "XbmcMetadata",
 				map[string]any{"movieMetadataURL": true, "movieImages": false})
+			metadataConfig, err := hc.GetJSON(context.Background(), "/api/v3/config/metadata")
+			require.NoError(t, err)
+			assert.Equal(t, "gb", metadataConfig["certificationCountry"])
 			requireMediaServerNotification(t, hc, "/api/v3/notification", "Compat Plex", "PlexServer", "/plex")
 			naming, err := hc.GetJSON(context.Background(), "/api/v3/config/naming")
 			require.NoError(t, err)

@@ -346,6 +346,11 @@ func TestAdmissionRules(t *testing.T) {
 		{name: "a Readarr notification to Jellyfin by reference", kind: "Readarr", spec: conn + `
   notifications: [{name: Jellyfin, appRef: {kind: Jellyfin, name: jellyfin}}]`,
 			rejected: "Readarr has no Jellyfin notification"},
+		{name: "Radarr certification country", kind: "Radarr", spec: conn + `
+  metadataConfig: {certificationCountry: gb}`},
+		{name: "a Radarr certification country TMDb doesn't rate", kind: "Radarr", spec: conn + `
+  metadataConfig: {certificationCountry: jp}`,
+			rejected: "Unsupported value"},
 		{name: "Sonarr metadata consumers", kind: "Sonarr", spec: conn + `
   metadataConsumers:
     - implementation: XbmcMetadata

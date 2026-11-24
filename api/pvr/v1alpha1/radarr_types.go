@@ -52,6 +52,10 @@ type RadarrSpec struct {
 	// +optional
 	UI *RadarrUI `json:"ui,omitempty"`
 
+	// metadataConfig configures Radarr's metadata options.
+	// +optional
+	MetadataConfig RadarrMetadataConfig `json:"metadataConfig,omitzero"`
+
 	// rootFolders defines media library root folder paths.
 	// +optional
 	// +listType=map
@@ -365,6 +369,15 @@ type RadarrUI struct {
 	// movieInfoLanguage is the language ID for movie information. -1=Original.
 	// +optional
 	MovieInfoLanguage *int32 `json:"movieInfoLanguage,omitempty"`
+}
+
+// RadarrMetadataConfig configures Radarr's metadata options.
+type RadarrMetadataConfig struct {
+	// certificationCountry is the country whose movie certifications (age
+	// ratings) Radarr uses.
+	// +required
+	// +kubebuilder:validation:Enum=au;br;ca;fr;de;gb;in;ie;it;nz;ro;es;us
+	CertificationCountry string `json:"certificationCountry,omitempty"`
 }
 
 // RadarrStatus defines the observed state of Radarr.

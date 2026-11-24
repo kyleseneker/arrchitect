@@ -630,6 +630,31 @@ spec:
                       copying or hardlinking.
                     type: boolean
                 type: object
+              metadataConfig:
+                description: metadataConfig configures Radarr's metadata options.
+                properties:
+                  certificationCountry:
+                    description: |-
+                      certificationCountry is the country whose movie certifications (age
+                      ratings) Radarr uses.
+                    enum:
+                    - au
+                    - br
+                    - ca
+                    - fr
+                    - de
+                    - gb
+                    - in
+                    - ie
+                    - it
+                    - nz
+                    - ro
+                    - es
+                    - us
+                    type: string
+                required:
+                - certificationCountry
+                type: object
               metadataConsumers:
                 description: |-
                   metadataConsumers configures the app's metadata writers, which it keeps
