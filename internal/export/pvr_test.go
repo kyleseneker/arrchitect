@@ -26,6 +26,7 @@ var fakeSonarrAPI = map[string]string{
 	"/config/indexer":         `{"id":1}`,
 	"/config/downloadclient":  `{"id":1}`,
 	"/config/ui":              `{"id":1}`,
+	"/config/importlist":      `{"id":1,"listSyncLevel":"keepAndTag","listSyncTag":1}`,
 	"/tag":                    `[{"id":1,"label":"anime"}]`,
 	"/rootfolder":             `[{"id":1,"path":"/tv","freeSpace":123}]`,
 	"/remotepathmapping":      `[]`,
@@ -126,6 +127,14 @@ func objectsOf[T client.Object](res Result) []T {
 		}
 	}
 	return out
+}
+
+func TestPVRImportListConfigNamesTheSyncTag(t *testing.T) {
+	cfg, _ := exportSonarr(t, Options{})
+	assert.Equal(t, &pvrv1alpha1.SonarrImportListConfig{ListSyncLevel: "keepAndTag", ListSyncTagLabel: "anime"}, cfg.Spec.ImportListConfig)
+
+	cfg, _ = exportSonarr(t, Options{}, map[string]string{"/config/importlist": `{"id":1,"listSyncLevel":"logOnly","listSyncTag":0}`})
+	assert.Equal(t, &pvrv1alpha1.SonarrImportListConfig{ListSyncLevel: "logOnly"}, cfg.Spec.ImportListConfig)
 }
 
 func TestPVRAutoTagsNameTheProfilesAndTagsTheirConditionsMatch(t *testing.T) {

@@ -471,6 +471,26 @@ spec:
                       downloads.
                     type: boolean
                 type: object
+              importListConfig:
+                description: |-
+                  importListConfig configures what Radarr does with a movie its import
+                  lists no longer have.
+                properties:
+                  listSyncLevel:
+                    description: |-
+                      listSyncLevel is what Radarr does with a movie no import list has any
+                      more: disabled, logOnly, keepAndUnmonitor, removeAndKeep to remove it and
+                      keep its files, or removeAndDelete to remove it and delete its files.
+                    enum:
+                    - disabled
+                    - logOnly
+                    - keepAndUnmonitor
+                    - removeAndKeep
+                    - removeAndDelete
+                    type: string
+                required:
+                - listSyncLevel
+                type: object
               importLists:
                 description: importLists defines import list configurations for automatic
                   content addition.

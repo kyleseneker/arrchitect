@@ -36,6 +36,11 @@ type SonarrSpec struct {
 	// +optional
 	UI *SonarrUI `json:"ui,omitempty"`
 
+	// importListConfig configures what Sonarr does with a series its import
+	// lists no longer have.
+	// +optional
+	ImportListConfig *SonarrImportListConfig `json:"importListConfig,omitempty"`
+
 	// rootFolders defines media library root folder paths.
 	// +optional
 	// +listType=map
@@ -358,6 +363,23 @@ type SonarrUI struct {
 	// uiLanguage is the UI language ID. 1=English.
 	// +optional
 	UILanguage *int32 `json:"uiLanguage,omitempty"`
+}
+
+// SonarrImportListConfig configures Sonarr's import list sync.
+// +kubebuilder:validation:XValidation:rule="has(self.listSyncTagLabel) == (has(self.listSyncLevel) && self.listSyncLevel == 'keepAndTag')",message="listSyncTagLabel goes with listSyncLevel keepAndTag"
+type SonarrImportListConfig struct {
+	// listSyncLevel is what Sonarr does with a series no import list has any
+	// more: disabled, logOnly, keepAndUnmonitor, or keepAndTag to tag it with
+	// listSyncTagLabel.
+	// +optional
+	// +kubebuilder:validation:Enum=disabled;logOnly;keepAndUnmonitor;keepAndTag
+	ListSyncLevel string `json:"listSyncLevel,omitempty"`
+
+	// listSyncTagLabel is the tag, by label, that keepAndTag puts on such a
+	// series, resolved against Sonarr on each reconciliation.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	ListSyncTagLabel string `json:"listSyncTagLabel,omitempty"`
 }
 
 // SonarrStatus defines the observed state of Sonarr.

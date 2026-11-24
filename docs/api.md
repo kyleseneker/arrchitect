@@ -3167,6 +3167,22 @@ _Appears in:_
 | `managedResources` _[ManagedResource](#managedresource) array_ | managedResources records what the operator created for this resource,<br />so deletion only removes what it created. |  | Optional: \{\} <br /> |
 
 
+#### RadarrImportListConfig
+
+
+
+RadarrImportListConfig configures Radarr's import list sync.
+
+
+
+_Appears in:_
+- [RadarrSpec](#radarrspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `listSyncLevel` _string_ | listSyncLevel is what Radarr does with a movie no import list has any<br />more: disabled, logOnly, keepAndUnmonitor, removeAndKeep to remove it and<br />keep its files, or removeAndDelete to remove it and delete its files. |  | Enum: [disabled logOnly keepAndUnmonitor removeAndKeep removeAndDelete] <br />Required: \{\} <br /> |
+
+
 #### RadarrIndexer
 
 
@@ -3353,6 +3369,7 @@ _Appears in:_
 | `downloadClientConfig` _[RadarrDownloadClientConfig](#radarrdownloadclientconfig)_ | downloadClientConfig configures global download client behavior. |  | Optional: \{\} <br /> |
 | `ui` _[RadarrUI](#radarrui)_ | ui configures UI display settings. |  | Optional: \{\} <br /> |
 | `metadataConfig` _[RadarrMetadataConfig](#radarrmetadataconfig)_ | metadataConfig configures Radarr's metadata options. |  | Optional: \{\} <br /> |
+| `importListConfig` _[RadarrImportListConfig](#radarrimportlistconfig)_ | importListConfig configures what Radarr does with a movie its import<br />lists no longer have. |  | Optional: \{\} <br /> |
 | `rootFolders` _[RootFolder](#rootfolder) array_ | rootFolders defines media library root folder paths. |  | Optional: \{\} <br /> |
 | `remotePathMappings` _[RemotePathMapping](#remotepathmapping) array_ | remotePathMappings translates paths reported by remote download clients.<br />Entries are matched by host and remotePath. Only operator-created entries can be pruned. |  | Optional: \{\} <br /> |
 | `qualityProfiles` _[QualityProfile](#qualityprofile) array_ | qualityProfiles defines quality profiles for controlling download quality preferences. |  | Optional: \{\} <br /> |
@@ -4591,6 +4608,23 @@ _Appears in:_
 | `managedResources` _[ManagedResource](#managedresource) array_ | managedResources records what the operator created for this resource,<br />so deletion only removes what it created. |  | Optional: \{\} <br /> |
 
 
+#### SonarrImportListConfig
+
+
+
+SonarrImportListConfig configures Sonarr's import list sync.
+
+
+
+_Appears in:_
+- [SonarrSpec](#sonarrspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `listSyncLevel` _string_ | listSyncLevel is what Sonarr does with a series no import list has any<br />more: disabled, logOnly, keepAndUnmonitor, or keepAndTag to tag it with<br />listSyncTagLabel. |  | Enum: [disabled logOnly keepAndUnmonitor keepAndTag] <br />Optional: \{\} <br /> |
+| `listSyncTagLabel` _string_ | listSyncTagLabel is the tag, by label, that keepAndTag puts on such a<br />series, resolved against Sonarr on each reconciliation. |  | MinLength: 1 <br />Optional: \{\} <br /> |
+
+
 #### SonarrIndexer
 
 
@@ -4761,6 +4795,7 @@ _Appears in:_
 | `indexerConfig` _[SonarrIndexerConfig](#sonarrindexerconfig)_ | indexerConfig configures global indexer settings. |  | Optional: \{\} <br /> |
 | `downloadClientConfig` _[SonarrDownloadClientConfig](#sonarrdownloadclientconfig)_ | downloadClientConfig configures global download client behavior. |  | Optional: \{\} <br /> |
 | `ui` _[SonarrUI](#sonarrui)_ | ui configures UI display settings. |  | Optional: \{\} <br /> |
+| `importListConfig` _[SonarrImportListConfig](#sonarrimportlistconfig)_ | importListConfig configures what Sonarr does with a series its import<br />lists no longer have. |  | Optional: \{\} <br /> |
 | `rootFolders` _[RootFolder](#rootfolder) array_ | rootFolders defines media library root folder paths. |  | Optional: \{\} <br /> |
 | `remotePathMappings` _[RemotePathMapping](#remotepathmapping) array_ | remotePathMappings translates paths reported by remote download clients.<br />Entries are matched by host and remotePath. Only operator-created entries can be pruned. |  | Optional: \{\} <br /> |
 | `qualityProfiles` _[QualityProfile](#qualityprofile) array_ | qualityProfiles defines quality profiles for controlling download quality preferences. |  | Optional: \{\} <br /> |

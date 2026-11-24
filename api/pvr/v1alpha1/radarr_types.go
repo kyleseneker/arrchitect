@@ -56,6 +56,11 @@ type RadarrSpec struct {
 	// +optional
 	MetadataConfig RadarrMetadataConfig `json:"metadataConfig,omitzero"`
 
+	// importListConfig configures what Radarr does with a movie its import
+	// lists no longer have.
+	// +optional
+	ImportListConfig RadarrImportListConfig `json:"importListConfig,omitzero"`
+
 	// rootFolders defines media library root folder paths.
 	// +optional
 	// +listType=map
@@ -375,6 +380,16 @@ type RadarrUI struct {
 	// movieInfoLanguage is the language ID for movie information. -1=Original.
 	// +optional
 	MovieInfoLanguage *int32 `json:"movieInfoLanguage,omitempty"`
+}
+
+// RadarrImportListConfig configures Radarr's import list sync.
+type RadarrImportListConfig struct {
+	// listSyncLevel is what Radarr does with a movie no import list has any
+	// more: disabled, logOnly, keepAndUnmonitor, removeAndKeep to remove it and
+	// keep its files, or removeAndDelete to remove it and delete its files.
+	// +required
+	// +kubebuilder:validation:Enum=disabled;logOnly;keepAndUnmonitor;removeAndKeep;removeAndDelete
+	ListSyncLevel string `json:"listSyncLevel,omitempty"`
 }
 
 // RadarrMetadataConfig configures Radarr's metadata options.

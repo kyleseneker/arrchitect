@@ -467,6 +467,33 @@ spec:
                       downloads.
                     type: boolean
                 type: object
+              importListConfig:
+                description: |-
+                  importListConfig configures what Sonarr does with a series its import
+                  lists no longer have.
+                properties:
+                  listSyncLevel:
+                    description: |-
+                      listSyncLevel is what Sonarr does with a series no import list has any
+                      more: disabled, logOnly, keepAndUnmonitor, or keepAndTag to tag it with
+                      listSyncTagLabel.
+                    enum:
+                    - disabled
+                    - logOnly
+                    - keepAndUnmonitor
+                    - keepAndTag
+                    type: string
+                  listSyncTagLabel:
+                    description: |-
+                      listSyncTagLabel is the tag, by label, that keepAndTag puts on such a
+                      series, resolved against Sonarr on each reconciliation.
+                    minLength: 1
+                    type: string
+                type: object
+                x-kubernetes-validations:
+                - message: listSyncTagLabel goes with listSyncLevel keepAndTag
+                  rule: has(self.listSyncTagLabel) == (has(self.listSyncLevel) &&
+                    self.listSyncLevel == 'keepAndTag')
               importLists:
                 description: importLists defines import list configurations for automatic
                   content addition.

@@ -372,6 +372,19 @@ func TestAdmissionRules(t *testing.T) {
 		{name: "an auto tag without conditions", kind: "Sonarr", spec: conn + `
   autoTags: [{name: x, tagLabels: [a], specifications: []}]`,
 			rejected: "should have at least 1 items"},
+		{name: "Sonarr list sync tagging", kind: "Sonarr", spec: conn + `
+  importListConfig: {listSyncLevel: keepAndTag, listSyncTagLabel: unlisted}`},
+		{name: "a Sonarr list sync tag without keepAndTag", kind: "Sonarr", spec: conn + `
+  importListConfig: {listSyncLevel: logOnly, listSyncTagLabel: unlisted}`,
+			rejected: "listSyncTagLabel goes with listSyncLevel keepAndTag"},
+		{name: "Sonarr keepAndTag without a tag", kind: "Sonarr", spec: conn + `
+  importListConfig: {listSyncLevel: keepAndTag}`,
+			rejected: "listSyncTagLabel goes with listSyncLevel keepAndTag"},
+		{name: "Radarr list sync removing movies", kind: "Radarr", spec: conn + `
+  importListConfig: {listSyncLevel: removeAndKeep}`},
+		{name: "Radarr keepAndTag", kind: "Radarr", spec: conn + `
+  importListConfig: {listSyncLevel: keepAndTag}`,
+			rejected: "Unsupported value"},
 		{name: "Radarr certification country", kind: "Radarr", spec: conn + `
   metadataConfig: {certificationCountry: gb}`},
 		{name: "a Radarr certification country TMDb doesn't rate", kind: "Radarr", spec: conn + `
