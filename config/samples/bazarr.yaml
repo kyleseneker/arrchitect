@@ -77,8 +77,6 @@ spec:
               key: password
     - name: podnapisi
       enabled: true
-    - name: yifysubtitles
-      enabled: true
     - name: supersubtitles
       enabled: true
   languages:

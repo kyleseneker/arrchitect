@@ -32,7 +32,7 @@ spec:
         key: api-key
       syncCategories: [2000, 2010, 2020, 2030, 2040, 2045, 2050, 2060, 2070, 2080, 2090]
   indexers:
-    - name: 1337x
+    - name: Internet Archive
       implementation: Cardigann
       configContract: CardigannSettings
       enable: true
@@ -40,20 +40,25 @@ spec:
       priority: 25
       fields:
         - name: definitionFile
-          value: "1337x"
+          value: internetarchive
         - name: baseUrl
-          value: "https://1337x.to/"
-    - name: The Pirate Bay
-      implementation: Cardigann
-      configContract: CardigannSettings
+          value: "https://archive.org/"
+    - name: Usenet Indexer
+      implementation: Newznab
+      configContract: NewznabSettings
       enable: true
       appProfileName: Standard
       priority: 25
       fields:
-        - name: definitionFile
-          value: thepiratebay
         - name: baseUrl
-          value: "https://thepiratebay.org/"
+          value: "https://indexer.example.com"
+        - name: apiPath
+          value: /api
+        - name: apiKey
+          valueFrom:
+            secretKeyRef:
+              name: usenet-indexer-credentials
+              key: api-key
   tags:
     - label: anime
     - label: hdr

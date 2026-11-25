@@ -23,26 +23,28 @@ spec:
         name: qbittorrent-credentials
         key: password
   indexers:
-    - name: IPTorrents
-      identifier: ipt
-      settings:
-        - name: passkey
-          valueFrom:
-            secretKeyRef:
-              name: iptorrents-credentials
-              key: passkey
+    - name: Prowlarr
+      identifier: torznab
+  feeds:
+    - name: Prowlarr
+      type: Torznab
+      url: http://prowlarr.media.svc.cluster.local:9696/1/api
+      indexerRef: Prowlarr
+      interval: 15
+      apiKeySecretRef:
+        name: prowlarr-credentials
+        key: api-key
   filters:
     - name: "TV Shows - 1080p"
       priority: 1
       indexers:
-        - IPTorrents
+        - Prowlarr
       resolutions:
         - "1080p"
       sources:
         - "BluRay"
         - "WEB-DL"
         - "WEB"
-      exceptReleaseGroups: "YIFY,RARBG"
       smartEpisode: true
       maxDownloads: 10
       maxDownloadsUnit: DAY
