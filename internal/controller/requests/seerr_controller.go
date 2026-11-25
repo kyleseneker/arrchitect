@@ -42,134 +42,108 @@ type SeerrReconciler struct {
 // +kubebuilder:rbac:groups=arrchitect.dev,resources=sonarrs;radarrs;jellyfins;plexes,verbs=get;list;watch
 
 func (r *SeerrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	logger := log.FromContext(ctx)
-
-	var config requestsv1alpha1.Seerr
-	if err := r.Get(ctx, req.NamespacedName, &config); err != nil {
-		return ctrl.Result{}, ctrlcommon.IgnoreDeleted(&config, req.NamespacedName, err)
+	integration := ctrlcommon.Integration[*requestsv1alpha1.Seerr, *seerrConn]{
+		App:     "seerr",
+		Connect: r.connect,
+		Sync:    r.sync,
+		Cleanup: cleanupSeerr,
+		Prune:   true,
 	}
-
-	lifecycle := ctrlcommon.Lifecycle{Remove: func(ctx context.Context) error { return r.cleanup(ctx, &config) }, Prune: true}
-	if done, after := ctrlcommon.HandleLifecycle(ctx, r.Client, r.Recorder, &config, lifecycle); done {
-		return ctrl.Result{RequeueAfter: after}, nil
-	}
-
-	sc, reason, err := r.seerrClient(ctx, &config)
-	if err != nil {
-		logger.Error(err, "failed to build the Seerr client")
-		ctrlcommon.UpdateStatusUnreachable(ctx, r.Client, &config, reason, err.Error())
-		if reason == engine.ReasonInvalidConfig {
-			return ctrl.Result{}, nil
-		}
-		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
-	}
-
-	isInitialized, err := sc.IsInitialized(ctx)
-	if err != nil {
-		logger.Error(err, "Seerr unreachable")
-		ctrlcommon.UpdateStatusUnreachable(ctx, r.Client, &config, engine.ReasonAppUnreachable, err.Error())
-		return ctrl.Result{RequeueAfter: 60 * time.Second}, nil
-	}
-
-	writes := &engine.Writes{App: "seerr", Observe: ctrlcommon.ObserveOnly(config.Spec.Reconcile)}
-	owned := engine.NewOwnership("seerr", config.GetManagedResources())
-	if !isInitialized && writes.Observe {
-		// Signing in to a Seerr that has not been set up configures its media
-		// server, so observe mode reports the setup as missing and stops.
-		config.Status.Initialized = &isInitialized
-		writes.RecordDrift("settings", "initialization")
-		ctrlcommon.UpdateObservationStatus(ctx, r.Client, &config, writes.Drift(), nil)
-		return ctrl.Result{RequeueAfter: ctrlcommon.ReconcileInterval(config.Spec.Reconcile)}, nil
-	}
-
-	media, mediaErr := r.mediaServer(ctx, &config)
-	if mediaErr != nil && (config.Spec.Connection.APIKeySecretRef == nil || !isInitialized) {
-		reason, after := ctrlcommon.AppRefFailure(mediaErr)
-		ctrlcommon.UpdateStatusUnreachable(ctx, r.Client, &config, reason, mediaErr.Error())
-		return ctrl.Result{RequeueAfter: after}, nil
-	}
-
-	if err := r.establishSession(ctx, sc, &config, media); err != nil {
-		reason := engine.ReasonAppUnreachable
-		if reconciler.IsSecretError(err) {
-			reason = engine.ReasonSecretNotFound
-		}
-		ctrlcommon.UpdateStatusUnreachable(ctx, r.Client, &config, reason, err.Error())
-		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
-	}
-
-	if !isInitialized {
-		if err := r.setup(ctx, sc, writes, owned, &config, media); err != nil {
-			// A setup that failed partway may have created connections already.
-			ctrlcommon.UpdateStatusManaged(&config, owned.Managed())
-			ctrlcommon.UpdateStatus(ctx, r.Client, &config, false, engine.ReasonSyncFailed, err.Error())
-			return ctrl.Result{RequeueAfter: 60 * time.Second}, nil
-		}
-	}
-
-	initialized := true
-	config.Status.Initialized = &initialized
-
-	syncErrors := reconcileSeerrMediaServer(ctx, sc, writes, media, mediaErr, config.Spec.Libraries)
-
-	for _, k := range seerrServers(config.Spec) {
-		kind, declared := k.kind, k.servers
-		problems := r.reconcileServiceConnections(ctx, sc, writes, owned, &config, kind, declared)
-		if len(problems) == 0 && ctrlcommon.PruneEnabled(config.Spec.Reconcile) {
-			if err := pruneSeerrService(ctx, sc, writes, owned, kind, declared); err != nil {
-				problems = append(problems, fmt.Sprintf("%s: %v", kind, err))
-			}
-		}
-		for _, problem := range problems {
-			logger.Error(errors.New(problem), "failed to reconcile connection", "service", kind)
-		}
-		syncErrors = append(syncErrors, problems...)
-	}
-
-	if config.Spec.Main != nil {
-		if err := reconcileSeerrMainSettings(ctx, sc, writes, config.Spec.Main); err != nil {
-			logger.Error(err, "failed to reconcile main settings")
-			syncErrors = append(syncErrors, fmt.Sprintf("main: %v", err))
-		}
-	}
-	if err := reconcileSeerrNetwork(ctx, sc, writes, config.Spec.Network); err != nil {
-		syncErrors = append(syncErrors, fmt.Sprintf("network: %v", err))
-	}
-	if err := reconcileSeerrMetadataProviders(ctx, sc, writes, config.Spec.MetadataProviders); err != nil {
-		syncErrors = append(syncErrors, fmt.Sprintf("metadataProviders: %v", err))
-	}
-	syncErrors = append(syncErrors, reconcileSeerrJobSchedules(ctx, sc, writes, config.Spec.JobSchedules)...)
-
-	for _, agent := range config.Spec.Notifications {
-		options, err := ctrlcommon.FieldValues(ctx, r.Client, config.Namespace, "notification "+agent.Agent, agent.Options)
-		if err == nil {
-			err = reconcileSeerrNotificationAgent(ctx, sc, writes, agent, options)
-		}
-		if err != nil {
-			logger.Error(err, "failed to reconcile notification agent", "agent", agent.Agent)
-			syncErrors = append(syncErrors, fmt.Sprintf("notification(%s): %v", agent.Agent, err))
-		}
-	}
-
-	ctrlcommon.UpdateStatusManaged(&config, owned.Managed())
-	ctrlcommon.EmitPruneEvents(r.Recorder, &config, owned.Pruned())
-	ctrlcommon.UpdateSyncStatus(ctx, r.Client, &config, writes.Observe, writes.Drift(), syncErrors)
-
-	return ctrl.Result{RequeueAfter: ctrlcommon.ReconcileInterval(config.Spec.Reconcile)}, nil
+	return integration.Reconcile(ctx, r.Client, r.Recorder, req, &requestsv1alpha1.Seerr{})
 }
 
-// seerrClient builds the client for a config, or returns the status reason it
-// can't.
-func (r *SeerrReconciler) seerrClient(ctx context.Context, config *requestsv1alpha1.Seerr) (*seerrclient.Client, string, error) {
+// seerrConn is a Seerr the operator has reached and, unless observe mode found
+// it not yet set up, signed in to.
+type seerrConn struct {
+	sc          *seerrclient.Client
+	initialized bool
+	media       seerrMediaServer
+	mediaErr    error
+}
+
+func (r *SeerrReconciler) connect(ctx context.Context, config *requestsv1alpha1.Seerr) (*seerrConn, error) {
 	tlsCfg, err := engine.ResolveTLSConfig(ctx, r.Client, config.Namespace, config.Spec.Connection.TLS)
 	if err != nil {
-		return nil, engine.ReasonSecretNotFound, err
+		return nil, err
 	}
 	hc, err := engine.NewHTTPClient(config.Spec.Connection.URL, engine.AuthSession, engine.WithTLSConfig(tlsCfg), engine.WithAppLabel("seerr"))
 	if err != nil {
-		return nil, engine.ReasonInvalidConfig, err
+		return nil, err
 	}
-	return seerrclient.NewClient(hc), "", nil
+	conn := &seerrConn{sc: seerrclient.NewClient(hc)}
+	if conn.initialized, err = conn.sc.IsInitialized(ctx); err != nil {
+		return nil, err
+	}
+	if !conn.initialized && ctrlcommon.ObserveOnly(config.Spec.Reconcile) {
+		// Signing in to a Seerr that has not been set up configures its media
+		// server, so observe mode goes no further.
+		return conn, nil
+	}
+	conn.media, conn.mediaErr = r.mediaServer(ctx, config)
+	if conn.mediaErr != nil && (config.Spec.Connection.APIKeySecretRef == nil || !conn.initialized) {
+		return nil, conn.mediaErr
+	}
+	if err := r.establishSession(ctx, conn.sc, config, conn.media); err != nil {
+		return nil, err
+	}
+	return conn, nil
+}
+
+func (r *SeerrReconciler) sync(ctx context.Context, conn *seerrConn, config *requestsv1alpha1.Seerr, pass *engine.Pass) []string {
+	logger := log.FromContext(ctx)
+	sc := conn.sc
+	if !conn.initialized {
+		config.Status.Initialized = &conn.initialized
+		if pass.Observe {
+			pass.RecordDrift("settings", "initialization")
+			return nil
+		}
+		if err := r.setup(ctx, sc, &pass.Writes, pass.Owned, config, conn.media); err != nil {
+			pass.Retry = time.Minute
+			return []string{err.Error()}
+		}
+	}
+	initialized := true
+	config.Status.Initialized = &initialized
+
+	problems := reconcileSeerrMediaServer(ctx, sc, &pass.Writes, conn.media, conn.mediaErr, config.Spec.Libraries)
+	for _, k := range seerrServers(config.Spec) {
+		kind, declared := k.kind, k.servers
+		failed := r.reconcileServiceConnections(ctx, sc, &pass.Writes, pass.Owned, config, kind, declared)
+		if len(failed) == 0 && pass.PruneEnabled {
+			if err := pruneSeerrService(ctx, sc, &pass.Writes, pass.Owned, kind, declared); err != nil {
+				failed = append(failed, fmt.Sprintf("%s: %v", kind, err))
+			}
+		}
+		for _, problem := range failed {
+			logger.Error(errors.New(problem), "failed to reconcile connection", "service", kind)
+		}
+		problems = append(problems, failed...)
+	}
+	if config.Spec.Main != nil {
+		if err := reconcileSeerrMainSettings(ctx, sc, &pass.Writes, config.Spec.Main); err != nil {
+			logger.Error(err, "failed to reconcile main settings")
+			problems = append(problems, fmt.Sprintf("main: %v", err))
+		}
+	}
+	if err := reconcileSeerrNetwork(ctx, sc, &pass.Writes, config.Spec.Network); err != nil {
+		problems = append(problems, fmt.Sprintf("network: %v", err))
+	}
+	if err := reconcileSeerrMetadataProviders(ctx, sc, &pass.Writes, config.Spec.MetadataProviders); err != nil {
+		problems = append(problems, fmt.Sprintf("metadataProviders: %v", err))
+	}
+	problems = append(problems, reconcileSeerrJobSchedules(ctx, sc, &pass.Writes, config.Spec.JobSchedules)...)
+	for _, agent := range config.Spec.Notifications {
+		options, err := ctrlcommon.FieldValues(ctx, r.Client, config.Namespace, "notification "+agent.Agent, agent.Options)
+		if err == nil {
+			err = reconcileSeerrNotificationAgent(ctx, sc, &pass.Writes, agent, options)
+		}
+		if err != nil {
+			logger.Error(err, "failed to reconcile notification agent", "agent", agent.Agent)
+			problems = append(problems, fmt.Sprintf("notification(%s): %v", agent.Agent, err))
+		}
+	}
+	return problems
 }
 
 type seerrServerKind struct {
@@ -207,26 +181,16 @@ func pruneSeerrService(
 	})
 }
 
-// cleanup deletes the connections the operator created, for deletionPolicy delete.
-func (r *SeerrReconciler) cleanup(ctx context.Context, config *requestsv1alpha1.Seerr) error {
-	sc, _, err := r.seerrClient(ctx, config)
-	if err != nil {
-		return err
-	}
-	media, err := r.mediaServer(ctx, config)
-	if err != nil && config.Spec.Connection.APIKeySecretRef == nil {
-		return err
-	}
-	if err := r.establishSession(ctx, sc, config, media); err != nil {
-		return err
-	}
-	owned := engine.NewOwnership("seerr", config.GetManagedResources())
-	var errs []error
-	for _, kind := range []string{"sonarr", "radarr"} {
-		names, ids, err := seerrServices(ctx, sc, kind)
+// cleanupSeerr deletes the Sonarr and Radarr connections the operator created,
+// for deletionPolicy delete.
+func cleanupSeerr(ctx context.Context, conn *seerrConn, owned *engine.Ownership) error {
+	kinds := []string{"sonarr", "radarr"}
+	errs := make([]error, 0, len(kinds))
+	for _, kind := range kinds {
+		names, ids, err := seerrServices(ctx, conn.sc, kind)
 		if err == nil {
 			err = owned.Cleanup(kind, names, func(name string) error {
-				return sc.Delete(ctx, fmt.Sprintf("/api/v1/settings/%s/%d", kind, ids[name]))
+				return conn.sc.Delete(ctx, fmt.Sprintf("/api/v1/settings/%s/%d", kind, ids[name]))
 			})
 		}
 		errs = append(errs, err)

@@ -11,7 +11,6 @@ import (
 	"slices"
 	"strconv"
 	"strings"
-	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -26,7 +25,6 @@ import (
 	sabnzbdclient "github.com/kyleseneker/arrchitect/internal/client/sabnzbd"
 	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
 	"github.com/kyleseneker/arrchitect/internal/engine"
-	"github.com/kyleseneker/arrchitect/internal/metrics"
 	"github.com/kyleseneker/arrchitect/internal/reconciler"
 )
 
@@ -42,100 +40,79 @@ type SabnzbdReconciler struct {
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
 
 func (r *SabnzbdReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	logger := log.FromContext(ctx)
-
-	var config downloadsv1alpha1.Sabnzbd
-	if err := r.Get(ctx, req.NamespacedName, &config); err != nil {
-		return ctrl.Result{}, ctrlcommon.IgnoreDeleted(&config, req.NamespacedName, err)
+	integration := ctrlcommon.Integration[*downloadsv1alpha1.Sabnzbd, *sabnzbdclient.Client]{
+		App:     "sabnzbd",
+		Connect: r.connect,
+		Sync:    r.sync,
+		Cleanup: cleanupSabnzbd,
+		Prune:   true,
 	}
+	return integration.Reconcile(ctx, r.Client, r.Recorder, req, &downloadsv1alpha1.Sabnzbd{})
+}
 
-	lifecycle := ctrlcommon.Lifecycle{Remove: func(ctx context.Context) error { return r.cleanup(ctx, &config) }, Prune: true}
-	if done, after := ctrlcommon.HandleLifecycle(ctx, r.Client, r.Recorder, &config, lifecycle); done {
-		return ctrl.Result{RequeueAfter: after}, nil
-	}
-
-	sc, reason, err := r.sabnzbdClient(ctx, &config)
-	if err != nil {
-		logger.Error(err, "failed to build the SABnzbd client")
-		ctrlcommon.UpdateStatusUnreachable(ctx, r.Client, &config, reason, err.Error())
-		if reason == engine.ReasonInvalidConfig {
-			return ctrl.Result{}, nil
-		}
-		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
-	}
-
-	if err := sc.Ping(ctx); err != nil {
-		logger.Error(err, "SABnzbd unreachable")
-		ctrlcommon.UpdateStatusUnreachable(ctx, r.Client, &config, engine.ReasonAppUnreachable, err.Error())
-		return ctrl.Result{RequeueAfter: 60 * time.Second}, nil
-	}
-
-	current, err := sc.GetConfig(ctx)
-	if err != nil {
-		ctrlcommon.UpdateStatus(ctx, r.Client, &config, false, engine.ReasonSyncFailed, fmt.Sprintf("reading config: %v", err))
-		return ctrl.Result{RequeueAfter: ctrlcommon.ReconcileInterval(config.Spec.Reconcile)}, nil
-	}
+func (r *SabnzbdReconciler) connect(ctx context.Context, config *downloadsv1alpha1.Sabnzbd) (*sabnzbdclient.Client, error) {
 	if config.Spec.General != nil {
 		if err := sabnzbdHostAllowed(config.Spec.Connection.URL, config.Spec.General.HostWhitelist); err != nil {
-			ctrlcommon.UpdateStatus(ctx, r.Client, &config, false, engine.ReasonInvalidConfig, err.Error())
-			return ctrl.Result{}, nil
+			return nil, engine.InvalidConfig(err)
 		}
 	}
-	servers, syncErrors := r.resolveSabnzbdServers(ctx, &config)
-	apprise, err := r.sabnzbdAppriseValues(ctx, &config)
+	apiKey, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, config.Spec.Connection.APIKeySecretRef)
 	if err != nil {
-		syncErrors = append(syncErrors, fmt.Sprintf("apprise: %v", err))
+		return nil, err
 	}
-	login, err := r.sabnzbdLoginValues(ctx, &config)
+	tlsCfg, err := engine.ResolveTLSConfig(ctx, r.Client, config.Namespace, config.Spec.Connection.TLS)
 	if err != nil {
-		syncErrors = append(syncErrors, fmt.Sprintf("login: %v", err))
+		return nil, err
 	}
-	observe := ctrlcommon.ObserveOnly(config.Spec.Reconcile)
+	hc, err := engine.NewHTTPClient(config.Spec.Connection.URL, engine.AuthNone, engine.WithTLSConfig(tlsCfg), engine.WithAppLabel("sabnzbd"))
+	if err != nil {
+		return nil, err
+	}
+	sc := sabnzbdclient.NewClient(hc, apiKey)
+	return sc, sc.Ping(ctx)
+}
+
+func (r *SabnzbdReconciler) sync(ctx context.Context, sc *sabnzbdclient.Client, config *downloadsv1alpha1.Sabnzbd, pass *engine.Pass) []string {
+	current, err := sc.GetConfig(ctx)
+	if err != nil {
+		return []string{fmt.Sprintf("reading config: %v", err)}
+	}
+	servers, problems := r.resolveSabnzbdServers(ctx, config)
+	apprise, err := r.sabnzbdAppriseValues(ctx, config)
+	if err != nil {
+		problems = append(problems, fmt.Sprintf("apprise: %v", err))
+	}
+	login, err := r.sabnzbdLoginValues(ctx, config)
+	if err != nil {
+		problems = append(problems, fmt.Sprintf("login: %v", err))
+	}
 	plan := func(current map[string]any) []sabWrite {
 		writes := planSabnzbd(current, config.Spec, servers, string(config.UID))
 		writes = append(writes, planKeywords(current, "apprise", apprise)...)
-		return append(writes, planLogin(current, login, string(config.UID), observe)...)
+		return append(writes, planLogin(current, login, string(config.UID), pass.Observe)...)
 	}
 	writes := plan(current)
-
-	owned := engine.NewOwnership("sabnzbd", config.GetManagedResources())
-	prune := ctrlcommon.PruneEnabled(config.Spec.Reconcile)
-	if observe {
-		observed := &engine.Writes{App: "sabnzbd", Observe: true}
-		for _, w := range writes {
-			observed.RecordDrift(w.resourceType, w.name)
-		}
-		if prune {
-			syncErrors = append(syncErrors, pruneSabnzbd(ctx, sc, current, config.Spec, owned, observed)...)
-		}
-		ctrlcommon.UpdateSyncStatus(ctx, r.Client, &config, true, observed.Drift(), syncErrors)
-		return ctrl.Result{RequeueAfter: ctrlcommon.ReconcileInterval(config.Spec.Reconcile)}, nil
-	}
-
-	syncErrors = append(syncErrors, applySabnzbd(ctx, sc, writes, owned)...)
+	problems = append(problems, applySabnzbd(ctx, sc, pass, writes)...)
 	// A fresh SABnzbd creates its default categories on the first category
 	// write and discards that write, so check once more after writing.
-	if len(writes) > 0 && len(syncErrors) == 0 {
+	if len(writes) > 0 && len(problems) == 0 && !pass.Observe {
 		if current, err = sc.GetConfig(ctx); err != nil {
-			syncErrors = append(syncErrors, fmt.Sprintf("re-reading config: %v", err))
+			problems = append(problems, fmt.Sprintf("re-reading config: %v", err))
 		} else {
 			again, refused := sabnzbdRefused(writes, plan(current))
-			syncErrors = append(syncErrors, refused...)
-			syncErrors = append(syncErrors, applySabnzbd(ctx, sc, again, owned)...)
+			problems = append(problems, refused...)
+			problems = append(problems, applySabnzbd(ctx, sc, pass, again)...)
 		}
 	}
-	if prune && len(syncErrors) == 0 {
+	if !pass.PruneEnabled || len(problems) > 0 {
+		return problems
+	}
+	if !pass.Observe {
 		if current, err = sc.GetConfig(ctx); err != nil {
-			syncErrors = append(syncErrors, fmt.Sprintf("reading config to prune: %v", err))
-		} else {
-			syncErrors = append(syncErrors, pruneSabnzbd(ctx, sc, current, config.Spec, owned, &engine.Writes{App: "sabnzbd"})...)
+			return append(problems, fmt.Sprintf("reading config to prune: %v", err))
 		}
 	}
-
-	ctrlcommon.UpdateStatusManaged(&config, owned.Managed())
-	ctrlcommon.EmitPruneEvents(r.Recorder, &config, owned.Pruned())
-	ctrlcommon.UpdateSyncStatus(ctx, r.Client, &config, false, nil, syncErrors)
-	return ctrl.Result{RequeueAfter: ctrlcommon.ReconcileInterval(config.Spec.Reconcile)}, nil
+	return append(problems, pruneSabnzbd(ctx, sc, current, config.Spec, pass)...)
 }
 
 func (r *SabnzbdReconciler) SetupWithManager(mgr ctrl.Manager) error {
@@ -291,53 +268,36 @@ func sabnzbdRefused(first, again []sabWrite) ([]sabWrite, []string) {
 }
 
 // applySabnzbd performs the planned writes and returns the failures.
-func applySabnzbd(ctx context.Context, sc *sabnzbdclient.Client, writes []sabWrite, owned *engine.Ownership) []string {
+func applySabnzbd(ctx context.Context, sc *sabnzbdclient.Client, pass *engine.Pass, writes []sabWrite) []string {
 	var problems []string
 	for _, w := range writes {
-		metrics.DriftCorrectedTotal.WithLabelValues("sabnzbd", w.resourceType, w.name).Inc()
-		var err error
-		if w.section == "misc" || w.section == "apprise" {
-			err = sc.SetConfig(ctx, w.section, w.name, w.values["value"])
-		} else {
-			err = sc.SetNamed(ctx, w.section, w.name, w.values)
-		}
+		err := pass.Apply(w.resourceType, w.name, func() error {
+			var err error
+			if w.section == "misc" || w.section == "apprise" {
+				err = sc.SetConfig(ctx, w.section, w.name, w.values["value"])
+			} else {
+				err = sc.SetNamed(ctx, w.section, w.name, w.values)
+			}
+			if err != nil {
+				return err
+			}
+			reconciler.RecordSecrets(w.secretKey, w.secretDigest)
+			if w.create {
+				pass.Owned.Created(w.section, w.name)
+			}
+			return nil
+		})
 		if err != nil {
 			log.FromContext(ctx).Error(err, "failed to write SABnzbd config", "section", w.section, "name", w.name)
 			problems = append(problems, fmt.Sprintf("%s(%s): %v", w.resourceType, w.name, err))
-			continue
-		}
-		reconciler.RecordSecrets(w.secretKey, w.secretDigest)
-		if w.create {
-			owned.Created(w.section, w.name)
 		}
 	}
 	return problems
 }
 
-// sabnzbdClient builds the client for a config, or returns the status reason it
-// can't.
-func (r *SabnzbdReconciler) sabnzbdClient(ctx context.Context, config *downloadsv1alpha1.Sabnzbd) (*sabnzbdclient.Client, string, error) {
-	apiKey, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, config.Spec.Connection.APIKeySecretRef)
-	if err != nil {
-		return nil, engine.ReasonSecretNotFound, err
-	}
-	tlsCfg, err := engine.ResolveTLSConfig(ctx, r.Client, config.Namespace, config.Spec.Connection.TLS)
-	if err != nil {
-		return nil, engine.ReasonSecretNotFound, err
-	}
-	hc, err := engine.NewHTTPClient(config.Spec.Connection.URL, engine.AuthNone, engine.WithTLSConfig(tlsCfg), engine.WithAppLabel("sabnzbd"))
-	if err != nil {
-		return nil, engine.ReasonInvalidConfig, err
-	}
-	return sabnzbdclient.NewClient(hc, apiKey), "", nil
-}
-
 // pruneSabnzbd deletes the servers and categories the operator created that the
 // spec no longer declares.
-func pruneSabnzbd(
-	ctx context.Context, sc *sabnzbdclient.Client, current map[string]any, spec downloadsv1alpha1.SabnzbdSpec,
-	owned *engine.Ownership, w *engine.Writes,
-) []string {
+func pruneSabnzbd(ctx context.Context, sc *sabnzbdclient.Client, current map[string]any, spec downloadsv1alpha1.SabnzbdSpec, pass *engine.Pass) []string {
 	declared := map[string][]string{}
 	for _, s := range spec.Servers {
 		declared["servers"] = append(declared["servers"], s.Name)
@@ -347,7 +307,7 @@ func pruneSabnzbd(
 	}
 	var problems []string
 	for _, section := range []string{"servers", "categories"} {
-		err := w.Prune(owned, section, declared[section], sabnzbdNames(current, section), func(name string) error {
+		err := pass.Prune(pass.Owned, section, declared[section], sabnzbdNames(current, section), func(name string) error {
 			return sc.DeleteNamed(ctx, section, name)
 		})
 		if err != nil {
@@ -357,18 +317,13 @@ func pruneSabnzbd(
 	return problems
 }
 
-// cleanup deletes the servers and categories the operator created, for
+// cleanupSabnzbd deletes the servers and categories the operator created, for
 // deletionPolicy delete.
-func (r *SabnzbdReconciler) cleanup(ctx context.Context, config *downloadsv1alpha1.Sabnzbd) error {
-	sc, _, err := r.sabnzbdClient(ctx, config)
-	if err != nil {
-		return err
-	}
+func cleanupSabnzbd(ctx context.Context, sc *sabnzbdclient.Client, owned *engine.Ownership) error {
 	current, err := sc.GetConfig(ctx)
 	if err != nil {
 		return err
 	}
-	owned := engine.NewOwnership("sabnzbd", config.GetManagedResources())
 	var errs []error
 	for _, section := range []string{"servers", "categories"} {
 		errs = append(errs, owned.Cleanup(section, sabnzbdNames(current, section), func(name string) error {

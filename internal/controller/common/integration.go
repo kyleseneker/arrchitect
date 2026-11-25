@@ -70,7 +70,11 @@ func (in Integration[T, C]) Reconcile(
 	ReportResult(ctx, c, obj, pass.Observe, engine.ReconcileResult{
 		Synced: pass.SyncedItems(), Errors: problems, Drift: pass.Drift(),
 	})
-	return ctrl.Result{RequeueAfter: ReconcileInterval(rc)}, nil
+	after := ReconcileInterval(rc)
+	if pass.Retry > 0 && pass.Retry < after {
+		after = pass.Retry
+	}
+	return ctrl.Result{RequeueAfter: after}, nil
 }
 
 // Classify is the status reason for a failure to reach an app, and when to try

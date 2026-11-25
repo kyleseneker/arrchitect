@@ -11,7 +11,6 @@ import (
 	"slices"
 	"strconv"
 	"strings"
-	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -26,7 +25,6 @@ import (
 	bazarrclient "github.com/kyleseneker/arrchitect/internal/client/bazarr"
 	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
 	"github.com/kyleseneker/arrchitect/internal/engine"
-	"github.com/kyleseneker/arrchitect/internal/metrics"
 	"github.com/kyleseneker/arrchitect/internal/reconciler"
 )
 
@@ -45,50 +43,47 @@ type BazarrReconciler struct {
 // +kubebuilder:rbac:groups=arrchitect.dev,resources=sonarrs;radarrs;jellyfins,verbs=get;list;watch
 
 func (r *BazarrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	logger := log.FromContext(ctx)
-
-	var config subtitlesv1alpha1.Bazarr
-	if err := r.Get(ctx, req.NamespacedName, &config); err != nil {
-		return ctrl.Result{}, ctrlcommon.IgnoreDeleted(&config, req.NamespacedName, err)
+	integration := ctrlcommon.Integration[*subtitlesv1alpha1.Bazarr, *bazarrclient.Client]{
+		App:     "bazarr",
+		Connect: r.connect,
+		Sync:    r.sync,
+		Cleanup: cleanupBazarr,
+		Prune:   true,
 	}
+	return integration.Reconcile(ctx, r.Client, r.Recorder, req, &subtitlesv1alpha1.Bazarr{})
+}
 
-	cleanup := func(ctx context.Context) error { return r.cleanup(ctx, &config) }
-	lifecycle := ctrlcommon.Lifecycle{Remove: cleanup, Prune: true}
-	if done, after := ctrlcommon.HandleLifecycle(ctx, r.Client, r.Recorder, &config, lifecycle); done {
-		return ctrl.Result{RequeueAfter: after}, nil
-	}
-
-	bc, reason, err := r.bazarrClient(ctx, &config)
+func (r *BazarrReconciler) connect(ctx context.Context, config *subtitlesv1alpha1.Bazarr) (*bazarrclient.Client, error) {
+	apiKey, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, config.Spec.Connection.APIKeySecretRef)
 	if err != nil {
-		logger.Error(err, "failed to build the Bazarr client")
-		ctrlcommon.UpdateStatusUnreachable(ctx, r.Client, &config, reason, err.Error())
-		if reason == engine.ReasonInvalidConfig {
-			return ctrl.Result{}, nil
-		}
-		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
+		return nil, err
 	}
-
-	if err := bc.Ping(ctx); err != nil {
-		logger.Error(err, "Bazarr unreachable")
-		ctrlcommon.UpdateStatusUnreachable(ctx, r.Client, &config, engine.ReasonAppUnreachable, err.Error())
-		return ctrl.Result{RequeueAfter: 60 * time.Second}, nil
+	tlsCfg, err := engine.ResolveTLSConfig(ctx, r.Client, config.Namespace, config.Spec.Connection.TLS)
+	if err != nil {
+		return nil, err
 	}
+	hc, err := engine.NewHTTPClient(config.Spec.Connection.URL, engine.AuthFormEncoded, engine.WithAPIKey(apiKey),
+		engine.WithAPIKeyHeader("X-API-KEY"), engine.WithTLSConfig(tlsCfg), engine.WithAppLabel("bazarr"))
+	if err != nil {
+		return nil, err
+	}
+	bc := bazarrclient.NewClient(hc)
+	return bc, bc.Ping(ctx)
+}
 
-	desired, problems := r.bazarrDesired(ctx, &config)
+func (r *BazarrReconciler) sync(ctx context.Context, bc *bazarrclient.Client, config *subtitlesv1alpha1.Bazarr, pass *engine.Pass) []string {
+	desired, problems := r.bazarrDesired(ctx, config)
 	settings, err := bc.GetSettings(ctx)
 	if err != nil {
-		ctrlcommon.UpdateStatus(ctx, r.Client, &config, false, engine.ReasonSyncFailed, fmt.Sprintf("reading settings: %v", err))
-		return ctrl.Result{RequeueAfter: ctrlcommon.ReconcileInterval(config.Spec.Reconcile)}, nil
+		return append(problems, fmt.Sprintf("reading settings: %v", err))
 	}
-	owned := engine.NewOwnership("bazarr", config.GetManagedResources())
 	var profiles *bazarrProfiles
 	if desired.Has(profilesField) {
 		existing, err := bc.GetLanguageProfiles(ctx)
 		if err != nil {
-			ctrlcommon.UpdateStatus(ctx, r.Client, &config, false, engine.ReasonSyncFailed, fmt.Sprintf("reading language profiles: %v", err))
-			return ctrl.Result{RequeueAfter: ctrlcommon.ReconcileInterval(config.Spec.Reconcile)}, nil
+			return append(problems, fmt.Sprintf("reading language profiles: %v", err))
 		}
-		profiles, err = planBazarrProfiles(desired.Get(profilesField), existing, ctrlcommon.PruneEnabled(config.Spec.Reconcile), owned)
+		profiles, err = planBazarrProfiles(desired.Get(profilesField), existing, pass.PruneEnabled, pass.Owned)
 		if err != nil {
 			problems = append(problems, fmt.Sprintf("languages: %v", err))
 			desired.Del(profilesField)
@@ -99,8 +94,7 @@ func (r *BazarrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	var enabled []string
 	if desired.Has(bazarrclient.EnabledLanguagesField) {
 		if enabled, err = bc.EnabledLanguages(ctx); err != nil {
-			ctrlcommon.UpdateStatus(ctx, r.Client, &config, false, engine.ReasonSyncFailed, fmt.Sprintf("reading languages: %v", err))
-			return ctrl.Result{RequeueAfter: ctrlcommon.ReconcileInterval(config.Spec.Reconcile)}, nil
+			return append(problems, fmt.Sprintf("reading languages: %v", err))
 		}
 	}
 	if err := resolveBazarrDefaultProfiles(ctx, bc, config.Spec, desired); err != nil {
@@ -116,51 +110,23 @@ func (r *BazarrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		changes[notificationsField] = items
 	}
 
-	if ctrlcommon.ObserveOnly(config.Spec.Reconcile) {
-		for key := range changes {
-			metrics.DriftObservedTotal.WithLabelValues("bazarr", bazarrSettingSection(key), key).Inc()
-		}
-		ctrlcommon.UpdateSyncStatus(ctx, r.Client, &config, true, bazarrDrift(changes), problems)
-		return ctrl.Result{RequeueAfter: ctrlcommon.ReconcileInterval(config.Spec.Reconcile)}, nil
-	}
-
-	if len(changes) > 0 {
-		for key := range changes {
-			metrics.DriftCorrectedTotal.WithLabelValues("bazarr", bazarrSettingSection(key), key).Inc()
-		}
-		// One request with only what differs: every save reconnects Bazarr to
-		// Sonarr and Radarr, and enabling useSonarr in a request before the one
-		// carrying the connection hangs while Bazarr retries 127.0.0.1.
+	// One request with only what differs: every save reconnects Bazarr to
+	// Sonarr and Radarr, and enabling useSonarr in a request before the one
+	// carrying the connection hangs while Bazarr retries 127.0.0.1.
+	err = pass.ApplyBatch(bazarrChangeList(changes), func() error {
 		if err := bc.PostForm(ctx, "/api/system/settings", changes); err != nil {
-			logger.Error(err, "failed to write Bazarr settings")
-			problems = append(problems, fmt.Sprintf("settings: %v", err))
-		} else if changes.Has(profilesField) {
-			profiles.saved(owned)
+			return err
 		}
-	}
-
-	ctrlcommon.UpdateStatusManaged(&config, owned.Managed())
-	ctrlcommon.EmitPruneEvents(r.Recorder, &config, owned.Pruned())
-	ctrlcommon.UpdateSyncStatus(ctx, r.Client, &config, false, nil, problems)
-
-	return ctrl.Result{RequeueAfter: ctrlcommon.ReconcileInterval(config.Spec.Reconcile)}, nil
-}
-
-func (r *BazarrReconciler) bazarrClient(ctx context.Context, config *subtitlesv1alpha1.Bazarr) (*bazarrclient.Client, string, error) {
-	apiKey, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, config.Spec.Connection.APIKeySecretRef)
+		if changes.Has(profilesField) {
+			profiles.saved(pass.Owned)
+		}
+		return nil
+	})
 	if err != nil {
-		return nil, engine.ReasonSecretNotFound, err
+		log.FromContext(ctx).Error(err, "failed to write Bazarr settings")
+		problems = append(problems, fmt.Sprintf("settings: %v", err))
 	}
-	tlsCfg, err := engine.ResolveTLSConfig(ctx, r.Client, config.Namespace, config.Spec.Connection.TLS)
-	if err != nil {
-		return nil, engine.ReasonSecretNotFound, err
-	}
-	hc, err := engine.NewHTTPClient(config.Spec.Connection.URL, engine.AuthFormEncoded, engine.WithAPIKey(apiKey),
-		engine.WithAPIKeyHeader("X-API-KEY"), engine.WithTLSConfig(tlsCfg), engine.WithAppLabel("bazarr"))
-	if err != nil {
-		return nil, engine.ReasonInvalidConfig, err
-	}
-	return bazarrclient.NewClient(hc), "", nil
+	return problems
 }
 
 // bazarrDesired renders every declared setting as the form fields Bazarr's
@@ -557,17 +523,20 @@ func bazarrChanges(desired url.Values, settings map[string]any, profiles []map[s
 	return changes
 }
 
-func bazarrDrift(changes url.Values) []string {
-	drift := make([]string, 0, len(changes))
+// bazarrChangeList names each change by section and setting.
+func bazarrChangeList(changes url.Values) []engine.Change {
+	out := make([]engine.Change, 0, len(changes))
 	for key := range changes {
 		_, name, _ := strings.Cut(strings.TrimPrefix(key, "settings-"), "-")
 		if key == profilesField {
 			name = "profiles"
 		}
-		drift = append(drift, bazarrSettingSection(key)+"("+name+")")
+		out = append(out, engine.Change{Kind: bazarrSettingSection(key), Name: name})
 	}
-	slices.Sort(drift)
-	return drift
+	slices.SortFunc(out, func(a, b engine.Change) int {
+		return strings.Compare(a.Kind+"("+a.Name+")", b.Kind+"("+b.Name+")")
+	})
+	return out
 }
 
 func bazarrSettingSection(key string) string {

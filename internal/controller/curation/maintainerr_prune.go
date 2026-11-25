@@ -69,7 +69,7 @@ func (s *maintainerrSync) pruneUndeclared(
 		}
 		names, ids, err := l.listed(ctx)
 		if err == nil {
-			err = s.Prune(s.owned, l.kind, declared[l.kind], names, func(name string) error { return l.remove(ctx, ids[name]) })
+			err = s.Prune(s.Owned, l.kind, declared[l.kind], names, func(name string) error { return l.remove(ctx, ids[name]) })
 		}
 		if err != nil {
 			errs = append(errs, fmt.Sprintf("%s(prune): %v", l.kind, err))
@@ -85,7 +85,7 @@ func (s *maintainerrSync) cleanup(ctx context.Context) error {
 	for _, l := range lists {
 		names, ids, err := l.listed(ctx)
 		if err == nil {
-			err = s.owned.Cleanup(l.kind, names, func(name string) error { return l.remove(ctx, ids[name]) })
+			err = s.Owned.Cleanup(l.kind, names, func(name string) error { return l.remove(ctx, ids[name]) })
 		}
 		errs = append(errs, err)
 	}

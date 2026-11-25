@@ -76,12 +76,12 @@ func (s *autobrrSync) pruneUndeclared(ctx context.Context, spec *automationv1alp
 	}
 	declared := declaredNames(spec)
 	for _, l := range s.lists() {
-		if failed[l.kind] || !s.owned.Owns(l.kind) {
+		if failed[l.kind] || !s.Owned.Owns(l.kind) {
 			continue
 		}
 		names, ids, err := listed(ctx, l.list)
 		if err == nil {
-			err = s.Prune(s.owned, l.kind, declared[l.kind], names, func(name string) error { return l.remove(ctx, ids[name]) })
+			err = s.Prune(s.Owned, l.kind, declared[l.kind], names, func(name string) error { return l.remove(ctx, ids[name]) })
 		}
 		if err != nil {
 			errs = append(errs, fmt.Sprintf("%s(prune): %v", l.kind, err))
@@ -103,7 +103,7 @@ func (s *autobrrSync) pruneActions(ctx context.Context, filter automationv1alpha
 	for _, a := range filter.Actions {
 		declared = append(declared, filter.Name+"/"+a.Name)
 	}
-	return s.Prune(s.owned, actionsKind, declared, existing, func(name string) error {
+	return s.Prune(s.Owned, actionsKind, declared, existing, func(name string) error {
 		return s.ac.DeleteAction(ctx, actionIDs[name])
 	})
 }
@@ -113,7 +113,7 @@ func (s *autobrrSync) pruneActions(ctx context.Context, filter automationv1alpha
 // 1.91 API key may have no scope for it.
 func (s *autobrrSync) cleanup(ctx context.Context) error {
 	var errs []error
-	if s.owned.Owns(actionsKind) {
+	if s.Owned.Owns(actionsKind) {
 		filters, ids, err := listed(ctx, s.ac.ListFilters)
 		if err != nil {
 			return err
@@ -121,18 +121,18 @@ func (s *autobrrSync) cleanup(ctx context.Context) error {
 		for _, name := range filters {
 			existing, actionIDs, err := s.filterActions(ctx, name, ids[name])
 			if err == nil {
-				err = s.owned.Cleanup(actionsKind, existing, func(n string) error { return s.ac.DeleteAction(ctx, actionIDs[n]) })
+				err = s.Owned.Cleanup(actionsKind, existing, func(n string) error { return s.ac.DeleteAction(ctx, actionIDs[n]) })
 			}
 			errs = append(errs, err)
 		}
 	}
 	for _, l := range s.lists() {
-		if !s.owned.Owns(l.kind) {
+		if !s.Owned.Owns(l.kind) {
 			continue
 		}
 		names, ids, err := listed(ctx, l.list)
 		if err == nil {
-			err = s.owned.Cleanup(l.kind, names, func(name string) error { return l.remove(ctx, ids[name]) })
+			err = s.Owned.Cleanup(l.kind, names, func(name string) error { return l.remove(ctx, ids[name]) })
 		}
 		errs = append(errs, err)
 	}

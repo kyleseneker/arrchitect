@@ -9,6 +9,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -96,6 +97,7 @@ func (r *JellyfinReconciler) sync(ctx context.Context, conn *jellyfinConn, confi
 		}
 		if err := runJellyfinSetup(ctx, jf, config.Spec.Server, conn.admin); err != nil {
 			logger.Error(err, "failed to run setup wizard")
+			pass.Retry = time.Minute
 			return []string{fmt.Sprintf("setup wizard: %v", err)}
 		}
 		logger.Info("Jellyfin setup wizard completed")

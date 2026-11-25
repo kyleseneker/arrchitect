@@ -3,6 +3,7 @@ package engine
 import (
 	"errors"
 	"slices"
+	"time"
 )
 
 // Pass is one reconcile of a resource: the writes it sends, gated on the drift
@@ -12,6 +13,9 @@ type Pass struct {
 	Owned *Ownership
 	// PruneEnabled is set when the resource asks for prune.
 	PruneEnabled bool
+	// Retry asks for the next pass sooner than the resource's interval, as
+	// after a first-time setup that failed.
+	Retry time.Duration
 
 	synced []string
 }

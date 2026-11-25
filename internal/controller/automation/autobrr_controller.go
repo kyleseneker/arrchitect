@@ -7,7 +7,6 @@ import (
 	"maps"
 	"slices"
 	"strings"
-	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -40,88 +39,54 @@ type AutobrrReconciler struct {
 // +kubebuilder:rbac:groups=arrchitect.dev,resources=qbittorrents;sabnzbds;sonarrs;radarrs;lidarrs;readarrs,verbs=get;list;watch
 
 func (r *AutobrrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	logger := log.FromContext(ctx)
-
-	var config automationv1alpha1.Autobrr
-	if err := r.Get(ctx, req.NamespacedName, &config); err != nil {
-		return ctrl.Result{}, ctrlcommon.IgnoreDeleted(&config, req.NamespacedName, err)
+	integration := ctrlcommon.Integration[*automationv1alpha1.Autobrr, *autobrrclient.Client]{
+		App:     "autobrr",
+		Connect: r.connect,
+		Sync: func(ctx context.Context, ac *autobrrclient.Client, config *automationv1alpha1.Autobrr, pass *engine.Pass) []string {
+			sync := &autobrrSync{
+				Pass: pass, c: r.Client, apps: r.Apps, ac: ac, namespace: config.Namespace, owner: config.Namespace + "/" + config.Name,
+			}
+			return sync.run(ctx, &config.Spec)
+		},
+		Cleanup: func(ctx context.Context, ac *autobrrclient.Client, owned *engine.Ownership) error {
+			return (&autobrrSync{Pass: &engine.Pass{Owned: owned}, ac: ac}).cleanup(ctx)
+		},
+		Prune: true,
 	}
-
-	cleanup := func(ctx context.Context) error {
-		ac, _, err := r.autobrrClient(ctx, &config)
-		if err != nil {
-			return err
-		}
-		return (&autobrrSync{ac: ac, owned: engine.NewOwnership("autobrr", config.GetManagedResources())}).cleanup(ctx)
-	}
-	lifecycle := ctrlcommon.Lifecycle{Remove: cleanup, Prune: true}
-	if done, after := ctrlcommon.HandleLifecycle(ctx, r.Client, r.Recorder, &config, lifecycle); done {
-		return ctrl.Result{RequeueAfter: after}, nil
-	}
-
-	ac, reason, err := r.autobrrClient(ctx, &config)
-	if err != nil {
-		logger.Error(err, "failed to build the Autobrr client")
-		ctrlcommon.UpdateStatusUnreachable(ctx, r.Client, &config, reason, err.Error())
-		if reason == engine.ReasonInvalidConfig {
-			return ctrl.Result{}, nil
-		}
-		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
-	}
-
-	if err := ac.Ping(ctx); err != nil {
-		logger.Error(err, "Autobrr unreachable")
-		ctrlcommon.UpdateStatusUnreachable(ctx, r.Client, &config, engine.ReasonAppUnreachable, err.Error())
-		return ctrl.Result{RequeueAfter: 60 * time.Second}, nil
-	}
-
-	sync := &autobrrSync{
-		App: "autobrr", Observe: ctrlcommon.ObserveOnly(config.Spec.Reconcile),
-		c: r.Client, apps: r.Apps, ac: ac, namespace: config.Namespace, owner: config.Namespace + "/" + config.Name,
-		prune: ctrlcommon.PruneEnabled(config.Spec.Reconcile), owned: engine.NewOwnership("autobrr", config.GetManagedResources()),
-	}
-	syncErrors := sync.run(ctx, &config.Spec)
-	ctrlcommon.UpdateStatusManaged(&config, sync.owned.Managed())
-	ctrlcommon.EmitPruneEvents(r.Recorder, &config, sync.owned.Pruned())
-	ctrlcommon.UpdateSyncStatus(ctx, r.Client, &config, sync.Observe, sync.Drift(), syncErrors)
-
-	return ctrl.Result{RequeueAfter: ctrlcommon.ReconcileInterval(config.Spec.Reconcile)}, nil
+	return integration.Reconcile(ctx, r.Client, r.Recorder, req, &automationv1alpha1.Autobrr{})
 }
 
-// autobrrClient builds the client for a config, or returns the status reason it
-// can't.
-func (r *AutobrrReconciler) autobrrClient(ctx context.Context, config *automationv1alpha1.Autobrr) (*autobrrclient.Client, string, error) {
+func (r *AutobrrReconciler) connect(ctx context.Context, config *automationv1alpha1.Autobrr) (*autobrrclient.Client, error) {
 	apiKey, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, config.Spec.Connection.APIKeySecretRef)
 	if err != nil {
-		return nil, engine.ReasonSecretNotFound, err
+		return nil, err
 	}
 	tlsCfg, err := engine.ResolveTLSConfig(ctx, r.Client, config.Namespace, config.Spec.Connection.TLS)
 	if err != nil {
-		return nil, engine.ReasonSecretNotFound, err
+		return nil, err
 	}
 	hc, err := engine.NewHTTPClient(config.Spec.Connection.URL, engine.AuthAPIKey, engine.WithAPIKey(apiKey),
 		// Autobrr reads only X-API-Token; any other header is answered with 403.
 		engine.WithAPIKeyHeader("X-API-Token"), engine.WithTLSConfig(tlsCfg), engine.WithAppLabel("autobrr"))
 	if err != nil {
-		return nil, engine.ReasonInvalidConfig, err
+		return nil, err
 	}
-	return autobrrclient.NewClient(hc), "", nil
+	ac := autobrrclient.NewClient(hc)
+	return ac, ac.Ping(ctx)
 }
 
 // autobrrSync applies one Autobrr. With observe set it only reads, and
 // records what it would have written.
 type autobrrSync struct {
-	engine.Writes
+	*engine.Pass
 	c         client.Reader
 	apps      ctrlcommon.Apps
 	ac        *autobrrclient.Client
 	namespace string
 	owner     string
-	prune     bool
 	// declared names the indexers and download clients the spec declares, which
 	// observe mode may find missing while other items refer to them.
 	declared map[string][]string
-	owned    *engine.Ownership
 
 	definitions []map[string]any
 }
@@ -132,7 +97,7 @@ func (s *autobrrSync) created(kind, name string, create func() error) func() err
 		if err := create(); err != nil {
 			return err
 		}
-		s.owned.Created(kind, name)
+		s.Owned.Created(kind, name)
 		return nil
 	}
 }
@@ -205,7 +170,7 @@ func (s *autobrrSync) run(ctx context.Context, spec *automationv1alpha1.AutobrrS
 			fail("list", l.Name, err)
 		}
 	}
-	if s.prune {
+	if s.PruneEnabled {
 		syncErrors = append(syncErrors, s.pruneUndeclared(ctx, spec, failed)...)
 	}
 	return syncErrors
@@ -1273,7 +1238,7 @@ func (s *autobrrSync) upsertFilter(
 		}
 		raw, _ := created["id"].(float64)
 		id = int(raw)
-		s.owned.Created("filters", name)
+		s.Owned.Created("filters", name)
 		// Autobrr links a filter to its indexers only on update.
 		if _, ok := obj["indexers"]; !ok {
 			return nil
