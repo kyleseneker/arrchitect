@@ -76,6 +76,23 @@ package named the same way.
 A new app also needs its controller in `cmd/operator/main.go` and its name in
 the chart's `values.yaml` and `values.schema.json`.
 
+## API naming
+
+Field names follow the app's own API, so a setting reads the same in the app
+and in a resource.
+
+- A field copies the app's key in camelCase, such as `baseUrl`, `useSsl` or
+  `enableIPv6`. That includes `enable` or `enabled`, whichever the app uses.
+- When the app's key is snake_case or lowercase, write initialisms as words.
+  `use_auto_tmm` becomes `useAutoTmm` and `transcodecpu` becomes
+  `transcodeCpu`. `test/consistency` rejects a field name with capitals in a
+  row unless it copies the app's key and is listed in `mirroredCapitals`.
+- A reference to another item in the same app ends in `Name`, such as
+  `downloadClientName`. `Ref` is for Kubernetes objects, such as `appRef` and
+  `apiKeySecretRef`.
+- Go field names use Go's initialisms, such as `BaseURL` and `UseSSL`. The json
+  tag holds the field name users write.
+
 ## Dependency updates
 
 Renovate (`renovate.json`) opens PRs on Saturday mornings; none automerge. The
