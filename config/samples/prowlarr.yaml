@@ -94,4 +94,7 @@ spec:
       includeHealthWarnings: true
       fields:
         - name: webHookUrl
-          value: "https://discord.com/api/webhooks/your-webhook-url"
+          valueFrom:
+            secretKeyRef:
+              name: discord-credentials
+              key: webhook-url

@@ -53,10 +53,9 @@ spec:
     enableSegmentDeletion: true
   network:
     knownProxies:
-      - traefik.kube-system.svc.cluster.local
+      - 10.0.0.10
     localNetworkSubnets:
-      - 192.168.1.0/24
-      - 10.42.0.0/16
+      - 10.0.0.0/8
   libraries:
     - name: TV Shows
       collectionType: tvshows

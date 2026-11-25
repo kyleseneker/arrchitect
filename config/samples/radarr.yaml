@@ -105,17 +105,18 @@ spec:
       onHealthIssue: true
       fields:
         - name: webHookUrl
-          value: "https://discord.com/api/webhooks/your-webhook-url"
+          valueFrom:
+            secretKeyRef:
+              name: discord-credentials
+              key: webhook-url
   importLists:
-    - name: Trakt Popular Movies
-      implementation: TraktPopularImport
+    - name: Custom List
+      implementation: RadarrListImport
       enableAutomaticAdd: true
       monitor: movieOnly
       qualityProfileName: HD-1080p
       rootFolderPath: /data/media/movies
       minimumAvailability: released
       fields:
-        - name: accessToken
-          value: "your-trakt-token"
-        - name: limit
-          value: 100
+        - name: url
+          value: https://lists.example.com/movies.json

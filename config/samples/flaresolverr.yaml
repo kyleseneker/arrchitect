@@ -2,9 +2,6 @@ apiVersion: arrchitect.dev/v1alpha1
 kind: FlareSolverr
 metadata:
   name: flaresolverr
-  labels:
-    app.kubernetes.io/name: arrchitect
-    app.kubernetes.io/managed-by: kustomize
 spec:
   connection:
     url: http://flaresolverr.media.svc.cluster.local:8191
