@@ -108,6 +108,63 @@ func TestRenovateTracksEveryCompatImage(t *testing.T) {
 	}
 }
 
+// The example stack shows the compat suite's newest pins. Renovate reads them
+// with the compat versioning, so each bump joins the app's compat PR.
+func TestRenovateTracksTheExampleStackImages(t *testing.T) {
+	var config struct {
+		CustomManagers []struct {
+			ManagerFilePatterns []string `json:"managerFilePatterns"`
+			MatchStrings        []string `json:"matchStrings"`
+		} `json:"customManagers"`
+		PackageRules []struct {
+			Description    string   `json:"description"`
+			MatchFileNames []string `json:"matchFileNames"`
+			Versioning     string   `json:"versioning"`
+		} `json:"packageRules"`
+	}
+	raw, err := os.ReadFile("../../renovate.json")
+	require.NoError(t, err)
+	require.NoError(t, json.Unmarshal(raw, &config))
+
+	const compat, file = "test/compat/images_test.go", "docs/example-stack.md"
+	var manager *regexp.Regexp
+	for _, m := range config.CustomManagers {
+		for _, p := range m.ManagerFilePatterns {
+			if regexp.MustCompile(strings.Trim(p, "/")).MatchString(file) {
+				manager = regexp.MustCompile(m.MatchStrings[0])
+			}
+		}
+	}
+	require.NotNil(t, manager, "renovate.json has no custom manager for %s", file)
+
+	images, err := os.ReadFile("../../" + compat)
+	require.NoError(t, err)
+	newest := map[string]string{}
+	for _, m := range regexp.MustCompile(`(?m)^\t\w+Image += "([^":]+):([^"]+)"$`).FindAllSubmatch(images, -1) {
+		newest[string(m[1])] = string(m[2])
+	}
+
+	doc, err := os.ReadFile("../../" + file)
+	require.NoError(t, err)
+	extracted := map[string]bool{}
+	for _, m := range manager.FindAllSubmatch(doc, -1) {
+		extracted[string(m[manager.SubexpIndex("depName")])] = true
+	}
+	pins := regexp.MustCompile(`(?m)^\s+image: ([^\s:]+):(\S+)$`).FindAllSubmatch(doc, -1)
+	require.NotEmpty(t, pins)
+	for _, p := range pins {
+		image := string(p[1])
+		assert.True(t, extracted[image], "Renovate does not read the pin of %s", image)
+		assert.Equal(t, newest[image], string(p[2]), "%s is not at the compat suite's newest pin", image)
+	}
+
+	for _, rule := range config.PackageRules {
+		if rule.Versioning != "" && slices.Contains(rule.MatchFileNames, compat) {
+			assert.Contains(t, rule.MatchFileNames, file, "%q does not cover %s", rule.Description, file)
+		}
+	}
+}
+
 // globRegexp turns a Renovate ignorePaths glob into a regular expression.
 func globRegexp(glob string) *regexp.Regexp {
 	var b strings.Builder

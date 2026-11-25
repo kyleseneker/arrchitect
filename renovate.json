@@ -50,6 +50,17 @@
       "matchStrings": [
         "// renovate: datasource=(?<datasource>\\S+)\\n\\s*\\w+Image\\s*=\\s*\"(?<depName>[^:\"]+):(?<currentValue>[^\"]+)\""
       ]
+    },
+    {
+      "customType": "regex",
+      "description": "Application images the example stack deploys",
+      "managerFilePatterns": [
+        "/^docs/example-stack\\.md$/"
+      ],
+      "matchStrings": [
+        "\\simage: (?<depName>[^\\s:]+):(?<currentValue>\\S+)"
+      ],
+      "datasourceTemplate": "docker"
     }
   ],
   "packageRules": [
@@ -107,9 +118,17 @@
       ]
     },
     {
+      "description": "The example stack pins the compat images by tag too, so a bump lands in the same per-app PR",
+      "matchFileNames": [
+        "docs/example-stack.md"
+      ],
+      "pinDigests": false
+    },
+    {
       "description": "linuxserver tags are <app version>-ls<build>; a new ls build is a revision, not a new compatibility line",
       "matchFileNames": [
-        "test/compat/images_test.go"
+        "test/compat/images_test.go",
+        "docs/example-stack.md"
       ],
       "matchPackageNames": [
         "/^lscr\\.io\\/linuxserver\\//",
@@ -120,7 +139,8 @@
     {
       "description": "linuxserver qBittorrent tags also name the libtorrent line, which must not change underneath the suite",
       "matchFileNames": [
-        "test/compat/images_test.go"
+        "test/compat/images_test.go",
+        "docs/example-stack.md"
       ],
       "matchPackageNames": [
         "lscr.io/linuxserver/qbittorrent"
@@ -130,7 +150,8 @@
     {
       "description": "Plex tags end in a build hash",
       "matchFileNames": [
-        "test/compat/images_test.go"
+        "test/compat/images_test.go",
+        "docs/example-stack.md"
       ],
       "matchPackageNames": [
         "docker.io/plexinc/pms-docker"
