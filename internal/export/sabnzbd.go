@@ -114,7 +114,7 @@ func exportSabnzbd(r *reader) (map[string]any, error) {
 	return spec, nil
 }
 
-// sabnzbdLogin exports the web interface login when it has a user name. The
+// sabnzbdLogin exports the web interface login when it has a username. The
 // password reads back masked, so it is left for the user to fill in.
 func (r *reader) sabnzbdLogin(misc map[string]any) map[string]any {
 	username := sabText(misc["username"])

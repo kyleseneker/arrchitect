@@ -69,7 +69,6 @@ func (r *AutobrrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
 	}
 
-	// Health check
 	if err := ac.Ping(ctx); err != nil {
 		logger.Error(err, "Autobrr unreachable")
 		ctrlcommon.UpdateStatusUnreachable(ctx, r.Client, &config, engine.ReasonAppUnreachable, err.Error())
@@ -260,7 +259,6 @@ func (s *autobrrSync) downloadClient(ctx context.Context, dc automationv1alpha1.
 		obj["tls"] = *dc.TLS
 	}
 
-	// Resolve secrets
 	if dc.UsernameSecretRef != nil {
 		val, err := reconciler.ResolveSecretKeyRef(ctx, s.c, s.namespace, *dc.UsernameSecretRef)
 		if err != nil {
@@ -547,7 +545,6 @@ func (s *autobrrSync) ircNetwork(ctx context.Context, irc automationv1alpha1.Aut
 		obj["auth"] = auth
 	}
 
-	// Build channels list
 	if len(irc.Channels) > 0 {
 		channels := make([]map[string]any, 0, len(irc.Channels))
 		for _, ch := range irc.Channels {

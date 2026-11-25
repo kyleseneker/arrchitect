@@ -50,7 +50,6 @@ func (r *JellyfinReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{RequeueAfter: after}, nil
 	}
 
-	// Resolve admin credentials
 	username, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, config.Spec.AdminUser.UsernameSecretRef)
 	if err != nil {
 		logger.Error(err, "failed to resolve admin username secret")
@@ -78,7 +77,6 @@ func (r *JellyfinReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}
 	jf := jellyfinclient.NewClient(hc)
 
-	// Check if setup wizard is complete
 	setupComplete, err := jf.IsSetupComplete(ctx)
 	if err != nil {
 		logger.Error(err, "Jellyfin unreachable")
@@ -94,7 +92,6 @@ func (r *JellyfinReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{RequeueAfter: ctrlcommon.ReconcileInterval(config.Spec.Reconcile)}, nil
 	}
 
-	// Run setup wizard if not complete
 	if !setupComplete {
 		serverName := ""
 		metadataLang := "en"
@@ -151,7 +148,6 @@ func (r *JellyfinReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 	syncErrors = append(syncErrors, reconcileJellyfinTasks(ctx, jf, config.Spec.ScheduledTasks, &engine.Writes{App: "jellyfin"})...)
 
-	// Reconcile libraries (create-only)
 	for _, lib := range config.Spec.Libraries {
 		if err := reconcileJellyfinLibrary(ctx, jf, lib); err != nil {
 			logger.Error(err, "failed to reconcile library", "name", lib.Name)
@@ -164,9 +160,6 @@ func (r *JellyfinReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	return ctrl.Result{RequeueAfter: ctrlcommon.ReconcileInterval(config.Spec.Reconcile)}, nil
 }
 
-// jellyfinSettings renders a spec section under Jellyfin's own PascalCase
-// setting names. Jellyfin accepts camelCase on write but reads back PascalCase,
-// so camelCase keys always looked missing and every pass rewrote the settings.
 // signIn authenticates with the connection's API key when it sets one, or as
 // the admin user.
 func (r *JellyfinReconciler) signIn(
@@ -183,6 +176,9 @@ func (r *JellyfinReconciler) signIn(
 	return jf.UseAPIKey(ctx, key)
 }
 
+// jellyfinSettings renders a spec section under Jellyfin's own PascalCase
+// setting names. Jellyfin accepts camelCase on write but reads back PascalCase,
+// so camelCase keys always looked missing and every pass rewrote the settings.
 func jellyfinSettings(section any) (map[string]any, error) {
 	raw, err := json.Marshal(section)
 	if err != nil {

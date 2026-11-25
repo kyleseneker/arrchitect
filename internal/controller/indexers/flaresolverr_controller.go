@@ -58,7 +58,6 @@ func (r *FlareSolverrReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}
 	fc := flaresolverrclient.NewClient(hc)
 
-	// Health check
 	if err := fc.Ping(ctx); err != nil {
 		logger.Error(err, "FlareSolverr unreachable")
 		ctrlcommon.UpdateStatusUnreachable(ctx, r.Client, &config, engine.ReasonAppUnreachable, err.Error())
@@ -86,7 +85,6 @@ func (r *FlareSolverrReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	ctrlcommon.UpdateStatusManaged(&config, owned.Managed())
 	ctrlcommon.EmitPruneEvents(r.Recorder, &config, owned.Pruned())
 
-	// Update active session count
 	if sessions, err := fc.ListSessions(ctx); err == nil {
 		config.Status.ActiveSessions = int32(len(sessions))
 	}

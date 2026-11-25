@@ -41,10 +41,8 @@ func MergeDesired(current map[string]any, desired any) (MergeOutcome, error) {
 		return MergeOutcome{}, fmt.Errorf("unmarshaling desired state: %w", err)
 	}
 
-	// Deep copy current
 	merged := deepCopyMap(current)
 
-	// Overlay desired fields onto current
 	for k, v := range desiredMap {
 		if existing, ok := merged[k]; ok {
 			merged[k] = mergeValue(existing, v)

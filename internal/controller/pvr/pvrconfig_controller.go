@@ -37,13 +37,13 @@ func reconcilePVR(ctx context.Context, c client.Client, recorder events.EventRec
 	}
 
 	opts := withApp(cfg.options, cfg.app)
-	// A kind whose items name a Secret that can't be read is left out of the
-	// pass, neither written nor pruned, and reported; the rest still syncs.
 	hc, wait := connectPVR(ctx, c, obj, conn, cfg.app)
 	if wait != nil {
 		return *wait, nil
 	}
 
+	// A kind whose items name a Secret that can't be read is left out of the
+	// pass, neither written nor pruned, and reported; the rest still syncs.
 	var unresolved []string
 	var err error
 	if opts.Notifications, err = ctrlcommon.ResolveNotifications(ctx, c, cfg.apps, namespace, opts.Notifications); err != nil {
