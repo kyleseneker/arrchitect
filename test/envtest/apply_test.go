@@ -470,6 +470,22 @@ func TestAdmissionRules(t *testing.T) {
 		{name: "a reference by an invalid name", kind: "Prowlarr", spec: conn + `
   applications: [{name: Sonarr, appRef: {kind: Sonarr, name: Not_A_Name}}]`,
 			rejected: "should match"},
+		{name: "Seerr metadata providers and job schedules", kind: "Seerr", spec: `
+  connection: {url: http://seerr:5055}
+  metadataProviders: {tv: tmdb, anime: tvdb}
+  jobSchedules: [{id: sonarr-scan, schedule: "0 0 */6 * * *"}, {id: jellyfin-full-scan, schedule: "0 0 2 * * *"}]`},
+		{name: "a Seerr metadata provider Seerr doesn't have", kind: "Seerr", spec: `
+  connection: {url: http://seerr:5055}
+  metadataProviders: {anime: anidb}`,
+			rejected: "Unsupported value"},
+		{name: "empty Seerr metadata providers", kind: "Seerr", spec: `
+  connection: {url: http://seerr:5055}
+  metadataProviders: {}`,
+			rejected: "should have at least 1 properties"},
+		{name: "a Seerr job that doesn't exist", kind: "Seerr", spec: `
+  connection: {url: http://seerr:5055}
+  jobSchedules: [{id: lidarr-scan, schedule: "0 0 4 * * *"}]`,
+			rejected: "Unsupported value"},
 		{name: "Seerr servers and media server by reference", kind: "Seerr", spec: `
   connection: {url: http://seerr:5055}
   jellyfinAuth: {appRef: {kind: Jellyfin, name: jellyfin}}

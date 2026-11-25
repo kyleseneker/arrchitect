@@ -61,6 +61,18 @@ type SeerrSpec struct {
 	// +optional
 	Network SeerrNetwork `json:"network,omitzero"`
 
+	// metadataProviders chooses where Seerr gets series and anime metadata.
+	// Seerr checks it can reach the providers chosen before it saves them.
+	// +optional
+	MetadataProviders SeerrMetadataProviders `json:"metadataProviders,omitzero"`
+
+	// jobSchedules sets when Seerr runs its scheduled jobs. Jobs left out keep
+	// their schedules.
+	// +optional
+	// +listType=map
+	// +listMapKey=id
+	JobSchedules []SeerrJobSchedule `json:"jobSchedules,omitempty"`
+
 	// sonarr lists the Sonarr servers Seerr sends TV requests to, matched by
 	// name. Seerr uses the default server, and the default 4K server for 4K
 	// requests.
@@ -209,6 +221,35 @@ type SeerrNetwork struct {
 	// such as an ingress controller. Seerr applies it when it restarts.
 	// +optional
 	TrustProxy *bool `json:"trustProxy,omitempty"`
+}
+
+// SeerrMetadataProviders chooses Seerr's metadata providers.
+// +kubebuilder:validation:MinProperties=1
+type SeerrMetadataProviders struct {
+	// tv is the provider for series: tmdb or tvdb.
+	// +optional
+	// +kubebuilder:validation:Enum=tmdb;tvdb
+	TV string `json:"tv,omitempty"`
+
+	// anime is the provider for anime series: tmdb or tvdb.
+	// +optional
+	// +kubebuilder:validation:Enum=tmdb;tvdb
+	Anime string `json:"anime,omitempty"`
+}
+
+// SeerrJobSchedule sets when Seerr runs one of its jobs.
+type SeerrJobSchedule struct {
+	// id is the job. Seerr runs the plex- jobs only with Plex, and the
+	// jellyfin- jobs only with Jellyfin or Emby.
+	// +required
+	// +kubebuilder:validation:Enum=plex-recently-added-scan;plex-full-scan;plex-watchlist-sync;plex-refresh-token;radarr-scan;sonarr-scan;download-sync;download-sync-reset;jellyfin-recently-added-scan;jellyfin-full-scan;image-cache-cleanup;availability-sync;process-blocklisted-tags
+	ID string `json:"id,omitempty"`
+
+	// schedule is a cron expression with a leading seconds field, such as
+	// "0 */5 * * * *" for every five minutes.
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	Schedule string `json:"schedule,omitempty"`
 }
 
 // SeerrMain configures general Seerr application settings.

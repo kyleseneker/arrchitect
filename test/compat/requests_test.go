@@ -108,7 +108,8 @@ func TestSeerr(t *testing.T) {
 			return getOnly(r) || (r.Method == http.MethodPost && r.Path == "/api/v1/auth/jellyfin")
 		},
 		update: `[{"op": "replace", "path": "/spec/sonarr/0/externalUrl", "value": "https://tv.example.com"},
-			{"op": "replace", "path": "/spec/main/defaultQuotas/movie/limit", "value": 3}]`,
+			{"op": "replace", "path": "/spec/main/defaultQuotas/movie/limit", "value": 3},
+			{"op": "replace", "path": "/spec/jobSchedules/0/schedule", "value": "0 15 */6 * * *"}]`,
 		verifyUpdate: func(t *testing.T) {
 			direct := directClient(t, seerr.url(), seerrAPIKey(t))
 			sonarrs, err := direct.GetJSONList(ctx, "/api/v1/settings/sonarr")
@@ -123,6 +124,7 @@ func TestSeerr(t *testing.T) {
 			quotas, _ := main["defaultQuotas"].(map[string]any)
 			assert.Equal(t, map[string]any{"quotaLimit": float64(3), "quotaDays": float64(7)}, quotas["movie"],
 				"Seerr didn't keep the quota days the update left alone")
+			assert.Equal(t, "0 15 */6 * * *", seerrJobSchedules(t, direct)["sonarr-scan"])
 		},
 		verify: func(t *testing.T) {
 			resp, err := http.Get(seerr.url() + "/api/v1/settings/public")
@@ -168,6 +170,22 @@ func TestSeerr(t *testing.T) {
 			options, _ := discord["options"].(map[string]any)
 			assert.Equal(t, false, options["enableMentions"], "a boolean option must reach Seerr as a boolean")
 			assert.Equal(t, fakes+"/webhook", options["webhookUrl"])
+
+			schedules := seerrJobSchedules(t, direct)
+			assert.Equal(t, "0 0 */6 * * *", schedules["sonarr-scan"])
+			assert.Equal(t, "0 0 6 * * *", schedules["image-cache-cleanup"])
 		},
 	})
+}
+
+// seerrJobSchedules maps each job Seerr runs to its schedule.
+func seerrJobSchedules(t *testing.T, hc *engine.HTTPClient) map[any]any {
+	t.Helper()
+	jobs, err := hc.GetJSONList(context.Background(), "/api/v1/settings/jobs")
+	require.NoError(t, err)
+	schedules := map[any]any{}
+	for _, job := range jobs {
+		schedules[job["id"]] = job["cronSchedule"]
+	}
+	return schedules
 }

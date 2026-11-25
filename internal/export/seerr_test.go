@@ -17,7 +17,11 @@ var fakeSeerrAPI = map[string]string{
 		"mediaServerType":2,"apiKey":"seerr-key","newPlexLogin":false,"discoverRegion":"US","streamingRegion":"",
 		"originalLanguage":"en|ja","blocklistLanguage":"","blocklistedTags":"210024,abc","blocklistedTagsLimit":"25",
 		"defaultQuotas":{"movie":{"quotaLimit":5,"quotaDays":0},"tv":{}}}`,
-	"/api/v1/settings/network":          `{"csrfProtection":false,"forceIpv4First":false,"trustProxy":true}`,
+	"/api/v1/settings/network":   `{"csrfProtection":false,"forceIpv4First":false,"trustProxy":true}`,
+	"/api/v1/settings/metadatas": `{"tv":"tmdb","anime":"tvdb"}`,
+	"/api/v1/settings/jobs": `[{"id":"jellyfin-full-scan","name":"Jellyfin Full Library Scan","type":"process",
+		"interval":"hours","cronSchedule":"0 0 3 * * *","nextExecutionTime":"2026-11-25T03:00:00.000Z","running":false},
+		{"id":"sonarr-scan","cronSchedule":"0 0 */6 * * *","running":false}]`,
 	"/api/v1/settings/jellyfin":         `{"ip":"jellyfin","port":8096,"useSsl":false,"urlBase":"","name":"home"}`,
 	"/api/v1/settings/jellyfin/library": `[{"id":"m","name":"Movies","enabled":true},{"id":"h","name":"Home Videos","enabled":false}]`,
 	"/api/v1/settings/sonarr": `[
@@ -61,6 +65,10 @@ func TestSeerrExportsSettingsServicesAndNotifications(t *testing.T) {
 	assert.Equal(t, []string{"Movies"}, cfg.Spec.Libraries, "only the enabled libraries are exported")
 	require.NotNil(t, cfg.Spec.Network.TrustProxy)
 	assert.True(t, *cfg.Spec.Network.TrustProxy)
+	assert.Equal(t, requestsv1alpha1.SeerrMetadataProviders{TV: "tmdb", Anime: "tvdb"}, cfg.Spec.MetadataProviders)
+	assert.Equal(t, []requestsv1alpha1.SeerrJobSchedule{
+		{ID: "jellyfin-full-scan", Schedule: "0 0 3 * * *"}, {ID: "sonarr-scan", Schedule: "0 0 */6 * * *"},
+	}, cfg.Spec.JobSchedules)
 
 	require.Len(t, cfg.Spec.Sonarr, 2, "every server is exported")
 	fourK, sonarr := cfg.Spec.Sonarr[0], cfg.Spec.Sonarr[1]

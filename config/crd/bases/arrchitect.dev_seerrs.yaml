@@ -215,6 +215,46 @@ spec:
                     && !has(self.useSsl) && !has(self.urlBase) && !has(self.usernameSecretRef)
                     && !has(self.passwordSecretRef) : has(self.hostname) && has(self.port)
                     && has(self.usernameSecretRef) && has(self.passwordSecretRef)'
+              jobSchedules:
+                description: |-
+                  jobSchedules sets when Seerr runs its scheduled jobs. Jobs left out keep
+                  their schedules.
+                items:
+                  description: SeerrJobSchedule sets when Seerr runs one of its jobs.
+                  properties:
+                    id:
+                      description: |-
+                        id is the job. Seerr runs the plex- jobs only with Plex, and the
+                        jellyfin- jobs only with Jellyfin or Emby.
+                      enum:
+                      - plex-recently-added-scan
+                      - plex-full-scan
+                      - plex-watchlist-sync
+                      - plex-refresh-token
+                      - radarr-scan
+                      - sonarr-scan
+                      - download-sync
+                      - download-sync-reset
+                      - jellyfin-recently-added-scan
+                      - jellyfin-full-scan
+                      - image-cache-cleanup
+                      - availability-sync
+                      - process-blocklisted-tags
+                      type: string
+                    schedule:
+                      description: |-
+                        schedule is a cron expression with a leading seconds field, such as
+                        "0 */5 * * * *" for every five minutes.
+                      minLength: 1
+                      type: string
+                  required:
+                  - id
+                  - schedule
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - id
+                x-kubernetes-list-type: map
               libraries:
                 description: |-
                   libraries names the media server's libraries Seerr shows and takes
@@ -402,6 +442,26 @@ spec:
                       YouTube frontend.
                     minLength: 1
                     pattern: ^https?://
+                    type: string
+                type: object
+              metadataProviders:
+                description: |-
+                  metadataProviders chooses where Seerr gets series and anime metadata.
+                  Seerr checks it can reach the providers chosen before it saves them.
+                minProperties: 1
+                properties:
+                  anime:
+                    description: 'anime is the provider for anime series: tmdb or
+                      tvdb.'
+                    enum:
+                    - tmdb
+                    - tvdb
+                    type: string
+                  tv:
+                    description: 'tv is the provider for series: tmdb or tvdb.'
+                    enum:
+                    - tmdb
+                    - tvdb
                     type: string
                 type: object
               network:

@@ -48,6 +48,9 @@ func exportSeerr(r *reader) (map[string]any, error) {
 	if trust, ok := network["trustProxy"].(bool); ok {
 		spec["network"] = map[string]any{"trustProxy": trust}
 	}
+	if err := r.seerrMetadataAndJobs(sc, spec); err != nil {
+		return nil, err
+	}
 
 	switch int(num(main["mediaServerType"])) {
 	case seerrJellyfin:
@@ -251,4 +254,30 @@ func (r *reader) seerrNotificationTypes(agent string, bits int) []any {
 		r.warn("notification %q: the config can't express type bits %d, and applying it would clear them", agent, bits)
 	}
 	return types
+}
+
+// seerrMetadataAndJobs exports the metadata providers and the schedule of each
+// job Seerr runs.
+func (r *reader) seerrMetadataAndJobs(sc *seerrclient.Client, spec map[string]any) error {
+	metadata, err := sc.Get(r.ctx, "/api/v1/settings/metadatas")
+	if err != nil {
+		return err
+	}
+	if providers := pick(metadata, "tv", "anime"); len(providers) > 0 {
+		spec["metadataProviders"] = providers
+	}
+	jobs, err := sc.GetList(r.ctx, "/api/v1/settings/jobs")
+	if err != nil {
+		return err
+	}
+	var schedules []any
+	for _, job := range jobs {
+		if id, _ := job["id"].(string); id != "" {
+			schedules = append(schedules, map[string]any{"id": id, "schedule": job["cronSchedule"]})
+		}
+	}
+	if len(schedules) > 0 {
+		spec["jobSchedules"] = schedules
+	}
+	return nil
 }
