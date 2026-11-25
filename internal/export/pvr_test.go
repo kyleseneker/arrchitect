@@ -131,10 +131,10 @@ func objectsOf[T client.Object](res Result) []T {
 
 func TestPVRImportListConfigNamesTheSyncTag(t *testing.T) {
 	cfg, _ := exportSonarr(t, Options{})
-	assert.Equal(t, &pvrv1alpha1.SonarrImportListConfig{ListSyncLevel: "keepAndTag", ListSyncTagLabel: "anime"}, cfg.Spec.ImportListConfig)
+	assert.Equal(t, pvrv1alpha1.SonarrImportListConfig{ListSyncLevel: "keepAndTag", ListSyncTagLabel: "anime"}, cfg.Spec.ImportListConfig)
 
 	cfg, _ = exportSonarr(t, Options{}, map[string]string{"/config/importlist": `{"id":1,"listSyncLevel":"logOnly","listSyncTag":0}`})
-	assert.Equal(t, &pvrv1alpha1.SonarrImportListConfig{ListSyncLevel: "logOnly"}, cfg.Spec.ImportListConfig)
+	assert.Equal(t, pvrv1alpha1.SonarrImportListConfig{ListSyncLevel: "logOnly"}, cfg.Spec.ImportListConfig)
 }
 
 func TestPVRAutoTagsNameTheProfilesAndTagsTheirConditionsMatch(t *testing.T) {

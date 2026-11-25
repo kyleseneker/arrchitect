@@ -4795,7 +4795,7 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `listSyncLevel` _string_ | listSyncLevel is what Sonarr does with a series no import list has any<br />more: disabled, logOnly, keepAndUnmonitor, or keepAndTag to tag it with<br />listSyncTagLabel. |  | Enum: [disabled logOnly keepAndUnmonitor keepAndTag] <br />Optional: \{\} <br /> |
+| `listSyncLevel` _string_ | listSyncLevel is what Sonarr does with a series no import list has any<br />more: disabled, logOnly, keepAndUnmonitor, or keepAndTag to tag it with<br />listSyncTagLabel. |  | Enum: [disabled logOnly keepAndUnmonitor keepAndTag] <br />Required: \{\} <br /> |
 | `listSyncTagLabel` _string_ | listSyncTagLabel is the tag, by label, that keepAndTag puts on such a<br />series, resolved against Sonarr on each reconciliation. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 
 

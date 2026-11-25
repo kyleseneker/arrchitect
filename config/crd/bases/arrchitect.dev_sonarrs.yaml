@@ -488,11 +488,12 @@ spec:
                       series, resolved against Sonarr on each reconciliation.
                     minLength: 1
                     type: string
+                required:
+                - listSyncLevel
                 type: object
                 x-kubernetes-validations:
                 - message: listSyncTagLabel goes with listSyncLevel keepAndTag
-                  rule: has(self.listSyncTagLabel) == (has(self.listSyncLevel) &&
-                    self.listSyncLevel == 'keepAndTag')
+                  rule: has(self.listSyncTagLabel) == (self.listSyncLevel == 'keepAndTag')
               importLists:
                 description: importLists defines import list configurations for automatic
                   content addition.
