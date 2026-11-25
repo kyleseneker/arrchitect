@@ -668,10 +668,10 @@ type QBittorrentRSSTorrentParams struct {
 	// +kubebuilder:validation:MinLength=1
 	SavePath string `json:"savePath,omitempty"`
 
-	// useAutoTMM has automatic torrent management choose the torrents' paths
+	// useAutoTmm has automatic torrent management choose the torrents' paths
 	// from their category.
 	// +optional
-	UseAutoTMM *bool `json:"useAutoTMM,omitempty"`
+	UseAutoTMM *bool `json:"useAutoTmm,omitempty"`
 
 	// stopped adds the torrents stopped.
 	// +optional

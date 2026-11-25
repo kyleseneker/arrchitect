@@ -517,13 +517,13 @@ spec:
                   description: TdarrWorkers configures the number of worker threads
                     on one Tdarr node.
                   properties:
-                    healthcheckCPU:
-                      description: healthcheckCPU is the number of CPU health check
+                    healthcheckCpu:
+                      description: healthcheckCpu is the number of CPU health check
                         workers.
                       format: int32
                       type: integer
-                    healthcheckGPU:
-                      description: healthcheckGPU is the number of GPU health check
+                    healthcheckGpu:
+                      description: healthcheckGpu is the number of GPU health check
                         workers.
                       format: int32
                       type: integer
@@ -532,12 +532,12 @@ spec:
                         are for.
                       minLength: 1
                       type: string
-                    transcodeCPU:
-                      description: transcodeCPU is the number of CPU transcode workers.
+                    transcodeCpu:
+                      description: transcodeCpu is the number of CPU transcode workers.
                       format: int32
                       type: integer
-                    transcodeGPU:
-                      description: transcodeGPU is the number of GPU transcode workers.
+                    transcodeGpu:
+                      description: transcodeGpu is the number of GPU transcode workers.
                       format: int32
                       type: integer
                   required:

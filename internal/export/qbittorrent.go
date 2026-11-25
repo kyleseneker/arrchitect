@@ -131,7 +131,7 @@ func exportQBRSS(r *reader, qb *qbclient.Client, spec map[string]any) error {
 		params, _ := def["torrentParams"].(map[string]any)
 		out := map[string]any{}
 		for key, field := range map[string]string{
-			"category": "category", "use_auto_tmm": "useAutoTMM", "stopped": "stopped",
+			"category": "category", "use_auto_tmm": "useAutoTmm", "stopped": "stopped",
 			"add_to_top_of_queue": "addToTopOfQueue", "content_layout": "contentLayout",
 		} {
 			if v, ok := params[key]; ok {

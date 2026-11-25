@@ -3018,7 +3018,7 @@ _Appears in:_
 | `category` _string_ | category is the category the torrents get. |  | Optional: \{\} <br /> |
 | `tags` _string array_ | tags are the tags the torrents get. |  | items:MinLength: 1 <br />Optional: \{\} <br /> |
 | `savePath` _string_ | savePath is where the torrents are saved, in place of the category's or<br />the default path. |  | MinLength: 1 <br />Optional: \{\} <br /> |
-| `useAutoTMM` _boolean_ | useAutoTMM has automatic torrent management choose the torrents' paths<br />from their category. |  | Optional: \{\} <br /> |
+| `useAutoTmm` _boolean_ | useAutoTmm has automatic torrent management choose the torrents' paths<br />from their category. |  | Optional: \{\} <br /> |
 | `stopped` _boolean_ | stopped adds the torrents stopped. |  | Optional: \{\} <br /> |
 | `addToTopOfQueue` _boolean_ | addToTopOfQueue puts the torrents first in the queue. |  | Optional: \{\} <br /> |
 | `contentLayout` _string_ | contentLayout arranges the torrents' files: Original, Subfolder, or<br />NoSubfolder. |  | Enum: [Original Subfolder NoSubfolder] <br />Optional: \{\} <br /> |
@@ -5255,10 +5255,10 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `nodeName` _string_ | nodeName is the name of the Tdarr node these limits are for. |  | MinLength: 1 <br />Required: \{\} <br /> |
-| `transcodeGPU` _integer_ | transcodeGPU is the number of GPU transcode workers. |  | Optional: \{\} <br /> |
-| `transcodeCPU` _integer_ | transcodeCPU is the number of CPU transcode workers. |  | Optional: \{\} <br /> |
-| `healthcheckGPU` _integer_ | healthcheckGPU is the number of GPU health check workers. |  | Optional: \{\} <br /> |
-| `healthcheckCPU` _integer_ | healthcheckCPU is the number of CPU health check workers. |  | Optional: \{\} <br /> |
+| `transcodeGpu` _integer_ | transcodeGpu is the number of GPU transcode workers. |  | Optional: \{\} <br /> |
+| `transcodeCpu` _integer_ | transcodeCpu is the number of CPU transcode workers. |  | Optional: \{\} <br /> |
+| `healthcheckGpu` _integer_ | healthcheckGpu is the number of GPU health check workers. |  | Optional: \{\} <br /> |
+| `healthcheckCpu` _integer_ | healthcheckCpu is the number of CPU health check workers. |  | Optional: \{\} <br /> |
 
 
 #### ValueSource
