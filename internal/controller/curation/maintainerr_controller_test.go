@@ -703,3 +703,9 @@ func TestMaintainerrJellyfinAppRefUsesTheJellyfinAPIKey(t *testing.T) {
 		assert.Contains(t, run.condition(t, "Synced").Message, `jellyfin appRef: Jellyfin "jellyfin" sets no API key Secret`)
 	})
 }
+
+func TestMaskPlexTokenMatchesMaintainerr(t *testing.T) {
+	assert.Equal(t, "", maskPlexToken(""))
+	assert.Equal(t, "****", maskPlexToken("abcdef"))
+	assert.Equal(t, "abc...xyz", maskPlexToken("abcdefxyz"))
+}

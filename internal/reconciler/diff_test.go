@@ -2,6 +2,7 @@ package reconciler
 
 import (
 	"encoding/json"
+	"fmt"
 	"math"
 	"testing"
 
@@ -246,4 +247,88 @@ func TestAdjacentDoublesAreTheSameValue(t *testing.T) {
 	assert.False(t, Covers(0.5, -0.5))
 	assert.False(t, Covers(math.NaN(), math.NaN()))
 	assert.True(t, Covers(0.0, math.Copysign(0, -1)))
+}
+
+// The apps return "********" for secret fields on read, so comparing the real
+// value against what comes back always reports drift and the write never
+// settles. A masked field is unverifiable, not drifted.
+func TestMergeDesiredMaskedFieldIsNotDrift(t *testing.T) {
+	current := map[string]any{
+		"name": "Jellyfin",
+		"fields": []any{
+			map[string]any{"name": "host", "value": "jellyfin.svc"},
+			map[string]any{"name": "apiKey", "value": "********"},
+		},
+	}
+	desired := map[string]any{
+		"name": "Jellyfin",
+		"fields": []any{
+			map[string]any{"name": "host", "value": "jellyfin.svc"},
+			map[string]any{"name": "apiKey", "value": "real-api-key"},
+		},
+	}
+
+	out, err := MergeDesired(current, desired)
+	require.NoError(t, err)
+	assert.False(t, out.Changed, "a masked field must not read as drift")
+	assert.NotEmpty(t, out.SecretDigest, "the desired secret must be digested")
+
+	// The body still has to carry the real secret, so a write for any other
+	// reason sets the right value rather than storing the mask.
+	fields := out.Merged["fields"].([]any)
+	apiKey := fields[1].(map[string]any)
+	assert.Equal(t, "real-api-key", apiKey["value"])
+}
+
+func TestMergeDesiredRealDriftStillDetectedAlongsideMask(t *testing.T) {
+	current := map[string]any{
+		"name": "qBittorrent",
+		"fields": []any{
+			map[string]any{"name": "password", "value": "********"},
+			map[string]any{"name": "tvCategory", "value": "wrong"},
+		},
+	}
+	desired := map[string]any{
+		"name": "qBittorrent",
+		"fields": []any{
+			map[string]any{"name": "password", "value": "pw"},
+			map[string]any{"name": "tvCategory", "value": "tv"},
+		},
+	}
+
+	out, err := MergeDesired(current, desired)
+	require.NoError(t, err)
+	assert.True(t, out.Changed, "a real field change must still be drift")
+}
+
+// The digest recorded after a write for another field must match the one the
+// next, unchanged pass computes, or that pass writes the secrets again.
+func TestMergeDesiredDigestsEverySecretAlongsideDrift(t *testing.T) {
+	current := map[string]any{"api_key": "<redacted>", "cookie": "<redacted>", "list": []any{"a"}}
+	desired := map[string]any{"api_key": "key", "cookie": "session", "list": []any{"a", "b"}}
+	settled := map[string]any{"api_key": "<redacted>", "cookie": "<redacted>", "list": []any{"a", "b"}}
+	for i := range 20 {
+		current[fmt.Sprint("field", i)] = float64(0)
+		desired[fmt.Sprint("field", i)] = 1
+		settled[fmt.Sprint("field", i)] = float64(1)
+	}
+	after, err := MergeDesired(settled, desired)
+	require.NoError(t, err)
+	require.False(t, after.Changed)
+	for range 10 {
+		out, err := MergeDesired(current, desired)
+		require.NoError(t, err)
+		require.True(t, out.Changed)
+		require.Equal(t, after.SecretDigest, out.SecretDigest)
+	}
+}
+
+func TestMergeDesiredNoMaskedFieldsHasNoDigest(t *testing.T) {
+	out, err := MergeDesired(
+		map[string]any{"a": "1"},
+		map[string]any{"a": "1"},
+	)
+	require.NoError(t, err)
+	assert.False(t, out.Changed)
+	assert.Empty(t, out.SecretDigest)
 }
