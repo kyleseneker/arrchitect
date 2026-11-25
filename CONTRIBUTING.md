@@ -104,11 +104,12 @@ before `verify-crds` passes, and a crd-ref-docs PR needs `make api-docs`.
 
 Commits use [Conventional Commits](https://www.conventionalcommits.org/) with
 the app or area as the scope, such as `fix(tdarr)` or `feat(chart)`. Release
-notes are generated from them, so `feat` and `fix` subjects should read as a
-change a user would notice. `chore(deps)` commits are listed as dependencies.
-`test`, `docs`, `refactor`, `style`, `ci` and other `chore` commits are left
-out. Mark anything that needs action on upgrade with `!`
-(`feat(maintainerr)!: ...`) and it is listed under Breaking changes.
+notes and the chart's Artifact Hub changelog are generated from them, so
+`feat` and `fix` subjects should read as a change a user would notice.
+`chore(deps)` commits are listed as dependencies. `test`, `docs`, `refactor`,
+`style`, `ci` and other `chore` commits are left out. Mark anything that needs
+action on upgrade with `!` (`feat(maintainerr)!: ...`) and it is listed under
+Breaking changes.
 
 A release is a tag on `main`:
 

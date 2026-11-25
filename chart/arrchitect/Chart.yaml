@@ -40,6 +40,8 @@ annotations:
       url: https://github.com/kyleseneker/arrchitect/blob/main/docs/api.md
     - name: Stability and support
       url: https://github.com/kyleseneker/arrchitect/blob/main/docs/stability.md
+    - name: Release notes
+      url: https://github.com/kyleseneker/arrchitect/releases
   artifacthub.io/images: |
     - name: arrchitect
       image: ghcr.io/kyleseneker/arrchitect:0.1.0
