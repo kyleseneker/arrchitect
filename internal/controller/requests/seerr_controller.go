@@ -336,7 +336,7 @@ func (r *SeerrReconciler) reconcileServiceConnection(
 	ctx context.Context, sc *seerrclient.Client, w *engine.Writes, owned *engine.Ownership,
 	namespace, kind string, svc *requestsv1alpha1.SeerrServiceConnection, existing []map[string]any,
 ) error {
-	resolved, err := r.resolveService(ctx, namespace, *svc)
+	resolved, tlsSpec, err := r.resolveService(ctx, namespace, *svc)
 	if err != nil {
 		return err
 	}
@@ -345,7 +345,7 @@ func (r *SeerrReconciler) reconcileServiceConnection(
 	if err != nil {
 		return fmt.Errorf("resolving API key: %w", err)
 	}
-	payload, err := resolvedServicePayload(ctx, svc, apiKey)
+	payload, err := r.resolvedServicePayload(ctx, namespace, kind, svc, tlsSpec, apiKey)
 	if err != nil {
 		return fmt.Errorf("resolving profile: %w", err)
 	}
@@ -471,21 +471,24 @@ func missingLibraries(libraries []map[string]any, declared []string) []string {
 }
 
 // resolveService returns svc with its appRef, if any, replaced by the
-// referenced resource's address and API key Secret.
+// referenced resource's address and API key Secret, and that resource's TLS
+// settings.
 func (r *SeerrReconciler) resolveService(
 	ctx context.Context, namespace string, svc requestsv1alpha1.SeerrServiceConnection,
-) (requestsv1alpha1.SeerrServiceConnection, error) {
+) (requestsv1alpha1.SeerrServiceConnection, *commonv1alpha1.TLSConfig, error) {
+	var tlsSpec *commonv1alpha1.TLSConfig
 	if svc.AppRef != nil {
 		app, addr, err := ctrlcommon.ResolveAppAddress(ctx, r.Client, r.Apps, namespace, *svc.AppRef)
 		if err != nil {
-			return svc, fmt.Errorf("appRef: %w", err)
+			return svc, nil, fmt.Errorf("appRef: %w", err)
 		}
 		svc.Hostname, svc.Port, svc.UseSsl, svc.BaseUrl, svc.APIKeySecretRef = addr.Host, &addr.Port, &addr.TLS, addr.Base, app.APIKeySecretRef
+		tlsSpec = app.TLS
 	}
 	if svc.APIKeySecretRef == nil {
-		return svc, fmt.Errorf("no API key Secret")
+		return svc, nil, fmt.Errorf("no API key Secret")
 	}
-	return svc, nil
+	return svc, tlsSpec, nil
 }
 
 // seerrMediaServer is the declared media server, with its appRef followed.

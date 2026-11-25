@@ -33,11 +33,12 @@ import (
 	"github.com/kyleseneker/arrchitect/internal/reconciler"
 )
 
-// App is what an AppRef resolves to: where the app is, and the Secrets that
-// hold its credentials.
+// App is what an AppRef resolves to: where the app is, how to reach it over
+// TLS, and the Secrets that hold its credentials.
 type App struct {
 	Kind              string
 	URL               string
+	TLS               *commonv1alpha1.TLSConfig
 	APIKeySecretRef   *commonv1alpha1.SecretKeyRef
 	UsernameSecretRef *commonv1alpha1.SecretKeyRef
 	PasswordSecretRef *commonv1alpha1.SecretKeyRef
@@ -50,7 +51,7 @@ type appKind struct {
 }
 
 func withAPIKey(conn commonv1alpha1.AppConnection) App {
-	return App{URL: conn.URL, APIKeySecretRef: &conn.APIKeySecretRef}
+	return App{URL: conn.URL, TLS: conn.TLS, APIKeySecretRef: &conn.APIKeySecretRef}
 }
 
 var appKinds = map[string]appKind{
@@ -69,24 +70,24 @@ var appKinds = map[string]appKind{
 	"Seerr": {func() client.Object { return &requestsv1alpha1.Seerr{} },
 		func(o client.Object) App {
 			conn := o.(*requestsv1alpha1.Seerr).Spec.Connection
-			return App{URL: conn.URL, APIKeySecretRef: conn.APIKeySecretRef}
+			return App{URL: conn.URL, TLS: conn.TLS, APIKeySecretRef: conn.APIKeySecretRef}
 		}},
 	"Jellyfin": {func() client.Object { return &mediaserversv1alpha1.Jellyfin{} },
 		func(o client.Object) App {
 			spec := o.(*mediaserversv1alpha1.Jellyfin).Spec
-			return App{URL: spec.Connection.URL,
+			return App{URL: spec.Connection.URL, TLS: spec.Connection.TLS,
 				UsernameSecretRef: &spec.AdminUser.UsernameSecretRef, PasswordSecretRef: &spec.AdminUser.PasswordSecretRef,
 				APIKeySecretRef: spec.Connection.APIKeySecretRef}
 		}},
 	"Plex": {func() client.Object { return &mediaserversv1alpha1.Plex{} },
 		func(o client.Object) App {
 			conn := o.(*mediaserversv1alpha1.Plex).Spec.Connection
-			return App{URL: conn.URL, TokenSecretRef: &conn.TokenSecretRef}
+			return App{URL: conn.URL, TLS: conn.TLS, TokenSecretRef: &conn.TokenSecretRef}
 		}},
 	"QBittorrent": {func() client.Object { return &downloadsv1alpha1.QBittorrent{} },
 		func(o client.Object) App {
 			conn := o.(*downloadsv1alpha1.QBittorrent).Spec.Connection
-			return App{URL: conn.URL, UsernameSecretRef: &conn.UsernameSecretRef, PasswordSecretRef: &conn.PasswordSecretRef}
+			return App{URL: conn.URL, TLS: conn.TLS, UsernameSecretRef: &conn.UsernameSecretRef, PasswordSecretRef: &conn.PasswordSecretRef}
 		}},
 }
 

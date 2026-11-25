@@ -327,7 +327,8 @@ references can use names instead:
   `qualityProfileName`, `metadataProfileName` (Lidarr) and `tagLabel` on
   conditions, in place of the condition's `value` ID.
 - `activeProfileName` on Seerr's Sonarr and Radarr connections, looked up from
-  that Sonarr or Radarr.
+  that Sonarr or Radarr. A connection with `appRef` uses the resource's
+  `connection.tls` for the lookup.
 - In Autobrr: `indexers` on filters, `downloadClientName` on actions,
   `indexerName` on feeds, `downloadClientName` and `filters` on lists, and
   `proxyName` on indexers and IRC networks.
