@@ -1,5 +1,7 @@
+# Refers to tags and Prowlarr sync profiles by name and maps a seedbox's download paths.
 # Supply the referenced Secrets and deploy the apps separately.
 # The hostname and local directories below must exist in your installation.
+---
 apiVersion: arrchitect.dev/v1alpha1
 kind: Sonarr
 metadata:
@@ -7,14 +9,14 @@ metadata:
   namespace: media
 spec:
   connection:
-    url: http://sonarr:8989
+    url: http://sonarr.media.svc.cluster.local:8989
     apiKeySecretRef:
       name: sonarr-credentials
       key: api-key
   tags:
     - label: television
   remotePathMappings:
-    - host: seedbox.example.net
+    - host: seedbox.example.com
       remotePath: /downloads/tv
       localPath: /data/seedbox/tv
 ---
@@ -29,7 +31,7 @@ spec:
   name: seedbox
   implementation: QBittorrent
   protocol: torrent
-  host: seedbox.example.net
+  host: seedbox.example.com
   port: 8080
   category: tv
   tagLabels: [television]
@@ -47,7 +49,7 @@ metadata:
   namespace: media
 spec:
   connection:
-    url: http://prowlarr:9696
+    url: http://prowlarr.media.svc.cluster.local:9696
     apiKeySecretRef:
       name: prowlarr-credentials
       key: api-key
@@ -58,16 +60,15 @@ spec:
       enableInteractiveSearch: true
       minimumSeeders: 1
   indexers:
-    - name: my-newznab
+    - name: Usenet Indexer
       implementation: Newznab
-      configContract: NewznabSettings
       enable: true
       appProfileName: Automatic and interactive
       fields:
         - name: baseUrl
-          value: https://indexer.example.net
+          value: https://indexer.example.com
         - name: apiKey
           valueFrom:
             secretKeyRef:
-              name: indexer-credentials
+              name: usenet-indexer-credentials
               key: api-key
