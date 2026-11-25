@@ -2,7 +2,10 @@ package common
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -19,6 +22,8 @@ import (
 	mediaserversv1alpha1 "github.com/kyleseneker/arrchitect/api/mediaservers/v1alpha1"
 	pvrv1alpha1 "github.com/kyleseneker/arrchitect/api/pvr/v1alpha1"
 	requestsv1alpha1 "github.com/kyleseneker/arrchitect/api/requests/v1alpha1"
+	"github.com/kyleseneker/arrchitect/internal/engine"
+	"github.com/kyleseneker/arrchitect/internal/reconciler"
 )
 
 func appRefClient(t *testing.T, objs ...client.Object) client.Client {
@@ -174,6 +179,48 @@ func TestResolveAppRefNamesOnlyTheReference(t *testing.T) {
 
 	_, err = ResolveAppRef(context.Background(), c, nil, "media", commonv1alpha1.AppRef{Kind: "Tdarr", Name: "tdarr"})
 	require.EqualError(t, err, `Tdarr "tdarr": unsupported kind`)
+}
+
+func TestAppRefFailureSaysWhatToFix(t *testing.T) {
+	c := appRefClient(t,
+		&pvrv1alpha1.Sonarr{Name: "nourl", Namespace: "media", Spec: pvrv1alpha1.SonarrSpec{
+			Connection: commonv1alpha1.AppConnection{URL: "http://:8989"},
+		}},
+		&pvrv1alpha1.Sonarr{Name: "sonarr", Namespace: "media", Spec: pvrv1alpha1.SonarrSpec{
+			Connection: commonv1alpha1.AppConnection{URL: "http://sonarr:8989"},
+		}},
+	)
+	resolve := func(apps Apps, kind, name string) error {
+		_, _, err := ResolveAppAddress(context.Background(), c, apps, "media", commonv1alpha1.AppRef{Kind: kind, Name: name})
+		return fmt.Errorf("download client %q appRef: %w", "client", err)
+	}
+	_, secretErr := reconciler.ResolveSecretKeyRef(context.Background(), c, "media", *ref("missing", "key"))
+	_, notMediaServer := ResolveNotifications(context.Background(), c, nil, "media", []commonv1alpha1.Notification{
+		{Name: "Sonarr", AppRef: commonv1alpha1.AppRef{Kind: "Sonarr", Name: "sonarr"}},
+	})
+
+	tests := []struct {
+		name   string
+		err    error
+		reason string
+		after  time.Duration
+	}{
+		{"missing resource", resolve(nil, "Sonarr", "gone"), engine.ReasonReferenceNotFound, 30 * time.Second},
+		{"unsupported kind", resolve(nil, "Tdarr", "tdarr"), engine.ReasonInvalidConfig, 0},
+		{"app the operator doesn't run", resolve(Apps{"radarr": true}, "Sonarr", "sonarr"), engine.ReasonInvalidConfig, 0},
+		{"no usable URL", resolve(nil, "Sonarr", "nourl"), engine.ReasonInvalidConfig, 0},
+		{"kind the connection doesn't take", notMediaServer, engine.ReasonInvalidConfig, 0},
+		{"missing Secret", fmt.Errorf("download client %q password: %w", "client", secretErr), engine.ReasonSecretNotFound, 30 * time.Second},
+		{"other failure", errors.New("reading Sonarr \"sonarr\": timeout"), engine.ReasonSyncFailed, 30 * time.Second},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Error(t, tt.err)
+			reason, after := AppRefFailure(tt.err)
+			assert.Equal(t, tt.reason, reason, tt.err.Error())
+			assert.Equal(t, tt.after, after)
+		})
+	}
 }
 
 type countingReader struct {

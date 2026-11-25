@@ -143,13 +143,17 @@ spec:
 - The resource must be in the same namespace. The operator only reads it, and
   copies nothing from it into the resource that refers to it.
 - The referenced app must be turned on, as `apps.<app>` in the chart, since the
-  operator reads and watches only the kinds of the apps it runs. A reference to
-  an app that's off reports `SyncFailed`, saying the operator doesn't run that
-  app's controller.
+  operator reads and watches only the kinds of the apps it runs. The error for
+  a reference to an app that's off says the operator doesn't run that app's
+  controller.
 - Until the resource exists, that connection is neither written nor pruned and
-  the `SyncFailed` message names the reference; the rest still syncs. A
-  download client resource, and a Seerr that signs in through the media server
-  it refers to, report `ReferenceNotFound` instead and write nothing.
+  the `SyncFailed` message names the reference; the rest still syncs. The same
+  goes for a reference to an app that's off, or to a resource without a usable
+  URL.
+- A download client resource, and a Seerr that signs in through the media
+  server it refers to, write nothing instead. They report `ReferenceNotFound`
+  while the resource doesn't exist, and `InvalidConfig` for a reference that
+  can't work until a spec changes.
 - A change to the resource, or to a Secret it names, reconciles the resources
   that refer to it straight away.
 - Once Jellyfin is set up, a Jellyfin resource with
@@ -171,7 +175,7 @@ apps. The `Synced` reason is one of:
 | `SyncFailed` | Some settings could not be applied; the message says which, and the reason the app gave. |
 | `AppUnreachable` | The app did not respond, or rejected the credentials. |
 | `SecretNotFound` | A Secret or key the connection needs does not exist. |
-| `InvalidConfig` | The resource asks for something the operator does not support. |
+| `InvalidConfig` | The resource asks for something the operator does not support, or an `appRef` the resource needs can't work, such as one naming an app the operator doesn't run. |
 | `ReferenceNotFound` | An indexer's or download client's app resource doesn't exist, or an `appRef` the resource needs names a missing resource. |
 | `NameConflict` | An older resource already configures the item this one names. |
 | `Observed` | Observe mode found no differences. |

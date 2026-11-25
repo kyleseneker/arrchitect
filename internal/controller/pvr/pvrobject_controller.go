@@ -95,12 +95,9 @@ func reconcilePVRObject(ctx context.Context, c client.Client, recorder events.Ev
 	}
 	opts, err := o.options(ctx)
 	if err != nil {
-		reason := engine.ReasonSecretNotFound
-		if ctrlcommon.IsAppRefNotFound(err) {
-			reason = engine.ReasonReferenceNotFound
-		}
+		reason, after := ctrlcommon.AppRefFailure(err)
 		ctrlcommon.UpdateStatusUnreachable(ctx, c, obj, reason, err.Error())
-		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
+		return ctrl.Result{RequeueAfter: after}, nil
 	}
 
 	interval := ctrlcommon.ReconcileInterval(instance.policy)

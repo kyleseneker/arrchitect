@@ -83,8 +83,9 @@ func (r *SeerrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 
 	media, mediaErr := r.mediaServer(ctx, &config)
 	if mediaErr != nil && (config.Spec.Connection.APIKeySecretRef == nil || !isInitialized) {
-		ctrlcommon.UpdateStatusUnreachable(ctx, r.Client, &config, ctrlcommon.AppRefReason(mediaErr), mediaErr.Error())
-		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
+		reason, after := ctrlcommon.AppRefFailure(mediaErr)
+		ctrlcommon.UpdateStatusUnreachable(ctx, r.Client, &config, reason, mediaErr.Error())
+		return ctrl.Result{RequeueAfter: after}, nil
 	}
 
 	if err := r.establishSession(ctx, sc, &config, media); err != nil {

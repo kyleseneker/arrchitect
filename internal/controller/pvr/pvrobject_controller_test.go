@@ -500,3 +500,25 @@ func TestObjectDownloadClientWithAMissingAppRefWritesNothing(t *testing.T) {
 	assert.Equal(t, engine.ReasonReferenceNotFound, cond.Reason)
 	assert.Equal(t, `download client "qBittorrent" appRef: QBittorrent "qbittorrent" not found`, cond.Message)
 }
+
+func TestObjectDownloadClientNamingAnAppTheOperatorDoesntRunWaitsForASpecChange(t *testing.T) {
+	fa, url := newFakeArr(t, "v3", nil)
+	dc := sonarrDownloadClient()
+	dc.Spec.DownloadClient = commonv1alpha1.DownloadClient{Name: "qBittorrent",
+		AppRef: commonv1alpha1.AppRef{Kind: "QBittorrent", Name: "qbittorrent"}}
+	c := objectClient(t, apiKeySecret(), sonarrInstanceAt(url, nil), dc)
+	r := &SonarrDownloadClientReconciler{Client: c, Scheme: c.Scheme(), Recorder: events.NewFakeRecorder(50),
+		Apps: ctrlcommon.Apps{"sonarr": true, "sonarrdownloadclient": true}}
+	key := types.NamespacedName{Name: "tv-qbittorrent", Namespace: "media"}
+
+	result, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: key})
+	require.NoError(t, err)
+
+	assert.Zero(t, result.RequeueAfter, "only a spec change can fix the reference")
+	assert.False(t, fa.sawPrefix("POST", "/api/"))
+	var got pvrv1alpha1.SonarrDownloadClient
+	require.NoError(t, c.Get(context.Background(), key, &got))
+	cond := synced(t, got.Status.Conditions)
+	assert.Equal(t, engine.ReasonInvalidConfig, cond.Reason)
+	assert.Equal(t, `download client "qBittorrent" appRef: QBittorrent "qbittorrent": the operator doesn't run the qbittorrent controller`, cond.Message)
+}
