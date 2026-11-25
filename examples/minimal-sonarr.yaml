@@ -1,5 +1,4 @@
-# Minimal example: just Sonarr with the basics.
-# Good starting point to verify the operator is working.
+# Adds a root folder to Sonarr. Apply it to check that the operator works.
 ---
 apiVersion: v1
 kind: Secret
@@ -17,7 +16,7 @@ metadata:
   namespace: media
 spec:
   connection:
-    url: http://sonarr:8989
+    url: http://sonarr.media.svc.cluster.local:8989
     apiKeySecretRef:
       name: sonarr-credentials
       key: api-key

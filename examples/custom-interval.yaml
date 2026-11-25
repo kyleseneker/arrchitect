@@ -1,12 +1,12 @@
 # Example: per-resource reconcile interval and pruning.
 # Useful when some apps change config more often than others,
-# or when you want to reduce API calls to a slow/overloaded app.
+# or when you want to reduce API calls to a slow or overloaded app.
 #
 # prune: true deletes items the operator created once you remove them from the resource.
 # For example, remove a notification the operator added and it is deleted from the app.
-# Anything created by hand is never deleted, root folders and tags are never pruned, and
-# omitting a section entirely means "don't manage this." The API server rejects
-# prune: true on apps that can't prune; see docs/guide.md for which ones can.
+# Anything created by hand is never deleted, root folders and tags are never pruned,
+# and a section left out isn't managed. The API server rejects prune: true on apps
+# that can't prune; see docs/guide.md for which ones can.
 ---
 apiVersion: arrchitect.dev/v1alpha1
 kind: Sonarr
@@ -15,7 +15,7 @@ metadata:
   namespace: media
 spec:
   connection:
-    url: http://sonarr:8989
+    url: http://sonarr.media.svc.cluster.local:8989
     apiKeySecretRef:
       name: sonarr-credentials
       key: api-key
@@ -33,7 +33,7 @@ metadata:
   namespace: media
 spec:
   connection:
-    url: http://jellyfin:8096
+    url: http://jellyfin.media.svc.cluster.local:8096
   adminUser:
     usernameSecretRef:
       name: jellyfin-credentials
@@ -45,7 +45,7 @@ spec:
   reconcile:
     intervalSeconds: 1800
   server:
-    serverName: "Homelab Media"
+    serverName: Homelab Media
   libraries:
     - name: Movies
       collectionType: movies
