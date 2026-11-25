@@ -4,7 +4,7 @@ metadata:
   name: qbittorrent
 spec:
   connection:
-    url: http://arr-vpn-downloads.arr.svc.cluster.local:8080
+    url: http://qbittorrent.media.svc.cluster.local:8080
     usernameSecretRef:
       name: qbittorrent-credentials
       key: username

@@ -1,11 +1,11 @@
 apiVersion: arrchitect.dev/v1alpha1
 kind: LidarrIndexer
 metadata:
-  name: lidarr-nzbgeek
+  name: lidarr-usenet-indexer
 spec:
   lidarrRef:
     name: lidarr
-  name: NZBgeek
+  name: Usenet Indexer
   protocol: usenet
   implementation: Newznab
   enableRss: true
@@ -13,13 +13,13 @@ spec:
   enableInteractiveSearch: true
   fields:
     - name: baseUrl
-      value: "https://api.nzbgeek.info"
+      value: "https://indexer.example.com"
     - name: apiPath
       value: "/api"
     - name: apiKey
       valueFrom:
         secretKeyRef:
-          name: nzbgeek-credentials
+          name: usenet-indexer-credentials
           key: api-key
     - name: categories
       value: "3000,3040"

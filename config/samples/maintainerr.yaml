@@ -8,7 +8,7 @@ metadata:
 spec:
   # Maintainerr has no API authentication; keep it off untrusted networks.
   connection:
-    url: http://maintainerr:6246
+    url: http://maintainerr.media.svc.cluster.local:6246
   # Set on a fresh Maintainerr only. Switching an existing one between Plex and
   # Jellyfin deletes every collection, so the operator reports it instead.
   mediaServer:
@@ -21,7 +21,7 @@ spec:
         key: token
   sonarr:
     - name: Sonarr
-      url: http://sonarr:8989
+      url: http://sonarr.media.svc.cluster.local:8989
       apiKeySecretRef:
         name: sonarr-credentials
         key: api-key
@@ -30,17 +30,17 @@ spec:
       untagOnUnexclude: true
   radarr:
     - name: Radarr
-      url: http://radarr:7878
+      url: http://radarr.media.svc.cluster.local:7878
       apiKeySecretRef:
         name: radarr-credentials
         key: api-key
   seerr:
-    url: http://seerr:5055
+    url: http://seerr.media.svc.cluster.local:5055
     apiKeySecretRef:
       name: seerr-credentials
       key: api-key
   tautulli:
-    url: http://tautulli:8181
+    url: http://tautulli.media.svc.cluster.local:8181
     apiKeySecretRef:
       name: tautulli-credentials
       key: api-key

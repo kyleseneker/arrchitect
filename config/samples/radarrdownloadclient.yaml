@@ -8,7 +8,7 @@ spec:
   name: qBittorrent
   protocol: torrent
   implementation: QBittorrent
-  host: arr-vpn-downloads.arr.svc.cluster.local
+  host: qbittorrent.media.svc.cluster.local
   port: 8080
   category: movies
   usernameSecretRef:

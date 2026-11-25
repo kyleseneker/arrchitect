@@ -4,7 +4,7 @@ metadata:
   name: sonarr
 spec:
   connection:
-    url: http://arr-sonarr.arr.svc.cluster.local:8989
+    url: http://sonarr.media.svc.cluster.local:8989
     apiKeySecretRef:
       name: sonarr-credentials
       key: api-key

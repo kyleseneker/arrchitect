@@ -4,7 +4,7 @@ metadata:
   name: radarr
 spec:
   connection:
-    url: http://arr-radarr.arr.svc.cluster.local:7878
+    url: http://radarr.media.svc.cluster.local:7878
     apiKeySecretRef:
       name: radarr-credentials
       key: api-key

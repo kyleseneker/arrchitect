@@ -4,7 +4,7 @@ metadata:
   name: bazarr
 spec:
   connection:
-    url: http://arr-bazarr.arr.svc.cluster.local:6767
+    url: http://bazarr.media.svc.cluster.local:6767
     apiKeySecretRef:
       name: bazarr-credentials
       key: api-key
@@ -29,7 +29,7 @@ spec:
       - remotePath: /data/media/movies
         localPath: /movies
   sonarrConnection:
-    host: arr-sonarr.arr.svc.cluster.local
+    host: sonarr.media.svc.cluster.local
     port: 8989
     apiKeySecretRef:
       name: sonarr-credentials
@@ -38,7 +38,7 @@ spec:
     fullUpdate: Daily
     syncInterval: 60
   radarrConnection:
-    host: arr-radarr.arr.svc.cluster.local
+    host: radarr.media.svc.cluster.local
     port: 7878
     apiKeySecretRef:
       name: radarr-credentials
@@ -47,7 +47,7 @@ spec:
     fullUpdate: Daily
     syncInterval: 60
   jellyfin:
-    url: http://arr-jellyfin.arr.svc.cluster.local:8096
+    url: http://jellyfin.media.svc.cluster.local:8096
     apiKeySecretRef:
       name: jellyfin-credentials
       key: api-key
