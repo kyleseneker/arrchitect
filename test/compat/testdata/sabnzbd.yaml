@@ -81,7 +81,7 @@ spec:
       dir: movies
       priority: high
   apprise:
-    enabled: true
+    enable: true
     urlsSecretRef:
       name: compat-credentials
       key: apprise-urls
@@ -98,6 +98,7 @@ spec:
       name: compat-credentials
       key: sab-password
   quota:
+    enable: true
     size: 500G
     period: week
     resetDay: 1

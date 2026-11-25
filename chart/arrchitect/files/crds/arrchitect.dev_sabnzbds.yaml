@@ -70,8 +70,8 @@ spec:
                       type: string
                     type: array
                     x-kubernetes-list-type: set
-                  enabled:
-                    description: enabled turns Apprise notifications on.
+                  enable:
+                    description: enable turns Apprise notifications on.
                     type: boolean
                   events:
                     description: |-
@@ -486,9 +486,9 @@ spec:
                   quota is used up.
                 minProperties: 1
                 properties:
-                  enabled:
-                    description: enabled turns the quota on. It is on unless this
-                      is false.
+                  enable:
+                    description: enable turns the quota on. It is on unless this is
+                      false.
                     type: boolean
                   period:
                     description: period is how often the quota resets. manual resets
@@ -528,8 +528,8 @@ spec:
                     type: string
                 type: object
                 x-kubernetes-validations:
-                - message: size is required unless enabled is false
-                  rule: has(self.size) || (has(self.enabled) && !self.enabled)
+                - message: size is required unless enable is false
+                  rule: has(self.size) || (has(self.enable) && !self.enable)
                 - message: a weekly quota resets on day 1 (Monday) to 7
                   rule: '!has(self.resetDay) || !has(self.period) || self.period !=
                     ''week'' || self.resetDay <= 7'

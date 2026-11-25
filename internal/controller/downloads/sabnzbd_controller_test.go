@@ -446,7 +446,7 @@ func TestSabnzbdAutoSortWritesASortOrder(t *testing.T) {
 func TestSabnzbdAppriseTurnsOnOnlyTheListedEvents(t *testing.T) {
 	values, err := (&SabnzbdReconciler{}).sabnzbdAppriseValues(context.Background(), &downloadsv1alpha1.Sabnzbd{
 		Spec: downloadsv1alpha1.SabnzbdSpec{Apprise: downloadsv1alpha1.SabnzbdApprise{
-			Enabled: new(true), Events: []string{"complete", "failed", "diskFull"},
+			Enable: new(true), Events: []string{"complete", "failed", "diskFull"},
 		}},
 	})
 	require.NoError(t, err)
@@ -477,7 +477,7 @@ func TestSabnzbdQuotaValuesUseSABnzbdsForms(t *testing.T) {
 			downloadsv1alpha1.SabnzbdQuota{Size: "500G", Period: "week", ResetDay: 1, ResetTime: "03:00", Resume: new(true)},
 			map[string]string{"quota_size": "500G", "quota_period": "w", "quota_day": "1 03:00", "quota_resume": "1"},
 		},
-		{downloadsv1alpha1.SabnzbdQuota{Enabled: new(false), Size: "500G"}, map[string]string{"quota_size": ""}},
+		{downloadsv1alpha1.SabnzbdQuota{Enable: new(false), Size: "500G"}, map[string]string{"quota_size": ""}},
 		{downloadsv1alpha1.SabnzbdQuota{Size: "1T", ResetTime: "5:30"}, map[string]string{"quota_size": "1T", "quota_day": "1 5:30"}},
 		{downloadsv1alpha1.SabnzbdQuota{Size: "1T", ResetDay: 15}, map[string]string{"quota_size": "1T", "quota_day": "15"}},
 		{downloadsv1alpha1.SabnzbdQuota{}, map[string]string{}},

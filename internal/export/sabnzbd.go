@@ -181,7 +181,7 @@ func (r *reader) sabnzbdApprise(current map[string]any) map[string]any {
 	if !on("apprise_enable") && urls == "" {
 		return nil
 	}
-	apprise := map[string]any{"enabled": on("apprise_enable")}
+	apprise := map[string]any{"enable": on("apprise_enable")}
 	if urls != "" {
 		apprise["urlsSecretRef"] = r.creds.ref(urls, "apprise", "urls")
 	}

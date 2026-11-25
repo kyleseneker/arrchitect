@@ -4093,7 +4093,7 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `enabled` _boolean_ | enabled turns Apprise notifications on. |  | Optional: \{\} <br /> |
+| `enable` _boolean_ | enable turns Apprise notifications on. |  | Optional: \{\} <br /> |
 | `urlsSecretRef` _[SecretKeyRef](#secretkeyref)_ | urlsSecretRef references a Secret containing the Apprise URLs to notify,<br />separated by commas, such as discord://webhook_id/webhook_token. |  | Optional: \{\} <br /> |
 | `categories` _string array_ | categories limits notifications to jobs in these categories; * is every<br />category. |  | items:MinLength: 1 <br />Optional: \{\} <br /> |
 | `events` _string array_ | events are the events to notify about. Those listed are turned on and the<br />rest off. |  | items:Enum: [startup download pauseResume pp complete failed diskFull quota newLogin warning error queueDone other] <br />Optional: \{\} <br /> |
@@ -4219,7 +4219,7 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `enabled` _boolean_ | enabled turns the quota on. It is on unless this is false. |  | Optional: \{\} <br /> |
+| `enable` _boolean_ | enable turns the quota on. It is on unless this is false. |  | Optional: \{\} <br /> |
 | `size` _string_ | size is how much SABnzbd downloads in a period before it pauses, such as 500G. |  | MaxLength: 20 <br />MinLength: 1 <br />Pattern: `^[0-9]+(\.[0-9]+)?[KMGTPkmgtp]?$` <br />Optional: \{\} <br /> |
 | `period` _string_ | period is how often the quota resets. manual resets it only by hand. |  | Enum: [day week month manual] <br />Optional: \{\} <br /> |
 | `resetDay` _integer_ | resetDay is the day the quota resets: 1 (Monday) to 7 for a weekly quota,<br />or the day of the month for a monthly one. Without it the quota resets on<br />day 1. |  | Maximum: 31 <br />Minimum: 1 <br />Optional: \{\} <br /> |

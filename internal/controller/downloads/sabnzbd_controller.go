@@ -248,7 +248,7 @@ func sabnzbdServerValues(srv downloadsv1alpha1.SabnzbdServer) map[string]string 
 
 func sabnzbdQuotaValues(q downloadsv1alpha1.SabnzbdQuota) map[string]string {
 	vals := map[string]string{}
-	if q.Enabled != nil && !*q.Enabled {
+	if q.Enable != nil && !*q.Enable {
 		vals["quota_size"] = ""
 	} else if q.Size != "" {
 		vals["quota_size"] = q.Size
@@ -463,8 +463,8 @@ func planKeywords(current map[string]any, section string, values map[string]stri
 func (r *SabnzbdReconciler) sabnzbdAppriseValues(ctx context.Context, config *downloadsv1alpha1.Sabnzbd) (map[string]string, error) {
 	a := config.Spec.Apprise
 	values := map[string]string{}
-	if a.Enabled != nil {
-		values["apprise_enable"] = ctrlcommon.BoolTo01(*a.Enabled)
+	if a.Enable != nil {
+		values["apprise_enable"] = ctrlcommon.BoolTo01(*a.Enable)
 	}
 	if a.Categories != nil {
 		values["apprise_cats"] = strings.Join(a.Categories, ",")
