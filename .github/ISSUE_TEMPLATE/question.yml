@@ -26,4 +26,4 @@ body:
     attributes:
       label: Versions
       description: Arrchitect and the apps involved.
-      placeholder: "Arrchitect 0.7.0, Sonarr 4.0.20"
+      placeholder: "Arrchitect 0.8.0, Sonarr 4.0.20"
