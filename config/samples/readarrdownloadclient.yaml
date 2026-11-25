@@ -6,11 +6,7 @@ spec:
   readarrRef:
     name: readarr
   name: SABnzbd
-  protocol: usenet
-  implementation: Sabnzbd
-  host: sabnzbd.media.svc.cluster.local
-  port: 8080
+  appRef:
+    kind: Sabnzbd
+    name: sabnzbd
   category: books
-  apiKeySecretRef:
-    name: sabnzbd-credentials
-    key: api-key

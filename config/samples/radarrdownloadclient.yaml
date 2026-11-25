@@ -6,14 +6,7 @@ spec:
   radarrRef:
     name: radarr
   name: qBittorrent
-  protocol: torrent
-  implementation: QBittorrent
-  host: qbittorrent.media.svc.cluster.local
-  port: 8080
+  appRef:
+    kind: QBittorrent
+    name: qbittorrent
   category: movies
-  usernameSecretRef:
-    name: qbittorrent-credentials
-    key: username
-  passwordSecretRef:
-    name: qbittorrent-credentials
-    key: password

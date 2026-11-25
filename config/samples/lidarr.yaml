@@ -17,7 +17,27 @@ spec:
     replaceIllegalCharacters: true
     standardTrackFormat: "{Artist Name} - {Album Title} - {track:00} - {Track Title}"
     artistFolderFormat: "{Artist Name}"
+  downloadClientConfig:
+    enableCompletedDownloadHandling: true
+    autoRedownloadFailed: true
+    autoRedownloadFailedFromInteractiveSearch: true
   rootFolders:
     - path: /data/media/music
       defaultQualityProfileName: Any
       defaultMetadataProfileName: Standard
+  tags:
+    - label: lossless
+  notifications:
+    - name: Discord
+      implementation: Discord
+      onGrab: true
+      onReleaseImport: true
+      onUpgrade: true
+      onHealthIssue: true
+      includeHealthWarnings: true
+      fields:
+        - name: webHookUrl
+          valueFrom:
+            secretKeyRef:
+              name: discord-credentials
+              key: webhook-url

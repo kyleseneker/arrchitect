@@ -14,13 +14,13 @@ resources:
   - readarrindexer.yaml
   - readarrdownloadclient.yaml
   - prowlarr.yaml
+  - flaresolverr.yaml
   - bazarr.yaml
   - qbittorrent.yaml
   - sabnzbd.yaml
   - jellyfin.yaml
   - plex.yaml
   - seerr.yaml
-  - tdarr.yaml
-  - flaresolverr.yaml
-  - autobrr.yaml
   - maintainerr.yaml
+  - tdarr.yaml
+  - autobrr.yaml
