@@ -81,13 +81,13 @@ func HandleDeletion(ctx context.Context, c client.Client, recorder events.EventR
 			if expired(obj) {
 				logger.Error(err, "giving up removing remote resources; releasing finalizer")
 				if recorder != nil {
-					recorder.Eventf(obj, nil, corev1.EventTypeWarning, engine.ReasonSyncFailed, "ReleaseFinalizer",
-						"released finalizer after %s without removing remote resources: %v", DeletionGiveUpAfter, err)
+					recorder.Eventf(obj, nil, corev1.EventTypeWarning, engine.ReasonFinalizerReleased, "ReleaseFinalizer",
+						"Released the finalizer after %s without removing remote resources: %v", DeletionGiveUpAfter, err)
 				}
 			} else {
 				if recorder != nil {
 					recorder.Eventf(obj, nil, corev1.EventTypeWarning, engine.ReasonCleanupFailed, "Cleanup",
-						"removing remote resources failed; retrying until the finalizer is released at %s: %v",
+						"Removing remote resources failed; retrying until the finalizer is released at %s: %v",
 						obj.GetDeletionTimestamp().Add(DeletionGiveUpAfter).Format(time.RFC3339), err)
 				}
 				return true, err

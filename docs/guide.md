@@ -276,9 +276,10 @@ finalizer before uninstalling it.
 it on Jellyfin and Plex, and alongside `driftPolicy: observe`. An item the app
 won't delete because something still uses it is kept and named in a
 `ResourceKept` warning event. A Lidarr or Readarr quality profile that a root
-folder defaults to is one example. If cleanup keeps failing for another
-reason, the operator gives up after 10 minutes. It then records a warning
-event and removes the finalizer.
+folder defaults to is one example. Cleanup that fails for another reason
+records a `CleanupFailed` warning event and is retried. After 10 minutes the
+operator gives up. It then records a `FinalizerReleased` warning event and
+removes the finalizer.
 
 ## Credentials
 

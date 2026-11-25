@@ -18,8 +18,9 @@ const (
 )
 
 const (
-	ReasonResourcePruned  = "ResourcePruned"
-	ReasonResourceKept    = "ResourceKept"
-	ReasonCleanupFailed   = "CleanupFailed"
-	ReasonInstanceMissing = "InstanceMissing"
+	ReasonResourcePruned    = "ResourcePruned"
+	ReasonResourceKept      = "ResourceKept"
+	ReasonCleanupFailed     = "CleanupFailed"
+	ReasonFinalizerReleased = "FinalizerReleased"
+	ReasonInstanceMissing   = "InstanceMissing"
 )

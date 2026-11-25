@@ -92,7 +92,7 @@ func TestUnreachableAppRetriesButDoesNotWedgeForever(t *testing.T) {
 	assert.True(t, controllerutil.ContainsFinalizer(c, Finalizer), "finalizer must be held while still within the give-up window")
 	select {
 	case event := <-recorder.Events:
-		assert.Contains(t, event, "Warning CleanupFailed")
+		assert.Contains(t, event, "Warning CleanupFailed Removing remote resources failed")
 		assert.Contains(t, event, "app unreachable")
 	default:
 		assert.Fail(t, "a failed cleanup must say why the resource is still there")
@@ -101,12 +101,15 @@ func TestUnreachableAppRetriesButDoesNotWedgeForever(t *testing.T) {
 	// Past the give-up window: release regardless.
 	c2 := newConfig(DeletionPolicyDelete, DeletionGiveUpAfter+time.Minute)
 	cl2 := testClient(c2).Build()
-	handled, err := HandleDeletion(context.Background(), cl2, nil, c2, func(context.Context) error {
+	recorder2 := events.NewFakeRecorder(1)
+	handled, err := HandleDeletion(context.Background(), cl2, recorder2, c2, func(context.Context) error {
 		return errors.New("app still unreachable")
 	})
 	require.NoError(t, err)
 	require.True(t, handled)
 	assert.False(t, controllerutil.ContainsFinalizer(c2, Finalizer), "a dead app must not wedge deletion past the give-up window")
+	assert.Equal(t, "Warning FinalizerReleased Released the finalizer after 10m0s without removing remote resources: app still unreachable",
+		<-recorder2.Events)
 }
 
 // An item the app won't delete stays won't-delete on every retry, so it is
