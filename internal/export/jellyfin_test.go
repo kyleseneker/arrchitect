@@ -94,7 +94,7 @@ func TestJellyfinExportsWithAnAPIKeyInsteadOfSigningIn(t *testing.T) {
 		tokens = append(tokens, r.Header.Get("Authorization"))
 		switch r.URL.Path {
 		case "/Users/AuthenticateByName":
-			t.Error("export signed in although it had an API key")
+			assert.Fail(t, "export signed in although it had an API key")
 		case "/Library/VirtualFolders", "/ScheduledTasks":
 			_, _ = w.Write([]byte(`[]`))
 		default:
