@@ -13,9 +13,9 @@
 </p>
 
 Configure and wire Sonarr, Radarr, Prowlarr, Jellyfin, Plex and other
-self-hosted media apps as Kubernetes resources. Arrchitect configures the apps
-you already deploy, however you deploy them, and connects them to each other;
-it doesn't deploy them.
+self-hosted media apps as Kubernetes resources. Arrchitect doesn't deploy the
+apps. It configures the ones you already run, however you deploy them, and
+connects them to each other.
 
 Arrchitect is alpha. The API is `v1alpha1` and can change in any minor release.
 See [stability and support](docs/stability.md) for details.
@@ -23,19 +23,22 @@ See [stability and support](docs/stability.md) for details.
 ## What it looks like
 
 Each app is a resource. To connect two apps, point `appRef` at the other app's
-resource instead of repeating its URL and API key. This sets up Sonarr with a
-root folder and qBittorrent as its download client, and has Prowlarr sync its
-indexers to Sonarr:
+resource instead of repeating its address and credentials. This sets up Sonarr
+with a root folder and qBittorrent as its download client, and has Prowlarr
+sync its indexers to Sonarr:
 
 ```yaml
 apiVersion: arrchitect.dev/v1alpha1
 kind: Sonarr
 metadata:
   name: sonarr
+  namespace: media
 spec:
   connection:
     url: http://sonarr.media.svc.cluster.local:8989
-    apiKeySecretRef: {name: sonarr-credentials, key: api-key}
+    apiKeySecretRef:
+      name: sonarr-credentials
+      key: api-key
   rootFolders:
     - path: /data/media/tv
 ---
@@ -43,6 +46,7 @@ apiVersion: arrchitect.dev/v1alpha1
 kind: SonarrDownloadClient
 metadata:
   name: sonarr-qbittorrent
+  namespace: media
 spec:
   sonarrRef:
     name: sonarr
@@ -56,10 +60,13 @@ apiVersion: arrchitect.dev/v1alpha1
 kind: Prowlarr
 metadata:
   name: prowlarr
+  namespace: media
 spec:
   connection:
     url: http://prowlarr.media.svc.cluster.local:9696
-    apiKeySecretRef: {name: prowlarr-credentials, key: api-key}
+    apiKeySecretRef:
+      name: prowlarr-credentials
+      key: api-key
   applications:
     - name: Sonarr
       appRef:
@@ -67,10 +74,10 @@ spec:
         name: sonarr
 ```
 
-If qBittorrent's or Sonarr's address or API key changes, you only update its
-own resource. See [examples/jellyfin-stack.yaml](examples/jellyfin-stack.yaml)
-for a full stack, and [connecting apps](docs/guide.md#connecting-apps) for
-every connection that supports `appRef`.
+If an app's address or credentials change, you only update its own resource.
+See [examples/jellyfin-stack.yaml](examples/jellyfin-stack.yaml) for a full
+stack, and [connecting apps](docs/guide.md#connecting-apps) for every
+connection that supports `appRef`.
 
 ## Features
 
@@ -79,14 +86,14 @@ every connection that supports `appRef`.
 - Credentials read from Kubernetes Secrets
 - Optional pruning, limited to what the operator created
 - `arrchitect export` to generate config from an app you already run
-- Tested in CI against real app containers, at the oldest and newest version each app supports
+- Tested in CI against real app containers, at the oldest and newest supported version of each app
 
 ## Supported apps
 
 Each app is supported at every release from the oldest to the newest in its
 range, and every Arrchitect release is tested against both ends. A range
-covers the releases of the last 12 months; see the
-[stability policy](docs/stability.md#apps) for how it moves and the
+starts at the release that was newest 12 months before the range was last set;
+see the [stability policy](docs/stability.md#apps) for how it moves and the
 exceptions.
 
 | App | Resource | Supported versions |
