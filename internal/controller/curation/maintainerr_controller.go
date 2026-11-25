@@ -65,6 +65,7 @@ func (r *MaintainerrReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	mc, reason, err := r.maintainerrClient(ctx, &config)
 	if err != nil {
+		logger.Error(err, "failed to build the Maintainerr client")
 		ctrlcommon.UpdateStatusUnreachable(ctx, r.Client, &config, reason, err.Error())
 		if reason == engine.ReasonInvalidConfig {
 			return ctrl.Result{}, nil

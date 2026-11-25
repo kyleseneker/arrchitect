@@ -48,25 +48,15 @@ func (r *PlexReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 		return ctrl.Result{RequeueAfter: after}, nil
 	}
 
-	token, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, config.Spec.Connection.TokenSecretRef)
+	pc, reason, err := r.plexClient(ctx, &config)
 	if err != nil {
-		logger.Error(err, "failed to resolve Plex token")
-		ctrlcommon.UpdateStatusUnreachable(ctx, r.Client, &config, engine.ReasonSecretNotFound, err.Error())
+		logger.Error(err, "failed to build the Plex client")
+		ctrlcommon.UpdateStatusUnreachable(ctx, r.Client, &config, reason, err.Error())
+		if reason == engine.ReasonInvalidConfig {
+			return ctrl.Result{}, nil
+		}
 		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
 	}
-
-	tlsCfg, err := engine.ResolveTLSConfig(ctx, r.Client, config.Namespace, config.Spec.Connection.TLS)
-	if err != nil {
-		ctrlcommon.UpdateStatusUnreachable(ctx, r.Client, &config, engine.ReasonSecretNotFound, err.Error())
-		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
-	}
-
-	hc, err := engine.NewHTTPClient(config.Spec.Connection.URL, engine.AuthPlexToken, engine.WithPlexToken(token), engine.WithTLSConfig(tlsCfg), engine.WithAppLabel("plex"))
-	if err != nil {
-		ctrlcommon.UpdateStatusUnreachable(ctx, r.Client, &config, engine.ReasonInvalidConfig, err.Error())
-		return ctrl.Result{}, nil
-	}
-	pc := plexclient.NewClient(hc)
 
 	if err := pc.Ping(ctx); err != nil {
 		logger.Error(err, "Plex unreachable")
@@ -80,6 +70,25 @@ func (r *PlexReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 
 	ctrlcommon.UpdateSyncStatus(ctx, r.Client, &config, writes.Observe, writes.Drift(), syncErrors)
 	return ctrl.Result{RequeueAfter: ctrlcommon.ReconcileInterval(config.Spec.Reconcile)}, nil
+}
+
+// plexClient builds the client for a config, or returns the status reason it
+// can't.
+func (r *PlexReconciler) plexClient(ctx context.Context, config *mediaserversv1alpha1.Plex) (*plexclient.Client, string, error) {
+	token, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, config.Spec.Connection.TokenSecretRef)
+	if err != nil {
+		return nil, engine.ReasonSecretNotFound, err
+	}
+	tlsCfg, err := engine.ResolveTLSConfig(ctx, r.Client, config.Namespace, config.Spec.Connection.TLS)
+	if err != nil {
+		return nil, engine.ReasonSecretNotFound, err
+	}
+	hc, err := engine.NewHTTPClient(config.Spec.Connection.URL, engine.AuthPlexToken, engine.WithPlexToken(token),
+		engine.WithTLSConfig(tlsCfg), engine.WithAppLabel("plex"))
+	if err != nil {
+		return nil, engine.ReasonInvalidConfig, err
+	}
+	return plexclient.NewClient(hc), "", nil
 }
 
 // reconcilePlexLibraries creates the declared libraries Plex does not have.

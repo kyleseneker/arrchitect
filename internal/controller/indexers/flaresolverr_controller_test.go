@@ -17,6 +17,7 @@ import (
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
 	indexersv1alpha1 "github.com/kyleseneker/arrchitect/api/indexers/v1alpha1"
 	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
+	"github.com/kyleseneker/arrchitect/internal/engine"
 	"github.com/kyleseneker/arrchitect/internal/testnet"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -224,4 +225,24 @@ func TestFlareSolverrPruneLimitPreservesOwnership(t *testing.T) {
 	for _, name := range names {
 		require.False(t, app.ran("sessions.destroy", name), "prune limit ignored")
 	}
+}
+
+func TestFlareSolverrClientSaysWhyItCantConnect(t *testing.T) {
+	scheme := runtime.NewScheme()
+	require.NoError(t, clientgoscheme.AddToScheme(scheme))
+	r := &FlareSolverrReconciler{Client: fake.NewClientBuilder().WithScheme(scheme).Build()}
+
+	withCA := flareConfig("https://flaresolverr:8191", false, nil)
+	withCA.Spec.Connection.TLS = &commonv1alpha1.TLSConfig{CASecretRef: commonv1alpha1.SecretKeyRef{Name: "ca", Key: "ca.crt"}}
+	_, reason, err := r.flaresolverrClient(context.Background(), withCA)
+	require.Error(t, err)
+	assert.Equal(t, engine.ReasonSecretNotFound, reason)
+
+	_, reason, err = r.flaresolverrClient(context.Background(), flareConfig("ftp://flaresolverr", false, nil))
+	require.Error(t, err)
+	assert.Equal(t, engine.ReasonInvalidConfig, reason)
+
+	fc, _, err := r.flaresolverrClient(context.Background(), flareConfig("http://flaresolverr:8191", false, nil))
+	require.NoError(t, err)
+	assert.NotNil(t, fc)
 }

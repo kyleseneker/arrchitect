@@ -17,6 +17,7 @@ import (
 	indexersv1alpha1 "github.com/kyleseneker/arrchitect/api/indexers/v1alpha1"
 	pvrv1alpha1 "github.com/kyleseneker/arrchitect/api/pvr/v1alpha1"
 	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
+	"github.com/kyleseneker/arrchitect/internal/engine"
 	"github.com/kyleseneker/arrchitect/internal/testnet"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -484,4 +485,34 @@ func TestProwlarrApplicationBasicAuthNeedsProwlarr24(t *testing.T) {
 	require.NotNil(t, synced)
 	assert.Contains(t, synced.Message,
 		`application "Radarr" authUsernameSecretRef: Radarr applications have no authUsername in this Prowlarr; it needs Prowlarr 2.4.0 or later`)
+}
+
+func TestProwlarrClientSaysWhyItCantConnect(t *testing.T) {
+	scheme := runtime.NewScheme()
+	require.NoError(t, clientgoscheme.AddToScheme(scheme))
+	for _, tc := range []struct {
+		name, url string
+		secret    bool
+		reason    string
+	}{
+		{"missing API key Secret", "http://prowlarr:9696", false, engine.ReasonSecretNotFound},
+		{"unusable URL", "ftp://prowlarr", true, engine.ReasonInvalidConfig},
+		{"connects", "http://prowlarr:9696", true, ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			b := fake.NewClientBuilder().WithScheme(scheme)
+			if tc.secret {
+				b = b.WithObjects(prowlarrSecret())
+			}
+			r := &ProwlarrReconciler{Client: b.Build()}
+			hc, reason, err := r.prowlarrClient(context.Background(), prowlarrConfig(tc.url))
+			assert.Equal(t, tc.reason, reason)
+			if tc.reason != "" {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, "prowlarr", hc.AppLabel())
+		})
+	}
 }
