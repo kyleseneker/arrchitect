@@ -239,7 +239,7 @@ func TestAutobrrObserveTellsADeclaredIndexerFromATypo(t *testing.T) {
 	for ref, want := range map[string]string{"torznab-a": "DriftDetected", "typo": "SyncFailed"} {
 		app := &fakeAutobrr{existing: map[string][]map[string]any{"indexer/schema": autobrrDefinitions}}
 		cfg := observedAutobrr(app.serve(t))
-		cfg.Spec.Feeds = []automationv1alpha1.AutobrrFeed{{Name: "Feed", Type: "Torznab", URL: "http://feed", IndexerRef: ref}}
+		cfg.Spec.Feeds = []automationv1alpha1.AutobrrFeed{{Name: "Feed", Type: "Torznab", URL: "http://feed", IndexerName: ref}}
 
 		c := runAutobrr(t, cfg, true)
 
@@ -377,7 +377,7 @@ func TestAutobrrFeedLinksItsIndexerByID(t *testing.T) {
 		"indexer": {{"id": float64(5), "name": "Generic", "implementation": "torznab"}},
 	}}
 	cfg := autobrrConfig(app.serve(t))
-	cfg.Spec.Feeds = []automationv1alpha1.AutobrrFeed{{Name: "Generic", Type: "Torznab", URL: "http://feed", IndexerRef: "Generic"}}
+	cfg.Spec.Feeds = []automationv1alpha1.AutobrrFeed{{Name: "Generic", Type: "Torznab", URL: "http://feed", IndexerName: "Generic"}}
 
 	runAutobrr(t, cfg, true)
 
@@ -395,7 +395,7 @@ func TestAutobrrFeedGetsWhatAutobrrLeavesOutOfACreate(t *testing.T) {
 	}, stores: true}
 	cfg := autobrrConfig(app.serve(t))
 	cfg.Spec.Feeds = []automationv1alpha1.AutobrrFeed{{
-		Name: "Generic", Type: "Torznab", URL: "http://feed", IndexerRef: "Generic",
+		Name: "Generic", Type: "Torznab", URL: "http://feed", IndexerName: "Generic",
 		Timeout: 30, MaxAge: new(int32(86400)), DownloadType: "Magnet",
 		CookieSecretRef: &commonv1alpha1.SecretKeyRef{Name: "autobrr-credentials", Key: "api-key"},
 	}}
@@ -420,7 +420,7 @@ func TestAutobrrFeedWithoutMaxAgeOrCookieIsOnlyCreated(t *testing.T) {
 		"indexer": {{"id": float64(5), "name": "Generic", "implementation": "torznab"}},
 	}, stores: true}
 	cfg := autobrrConfig(app.serve(t))
-	cfg.Spec.Feeds = []automationv1alpha1.AutobrrFeed{{Name: "Generic", Type: "Torznab", URL: "http://feed", IndexerRef: "Generic"}}
+	cfg.Spec.Feeds = []automationv1alpha1.AutobrrFeed{{Name: "Generic", Type: "Torznab", URL: "http://feed", IndexerName: "Generic"}}
 
 	runAutobrr(t, cfg, true)
 
@@ -436,7 +436,7 @@ func TestAutobrrRefusesAnIndexerNameTwoIndexersShare(t *testing.T) {
 		},
 	}}
 	cfg := autobrrConfig(app.serve(t))
-	cfg.Spec.Feeds = []automationv1alpha1.AutobrrFeed{{Name: "Generic", Type: "Torznab", URL: "http://feed", IndexerRef: "Generic"}}
+	cfg.Spec.Feeds = []automationv1alpha1.AutobrrFeed{{Name: "Generic", Type: "Torznab", URL: "http://feed", IndexerName: "Generic"}}
 
 	c := runAutobrr(t, cfg, true)
 

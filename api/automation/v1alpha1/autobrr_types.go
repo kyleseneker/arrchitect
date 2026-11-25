@@ -537,11 +537,11 @@ type AutobrrFeed struct {
 	// +kubebuilder:validation:Enum=Torrent;Magnet
 	DownloadType string `json:"downloadType,omitempty"`
 
-	// indexerRef is the name of the indexer this feed belongs to: a torznab,
-	// newznab or rss indexer declared under indexers.
+	// indexerName names the indexer this feed belongs to, a torznab, newznab
+	// or rss indexer declared under indexers.
 	// +required
 	// +kubebuilder:validation:MinLength=1
-	IndexerRef string `json:"indexerRef,omitempty"`
+	IndexerName string `json:"indexerName,omitempty"`
 }
 
 // AutobrrFilter defines a release filter with match criteria and actions.
@@ -887,10 +887,11 @@ type AutobrrFilterAction struct {
 	// +kubebuilder:validation:Enum=qBittorrent;Deluge;Transmission;rTorrent;SABnzbd;Sonarr;Radarr;Lidarr;Readarr;Whisparr;Webhook;Exec;WatchFolder
 	Type string `json:"type,omitempty"`
 
-	// clientRef is the name of the download client to use (must match a downloadClients entry).
+	// downloadClientName names the download client to use, one declared under
+	// downloadClients.
 	// +optional
 	// +kubebuilder:validation:MinLength=1
-	ClientRef string `json:"clientRef,omitempty"`
+	DownloadClientName string `json:"downloadClientName,omitempty"`
 
 	// category overrides the download client's default category.
 	// +optional

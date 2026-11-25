@@ -68,7 +68,7 @@ spec:
       timeout: 30
       maxAge: 86400
       downloadType: Magnet
-      indexerRef: Compat Torznab
+      indexerName: Compat Torznab
       apiKeySecretRef:
         name: compat-credentials
         key: torznab-api-key
@@ -125,7 +125,7 @@ spec:
         - name: Send to qBittorrent
           type: qBittorrent
           enable: true
-          clientRef: qBittorrent
+          downloadClientName: qBittorrent
           category: tv
           tags: autobrr
           paused: false

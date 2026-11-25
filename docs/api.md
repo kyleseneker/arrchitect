@@ -235,7 +235,7 @@ _Appears in:_
 | `maxAge` _integer_ | maxAge is the age, in seconds, past which feed items are skipped. 0<br />processes every item. |  | Minimum: 0 <br />Optional: \{\} <br /> |
 | `cookieSecretRef` _[SecretKeyRef](#secretkeyref)_ | cookieSecretRef references a Secret containing the cookie sent with feed<br />requests, for feeds behind a login. |  | Optional: \{\} <br /> |
 | `downloadType` _string_ | downloadType is whether the feed's releases are fetched as Torrent files<br />or Magnet links. Some feeds need Magnet. |  | Enum: [Torrent Magnet] <br />Optional: \{\} <br /> |
-| `indexerRef` _string_ | indexerRef is the name of the indexer this feed belongs to: a torznab,<br />newznab or rss indexer declared under indexers. |  | MinLength: 1 <br />Required: \{\} <br /> |
+| `indexerName` _string_ | indexerName names the indexer this feed belongs to, a torznab, newznab<br />or rss indexer declared under indexers. |  | MinLength: 1 <br />Required: \{\} <br /> |
 
 
 #### AutobrrFilter
@@ -335,7 +335,7 @@ _Appears in:_
 | `name` _string_ | name is the display name of the action. |  | MinLength: 1 <br />Required: \{\} <br /> |
 | `enable` _boolean_ | enable controls whether this action is active. A new action is enabled<br />unless this is false. |  | Optional: \{\} <br /> |
 | `type` _string_ | type is the action type. Deluge means Deluge 2 (Autobrr's DELUGE_V2). |  | Enum: [qBittorrent Deluge Transmission rTorrent SABnzbd Sonarr Radarr Lidarr Readarr Whisparr Webhook Exec WatchFolder] <br />Required: \{\} <br /> |
-| `clientRef` _string_ | clientRef is the name of the download client to use (must match a downloadClients entry). |  | MinLength: 1 <br />Optional: \{\} <br /> |
+| `downloadClientName` _string_ | downloadClientName names the download client to use, one declared under<br />downloadClients. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `category` _string_ | category overrides the download client's default category. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `savePath` _string_ | savePath overrides the download client's default save path. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `webhookUrl` _string_ | webhookUrl is the webhook URL (for Webhook action type). |  | MinLength: 1 <br />Optional: \{\} <br /> |

@@ -214,7 +214,7 @@ func (r *reader) autobrrFeed(f map[string]any) map[string]any {
 	setText(feed, "downloadType", crdName(autobrrclient.FeedDownloadTypes, settings["download_type"]))
 	r.autobrrSecret(feed, "cookieSecretRef", f["cookie"], "feed", name, "cookie")
 	indexer, _ := f["indexer"].(map[string]any)
-	setText(feed, "indexerRef", indexer["name"])
+	setText(feed, "indexerName", indexer["name"])
 	r.autobrrSecret(feed, "apiKeySecretRef", f["api_key"], "feed", name, "api-key")
 	return feed
 }
@@ -374,7 +374,7 @@ func (r *reader) autobrrFilter(f map[string]any, actions []map[string]any, clien
 		action["enable"] = a["enabled"]
 		action["type"] = crdName(autobrrclient.Types, a["type"])
 		if id := num(a["client_id"]); id != 0 {
-			action["clientRef"] = clientNames[id]
+			action["downloadClientName"] = clientNames[id]
 		}
 		autobrrSetFields(action, a, autobrrclient.ActionFields)
 		as = append(as, action)

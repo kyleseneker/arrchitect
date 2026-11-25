@@ -158,7 +158,7 @@ func TestEveryFilterAndActionFieldReachesAutobrr(t *testing.T) {
 		special []string
 	}{
 		{reflect.TypeFor[automationv1alpha1.AutobrrFilter](), FilterFields, []string{"name", "enable", "tags", "exceptTags", "indexers", "actions"}},
-		{reflect.TypeFor[automationv1alpha1.AutobrrFilterAction](), ActionFields, []string{"name", "enable", "type", "clientRef"}},
+		{reflect.TypeFor[automationv1alpha1.AutobrrFilterAction](), ActionFields, []string{"name", "enable", "type", "downloadClientName"}},
 	} {
 		for field := range tc.typ.Fields() {
 			name, _, _ := strings.Cut(field.Tag.Get("json"), ",")

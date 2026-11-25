@@ -26,7 +26,7 @@ spec:
     - name: Prowlarr
       type: Torznab
       url: http://prowlarr.media.svc.cluster.local:9696/1/api
-      indexerRef: Prowlarr
+      indexerName: Prowlarr
       interval: 15
       apiKeySecretRef:
         name: prowlarr-credentials
@@ -48,7 +48,7 @@ spec:
       actions:
         - name: Send to qBittorrent
           type: qBittorrent
-          clientRef: qBittorrent
+          downloadClientName: qBittorrent
           category: tv
           contentLayout: ORIGINAL
           limitSeedTime: 10080
