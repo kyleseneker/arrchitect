@@ -241,7 +241,7 @@ func (s *maintainerrSync) jellyfin(ctx context.Context, jf *curationv1alpha1.Mai
 			return fmt.Errorf("jellyfin appRef: %w", err)
 		}
 		if app.APIKeySecretRef == nil {
-			return fmt.Errorf("jellyfin appRef: Jellyfin %q sets no API key Secret", jf.AppRef.Name)
+			return ctrlcommon.InvalidAppRef("jellyfin appRef: Jellyfin %q sets no API key Secret", jf.AppRef.Name)
 		}
 		resolved := *jf
 		resolved.URL, resolved.APIKeySecretRef = app.URL, app.APIKeySecretRef
@@ -441,7 +441,7 @@ func (s *maintainerrSync) seerrConnection(
 			return curationv1alpha1.MaintainerrServiceConnection{}, fmt.Errorf("appRef: %w", err)
 		}
 		if app.APIKeySecretRef == nil {
-			return curationv1alpha1.MaintainerrServiceConnection{}, fmt.Errorf("appRef: Seerr %q sets no API key Secret", conn.AppRef.Name)
+			return curationv1alpha1.MaintainerrServiceConnection{}, ctrlcommon.InvalidAppRef("appRef: Seerr %q sets no API key Secret", conn.AppRef.Name)
 		}
 		conn.URL, conn.APIKeySecretRef = app.URL, app.APIKeySecretRef
 	}

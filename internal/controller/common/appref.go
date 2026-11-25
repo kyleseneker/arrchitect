@@ -9,6 +9,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -29,6 +30,7 @@ import (
 	pvrv1alpha1 "github.com/kyleseneker/arrchitect/api/pvr/v1alpha1"
 	requestsv1alpha1 "github.com/kyleseneker/arrchitect/api/requests/v1alpha1"
 	"github.com/kyleseneker/arrchitect/internal/engine"
+	"github.com/kyleseneker/arrchitect/internal/reconciler"
 )
 
 // App is what an AppRef resolves to: where the app is, and the Secrets that
@@ -105,12 +107,34 @@ func IsAppRefNotFound(err error) bool {
 	return errors.Is(err, errAppRefNotFound)
 }
 
-// AppRefReason is the status reason for a ResolveAppRef error.
-func AppRefReason(err error) string {
-	if IsAppRefNotFound(err) {
-		return engine.ReasonReferenceNotFound
+// invalidAppRefError is an appRef that can't be followed until a spec
+// changes: a kind the connection doesn't take, an app the operator doesn't
+// run, or a resource without what the connection needs from it.
+type invalidAppRefError struct{ msg string }
+
+func (e *invalidAppRefError) Error() string { return e.msg }
+
+// InvalidAppRef returns an error for an appRef that can't be followed until a
+// spec changes.
+func InvalidAppRef(format string, args ...any) error {
+	return &invalidAppRefError{msg: fmt.Sprintf(format, args...)}
+}
+
+// AppRefFailure is the status reason for an error following an appRef or
+// reading the Secrets it names, and when to try again. An invalid reference
+// waits for a spec change, which requeues the resource anyway.
+func AppRefFailure(err error) (string, time.Duration) {
+	_, invalid := errors.AsType[*invalidAppRefError](err)
+	switch {
+	case IsAppRefNotFound(err):
+		return engine.ReasonReferenceNotFound, 30 * time.Second
+	case invalid:
+		return engine.ReasonInvalidConfig, 0
+	case reconciler.IsSecretError(err):
+		return engine.ReasonSecretNotFound, 30 * time.Second
+	default:
+		return engine.ReasonSyncFailed, 30 * time.Second
 	}
-	return engine.ReasonSyncFailed
 }
 
 // ResolveAppRef reads the resource ref names in namespace. Its errors name the
@@ -118,10 +142,10 @@ func AppRefReason(err error) string {
 func ResolveAppRef(ctx context.Context, c client.Reader, apps Apps, namespace string, ref commonv1alpha1.AppRef) (App, error) {
 	kind, ok := appKinds[ref.Kind]
 	if !ok {
-		return App{}, fmt.Errorf("%s %q: unsupported kind", ref.Kind, ref.Name)
+		return App{}, InvalidAppRef("%s %q: unsupported kind", ref.Kind, ref.Name)
 	}
 	if !apps.Runs(ref.Kind) {
-		return App{}, fmt.Errorf("%s %q: the operator doesn't run the %s controller", ref.Kind, ref.Name, strings.ToLower(ref.Kind))
+		return App{}, InvalidAppRef("%s %q: the operator doesn't run the %s controller", ref.Kind, ref.Name, strings.ToLower(ref.Kind))
 	}
 	obj := kind.newObj()
 	if err := c.Get(ctx, types.NamespacedName{Namespace: namespace, Name: ref.Name}, obj); err != nil {
@@ -144,7 +168,7 @@ func ResolveAppAddress(ctx context.Context, c client.Reader, apps Apps, namespac
 	}
 	addr, err := SplitURL(app.URL)
 	if err != nil {
-		return App{}, Address{}, fmt.Errorf("%s %q has no usable connection URL", ref.Kind, ref.Name)
+		return App{}, Address{}, InvalidAppRef("%s %q has no usable connection URL", ref.Kind, ref.Name)
 	}
 	return app, addr, nil
 }
@@ -164,7 +188,7 @@ func ResolveNotifications(
 		}
 		for _, f := range n.Fields {
 			if slices.Contains(notificationAddressFields, f.Name) {
-				return nil, fmt.Errorf("notification %q: appRef fills in %s, so leave that field out", n.Name, f.Name)
+				return nil, InvalidAppRef("notification %q: appRef fills in %s, so leave that field out", n.Name, f.Name)
 			}
 		}
 		app, addr, err := ResolveAppAddress(ctx, c, apps, namespace, n.AppRef)
@@ -175,13 +199,13 @@ func ResolveNotifications(
 		switch app.Kind {
 		case "Jellyfin":
 			if app.APIKeySecretRef == nil {
-				return nil, fmt.Errorf("notification %q appRef: Jellyfin %q sets no API key Secret", n.Name, n.AppRef.Name)
+				return nil, InvalidAppRef("notification %q appRef: Jellyfin %q sets no API key Secret", n.Name, n.AppRef.Name)
 			}
 			n.Implementation, key.Name, key.ValueFrom.SecretKeyRef = "MediaBrowser", "apiKey", *app.APIKeySecretRef
 		case "Plex":
 			n.Implementation, key.ValueFrom.SecretKeyRef = "PlexServer", *app.TokenSecretRef
 		default:
-			return nil, fmt.Errorf("notification %q appRef: %s isn't a media server", n.Name, app.Kind)
+			return nil, InvalidAppRef("notification %q appRef: %s isn't a media server", n.Name, app.Kind)
 		}
 		n.Fields = append(slices.Clone(n.Fields),
 			fieldValue("host", addr.Host), fieldValue("port", addr.Port), fieldValue("useSsl", addr.TLS), key)
@@ -220,7 +244,7 @@ func ResolveDownloadClient(
 		dc.Protocol = "usenet"
 		dc.APIKeySecretRef = *app.APIKeySecretRef
 	default:
-		return dc, fmt.Errorf("download client %q appRef: %s isn't a download client", dc.Name, app.Kind)
+		return dc, InvalidAppRef("download client %q appRef: %s isn't a download client", dc.Name, app.Kind)
 	}
 	return dc, nil
 }

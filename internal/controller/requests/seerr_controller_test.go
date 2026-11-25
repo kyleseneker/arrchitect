@@ -1064,6 +1064,24 @@ func TestSeerrMissingMediaServerAppRefStopsBeforeSigningIn(t *testing.T) {
 	assert.Equal(t, `jellyfinAuth appRef: Jellyfin "jellyfin" not found`, synced.Message)
 }
 
+func TestSeerrMediaServerAppRefWithoutAUsableURLIsInvalidConfig(t *testing.T) {
+	app := &fakeSeerr{initialized: true}
+	cfg := seerrConfig(app.serve(t))
+	cfg.Spec.JellyfinAuth = requestsv1alpha1.SeerrJellyfinAuth{AppRef: &commonv1alpha1.AppRef{Kind: "Jellyfin", Name: "jellyfin"}}
+	jellyfin := &mediaserversv1alpha1.Jellyfin{Name: "jellyfin", Namespace: "media", Spec: mediaserversv1alpha1.JellyfinSpec{
+		Connection: mediaserversv1alpha1.JellyfinConnection{URL: "http://:8096"},
+		AdminUser:  mediaserversv1alpha1.JellyfinAdminUser{UsernameSecretRef: seerrSecretRef("username"), PasswordSecretRef: seerrSecretRef("password")},
+	}}
+
+	got := runSeerr(t, cfg, jellyfin)
+
+	assert.False(t, app.saw("POST", "/api/v1/auth/jellyfin"))
+	synced := meta.FindStatusCondition(got.Status.Conditions, "Synced")
+	require.NotNil(t, synced)
+	assert.Equal(t, "InvalidConfig", synced.Reason)
+	assert.Equal(t, `jellyfinAuth appRef: Jellyfin "jellyfin" has no usable connection URL`, synced.Message)
+}
+
 // With an API key the rest of Seerr still syncs, and a server whose reference
 // is missing holds back pruning that kind.
 func TestSeerrMissingServerAppRefSkipsOnlyThatServer(t *testing.T) {

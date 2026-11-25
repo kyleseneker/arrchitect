@@ -275,7 +275,7 @@ func (r *BazarrReconciler) bazarrJellyfinForm(
 			return nil, fmt.Errorf("appRef: %w", err)
 		}
 		if app.APIKeySecretRef == nil {
-			return nil, fmt.Errorf("appRef: Jellyfin %q sets no API key Secret", jf.AppRef.Name)
+			return nil, ctrlcommon.InvalidAppRef("appRef: Jellyfin %q sets no API key Secret", jf.AppRef.Name)
 		}
 		resolved := *jf
 		resolved.URL, resolved.APIKeySecretRef = app.URL, app.APIKeySecretRef
