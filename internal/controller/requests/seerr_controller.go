@@ -110,10 +110,12 @@ func (r *SeerrReconciler) sync(ctx context.Context, conn *seerrConn, config *req
 	for _, k := range seerrServers(config.Spec) {
 		kind, declared := k.kind, k.servers
 		failed := r.reconcileServiceConnections(ctx, sc, &pass.Writes, pass.Owned, config, kind, declared)
-		if len(failed) == 0 && pass.PruneEnabled {
-			if err := pruneSeerrService(ctx, sc, &pass.Writes, pass.Owned, kind, declared); err != nil {
-				failed = append(failed, fmt.Sprintf("%s: %v", kind, err))
+		if len(failed) == 0 {
+			names := make([]string, 0, len(declared))
+			for _, d := range declared {
+				names = append(names, d.Name)
 			}
+			failed = pass.PruneKinds(ctx, []engine.Kind{seerrServiceKind(sc, kind)}, map[string][]string{kind: names}, nil)
 		}
 		for _, problem := range failed {
 			logger.Error(errors.New(problem), "failed to reconcile connection", "service", kind)
@@ -163,56 +165,21 @@ func seerrServers(spec requestsv1alpha1.SeerrSpec) []seerrServerKind {
 	return kinds
 }
 
-// pruneSeerrService deletes the connections of a kind the operator created that
-// are no longer declared.
-func pruneSeerrService(
-	ctx context.Context, sc *seerrclient.Client, w *engine.Writes, owned *engine.Ownership, kind string, servers []requestsv1alpha1.SeerrServiceConnection,
-) error {
-	names, ids, err := seerrServices(ctx, sc, kind)
-	if err != nil {
-		return err
+// seerrServiceKind is Seerr's list of connections to Sonarr or Radarr.
+func seerrServiceKind(sc *seerrclient.Client, kind string) engine.Kind {
+	return engine.Kind{
+		Name: kind,
+		List: func(ctx context.Context) ([]map[string]any, error) { return sc.GetList(ctx, "/api/v1/settings/"+kind) },
+		Remove: func(ctx context.Context, id int) error {
+			return sc.Delete(ctx, fmt.Sprintf("/api/v1/settings/%s/%d", kind, id))
+		},
 	}
-	declared := make([]string, 0, len(servers))
-	for _, s := range servers {
-		declared = append(declared, s.Name)
-	}
-	return w.Prune(owned, kind, declared, names, func(name string) error {
-		return sc.Delete(ctx, fmt.Sprintf("/api/v1/settings/%s/%d", kind, ids[name]))
-	})
 }
 
 // cleanupSeerr deletes the Sonarr and Radarr connections the operator created,
 // for deletionPolicy delete.
 func cleanupSeerr(ctx context.Context, conn *seerrConn, owned *engine.Ownership) error {
-	kinds := []string{"sonarr", "radarr"}
-	errs := make([]error, 0, len(kinds))
-	for _, kind := range kinds {
-		names, ids, err := seerrServices(ctx, conn.sc, kind)
-		if err == nil {
-			err = owned.Cleanup(kind, names, func(name string) error {
-				return conn.sc.Delete(ctx, fmt.Sprintf("/api/v1/settings/%s/%d", kind, ids[name]))
-			})
-		}
-		errs = append(errs, err)
-	}
-	return errors.Join(errs...)
-}
-
-func seerrServices(ctx context.Context, sc *seerrclient.Client, kind string) ([]string, map[string]int, error) {
-	servers, err := sc.GetList(ctx, "/api/v1/settings/"+kind)
-	if err != nil {
-		return nil, nil, fmt.Errorf("listing %s connections: %w", engine.AppName(kind), err)
-	}
-	var names []string
-	ids := map[string]int{}
-	for _, s := range servers {
-		name, _ := s["name"].(string)
-		if id, ok := s["id"].(float64); ok && name != "" {
-			names = append(names, name)
-			ids[name] = int(id)
-		}
-	}
-	return names, ids, nil
+	return owned.CleanupKinds(ctx, []engine.Kind{seerrServiceKind(conn.sc, "sonarr"), seerrServiceKind(conn.sc, "radarr")})
 }
 
 // setup runs Seerr's first-time setup: the media server's libraries, the Sonarr

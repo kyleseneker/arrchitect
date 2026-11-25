@@ -199,8 +199,9 @@ Never edit these by hand. Change the source, then regenerate.
   resources already stored. Avoid it, or put the one-off fix in the release
   notes.
 - A scoped API key, as Autobrr allows, gets 403 on kinds the operator doesn't
-  own. List only kinds that `engine.Ownership` says the operator owns. Compat
-  can't catch this, because its key has every scope.
+  own. Prune and clean up through an `engine.Kind` list (`Pass.PruneKinds`,
+  `Ownership.CleanupKinds`), which never lists a kind the operator owns nothing
+  of. Compat can't catch this, because its key has every scope.
 - qBittorrent 5.3 answers a bad password and a Host header that doesn't match
   its port with the same bare 401.
 - Seerr's CSRF protection blocks API writes, so the operator leaves that
