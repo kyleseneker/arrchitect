@@ -493,7 +493,7 @@ func TestSeerrWithoutAPIKeyLogsInAndFetchesKey(t *testing.T) {
 	cfg.Spec.JellyfinAuth = requestsv1alpha1.SeerrJellyfinAuth{
 		Hostname:          "jellyfin",
 		Port:              &port,
-		UrlBase:           "/jf",
+		URLBase:           "/jf",
 		UsernameSecretRef: &commonv1alpha1.SecretKeyRef{Name: "seerr-secrets", Key: "username"},
 		PasswordSecretRef: &commonv1alpha1.SecretKeyRef{Name: "seerr-secrets", Key: "password"},
 	}
@@ -515,7 +515,7 @@ func TestSeerrJellyfinLoginCarriesServerTypeAndURLBase(t *testing.T) {
 	cfg.Spec.JellyfinAuth = requestsv1alpha1.SeerrJellyfinAuth{
 		Hostname:          "jellyfin",
 		Port:              &port,
-		UrlBase:           "/jf",
+		URLBase:           "/jf",
 		UsernameSecretRef: &commonv1alpha1.SecretKeyRef{Name: "seerr-secrets", Key: "username"},
 		PasswordSecretRef: &commonv1alpha1.SecretKeyRef{Name: "seerr-secrets", Key: "password"},
 	}
@@ -640,7 +640,7 @@ func TestSeerrReportsARefusedAPIKeyAsUnreachable(t *testing.T) {
 
 func jellyfinServerConfig(addr string) *requestsv1alpha1.Seerr {
 	cfg := firstRunJellyfinConfig(addr)
-	cfg.Spec.JellyfinAuth.UseSsl = new(false)
+	cfg.Spec.JellyfinAuth.UseSSL = new(false)
 	return cfg
 }
 

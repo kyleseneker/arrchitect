@@ -82,7 +82,7 @@ func ResolveReferences(
 		if err != nil {
 			return *resolved, nil, fmt.Errorf("indexers(%s): appProfileName: %w", idx.Name, err)
 		}
-		idx.AppProfileId = new(int32(id))
+		idx.AppProfileID = new(int32(id))
 	}
 	return *resolved, tagIDs, nil
 }

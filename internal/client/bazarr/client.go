@@ -55,8 +55,8 @@ func buildLanguageProfiles(profiles []subtitlesv1alpha1.BazarrLanguageProfile) (
 	out := make([]map[string]any, 0, len(profiles))
 	for i, p := range profiles {
 		id := i + 1
-		if p.ProfileId != nil {
-			id = int(*p.ProfileId)
+		if p.ProfileID != nil {
+			id = int(*p.ProfileID)
 		}
 		items := make([]map[string]any, 0, len(p.Items))
 		for j, it := range p.Items {

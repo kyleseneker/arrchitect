@@ -251,8 +251,8 @@ func TestProwlarrProfileCreatedBeforeIndexer(t *testing.T) {
 	cfg := prowlarrConfig(app.serve(t))
 	enabled := true
 	legacy := int32(7)
-	cfg.Spec.AppProfiles = []indexersv1alpha1.ProwlarrAppProfile{{Name: "Search", EnableRss: &enabled}}
-	cfg.Spec.Indexers = []indexersv1alpha1.ProwlarrIndexer{{Name: "indexer", AppProfileName: "Search", AppProfileId: &legacy}}
+	cfg.Spec.AppProfiles = []indexersv1alpha1.ProwlarrAppProfile{{Name: "Search", EnableRSS: &enabled}}
+	cfg.Spec.Indexers = []indexersv1alpha1.ProwlarrIndexer{{Name: "indexer", AppProfileName: "Search", AppProfileID: &legacy}}
 	c := runProwlarr(t, cfg, prowlarrSecret())
 	posts := app.postsTo("/api/v1/indexer")
 	require.Len(t, app.postsTo("/api/v1/appprofile"), 1)
@@ -261,7 +261,7 @@ func TestProwlarrProfileCreatedBeforeIndexer(t *testing.T) {
 	var got indexersv1alpha1.Prowlarr
 	require.NoError(t, c.Get(context.Background(), types.NamespacedName{Name: "prowlarr", Namespace: "media"}, &got))
 	require.Equal(t, []string{"Search"}, got.GetManagedResources()["appProfiles"])
-	require.Equal(t, int32(7), *got.Spec.Indexers[0].AppProfileId)
+	require.Equal(t, int32(7), *got.Spec.Indexers[0].AppProfileID)
 }
 
 func TestProwlarrProfileReferenceFailuresPreserveOwnership(t *testing.T) {
@@ -296,7 +296,7 @@ func TestProwlarrRestoredProfileIDAndLegacyFallback(t *testing.T) {
 		app := &fakeProwlarr{existing: map[string][]map[string]any{"appprofile": {{"name": "Search", "id": 84}}}}
 		cfg := prowlarrConfig(app.serve(t))
 		legacy := int32(7)
-		idx := indexersv1alpha1.ProwlarrIndexer{Name: "indexer", AppProfileId: &legacy}
+		idx := indexersv1alpha1.ProwlarrIndexer{Name: "indexer", AppProfileID: &legacy}
 		if named {
 			idx.AppProfileName = "Search"
 		}
@@ -417,7 +417,7 @@ func TestProwlarrMissingAppRefSkipsOnlyApplications(t *testing.T) {
 	cfg := prowlarrConfig(url)
 	cfg.Spec.Indexers = []indexersv1alpha1.ProwlarrIndexer{{Name: "nzbgeek", Implementation: "Newznab"}}
 	cfg.Spec.Applications = []indexersv1alpha1.ProwlarrApplication{
-		{Name: "Sonarr", Implementation: "Sonarr", BaseUrl: "http://sonarr:8989",
+		{Name: "Sonarr", Implementation: "Sonarr", BaseURL: "http://sonarr:8989",
 			APIKeySecretRef: &commonv1alpha1.SecretKeyRef{Name: "prowlarr-credentials", Key: "api-key"}},
 		{Name: "Radarr", AppRef: &commonv1alpha1.AppRef{Kind: "Radarr", Name: "radarr"}},
 	}
@@ -439,7 +439,7 @@ func TestProwlarrMissingAppRefSkipsOnlyApplications(t *testing.T) {
 
 func TestProwlarrApplicationBasicAuthNeedsProwlarr24(t *testing.T) {
 	application := indexersv1alpha1.ProwlarrApplication{
-		Name: "Radarr", Implementation: "Radarr", BaseUrl: "https://radarr.example",
+		Name: "Radarr", Implementation: "Radarr", BaseURL: "https://radarr.example",
 		APIKeySecretRef:       &commonv1alpha1.SecretKeyRef{Name: "prowlarr-credentials", Key: "api-key"},
 		AuthUsernameSecretRef: &commonv1alpha1.SecretKeyRef{Name: "prowlarr-credentials", Key: "auth-username"},
 		AuthPasswordSecretRef: &commonv1alpha1.SecretKeyRef{Name: "prowlarr-credentials", Key: "auth-password"},

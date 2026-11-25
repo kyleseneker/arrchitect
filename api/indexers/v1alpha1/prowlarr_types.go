@@ -69,7 +69,7 @@ type ProwlarrAppProfile struct {
 
 	// enableRss enables RSS sync.
 	// +optional
-	EnableRss *bool `json:"enableRss,omitempty"`
+	EnableRSS *bool `json:"enableRss,omitempty"`
 
 	// enableAutomaticSearch enables automatic searches.
 	// +optional
@@ -121,12 +121,12 @@ type ProwlarrApplication struct {
 	// prowlarrUrl is the URL Prowlarr uses to reach itself (for callbacks).
 	// +optional
 	// +kubebuilder:validation:MinLength=1
-	ProwlarrUrl string `json:"prowlarrUrl,omitempty"`
+	ProwlarrURL string `json:"prowlarrUrl,omitempty"`
 
 	// baseUrl is the base URL of the application.
 	// +optional
 	// +kubebuilder:validation:MinLength=1
-	BaseUrl string `json:"baseUrl,omitempty"`
+	BaseURL string `json:"baseUrl,omitempty"`
 
 	// apiKeySecretRef references a Secret containing the application's API key.
 	// +optional
@@ -200,7 +200,7 @@ type ProwlarrIndexer struct {
 	// appProfileId is the sync profile's ID, used when appProfileName is not
 	// set.
 	// +optional
-	AppProfileId *int32 `json:"appProfileId,omitempty"`
+	AppProfileID *int32 `json:"appProfileId,omitempty"`
 
 	// appProfileName is the sync profile's name, resolved against Prowlarr on
 	// each reconciliation. It takes precedence over appProfileId. A missing or

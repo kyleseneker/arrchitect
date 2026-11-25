@@ -271,7 +271,7 @@ type RadarrIndexerConfig struct {
 
 	// rssSyncInterval is the RSS sync interval in minutes. 0 disables RSS.
 	// +optional
-	RssSyncInterval *int32 `json:"rssSyncInterval,omitempty"`
+	RSSSyncInterval *int32 `json:"rssSyncInterval,omitempty"`
 
 	// preferIndexerFlags prefers releases with indexer flags.
 	// +optional

@@ -134,7 +134,7 @@ func TestBazarrExportsProfileCutoffFiltersAndTag(t *testing.T) {
 	cfg, res := exportBazarrFrom(t)
 	require.Len(t, cfg.Spec.Languages.Profiles, 2)
 	english := cfg.Spec.Languages.Profiles[0]
-	assert.Equal(t, int32(1), *english.ProfileId)
+	assert.Equal(t, int32(1), *english.ProfileID)
 	assert.True(t, *english.Items[0].Forced)
 	assert.False(t, *english.Items[0].HI)
 	assert.Equal(t, "any", english.Cutoff)

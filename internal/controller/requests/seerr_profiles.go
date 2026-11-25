@@ -28,10 +28,10 @@ func (r *SeerrReconciler) resolvedServicePayload(
 		return nil, fmt.Errorf("a valid service port is required for profile name resolution")
 	}
 	scheme := "http"
-	if svc.UseSsl != nil && *svc.UseSsl {
+	if svc.UseSSL != nil && *svc.UseSSL {
 		scheme = "https"
 	}
-	endpoint := url.URL{Scheme: scheme, Host: net.JoinHostPort(svc.Hostname, strconv.Itoa(int(*svc.Port))), Path: "/" + strings.Trim(svc.BaseUrl, "/")}
+	endpoint := url.URL{Scheme: scheme, Host: net.JoinHostPort(svc.Hostname, strconv.Itoa(int(*svc.Port))), Path: "/" + strings.Trim(svc.BaseURL, "/")}
 	tlsCfg, err := engine.ResolveTLSConfig(ctx, r.Client, namespace, tlsSpec)
 	if err != nil {
 		return nil, err

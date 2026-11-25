@@ -310,7 +310,7 @@ func TestBazarrDefaultProfilesResolveByName(t *testing.T) {
 	spec := subtitlesv1alpha1.BazarrSpec{
 		General: &subtitlesv1alpha1.BazarrGeneral{SeriesDefaultProfile: "English", MovieDefaultProfile: "Spanish"},
 		Languages: &subtitlesv1alpha1.BazarrLanguages{Profiles: []subtitlesv1alpha1.BazarrLanguageProfile{
-			{ProfileId: new(int32(3)), Name: "English"},
+			{ProfileID: new(int32(3)), Name: "English"},
 		}},
 	}
 	form := bazarrclient.StructToFormData("general", spec.General)

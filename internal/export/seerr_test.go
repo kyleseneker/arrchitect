@@ -76,7 +76,7 @@ func TestSeerrExportsSettingsServicesAndNotifications(t *testing.T) {
 	assert.True(t, *fourK.Is4k)
 	assert.Equal(t, "k4k", res.Secret.StringData[fourK.APIKeySecretRef.Key])
 	assert.Equal(t, "HD-1080p", sonarr.ActiveProfileName)
-	assert.Nil(t, sonarr.ActiveProfileId, "the name is portable; the id is not")
+	assert.Nil(t, sonarr.ActiveProfileID, "the name is portable; the id is not")
 	assert.Equal(t, "sonarr-key", res.Secret.StringData[sonarr.APIKeySecretRef.Key])
 	assert.NotEqual(t, fourK.APIKeySecretRef.Key, sonarr.APIKeySecretRef.Key)
 	assert.Nil(t, cfg.Spec.Radarr)
@@ -102,7 +102,7 @@ func TestSeerrExportsMainListsQuotasAndStringNumbers(t *testing.T) {
 	res, cfg := exportFakeSeerr(t)
 	main := cfg.Spec.Main
 	require.NotNil(t, main)
-	assert.Empty(t, main.ApplicationUrl)
+	assert.Empty(t, main.ApplicationURL)
 	assert.Equal(t, "US", main.DiscoverRegion)
 	assert.Empty(t, main.StreamingRegion)
 	assert.Equal(t, []string{"en", "ja"}, main.OriginalLanguages)

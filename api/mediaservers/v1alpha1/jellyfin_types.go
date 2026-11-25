@@ -392,13 +392,13 @@ type JellyfinNetwork struct {
 	// enablePublishedServerUriByRequest tells clients the address they reached
 	// Jellyfin on, instead of one Jellyfin works out.
 	// +optional
-	EnablePublishedServerUriByRequest *bool `json:"enablePublishedServerUriByRequest,omitempty"`
+	EnablePublishedServerURIByRequest *bool `json:"enablePublishedServerUriByRequest,omitempty"`
 
 	// publishedServerUriBySubnet overrides the address Jellyfin gives clients,
 	// as subnet=URL entries, such as all=https://jellyfin.example.com.
 	// +optional
 	// +listType=set
-	PublishedServerUriBySubnet []string `json:"publishedServerUriBySubnet,omitempty"`
+	PublishedServerURIBySubnet []string `json:"publishedServerUriBySubnet,omitempty"`
 
 	// remoteIPFilter lists remote addresses or subnets to allow, or to block when
 	// isRemoteIPFilterBlacklist is on.

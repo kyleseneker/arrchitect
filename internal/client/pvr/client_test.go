@@ -221,8 +221,8 @@ func TestBuildDownloadClientPayload(t *testing.T) {
 				Enable: new(false), Priority: int32(5),
 				RemoveCompletedDownloads: new(false),
 				RemoveFailedDownloads:    new(false),
-				UseSsl:                   new(true),
-				UrlBase:                  "/qbt",
+				UseSSL:                   new(true),
+				URLBase:                  "/qbt",
 				ConfigContract:           "CustomContract",
 			},
 			tags:          []int{1, 2},
@@ -329,7 +329,7 @@ func TestBuildIndexerPayload(t *testing.T) {
 		{
 			name: "enable true turns on the uses left out",
 			idx: commonv1alpha1.Indexer{
-				Name: "On", Protocol: "torrent", Implementation: "Torznab", Enable: new(true), EnableRss: new(false),
+				Name: "On", Protocol: "torrent", Implementation: "Torznab", Enable: new(true), EnableRSS: new(false),
 			},
 			check: func(t *testing.T, p map[string]any) {
 				assert.Equal(t, false, p["enableRss"])
@@ -341,7 +341,7 @@ func TestBuildIndexerPayload(t *testing.T) {
 			name: "all options set",
 			idx: commonv1alpha1.Indexer{
 				Name: "NZBgeek", Protocol: "usenet", Implementation: "Newznab",
-				Enable: new(false), EnableRss: new(false),
+				Enable: new(false), EnableRSS: new(false),
 				EnableAutomaticSearch: new(false), EnableInteractiveSearch: new(false),
 				ConfigContract: "CustomContract", Priority: int32(10),
 				Fields: []commonv1alpha1.ConfigField{
@@ -361,7 +361,7 @@ func TestBuildIndexerPayload(t *testing.T) {
 			name: "enable false turns off every use",
 			idx: commonv1alpha1.Indexer{
 				Name: "Off", Protocol: "torrent", Implementation: "Torznab",
-				Enable: new(false), EnableRss: new(true), EnableAutomaticSearch: new(true), EnableInteractiveSearch: new(true),
+				Enable: new(false), EnableRSS: new(true), EnableAutomaticSearch: new(true), EnableInteractiveSearch: new(true),
 			},
 			check: func(t *testing.T, p map[string]any) {
 				assert.Equal(t, false, p["enableRss"])

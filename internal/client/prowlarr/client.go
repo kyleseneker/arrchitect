@@ -59,8 +59,8 @@ func ProwlarrResources(opts ProwlarrOptions, tagIDs map[string]int) map[string][
 	resources := make(map[string][]map[string]any)
 	for _, profile := range opts.AppProfiles {
 		payload := map[string]any{"name": profile.Name}
-		if profile.EnableRss != nil {
-			payload["enableRss"] = *profile.EnableRss
+		if profile.EnableRSS != nil {
+			payload["enableRss"] = *profile.EnableRSS
 		}
 		if profile.EnableAutomaticSearch != nil {
 			payload["enableAutomaticSearch"] = *profile.EnableAutomaticSearch
@@ -129,7 +129,7 @@ func ProwlarrResources(opts ProwlarrOptions, tagIDs map[string]int) map[string][
 // secrets holds the resolved apiKey, authUsername and authPassword, by field name.
 func BuildProwlarrApplicationPayload(app indexersv1alpha1.ProwlarrApplication, secrets map[string]string, tagIDs map[string]int) map[string]any {
 	fields := []map[string]any{
-		{"name": "baseUrl", "value": app.BaseUrl},
+		{"name": "baseUrl", "value": app.BaseURL},
 		{"name": "apiKey", "value": secrets["apiKey"]},
 	}
 	for _, name := range []string{"authUsername", "authPassword"} {
@@ -137,8 +137,8 @@ func BuildProwlarrApplicationPayload(app indexersv1alpha1.ProwlarrApplication, s
 			fields = append(fields, map[string]any{"name": name, "value": value})
 		}
 	}
-	if app.ProwlarrUrl != "" {
-		fields = append(fields, map[string]any{"name": "prowlarrUrl", "value": app.ProwlarrUrl})
+	if app.ProwlarrURL != "" {
+		fields = append(fields, map[string]any{"name": "prowlarrUrl", "value": app.ProwlarrURL})
 	}
 	if app.SyncCategories != nil {
 		fields = append(fields, map[string]any{"name": "syncCategories", "value": intSliceToInterface(app.SyncCategories)})
@@ -185,8 +185,8 @@ func BuildProwlarrIndexerPayload(idx indexersv1alpha1.ProwlarrIndexer, tagIDs ma
 		desired["fields"] = pvrclient.BuildFieldsPayload(idx.Fields)
 	}
 	setTags(desired, idx.TagLabels, tagIDs)
-	if idx.AppProfileId != nil {
-		desired["appProfileId"] = *idx.AppProfileId
+	if idx.AppProfileID != nil {
+		desired["appProfileId"] = *idx.AppProfileID
 	}
 	if idx.Priority != nil {
 		desired["priority"] = *idx.Priority

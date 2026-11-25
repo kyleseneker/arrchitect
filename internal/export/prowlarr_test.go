@@ -84,7 +84,7 @@ func TestProwlarrApplicationReferencesItsKeyAndWarnsAboutUnmodelledFields(t *tes
 	cfg, res := exportProwlarrFrom(t)
 	require.Len(t, cfg.Spec.Applications, 1)
 	a := cfg.Spec.Applications[0]
-	assert.Equal(t, "http://sonarr:8989", a.BaseUrl)
+	assert.Equal(t, "http://sonarr:8989", a.BaseURL)
 	assert.Equal(t, []int32{5000, 5040}, a.SyncCategories)
 	assert.Equal(t, "application-sonarr-api-key", a.APIKeySecretRef.Key)
 	assert.Contains(t, res.Unfilled, "application-sonarr-api-key")
