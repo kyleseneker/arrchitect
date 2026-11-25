@@ -62,8 +62,8 @@ func (in *JellyfinBranding) DeepCopyInto(out *JellyfinBranding) {
 		*out = new(string)
 		**out = **in
 	}
-	if in.CustomCss != nil {
-		in, out := &in.CustomCss, &out.CustomCss
+	if in.CustomCSS != nil {
+		in, out := &in.CustomCSS, &out.CustomCSS
 		*out = new(string)
 		**out = **in
 	}

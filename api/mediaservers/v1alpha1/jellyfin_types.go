@@ -342,7 +342,7 @@ type JellyfinBranding struct {
 
 	// customCss is CSS the web client applies to every page.
 	// +optional
-	CustomCss *string `json:"customCss,omitempty"`
+	CustomCSS *string `json:"customCss,omitempty"`
 
 	// splashscreenEnabled shows the splash screen while the web client loads.
 	// +optional
