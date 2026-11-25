@@ -98,7 +98,6 @@ spec:
       name: compat-credentials
       key: sab-password
   quota:
-    enable: true
     size: 500G
     period: week
     resetDay: 1
