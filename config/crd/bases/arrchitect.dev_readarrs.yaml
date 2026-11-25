@@ -1375,6 +1375,10 @@ spec:
               ui:
                 description: ui configures UI display settings.
                 properties:
+                  enableColorImpairedMode:
+                    description: enableColorImpairedMode enables color-impaired accessibility
+                      mode.
+                    type: boolean
                   firstDayOfWeek:
                     description: firstDayOfWeek is the first day of the week. 0=Sunday,
                       1=Monday.
@@ -1390,6 +1394,9 @@ spec:
                     description: shortDateFormat is the short date display format.
                     minLength: 1
                     type: string
+                  showRelativeDates:
+                    description: showRelativeDates shows relative dates (today, yesterday).
+                    type: boolean
                   theme:
                     description: theme is the UI theme.
                     enum:

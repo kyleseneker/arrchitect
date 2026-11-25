@@ -705,6 +705,16 @@ func (in *LidarrUI) DeepCopyInto(out *LidarrUI) {
 		*out = new(int32)
 		**out = **in
 	}
+	if in.ShowRelativeDates != nil {
+		in, out := &in.ShowRelativeDates, &out.ShowRelativeDates
+		*out = new(bool)
+		**out = **in
+	}
+	if in.EnableColorImpairedMode != nil {
+		in, out := &in.EnableColorImpairedMode, &out.EnableColorImpairedMode
+		*out = new(bool)
+		**out = **in
+	}
 	if in.UILanguage != nil {
 		in, out := &in.UILanguage, &out.UILanguage
 		*out = new(int32)
@@ -2129,6 +2139,16 @@ func (in *ReadarrUI) DeepCopyInto(out *ReadarrUI) {
 	if in.FirstDayOfWeek != nil {
 		in, out := &in.FirstDayOfWeek, &out.FirstDayOfWeek
 		*out = new(int32)
+		**out = **in
+	}
+	if in.ShowRelativeDates != nil {
+		in, out := &in.ShowRelativeDates, &out.ShowRelativeDates
+		*out = new(bool)
+		**out = **in
+	}
+	if in.EnableColorImpairedMode != nil {
+		in, out := &in.EnableColorImpairedMode, &out.EnableColorImpairedMode
+		*out = new(bool)
 		**out = **in
 	}
 	if in.UILanguage != nil {

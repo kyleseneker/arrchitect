@@ -49,7 +49,9 @@ spec:
     shortDateFormat: "MMM D YYYY"
     longDateFormat: "dddd, MMMM D YYYY"
     timeFormat: "h(:mm)a"
+    showRelativeDates: true
     theme: dark
+    enableColorImpairedMode: false
     uiLanguage: 1
   metadataProvider:
     metadataSource: ${FAKES}/musicinfo

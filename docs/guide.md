@@ -31,6 +31,10 @@ root folders also have a name, default profiles and other settings, and the
 operator keeps those as declared. Sonarr and Radarr root folders have only a
 path.
 
+Lidarr and Readarr have no import list sync, so only Sonarr and Radarr take
+`importListConfig`. Readarr's media management has no `enableMediaInfo`,
+`useScriptImport` or `scriptImportPath`.
+
 Jellyfin and Plex libraries are matched by name and created if missing. An
 existing library is kept as declared, including its folders. A folder the
 resource doesn't list is removed from the library. Libraries are never

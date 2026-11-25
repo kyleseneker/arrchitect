@@ -355,10 +355,18 @@ type LidarrUI struct {
 	// +kubebuilder:validation:MinLength=1
 	TimeFormat string `json:"timeFormat,omitempty"`
 
+	// showRelativeDates shows relative dates (today, yesterday).
+	// +optional
+	ShowRelativeDates *bool `json:"showRelativeDates,omitempty"`
+
 	// theme is the UI theme.
 	// +optional
 	// +kubebuilder:validation:Enum=auto;dark;light
 	Theme string `json:"theme,omitempty"`
+
+	// enableColorImpairedMode enables color-impaired accessibility mode.
+	// +optional
+	EnableColorImpairedMode *bool `json:"enableColorImpairedMode,omitempty"`
 
 	// uiLanguage is the UI language ID. 1=English.
 	// +optional
