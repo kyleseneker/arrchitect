@@ -98,7 +98,7 @@ func reconcilePlexLibraries(
 	}
 	var syncErrors []string
 	for _, lib := range libraries {
-		current, err := singleLibrary(existing, "title", lib.Name)
+		current, err := singleLibrary(existing, "Plex", "title", lib.Name)
 		switch {
 		case err != nil:
 		case current == nil:

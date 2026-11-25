@@ -595,9 +595,9 @@ func workerNode(nodes map[string]any, name string) (string, error) {
 	case 1:
 		return matches[0], nil
 	case 0:
-		return "", fmt.Errorf("no node named %q (nodes: %s)", name, strings.Join(names, ", "))
+		return "", fmt.Errorf("Tdarr has no node named %q (nodes: %s)", name, strings.Join(names, ", "))
 	default:
-		return "", fmt.Errorf("node name %q is ambiguous (%d nodes)", name, len(matches))
+		return "", fmt.Errorf("Tdarr has more than one node named %q", name)
 	}
 }
 

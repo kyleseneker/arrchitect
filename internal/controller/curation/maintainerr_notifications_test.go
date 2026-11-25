@@ -121,5 +121,5 @@ func TestMaintainerrRuleGroupNamingAMissingNotificationFails(t *testing.T) {
 			message = c.Message
 		}
 	}
-	assert.Contains(t, message, `maintainerr has no notification named "Nowhere"`)
+	assert.Contains(t, message, `Maintainerr has no notification named "Nowhere"`)
 }

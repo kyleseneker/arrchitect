@@ -1076,7 +1076,7 @@ func TestObserveStillFailsAReferenceToAnUndeclaredItem(t *testing.T) {
 	opts := Options{DownloadClients: []commonv1alpha1.DownloadClient{{Name: "downloads", TagLabels: []string{"typo"}}}}
 	result, err := Reconcile(context.Background(), hc, "v3", struct{}{}, opts, engine.SyncPolicy{Observe: true}, nil)
 	require.NoError(t, err)
-	assert.Equal(t, []string{`downloadClients(downloads): tag: reference "typo" does not exist`}, result.Errors)
+	assert.Equal(t, []string{`downloadClients(downloads): tag: the app has no item named "typo"`}, result.Errors)
 	assert.Empty(t, app.writes)
 }
 
@@ -1133,7 +1133,7 @@ func TestABadReferenceBlocksOnlyItsKind(t *testing.T) {
 		map[string][]string{"downloadClients": {"Old"}})
 	require.NoError(t, err)
 
-	assert.Equal(t, []string{`downloadClients(qBit): tag: reference "missing" does not exist`}, result.Errors)
+	assert.Equal(t, []string{`downloadClients(qBit): tag: the app has no item named "missing"`}, result.Errors)
 	assert.Equal(t, []string{"POST indexer"}, app.writes, "the indexer is still written, and nothing touches download clients")
 	assert.Equal(t, []string{"Old"}, result.Managed["downloadClients"], "a kind that failed isn't pruned")
 }
@@ -1562,7 +1562,7 @@ func TestAutoTagsResolveTheProfilesAndTagsTheyNameAndConverge(t *testing.T) {
 	missing, err := Reconcile(context.Background(), hc, "v3", struct{}{}, opts, engine.SyncPolicy{}, result.Managed)
 	require.NoError(t, err)
 	require.Len(t, missing.Errors, 1)
-	assert.Contains(t, missing.Errors[0], `autoTags(Anime HD): Profile: reference "Ultra-HD" does not exist`)
+	assert.Contains(t, missing.Errors[0], `autoTags(Anime HD): Profile: the app has no item named "Ultra-HD"`)
 
 	opts.AutoTags[0].Specifications[0] = commonv1alpha1.AutoTagSpecification{
 		Name: "Profile", Implementation: "QualityProfileSpecification", QualityProfileName: "HD-1080p",
@@ -1583,7 +1583,7 @@ func TestResolveListSyncTagNamesTheTagByLabel(t *testing.T) {
 
 	sections = map[string]any{"importListConfig": map[string]any{"listSyncLevel": "keepAndTag", "listSyncTagLabel": "gone"}}
 	assert.EqualError(t, resolveListSyncTag(context.Background(), hc, "v3", sections, nil),
-		`listSyncTagLabel: reference "gone" does not exist`)
+		`listSyncTagLabel: the app has no item named "gone"`)
 	require.NoError(t, resolveListSyncTag(context.Background(), hc, "v3", sections, []string{"gone"}),
 		"observe mode plans a tag the resource declares")
 }
@@ -1999,7 +1999,7 @@ func TestDelayProfilesRefuseWhatTheAppWouldReject(t *testing.T) {
 		declared []commonv1alpha1.DelayProfile
 		want     string
 	}{
-		{"unknown tag", []commonv1alpha1.DelayProfile{{TagLabels: []string{"missing"}}}, `delayProfiles(missing): tag: reference "missing" does not exist`},
+		{"unknown tag", []commonv1alpha1.DelayProfile{{TagLabels: []string{"missing"}}}, `delayProfiles(missing): tag: the app has no item named "missing"`},
 		{"shared tag", []commonv1alpha1.DelayProfile{{TagLabels: []string{"anime"}}, {TagLabels: []string{"kids", "anime"}}},
 			"delayProfiles(kids,anime): shares a tag with anime"},
 		{"two defaults", []commonv1alpha1.DelayProfile{{}, {}}, "delayProfiles(default): only one profile can be without tags"},

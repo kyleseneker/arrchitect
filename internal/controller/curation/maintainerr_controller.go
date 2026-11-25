@@ -217,8 +217,8 @@ func (s *maintainerrSync) mediaServer(ctx context.Context, ms *curationv1alpha1.
 	}
 	current, _ := settings["media_server_type"].(string)
 	if current != "" && current != want {
-		return fmt.Errorf("maintainerr uses %s; switching it to %s deletes every collection, "+
-			"so the operator leaves that to Maintainerr's settings page", current, want)
+		return fmt.Errorf("Maintainerr uses %s; switching it to %s deletes every collection, "+
+			"so the operator leaves that to Maintainerr's settings page", engine.AppName(current), engine.AppName(want))
 	}
 	if ms.Jellyfin != (curationv1alpha1.MaintainerrJellyfin{}) {
 		return s.jellyfin(ctx, &ms.Jellyfin)
@@ -227,7 +227,7 @@ func (s *maintainerrSync) mediaServer(ctx context.Context, ms *curationv1alpha1.
 	if plex.AppRef != nil {
 		app, addr, err := ctrlcommon.ResolveAppAddress(ctx, s.c, s.apps, s.namespace, *plex.AppRef)
 		if err != nil {
-			return fmt.Errorf("plex appRef: %w", err)
+			return fmt.Errorf("Plex appRef: %w", err)
 		}
 		plex = curationv1alpha1.MaintainerrPlex{Hostname: addr.Host, Port: addr.Port, SSL: &addr.TLS, TokenSecretRef: app.TokenSecretRef}
 	}
@@ -238,10 +238,10 @@ func (s *maintainerrSync) jellyfin(ctx context.Context, jf *curationv1alpha1.Mai
 	if jf.AppRef != nil {
 		app, err := ctrlcommon.ResolveAppRef(ctx, s.c, s.apps, s.namespace, *jf.AppRef)
 		if err != nil {
-			return fmt.Errorf("jellyfin appRef: %w", err)
+			return fmt.Errorf("Jellyfin appRef: %w", err)
 		}
 		if app.APIKeySecretRef == nil {
-			return ctrlcommon.InvalidAppRef("jellyfin appRef: Jellyfin %q sets no API key Secret", jf.AppRef.Name)
+			return ctrlcommon.InvalidAppRef("Jellyfin appRef: Jellyfin %q sets no API key Secret", jf.AppRef.Name)
 		}
 		resolved := *jf
 		resolved.URL, resolved.APIKeySecretRef = app.URL, app.APIKeySecretRef
@@ -395,7 +395,7 @@ func (s *maintainerrSync) arrServer(
 			continue
 		}
 		if match != nil {
-			return false, fmt.Errorf("maintainerr has more than one %s server named %q", kind, server.Name)
+			return false, fmt.Errorf("Maintainerr has more than one %s server named %q", engine.AppName(string(kind)), server.Name)
 		}
 		match = e
 	}

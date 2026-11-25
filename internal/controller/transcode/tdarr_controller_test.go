@@ -689,9 +689,9 @@ func TestWorkerNodeFindsTheNamedNode(t *testing.T) {
 	}{
 		{name: "InternalNode", nodes: one, want: "id-a"},
 		{name: "GpuNode", nodes: two, want: "id-b"},
-		{name: "Missing", nodes: two, wantErr: `no node named "Missing" (nodes: GpuNode, InternalNode)`},
-		{name: "Twin", nodes: map[string]any{"id-a": node("Twin"), "id-b": node("Twin")}, wantErr: `node name "Twin" is ambiguous`},
-		{name: "InternalNode", nodes: map[string]any{}, wantErr: `no node named "InternalNode"`},
+		{name: "Missing", nodes: two, wantErr: `Tdarr has no node named "Missing" (nodes: GpuNode, InternalNode)`},
+		{name: "Twin", nodes: map[string]any{"id-a": node("Twin"), "id-b": node("Twin")}, wantErr: `Tdarr has more than one node named "Twin"`},
+		{name: "InternalNode", nodes: map[string]any{}, wantErr: `Tdarr has no node named "InternalNode"`},
 	} {
 		t.Run(tc.name+"/"+tc.want+tc.wantErr, func(t *testing.T) {
 			got, err := workerNode(tc.nodes, tc.name)

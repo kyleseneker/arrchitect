@@ -366,20 +366,20 @@ func findJellyfinLibrary(ctx context.Context, jf *jellyfinclient.Client, name st
 	if err != nil {
 		return nil, fmt.Errorf("listing libraries: %w", err)
 	}
-	return singleLibrary(libraries, "Name", name)
+	return singleLibrary(libraries, "Jellyfin", "Name", name)
 }
 
-// singleLibrary returns the library whose field holds name, or nil when none
-// does. Libraries are kept as declared, folders included, so two with one name
-// is an error rather than a guess that could empty the wrong one.
-func singleLibrary(libraries []map[string]any, field, name string) (map[string]any, error) {
+// singleLibrary returns the library of app whose field holds name, or nil when
+// none does. Libraries are kept as declared, folders included, so two with one
+// name is an error rather than a guess that could empty the wrong one.
+func singleLibrary(libraries []map[string]any, app, field, name string) (map[string]any, error) {
 	var found map[string]any
 	for _, l := range libraries {
 		if l[field] != name {
 			continue
 		}
 		if found != nil {
-			return nil, fmt.Errorf("more than one library is named %q", name)
+			return nil, fmt.Errorf("%s has more than one library named %q", app, name)
 		}
 		found = l
 	}
@@ -629,7 +629,7 @@ func observeJellyfinConfig(ctx context.Context, jf *jellyfinclient.Client, spec 
 	}
 	for _, library := range spec.Libraries {
 		var current map[string]any
-		existing, err := singleLibrary(libraries, "Name", library.Name)
+		existing, err := singleLibrary(libraries, "Jellyfin", "Name", library.Name)
 		if err != nil {
 			return err
 		}

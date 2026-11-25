@@ -300,6 +300,21 @@ func (c *HTTPClient) AppLabel() string {
 	return c.appLabel
 }
 
+var appNames = map[string]string{
+	"autobrr": "Autobrr", "bazarr": "Bazarr", "flaresolverr": "FlareSolverr", "jellyfin": "Jellyfin",
+	"lidarr": "Lidarr", "maintainerr": "Maintainerr", "plex": "Plex", "prowlarr": "Prowlarr",
+	"qbittorrent": "qBittorrent", "radarr": "Radarr", "readarr": "Readarr", "sabnzbd": "SABnzbd",
+	"seerr": "Seerr", "sonarr": "Sonarr", "tautulli": "Tautulli", "tdarr": "Tdarr",
+}
+
+// AppName is the name an app goes by, for messages, given its app label.
+func AppName(label string) string {
+	if name, ok := appNames[label]; ok {
+		return name
+	}
+	return label
+}
+
 // SetMediaToken updates the MediaBrowser token after authentication.
 func (c *HTTPClient) SetMediaToken(token string) {
 	c.mediaToken = token

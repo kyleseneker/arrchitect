@@ -459,7 +459,7 @@ func (s *autobrrSync) definition(ctx context.Context, identifier string) (map[st
 			return d, nil
 		}
 	}
-	return nil, fmt.Errorf("autobrr has no indexer definition %q", identifier)
+	return nil, fmt.Errorf("Autobrr has no indexer definition %q", identifier)
 }
 
 func (s *autobrrSync) indexerSettings(ctx context.Context, idx automationv1alpha1.AutobrrIndexer) (map[string]any, error) {

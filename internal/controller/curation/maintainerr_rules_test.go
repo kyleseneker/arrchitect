@@ -102,7 +102,7 @@ func TestResolveRejectsTheOtherMediaServersProperties(t *testing.T) {
 
 	_, err = env.resolve("Plex.addDate")
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "media server is jellyfin")
+	assert.Contains(t, err.Error(), "media server is Jellyfin")
 }
 
 // Maintainerr's YAML import takes the first property with a name, which for
@@ -118,7 +118,7 @@ func TestResolveExplainsUnknownNames(t *testing.T) {
 	_, err := env.resolve("Tautulli.viewCount")
 	assert.ErrorContains(t, err, "only the apps it is connected to")
 	_, err = env.resolve("Plex.nope")
-	assert.ErrorContains(t, err, `no Plex property "nope"`)
+	assert.ErrorContains(t, err, `Maintainerr has no Plex property named "nope"`)
 }
 
 func TestRuleDataTypeFollowsTheLibrary(t *testing.T) {
@@ -172,11 +172,11 @@ func TestBuildRuleGroupRefusesAServerNameSeveralServersShare(t *testing.T) {
 		Sections: []curationv1alpha1.MaintainerrRuleSection{{Rules: []curationv1alpha1.MaintainerrRule{rule("", "Plex.viewCount", "EQUALS")}}},
 	}
 	_, _, err := buildRuleGroup(g, testRuleEnv("plex"), nil)
-	assert.EqualError(t, err, `maintainerr has more than one radarr server named "Twice"`)
+	assert.EqualError(t, err, `Maintainerr has more than one Radarr server named "Twice"`)
 
 	g.RadarrServer = "Missing"
 	_, _, err = buildRuleGroup(g, testRuleEnv("plex"), nil)
-	assert.EqualError(t, err, `maintainerr has no radarr server named "Missing"`)
+	assert.EqualError(t, err, `Maintainerr has no Radarr server named "Missing"`)
 }
 
 func TestBuildRuleGroupNeedsAValueUnlessTheActionTestsExistence(t *testing.T) {

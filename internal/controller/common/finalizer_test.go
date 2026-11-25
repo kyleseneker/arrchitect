@@ -124,7 +124,7 @@ func TestDeletionReportsWhatTheAppRefusesAndReleases(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.False(t, controllerutil.ContainsFinalizer(c, Finalizer))
-	assert.Equal(t, `Warning ResourceKept Kept sonarr "Sonarr", which the operator created: seerr refused to delete it: in use`, <-recorder.Events)
+	assert.Equal(t, `Warning ResourceKept Kept sonarr "Sonarr", which the operator created: Seerr refused to delete it: in use`, <-recorder.Events)
 }
 
 func TestUnsupportedOrObserveDeletionDoesNotSilentlySucceed(t *testing.T) {

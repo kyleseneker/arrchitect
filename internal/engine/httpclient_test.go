@@ -107,6 +107,13 @@ func TestNewHTTPClient_TrailingSlash(t *testing.T) {
 	assert.Equal(t, "http://example.com", hc.baseURL)
 }
 
+func TestAppNameSpellsTheAppAsItDoes(t *testing.T) {
+	assert.Equal(t, "qBittorrent", AppName("qbittorrent"))
+	assert.Equal(t, "SABnzbd", AppName("sabnzbd"))
+	assert.Equal(t, "Sonarr", AppName("sonarr"))
+	assert.Equal(t, "unknown", AppName("unknown"), "a label without a name is kept")
+}
+
 func TestAPIError_Error(t *testing.T) {
 	err := &APIError{StatusCode: 500, Body: []byte(`{"error":"secret details"}`)}
 	assert.Contains(t, err.Error(), "500")

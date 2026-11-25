@@ -198,7 +198,7 @@ func EmitKeptEvents(recorder events.EventRecorder, obj ConfigResource, app strin
 	}
 	for _, k := range kept {
 		recorder.Eventf(obj, nil, corev1.EventTypeWarning, engine.ReasonResourceKept, "Cleanup",
-			"Kept %s %q, which the operator created: %s refused to delete it: %s", k.Type, k.Name, app, k.Reason)
+			"Kept %s %q, which the operator created: %s refused to delete it: %s", k.Type, k.Name, engine.AppName(app), k.Reason)
 	}
 }
 

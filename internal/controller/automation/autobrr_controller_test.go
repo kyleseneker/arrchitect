@@ -446,7 +446,7 @@ func TestAutobrrRefusesAnIndexerNameTwoIndexersShare(t *testing.T) {
 	require.NoError(t, c.Get(context.Background(), types.NamespacedName{Name: "autobrr", Namespace: "media"}, &got))
 	synced := meta.FindStatusCondition(got.Status.Conditions, "Synced")
 	require.NotNil(t, synced)
-	assert.Contains(t, synced.Message, `reference "Generic" is ambiguous (2 matches)`)
+	assert.Contains(t, synced.Message, `indexer: the app has more than one item named "Generic"`)
 }
 
 func TestAutobrrFilterSendsTagsAsTextAndIndexersByID(t *testing.T) {

@@ -502,7 +502,7 @@ func TestMaintainerrReportsAnUnknownServerWithoutBlockingTheRest(t *testing.T) {
 	run.reconcile(t)
 	synced := run.condition(t, "Synced")
 	assert.Equal(t, metav1.ConditionFalse, synced.Status)
-	assert.Contains(t, synced.Message, `no radarr server named "Missing"`)
+	assert.Contains(t, synced.Message, `Maintainerr has no Radarr server named "Missing"`)
 	assert.Len(t, app.servers["radarr"], 1, "the server section still applied")
 	assert.Empty(t, app.groups)
 }
@@ -571,7 +571,7 @@ func TestMaintainerrObserveReportsUnresolvableGroupsOnceTheRestMatches(t *testin
 	run.reconcile(t)
 	synced := run.condition(t, "Synced")
 	assert.Equal(t, engine.ReasonSyncFailed, synced.Reason)
-	assert.Contains(t, synced.Message, `no Jellyfin property "nope"`)
+	assert.Contains(t, synced.Message, `Maintainerr has no Jellyfin property named "nope"`)
 }
 
 // A difference rule groups don't depend on, here the jobs schedule, doesn't
@@ -588,7 +588,7 @@ func TestMaintainerrObserveDoesNotExcuseABrokenGroupForAnUnrelatedDifference(t *
 	run.reconcile(t)
 	synced := run.condition(t, "Synced")
 	assert.Equal(t, engine.ReasonSyncFailed, synced.Reason, synced.Message)
-	assert.Contains(t, synced.Message, `no Jellyfin property "nope"`)
+	assert.Contains(t, synced.Message, `Maintainerr has no Jellyfin property named "nope"`)
 }
 
 // Maintainerr strips settings keys it does not know without an error, so a spec
@@ -701,7 +701,7 @@ func TestMaintainerrJellyfinAppRefUsesTheJellyfinAPIKey(t *testing.T) {
 		run := newMaintainerrRun(t, spec(app.serve(t)), jellyfin(nil))
 		run.reconcile(t)
 		assert.Empty(t, app.jellyfin)
-		assert.Contains(t, run.condition(t, "Synced").Message, `jellyfin appRef: Jellyfin "jellyfin" sets no API key Secret`)
+		assert.Contains(t, run.condition(t, "Synced").Message, `Jellyfin appRef: Jellyfin "jellyfin" sets no API key Secret`)
 	})
 }
 

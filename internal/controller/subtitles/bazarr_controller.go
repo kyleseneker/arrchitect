@@ -132,7 +132,7 @@ func (r *BazarrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		// Sonarr and Radarr, and enabling useSonarr in a request before the one
 		// carrying the connection hangs while Bazarr retries 127.0.0.1.
 		if err := bc.PostForm(ctx, "/api/system/settings", changes); err != nil {
-			logger.Error(err, "failed to write bazarr settings")
+			logger.Error(err, "failed to write Bazarr settings")
 			problems = append(problems, fmt.Sprintf("settings: %v", err))
 		} else if changes.Has(profilesField) {
 			profiles.saved(owned)
@@ -508,7 +508,7 @@ func (r *BazarrReconciler) bazarrNotificationChanges(
 	for _, n := range declared {
 		have, ok := current[n.Name]
 		if !ok {
-			return nil, fmt.Errorf("no notification provider is named %q", n.Name)
+			return nil, fmt.Errorf("Bazarr has no notification provider named %q", n.Name)
 		}
 		want := map[string]any{"name": n.Name, "enabled": have["enabled"], "url": have["url"]}
 		if n.Enabled != nil {
