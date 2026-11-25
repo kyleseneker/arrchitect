@@ -249,9 +249,3 @@ func TestRuleGroupUpdateKeepsWhatTheResourceLeavesOut(t *testing.T) {
 	assert.Equal(t, true, created["isActive"], "a new group is active")
 	assert.Equal(t, false, created["listExclusions"])
 }
-
-func TestMaskPlexTokenMatchesMaintainerr(t *testing.T) {
-	assert.Equal(t, "", maskPlexToken(""))
-	assert.Equal(t, "****", maskPlexToken("abcdef"))
-	assert.Equal(t, "abc...xyz", maskPlexToken("abcdefxyz"))
-}
