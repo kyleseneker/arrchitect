@@ -193,7 +193,7 @@ func TestAutobrrExportsClientRulesAuthAndFeedOptions(t *testing.T) {
 
 	qbit := cfg.Spec.DownloadClients[0]
 	require.NotNil(t, qbit.Rules)
-	assert.Nil(t, qbit.Rules.Enable, "enabled rules are the default")
+	assert.Nil(t, qbit.Rules.Enabled, "enabled rules are the default")
 	assert.Equal(t, int32(3), *qbit.Rules.MaxActiveDownloads)
 	assert.True(t, *qbit.Rules.IgnoreSlowTorrents)
 	assert.Equal(t, "MaxDownloadsReached", qbit.Rules.IgnoreSlowTorrentsCondition)

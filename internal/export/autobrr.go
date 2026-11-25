@@ -28,7 +28,7 @@ func exportAutobrr(r *reader) (map[string]any, error) {
 		name, _ := p["name"].(string)
 		proxy := pick(p, "name", "addr")
 		proxy["type"] = upperName([]string{"Socks5", "HTTP"}, p["type"])
-		proxy["enable"] = p["enabled"]
+		proxy["enabled"] = p["enabled"]
 		if timeout := num(p["timeout"]); timeout != 0 {
 			proxy["timeout"] = timeout
 		}
@@ -144,7 +144,7 @@ func (r *reader) autobrrRead(scope, field string, list func(context.Context) ([]
 func (r *reader) autobrrDownloadClient(c map[string]any) map[string]any {
 	name, _ := c["name"].(string)
 	dc := pick(c, "name", "host", "tls")
-	dc["enable"] = c["enabled"]
+	dc["enabled"] = c["enabled"]
 	dc["type"] = crdName(autobrrclient.Types, c["type"])
 	if port := num(c["port"]); port != 0 {
 		dc["port"] = port
@@ -166,7 +166,7 @@ func (r *reader) autobrrDownloadClient(c map[string]any) map[string]any {
 func (r *reader) autobrrIRCNetwork(n map[string]any, proxyNames map[float64]any) map[string]any {
 	name, _ := n["name"].(string)
 	irc := pick(n, "name", "server", "port", "tls", "nick")
-	irc["enable"] = n["enabled"]
+	irc["enabled"] = n["enabled"]
 	setText(irc, "inviteCommand", n["invite_command"])
 	setProxy(irc, n, proxyNames)
 	if bouncer, _ := n["use_bouncer"].(bool); bouncer {
@@ -200,7 +200,7 @@ func (r *reader) autobrrFeed(f map[string]any) map[string]any {
 	name, _ := f["name"].(string)
 	feed := pick(f, "name", "url")
 	feed["type"] = crdName(autobrrFeedTypes, f["type"])
-	feed["enable"] = f["enabled"]
+	feed["enabled"] = f["enabled"]
 	if interval := num(f["interval"]); interval != 0 {
 		feed["interval"] = interval
 	}
@@ -233,7 +233,7 @@ func (r *reader) autobrrList(l map[string]any, clientNames map[float64]any) map[
 	name, _ := l["name"].(string)
 	out := pick(l, "name")
 	out["type"] = upperName(autobrrListTypes, l["type"])
-	out["enable"] = l["enabled"]
+	out["enabled"] = l["enabled"]
 	autobrrSetFields(out, l, autobrrListFields)
 	if id := num(l["client_id"]); id != 0 {
 		setText(out, "downloadClientName", clientNames[id])
@@ -282,7 +282,7 @@ func autobrrRules(settings map[string]any) map[string]any {
 	case !enabled && len(out) == 0:
 		return nil
 	case !enabled:
-		out["enable"] = false
+		out["enabled"] = false
 	}
 	return out
 }
@@ -313,7 +313,7 @@ func (r *reader) autobrrNotification(n map[string]any) map[string]any {
 		return nil
 	}
 	name, _ := n["name"].(string)
-	out := map[string]any{"name": name, "type": crdType, "enable": n["enabled"]}
+	out := map[string]any{"name": name, "type": crdType, "enabled": n["enabled"]}
 	if events, ok := n["events"].([]any); ok && len(events) > 0 {
 		names := make([]any, 0, len(events))
 		for _, e := range events {
@@ -352,7 +352,7 @@ func (r *reader) autobrrNotification(n map[string]any) map[string]any {
 
 func (r *reader) autobrrFilter(f map[string]any, actions []map[string]any, clientNames map[float64]any) map[string]any {
 	filter := pick(f, "name")
-	filter["enable"] = f["enabled"]
+	filter["enabled"] = f["enabled"]
 	autobrrSetFields(filter, f, autobrrclient.FilterFields)
 	for field, key := range map[string]string{"tags": "tags", "exceptTags": "except_tags"} {
 		if tags, _ := f[key].(string); tags != "" {
@@ -371,7 +371,7 @@ func (r *reader) autobrrFilter(f map[string]any, actions []map[string]any, clien
 	as := make([]any, 0, len(actions))
 	for _, a := range actions {
 		action := pick(a, "name")
-		action["enable"] = a["enabled"]
+		action["enabled"] = a["enabled"]
 		action["type"] = crdName(autobrrclient.Types, a["type"])
 		if id := num(a["client_id"]); id != 0 {
 			action["downloadClientName"] = clientNames[id]
@@ -417,7 +417,7 @@ var autobrrFeedTypes = map[string]string{"Torznab": "TORZNAB", "Newznab": "NEWZN
 func (r *reader) autobrrIndexer(i map[string]any) map[string]any {
 	name, _ := i["name"].(string)
 	idx := pick(i, "name")
-	idx["enable"] = i["enabled"]
+	idx["enabled"] = i["enabled"]
 	idx["identifier"] = i["identifier"]
 	if implementation, _ := i["implementation"].(string); implementation != autobrrclient.ImplementationIRC {
 		idx["identifier"] = implementation

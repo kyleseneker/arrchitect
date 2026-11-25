@@ -21,7 +21,7 @@ spec:
         key: proxy-password
   downloadClients:
     - name: qBittorrent
-      enable: true
+      enabled: true
       appRef:
         kind: QBittorrent
         name: qbittorrent
@@ -32,7 +32,7 @@ spec:
         downloadSpeedThreshold: 2048
     - name: Sonarr
       type: Sonarr
-      enable: true
+      enabled: true
       host: http://${HOST}:8989
       apiKeySecretRef:
         name: compat-credentials
@@ -48,7 +48,7 @@ spec:
   indexers:
     - name: IPTorrents
       identifier: ipt
-      enable: false
+      enabled: false
       proxyName: Compat Proxy
       settings:
         - name: passkey
@@ -58,11 +58,11 @@ spec:
               key: ipt-passkey
     - name: Compat Torznab
       identifier: torznab
-      enable: false
+      enabled: false
   feeds:
     - name: Compat Torznab
       type: Torznab
-      enable: false
+      enabled: false
       url: http://${HOST}:9117/api
       interval: 30
       timeout: 30
@@ -77,7 +77,7 @@ spec:
         key: feed-cookie
   ircNetworks:
     - name: Compat IRC
-      enable: false
+      enabled: false
       server: irc.example.invalid
       port: 6697
       tls: true
@@ -93,7 +93,7 @@ spec:
         - name: "#announce"
   filters:
     - name: TV - 1080p
-      enable: true
+      enabled: true
       priority: 1
       indexers:
         - IPTorrents
@@ -124,7 +124,7 @@ spec:
       actions:
         - name: Send to qBittorrent
           type: qBittorrent
-          enable: true
+          enabled: true
           downloadClientName: qBittorrent
           category: tv
           tags: autobrr
@@ -153,7 +153,7 @@ spec:
   lists:
     - name: Compat Sonarr
       type: Sonarr
-      enable: false
+      enabled: false
       downloadClientName: Sonarr
       filters:
         - TV - 1080p

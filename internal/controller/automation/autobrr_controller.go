@@ -251,7 +251,7 @@ func (s *autobrrSync) downloadClient(ctx context.Context, dc automationv1alpha1.
 		"type": autobrrType(dc.Type),
 		"host": dc.Host,
 	}
-	setEnabled(obj, dc.Enable)
+	setEnabled(obj, dc.Enabled)
 	if dc.Port != nil {
 		obj["port"] = *dc.Port
 	}
@@ -329,7 +329,7 @@ func (s *autobrrSync) downloadClientSettings(
 		if err != nil {
 			return nil, err
 		}
-		rules["enabled"] = r.Enable == nil || *r.Enable
+		rules["enabled"] = r.Enabled == nil || *r.Enabled
 		if c, ok := autobrrclient.SlowTorrentConditions[r.IgnoreSlowTorrentsCondition]; ok {
 			rules["ignore_slow_torrents_condition"] = c
 		}
@@ -363,7 +363,7 @@ func (s *autobrrSync) indexer(ctx context.Context, idx automationv1alpha1.Autobr
 		"name":           idx.Name,
 		"implementation": implementation,
 	}
-	setEnabled(obj, idx.Enable)
+	setEnabled(obj, idx.Enabled)
 	if len(settings) > 0 {
 		obj["settings"] = settings
 	}
@@ -494,7 +494,7 @@ func (s *autobrrSync) ircNetwork(ctx context.Context, irc automationv1alpha1.Aut
 		"port":   irc.Port,
 		"nick":   irc.Nick,
 	}
-	setEnabled(obj, irc.Enable)
+	setEnabled(obj, irc.Enabled)
 	if irc.TLS != nil {
 		obj["tls"] = *irc.TLS
 	}
@@ -647,7 +647,7 @@ func (s *autobrrSync) feed(ctx context.Context, feed automationv1alpha1.AutobrrF
 		"url":     feed.URL,
 		"indexer": map[string]any{"id": indexerID},
 	}
-	setEnabled(obj, feed.Enable)
+	setEnabled(obj, feed.Enabled)
 	if feed.Interval != nil {
 		obj["interval"] = *feed.Interval
 	}
@@ -735,7 +735,7 @@ func (s *autobrrSync) proxy(ctx context.Context, p automationv1alpha1.AutobrrPro
 		return fmt.Errorf("listing proxies: %w", err)
 	}
 	obj := map[string]any{"name": p.Name, "type": strings.ToUpper(p.Type), "addr": p.Addr}
-	setEnabled(obj, p.Enable)
+	setEnabled(obj, p.Enabled)
 	if p.Timeout != 0 {
 		obj["timeout"] = p.Timeout
 	}
@@ -770,7 +770,7 @@ func (s *autobrrSync) titleList(ctx context.Context, l automationv1alpha1.Autobr
 		return fmt.Errorf("listing lists: %w", err)
 	}
 	obj := map[string]any{"name": l.Name, "type": strings.ToUpper(l.Type)}
-	setEnabled(obj, l.Enable)
+	setEnabled(obj, l.Enabled)
 	if l.URL != "" {
 		obj["url"] = l.URL
 	}
@@ -857,7 +857,7 @@ func (s *autobrrSync) notification(ctx context.Context, n automationv1alpha1.Aut
 		return fmt.Errorf("listing notifications: %w", err)
 	}
 	obj := map[string]any{"name": n.Name, "type": strings.ToUpper(n.Type)}
-	setEnabled(obj, n.Enable)
+	setEnabled(obj, n.Enabled)
 	if n.Events != nil {
 		names := make([]any, 0, len(n.Events))
 		for _, event := range n.Events {
@@ -909,7 +909,7 @@ func (s *autobrrSync) filter(ctx context.Context, filter automationv1alpha1.Auto
 		return err
 	}
 	obj["name"] = filter.Name
-	setEnabled(obj, filter.Enable)
+	setEnabled(obj, filter.Enabled)
 	// Autobrr keeps tags as one comma-separated string.
 	if len(filter.Tags) > 0 {
 		obj["tags"] = strings.Join(filter.Tags, ",")
@@ -986,7 +986,7 @@ func (s *autobrrSync) actions(
 		}
 		aObj["name"] = a.Name
 		aObj["type"] = autobrrType(a.Type)
-		setEnabled(aObj, a.Enable)
+		setEnabled(aObj, a.Enabled)
 		if a.DownloadClientName != "" {
 			// Autobrr links an action to a downloader by its numeric ID.
 			id, found, err := clientIDs.Find(a.DownloadClientName)
