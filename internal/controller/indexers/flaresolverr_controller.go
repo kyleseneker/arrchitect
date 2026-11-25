@@ -91,11 +91,7 @@ func (r *FlareSolverrReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		config.Status.ActiveSessions = int32(len(sessions))
 	}
 
-	if len(syncErrors) > 0 {
-		ctrlcommon.UpdateStatus(ctx, r.Client, &config, false, engine.ReasonSyncFailed, fmt.Sprintf("partial sync failure: %v", syncErrors))
-	} else {
-		ctrlcommon.UpdateStatus(ctx, r.Client, &config, true, engine.ReasonSynced, "all configuration sections synced")
-	}
+	ctrlcommon.UpdateSyncStatus(ctx, r.Client, &config, false, nil, syncErrors)
 
 	return ctrl.Result{RequeueAfter: ctrlcommon.ReconcileInterval(config.Spec.Reconcile)}, nil
 }

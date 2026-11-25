@@ -64,7 +64,7 @@ func reconcilePVRObject(ctx context.Context, c client.Client, recorder events.Ev
 
 	cleanup := func(ctx context.Context) error {
 		if missing {
-			recorder.Eventf(obj, nil, corev1.EventTypeWarning, "InstanceMissing", "Delete",
+			recorder.Eventf(obj, nil, corev1.EventTypeWarning, engine.ReasonInstanceMissing, "Delete",
 				"%s %q is gone, so nothing was removed from it", o.instanceKind, o.instanceName)
 			return nil
 		}
