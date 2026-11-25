@@ -60,6 +60,12 @@ func TestIsBlockedIP(t *testing.T) {
 		{"link-local other", "169.254.1.1", true},
 		{"ipv6 loopback", "::1", true},
 		{"ipv6 link-local", "fe80::1", true},
+		{"unspecified", "0.0.0.0", true},
+		{"ipv6 unspecified", "::", true},
+		{"ipv4-mapped loopback", "::ffff:127.0.0.1", true},
+		{"alibaba metadata", "100.100.100.200", true},
+		{"aws ipv6 metadata", "fd00:ec2::254", true},
+		{"carrier-grade NAT allowed", "100.64.0.1", false},
 		{"public IP", "8.8.8.8", false},
 		{"private 10.x allowed", "10.0.0.1", false},
 		{"private 192.168.x allowed", "192.168.1.1", false},
@@ -595,4 +601,39 @@ func newTestServer(t *testing.T, handler http.HandlerFunc) *HTTPClient {
 	)
 	require.NoError(t, err)
 	return hc
+}
+
+func TestRedirectsStayOnTheAppsHost(t *testing.T) {
+	var leaked string
+	other := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		leaked = r.Header.Get("X-Api-Key")
+	}))
+	t.Cleanup(other.Close)
+	otherURL, err := url.Parse(other.URL)
+	require.NoError(t, err)
+
+	hc := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/moved":
+			http.Redirect(w, r, "/api", http.StatusFound)
+		case "/elsewhere":
+			http.Redirect(w, r, "http://localhost:"+otherURL.Port()+"/api", http.StatusFound)
+		}
+	})
+
+	_, err = hc.Do(context.Background(), http.MethodGet, "/moved", nil)
+	require.NoError(t, err, "a redirect on the app's own host is followed")
+
+	_, err = hc.Do(context.Background(), http.MethodGet, "/elsewhere", nil)
+	require.ErrorContains(t, err, "refusing a redirect to another host")
+	assert.Empty(t, leaked, "the API key must not reach another host")
+}
+
+func TestOversizedResponseIsRefused(t *testing.T) {
+	hc := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write(make([]byte, maxResponseBytes+1))
+	})
+
+	_, err := hc.Do(context.Background(), http.MethodGet, "/huge", nil)
+	assert.ErrorContains(t, err, "is larger than 32 MiB")
 }

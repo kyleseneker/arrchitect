@@ -36,5 +36,7 @@ The latest release only. There are no backport branches.
 
 Credentials are never written to resource specs or status. A status message
 carries the reason an app gives for refusing a change, with every Secret value
-the operator has read removed from it. If you find a credential leaking into a
-log line or a status message, report it privately.
+the operator has read removed from it. The operator won't connect to loopback,
+link-local or cloud metadata addresses, and it won't follow a redirect to
+another host. If you find a credential leaking into a log line or a status
+message, report it privately.

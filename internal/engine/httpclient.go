@@ -6,6 +6,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -148,9 +149,10 @@ func NewHTTPClient(baseURL string, authType AuthType, opts ...HTTPClientOption) 
 		apiKeyHeader: "X-Api-Key",
 		appLabel:     "unknown",
 		httpClient: &http.Client{
-			Timeout:   30 * time.Second,
-			Jar:       secureAgnosticJar{jar},
-			Transport: NewHTTPTransport(nil),
+			Timeout:       30 * time.Second,
+			Jar:           secureAgnosticJar{jar},
+			Transport:     NewHTTPTransport(nil),
+			CheckRedirect: sameHostRedirects,
 		},
 	}
 	for _, opt := range opts {
@@ -176,8 +178,8 @@ func validateBaseURL(rawURL string) error {
 	return nil
 }
 
-// ssrfSafeDialContext resolves the host and blocks connections to link-local
-// and loopback addresses, preventing SSRF to cloud metadata services and localhost.
+// ssrfSafeDialContext resolves the host and blocks connections to loopback,
+// link-local, unspecified and cloud metadata addresses.
 func ssrfSafeDialContext(ctx context.Context, network, addr string) (net.Conn, error) {
 	host, port, err := net.SplitHostPort(addr)
 	if err != nil {
@@ -207,7 +209,7 @@ func ssrfSafeDialContext(ctx context.Context, network, addr string) (net.Conn, e
 	// Distinguish "every address was blocked" from "the dial failed", which are
 	// very different problems to chase.
 	if allowed == 0 {
-		return nil, fmt.Errorf("no allowed IP addresses for host %q (blocked: loopback, link-local)", host)
+		return nil, fmt.Errorf("no allowed IP addresses for host %q (blocked: loopback, link-local, unspecified, cloud metadata)", host)
 	}
 	return nil, fmt.Errorf("dialing %s: %w", addr, lastErr)
 }
@@ -215,10 +217,14 @@ func ssrfSafeDialContext(ctx context.Context, network, addr string) (net.Conn, e
 // blockedCIDRs contains network ranges that the operator must never connect to.
 var blockedCIDRs = func() []*net.IPNet {
 	cidrs := []string{
-		"127.0.0.0/8",    // loopback
-		"169.254.0.0/16", // link-local / cloud metadata
-		"::1/128",        // IPv6 loopback
-		"fe80::/10",      // IPv6 link-local
+		"0.0.0.0/8",          // unspecified, reaches the local host
+		"127.0.0.0/8",        // loopback
+		"169.254.0.0/16",     // link-local, most cloud metadata
+		"100.100.100.200/32", // Alibaba Cloud metadata
+		"::/128",             // IPv6 unspecified
+		"::1/128",            // IPv6 loopback
+		"fe80::/10",          // IPv6 link-local
+		"fd00:ec2::254/128",  // AWS IPv6 metadata
 	}
 	nets := make([]*net.IPNet, 0, len(cidrs))
 	for _, c := range cidrs {
@@ -244,6 +250,18 @@ func WithTLSConfig(tlsCfg *tls.Config) HTTPClientOption {
 			c.httpClient.Transport = NewHTTPTransport(tlsCfg)
 		}
 	}
+}
+
+// sameHostRedirects follows a redirect only within the app's host, since Go
+// forwards headers such as X-Api-Key to any host a redirect names.
+func sameHostRedirects(req *http.Request, via []*http.Request) error {
+	if len(via) >= 10 {
+		return errors.New("stopped after 10 redirects")
+	}
+	if req.URL.Hostname() != via[0].URL.Hostname() {
+		return fmt.Errorf("refusing a redirect to another host, %s", req.URL.Host)
+	}
+	return nil
 }
 
 // WithDisableRedirect prevents the HTTP client from following redirects.
@@ -365,6 +383,10 @@ func (c *HTTPClient) CookieValue(name string) string {
 	return ""
 }
 
+// maxResponseBytes caps what the operator reads from an app, far above any
+// listing it asks for, so a misbehaving endpoint can't exhaust its memory.
+const maxResponseBytes = 32 << 20
+
 // DoRaw executes an HTTP request with a raw body and explicit content type.
 // This is the low-level method that all other request methods build on.
 // It records request latency and error metrics labeled with the client's appLabel.
@@ -394,10 +416,14 @@ func (c *HTTPClient) DoRaw(ctx context.Context, method, path string, body io.Rea
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	respBody, err := io.ReadAll(resp.Body)
+	respBody, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes+1))
 	if err != nil {
 		outcome = outcomeError
 		return nil, fmt.Errorf("reading response: %w", err)
+	}
+	if len(respBody) > maxResponseBytes {
+		outcome = outcomeError
+		return nil, fmt.Errorf("response from %s is larger than %d MiB", path, maxResponseBytes>>20)
 	}
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
