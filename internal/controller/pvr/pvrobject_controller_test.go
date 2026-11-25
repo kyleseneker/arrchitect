@@ -83,7 +83,7 @@ func sonarrDownloadClient() *pvrv1alpha1.SonarrDownloadClient {
 func reconcileDownloadClient(t *testing.T, objs ...client.Object) *pvrv1alpha1.SonarrDownloadClient {
 	t.Helper()
 	c := objectClient(t, objs...)
-	r := &SonarrDownloadClientReconciler{Client: c, Scheme: c.Scheme(), Recorder: events.NewFakeRecorder(50)}
+	r := NewObjectReconciler(SonarrDownloadClients, c, events.NewFakeRecorder(50), nil)
 	key := types.NamespacedName{Name: "tv-qbittorrent", Namespace: "media"}
 	_, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: key})
 	require.NoError(t, err)
@@ -243,7 +243,7 @@ func TestIndexerObjectReadsItsFieldsFromSecrets(t *testing.T) {
 		},
 	}
 	c := objectClient(t, apiKeySecret(), secret, sonarrInstanceAt(url, nil), idx)
-	r := &SonarrIndexerReconciler{Client: c, Scheme: c.Scheme(), Recorder: events.NewFakeRecorder(50)}
+	r := NewObjectReconciler(SonarrIndexers, c, events.NewFakeRecorder(50), nil)
 	_, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: client.ObjectKeyFromObject(idx)})
 	require.NoError(t, err)
 
@@ -267,7 +267,7 @@ func reconcileIndexerWithClient(t *testing.T, clientName string) (*fakeArr, *pvr
 		},
 	}
 	c := objectClient(t, apiKeySecret(), sonarrInstanceAt(url, nil), idx)
-	r := &SonarrIndexerReconciler{Client: c, Scheme: c.Scheme(), Recorder: events.NewFakeRecorder(50)}
+	r := NewObjectReconciler(SonarrIndexers, c, events.NewFakeRecorder(50), nil)
 	_, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: client.ObjectKeyFromObject(idx)})
 	require.NoError(t, err)
 	require.NoError(t, c.Get(context.Background(), client.ObjectKeyFromObject(idx), idx))
@@ -368,8 +368,8 @@ func TestEveryPVRAppsObjectsReachItsApp(t *testing.T) {
 			},
 			reconcilers: func(c client.Client) []reconcile.Reconciler {
 				return []reconcile.Reconciler{
-					&SonarrDownloadClientReconciler{Client: c, Recorder: events.NewFakeRecorder(50)},
-					&SonarrIndexerReconciler{Client: c, Recorder: events.NewFakeRecorder(50)},
+					NewObjectReconciler(SonarrDownloadClients, c, events.NewFakeRecorder(50), nil),
+					NewObjectReconciler(SonarrIndexers, c, events.NewFakeRecorder(50), nil),
 				}
 			},
 		},
@@ -384,8 +384,8 @@ func TestEveryPVRAppsObjectsReachItsApp(t *testing.T) {
 			},
 			reconcilers: func(c client.Client) []reconcile.Reconciler {
 				return []reconcile.Reconciler{
-					&RadarrDownloadClientReconciler{Client: c, Recorder: events.NewFakeRecorder(50)},
-					&RadarrIndexerReconciler{Client: c, Recorder: events.NewFakeRecorder(50)},
+					NewObjectReconciler(RadarrDownloadClients, c, events.NewFakeRecorder(50), nil),
+					NewObjectReconciler(RadarrIndexers, c, events.NewFakeRecorder(50), nil),
 				}
 			},
 		},
@@ -400,8 +400,8 @@ func TestEveryPVRAppsObjectsReachItsApp(t *testing.T) {
 			},
 			reconcilers: func(c client.Client) []reconcile.Reconciler {
 				return []reconcile.Reconciler{
-					&LidarrDownloadClientReconciler{Client: c, Recorder: events.NewFakeRecorder(50)},
-					&LidarrIndexerReconciler{Client: c, Recorder: events.NewFakeRecorder(50)},
+					NewObjectReconciler(LidarrDownloadClients, c, events.NewFakeRecorder(50), nil),
+					NewObjectReconciler(LidarrIndexers, c, events.NewFakeRecorder(50), nil),
 				}
 			},
 		},
@@ -416,8 +416,8 @@ func TestEveryPVRAppsObjectsReachItsApp(t *testing.T) {
 			},
 			reconcilers: func(c client.Client) []reconcile.Reconciler {
 				return []reconcile.Reconciler{
-					&ReadarrDownloadClientReconciler{Client: c, Recorder: events.NewFakeRecorder(50)},
-					&ReadarrIndexerReconciler{Client: c, Recorder: events.NewFakeRecorder(50)},
+					NewObjectReconciler(ReadarrDownloadClients, c, events.NewFakeRecorder(50), nil),
+					NewObjectReconciler(ReadarrIndexers, c, events.NewFakeRecorder(50), nil),
 				}
 			},
 		},
@@ -524,8 +524,7 @@ func TestObjectDownloadClientNamingAnAppTheOperatorDoesntRunWaitsForASpecChange(
 	dc.Spec.DownloadClient = commonv1alpha1.DownloadClient{Name: "qBittorrent",
 		AppRef: commonv1alpha1.AppRef{Kind: "QBittorrent", Name: "qbittorrent"}}
 	c := objectClient(t, apiKeySecret(), sonarrInstanceAt(url, nil), dc)
-	r := &SonarrDownloadClientReconciler{Client: c, Scheme: c.Scheme(), Recorder: events.NewFakeRecorder(50),
-		Apps: ctrlcommon.Apps{"sonarr": true, "sonarrdownloadclient": true}}
+	r := NewObjectReconciler(SonarrDownloadClients, c, events.NewFakeRecorder(50), ctrlcommon.Apps{"sonarr": true, "sonarrdownloadclient": true})
 	key := types.NamespacedName{Name: "tv-qbittorrent", Namespace: "media"}
 
 	result, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: key})

@@ -104,3 +104,15 @@ func (c *LidarrDownloadClient) SetManagedResources(m map[string][]string) {
 func (c *LidarrDownloadClient) GetReconcileConfig() *commonv1alpha1.ReconcileConfig {
 	return &commonv1alpha1.ReconcileConfig{DeletionPolicy: c.Spec.DeletionPolicy}
 }
+
+// InstanceName names the Lidarr the download client belongs to.
+func (c *LidarrDownloadClient) InstanceName() string { return c.Spec.LidarrRef.Name }
+
+// ItemName is the download client's name in Lidarr.
+func (c *LidarrDownloadClient) ItemName() string { return c.Spec.Name }
+
+// SetItemID records the download client's ID in Lidarr.
+func (c *LidarrDownloadClient) SetItemID(id int32) { c.Status.ID = id }
+
+// Item is the download client as Lidarr stores it.
+func (c *LidarrDownloadClient) Item() commonv1alpha1.DownloadClient { return c.Spec.DownloadClient }

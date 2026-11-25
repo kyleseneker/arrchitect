@@ -104,3 +104,15 @@ func (c *RadarrDownloadClient) SetManagedResources(m map[string][]string) {
 func (c *RadarrDownloadClient) GetReconcileConfig() *commonv1alpha1.ReconcileConfig {
 	return &commonv1alpha1.ReconcileConfig{DeletionPolicy: c.Spec.DeletionPolicy}
 }
+
+// InstanceName names the Radarr the download client belongs to.
+func (c *RadarrDownloadClient) InstanceName() string { return c.Spec.RadarrRef.Name }
+
+// ItemName is the download client's name in Radarr.
+func (c *RadarrDownloadClient) ItemName() string { return c.Spec.Name }
+
+// SetItemID records the download client's ID in Radarr.
+func (c *RadarrDownloadClient) SetItemID(id int32) { c.Status.ID = id }
+
+// Item is the download client as Radarr stores it.
+func (c *RadarrDownloadClient) Item() commonv1alpha1.DownloadClient { return c.Spec.DownloadClient }
