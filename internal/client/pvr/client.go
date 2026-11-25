@@ -105,7 +105,8 @@ func Definition(apiVersion string, sections ...string) engine.AppDefinition {
 		HealthPath: prefix + "/system/status",
 		Settings:   settings,
 		Resources: []engine.ResourceEndpoint{
-			// Tags first — other resources reference tag IDs. Not prunable (may be shared).
+			// Tags first, since other resources reference tag IDs. Not prunable, since
+			// they may be shared.
 			{Name: "tags", Path: prefix + "/tag", MatchField: "label", Policy: engine.CreateOrUpdate},
 			// Metadata profiles before root folders and import lists, which name them.
 			{Name: "metadataProfiles", Path: prefix + "/metadataprofile", MatchField: "name", Policy: engine.CreateOrUpdate, Prunable: true},
@@ -151,7 +152,7 @@ func Definition(apiVersion string, sections ...string) engine.AppDefinition {
 			},
 			// The app keeps one metadata consumer per type, created at startup.
 			{Name: "metadataConsumers", Path: prefix + "/metadata", MatchField: "implementation", Policy: engine.UpdateOnly},
-			// importLists last — may reference quality profiles by name.
+			// Import lists last, since they may reference quality profiles by name.
 			{
 				Name: "importLists", Path: prefix + "/importlist", MatchField: "name", Policy: engine.CreateOrUpdate, Prunable: true,
 				CreateDefaults: map[string]any{"fields": []any{}, "tags": []any{}},
@@ -332,7 +333,6 @@ func Resources(ctx context.Context, client *engine.HTTPClient, apiVersion string
 		resources[b.name] = items
 	}
 
-	// Record managed resource counts for observability.
 	app := client.AppLabel()
 	for resourceType, items := range resources {
 		metrics.ManagedResources.WithLabelValues(app, resourceType).Set(float64(len(items)))
@@ -645,7 +645,7 @@ func BuildNotificationPayload(n commonv1alpha1.Notification, tags []int) map[str
 		payload["tags"] = BuildTagsPayload(tags)
 	}
 
-	// Add trigger booleans — only set non-nil values so the merge preserves API defaults.
+	// Unset event switches are left out, so the merge keeps the app's defaults.
 	SetOptionalBool(payload, "onGrab", n.OnGrab)
 	SetOptionalBool(payload, "onDownload", n.OnDownload)
 	SetOptionalBool(payload, "onUpgrade", n.OnUpgrade)
@@ -759,7 +759,6 @@ func BuildImportListPayload(il commonv1alpha1.ImportList, qpIDs map[string]int, 
 		payload["listOrder"] = *il.ListOrder
 	}
 
-	// Resolve quality profile name → ID
 	if il.QualityProfileName != "" {
 		if id, ok := qpIDs[il.QualityProfileName]; ok {
 			payload["qualityProfileId"] = id
@@ -859,7 +858,6 @@ func BuildQualityProfilePayload(qp commonv1alpha1.QualityProfile, cfIDs map[stri
 		items := BuildQualityItems(qp.Items)
 		payload["items"] = items
 
-		// Resolve cutoff name to ID
 		if qp.Cutoff != "" {
 			if id, ok := FindCutoffID(qp.Items, qp.Cutoff); ok {
 				payload["cutoff"] = id
@@ -891,7 +889,6 @@ func BuildQualityItems(items []commonv1alpha1.QualityProfileItem) []map[string]a
 		m := map[string]any{}
 
 		if item.Quality != (commonv1alpha1.QualityReference{}) {
-			// Individual quality
 			m["quality"] = map[string]any{
 				"id":   qualityID(item.Quality.ID),
 				"name": item.Quality.Name,
@@ -938,7 +935,6 @@ func FindCutoffID(items []commonv1alpha1.QualityProfileItem, cutoffName string) 
 			return qualityID(item.Quality.ID), true
 		}
 		if item.Quality == (commonv1alpha1.QualityReference{}) && item.Name == cutoffName {
-			// Group — use 1000+index as the group ID (how these apps number groups)
 			return 1000 + i, true
 		}
 	}
@@ -1132,7 +1128,6 @@ func remotePathMappingKey(item map[string]any) string {
 func qualityProfileResources(
 	ctx context.Context, client *engine.HTTPClient, apiVersion string, profiles []commonv1alpha1.QualityProfile, plannedFormats []string,
 ) ([]map[string]any, error) {
-	// Resolve custom format name → ID mapping for formatItems references.
 	formats, err := engine.FetchNamedIDs(ctx, client, fmt.Sprintf("/api/%s/customformat", apiVersion), "name")
 	if err != nil {
 		return nil, err

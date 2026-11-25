@@ -167,7 +167,6 @@ func validateBaseURL(rawURL string) error {
 	}
 	switch u.Scheme {
 	case "http", "https":
-		// allowed
 	default:
 		return fmt.Errorf("URL scheme %q is not allowed (must be http or https)", u.Scheme)
 	}

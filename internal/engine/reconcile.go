@@ -78,7 +78,6 @@ func ReconcileApp(ctx context.Context, client *HTTPClient, def AppDefinition, se
 		result.Managed[name] = slices.Clone(managed)
 	}
 
-	// Reconcile settings (singleton config endpoints)
 	for _, s := range def.Settings {
 		desired, ok := sections[s.Name]
 		if !ok || desired == nil || isNilInterface(desired) {
@@ -97,7 +96,6 @@ func ReconcileApp(ctx context.Context, client *HTTPClient, def AppDefinition, se
 		}
 	}
 
-	// Reconcile resources (list-based endpoints)
 	for _, r := range def.Resources {
 		items, ok := resources[r.Name]
 		if !ok || len(items) == 0 {
@@ -273,7 +271,6 @@ func reconcileResourceTracked(
 	for _, e := range existing {
 		existingMatch := endpoint.resourceKey(e)
 		if existingMatch == desiredMatch {
-			// Found existing resource
 			switch endpoint.Policy {
 			case CreateOnly:
 				return false, false, nil // exists, don't update
@@ -311,7 +308,6 @@ func reconcileResourceTracked(
 	if endpoint.Policy == UpdateOnly {
 		return false, false, fmt.Errorf("the app has no such item, and %s can't be created", endpoint.Name)
 	}
-	// Not found — create
 	if observe {
 		metrics.DriftObservedTotal.WithLabelValues(client.AppLabel(), endpoint.Name, desiredMatch).Inc()
 		return false, true, nil

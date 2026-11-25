@@ -69,7 +69,6 @@ func (r *QBittorrentReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{RequeueAfter: 60 * time.Second}, nil
 	}
 
-	// Health check
 	if err := qb.Ping(ctx); err != nil {
 		logger.Error(err, "qBittorrent unreachable")
 		ctrlcommon.UpdateStatusUnreachable(ctx, r.Client, &config, engine.ReasonAppUnreachable, err.Error())
@@ -90,7 +89,6 @@ func (r *QBittorrentReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	var syncErrors []string
 
-	// Reconcile preferences
 	if config.Spec.Preferences != nil {
 		if err := reconcileQBPreferences(ctx, qb, config.Spec.Preferences, secret); err != nil {
 			logger.Error(err, "failed to reconcile preferences")

@@ -63,7 +63,6 @@ func (r *SeerrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
 	}
 
-	// Check initialization state
 	isInitialized, err := sc.IsInitialized(ctx)
 	if err != nil {
 		logger.Error(err, "Seerr unreachable")
@@ -125,7 +124,6 @@ func (r *SeerrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		syncErrors = append(syncErrors, problems...)
 	}
 
-	// Reconcile main settings
 	if config.Spec.Main != nil {
 		if err := reconcileSeerrMainSettings(ctx, sc, writes, config.Spec.Main); err != nil {
 			logger.Error(err, "failed to reconcile main settings")
@@ -140,7 +138,6 @@ func (r *SeerrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	}
 	syncErrors = append(syncErrors, reconcileSeerrJobSchedules(ctx, sc, writes, config.Spec.JobSchedules)...)
 
-	// Reconcile notification agents
 	for _, agent := range config.Spec.Notifications {
 		options, err := ctrlcommon.FieldValues(ctx, r.Client, config.Namespace, "notification "+agent.Agent, agent.Options)
 		if err == nil {
@@ -261,7 +258,6 @@ func (r *SeerrReconciler) setup(
 	logger := log.FromContext(ctx)
 	var initErrors []string
 
-	// Sync media server libraries
 	if media.jellyfin != nil {
 		if err := syncJellyfinLibraries(ctx, sc, writes, media.jellyfin, config.Spec.Libraries); err != nil {
 			logger.Error(err, "failed to configure Jellyfin libraries")

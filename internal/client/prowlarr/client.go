@@ -16,7 +16,7 @@ func ProwlarrDefinition() engine.AppDefinition {
 	return engine.AppDefinition{
 		HealthPath: "/api/v1/system/status",
 		Resources: []engine.ResourceEndpoint{
-			// Tags first — other resources reference tag IDs.
+			// Tags first, since other resources reference tag IDs.
 			{Name: "tags", Path: "/api/v1/tag", MatchField: "label", Policy: engine.CreateOrUpdate},
 			{Name: "appProfiles", Path: "/api/v1/appprofile", MatchField: "name", Policy: engine.CreateOrUpdate},
 			{
@@ -118,7 +118,6 @@ func ProwlarrResources(opts ProwlarrOptions, tagIDs map[string]int) map[string][
 		resources["notifications"] = notifs
 	}
 
-	// Record managed resource counts for observability.
 	for resourceType, items := range resources {
 		metrics.ManagedResources.WithLabelValues(appLabel, resourceType).Set(float64(len(items)))
 	}

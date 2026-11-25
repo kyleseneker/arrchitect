@@ -260,7 +260,6 @@ func StructToFormData(section string, obj any) url.Values {
 		}
 		jsonName, _, _ := strings.Cut(jsonTag, ",")
 
-		// Skip zero/nil values
 		if fv.Kind() == reflect.Pointer && fv.IsNil() {
 			continue
 		}
