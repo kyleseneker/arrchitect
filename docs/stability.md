@@ -38,8 +38,8 @@ The [API reference](api.md) lists every kind and field.
 An app is supported at every stable release that was its newest at some time
 in the 12 months before its range was last set, through its newest release.
 The README's [supported apps](../README.md#supported-apps) table lists each
-range. Arrchitect is the easy part of a stack to upgrade and the apps are not,
-so the operator spans app versions rather than asking for the newest.
+range. Apps are harder to upgrade than Arrchitect, so Arrchitect supports a
+range of versions of each app.
 
 Some ranges start later, at the oldest release Arrchitect works with, and
 grow to 12 months as newer releases age:
@@ -49,7 +49,9 @@ grow to 12 months as newer releases age:
   exclusions the operator manages.
 - Tdarr starts at 3.00.00, the first release with the API keys the operator
   signs in with.
-- Readarr is archived upstream, and supported at its final releases.
+
+Readarr is archived upstream, and its only releases were development builds.
+It is supported at its final ones.
 
 How a range moves:
 
