@@ -1,11 +1,11 @@
 apiVersion: arrchitect.dev/v1alpha1
 kind: RadarrIndexer
 metadata:
-  name: radarr-nzbgeek
+  name: radarr-usenet-indexer
 spec:
   radarrRef:
     name: radarr
-  name: NZBgeek
+  name: Usenet Indexer
   protocol: usenet
   implementation: Newznab
   enableRss: true
@@ -13,13 +13,13 @@ spec:
   enableInteractiveSearch: true
   fields:
     - name: baseUrl
-      value: "https://api.nzbgeek.info"
+      value: "https://indexer.example.com"
     - name: apiPath
       value: "/api"
     - name: apiKey
       valueFrom:
         secretKeyRef:
-          name: nzbgeek-credentials
+          name: usenet-indexer-credentials
           key: api-key
     - name: categories
       value: "2000,2040,2045"

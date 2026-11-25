@@ -7,7 +7,7 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
 spec:
   connection:
-    url: http://autobrr:7474
+    url: http://autobrr.media.svc.cluster.local:7474
     apiKeySecretRef:
       name: autobrr-credentials
       key: api-key

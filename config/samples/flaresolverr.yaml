@@ -7,6 +7,6 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
 spec:
   connection:
-    url: http://flaresolverr:8191
+    url: http://flaresolverr.media.svc.cluster.local:8191
   sessions:
     - name: prowlarr

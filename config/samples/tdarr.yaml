@@ -4,7 +4,7 @@ metadata:
   name: tdarr
 spec:
   connection:
-    url: http://arr-tdarr.arr.svc.cluster.local:8266
+    url: http://tdarr.media.svc.cluster.local:8266
     apiKeySecretRef:
       name: tdarr-credentials
       key: api-key

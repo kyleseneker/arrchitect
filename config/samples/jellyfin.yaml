@@ -4,7 +4,7 @@ metadata:
   name: jellyfin
 spec:
   connection:
-    url: http://arr-jellyfin.arr.svc.cluster.local:8096
+    url: http://jellyfin.media.svc.cluster.local:8096
   adminUser:
     usernameSecretRef:
       name: jellyfin-credentials
