@@ -13,9 +13,9 @@ spec:
   enableInteractiveSearch: true
   fields:
     - name: baseUrl
-      value: "https://indexer.example.com"
+      value: https://indexer.example.com
     - name: apiPath
-      value: "/api"
+      value: /api
     - name: apiKey
       valueFrom:
         secretKeyRef:
