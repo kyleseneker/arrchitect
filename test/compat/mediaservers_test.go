@@ -59,12 +59,15 @@ func TestJellyfin(t *testing.T) {
 		update: `[
 			{"op": "replace", "path": "/spec/libraries/0/automaticRefreshIntervalDays", "value": 60},
 			{"op": "replace", "path": "/spec/libraries/0/seasonZeroDisplayName", "value": "Extras"},
-			{"op": "replace", "path": "/spec/libraries/0/typeOptions/0/metadataFetchers", "value": ["TheMovieDb"]}
+			{"op": "replace", "path": "/spec/libraries/0/typeOptions/0/metadataFetchers", "value": ["TheMovieDb"]},
+			{"op": "replace", "path": "/spec/scheduledTasks/0/triggers/0/intervalMinutes", "value": 480}
 		]`,
 		verifyUpdate: func(t *testing.T) {
 			movie := jellyfinTypeOption(t, jellyfinClient(t, jf.url(), password), "Movies", "Movie")
 			assert.Equal(t, []any{"TheMovieDb"}, movie["MetadataFetchers"])
 			assert.Equal(t, []any{"TheMovieDb", "The Open Movie Database"}, movie["MetadataFetcherOrder"])
+			assert.Equal(t, []any{map[string]any{"Type": "IntervalTrigger", "IntervalTicks": float64(480 * 600_000_000)}},
+				jellyfinTaskTriggers(t, jellyfinClient(t, jf.url(), password), "RefreshLibrary"))
 		},
 		export:  "jellyfin",
 		vars:    map[string]string{"URL": proxy.url()},
@@ -109,9 +112,33 @@ func TestJellyfin(t *testing.T) {
 			series := jellyfinTypeOption(t, jc, "TV Shows", "Series")
 			assert.Equal(t, []any{"TheMovieDb"}, series["ImageFetchers"])
 			assert.NotEmpty(t, series["MetadataFetchers"], "the undeclared metadata fetchers lost Jellyfin's defaults")
+			branding, err := jc.GetConfig(context.Background(), "/System/Configuration/branding")
+			require.NoError(t, err)
+			assert.Equal(t, "Compat members only", branding["LoginDisclaimer"])
+			assert.Equal(t, ".compat { color: red; }", branding["CustomCss"])
+			assert.Equal(t, []any{map[string]any{"Type": "IntervalTrigger", "IntervalTicks": float64(360 * 600_000_000)}},
+				jellyfinTaskTriggers(t, jc, "RefreshLibrary"))
+			assert.Equal(t, []any{map[string]any{
+				"Type": "WeeklyTrigger", "TimeOfDayTicks": float64(210 * 600_000_000), "DayOfWeek": "Sunday",
+				"MaxRuntimeTicks": float64(120 * 600_000_000),
+			}}, jellyfinTaskTriggers(t, jc, "RefreshChapterImages"))
 			checkJellyfinAPIKey(t, jf.url(), password, proxy)
 		},
 	})
+}
+
+// jellyfinTaskTriggers is the triggers of the scheduled task with key.
+func jellyfinTaskTriggers(t *testing.T, jc *jellyfinclient.Client, key string) any {
+	t.Helper()
+	tasks, err := jc.ScheduledTasks(context.Background())
+	require.NoError(t, err)
+	for _, task := range tasks {
+		if task["Key"] == key {
+			return task["Triggers"]
+		}
+	}
+	require.Failf(t, "no scheduled task", "Jellyfin has no task %s", key)
+	return nil
 }
 
 // jellyfinTypeOption is a library's options for one type of item.

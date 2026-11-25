@@ -26,8 +26,19 @@ func exportFakeJellyfin(t *testing.T, libraries string) (Result, *mediaserversv1
 				"TonemappingPeak":100,"DownMixAudioBoost":2.5}`))
 		case "/System/Configuration/network":
 			_, _ = w.Write([]byte(`{"BaseUrl":"/jf","InternalHttpPort":8096,"KnownProxies":["10.0.0.1"],"EnableRemoteAccess":true}`))
+		case "/System/Configuration/branding":
+			_, _ = w.Write([]byte(`{"LoginDisclaimer":"Members only","CustomCss":"","SplashscreenEnabled":true,` +
+				`"SplashscreenLocation":"/config/splashscreen.png"}`))
 		case "/Library/VirtualFolders":
 			_, _ = w.Write([]byte(libraries))
+		case "/ScheduledTasks":
+			_, _ = w.Write([]byte(`[
+				{"Id":"a1","Key":"RefreshLibrary","IsHidden":false,"Triggers":[{"Type":"IntervalTrigger","IntervalTicks":432000000000}]},
+				{"Id":"b2","Key":"RefreshChapterImages","IsHidden":false,"Triggers":[
+					{"Type":"WeeklyTrigger","TimeOfDayTicks":126000000000,"DayOfWeek":"Sunday","MaxRuntimeTicks":144000000000}]},
+				{"Id":"c3","Key":"CleanCache","IsHidden":false,"Triggers":[{"Type":"IntervalTrigger","IntervalTicks":15000000}]},
+				{"Id":"d4","Key":"Hidden","IsHidden":true,"Triggers":[{"Type":"StartupTrigger"}]},
+				{"Id":"e5","Key":"NeverRuns","IsHidden":false,"Triggers":[]}]`))
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}
@@ -57,6 +68,16 @@ func TestJellyfinExportsSettingsLibrariesAndTheAdminUser(t *testing.T) {
 		cfg.Spec.Server.TrickplayOptions)
 	assert.Equal(t, &mediaserversv1alpha1.JellyfinNetwork{KnownProxies: []string{"10.0.0.1"}, EnableRemoteAccess: new(true)},
 		cfg.Spec.Network, "the base URL and ports aren't in the config")
+	assert.Equal(t, &mediaserversv1alpha1.JellyfinBranding{
+		LoginDisclaimer: new("Members only"), CustomCss: new(""), SplashscreenEnabled: new(true),
+	}, cfg.Spec.Branding, "the uploaded splash screen's location isn't in the config")
+	assert.Equal(t, []mediaserversv1alpha1.JellyfinScheduledTask{
+		{Key: "RefreshLibrary", Triggers: []mediaserversv1alpha1.JellyfinTaskTrigger{{Type: "IntervalTrigger", IntervalMinutes: 720}}},
+		{Key: "RefreshChapterImages", Triggers: []mediaserversv1alpha1.JellyfinTaskTrigger{
+			{Type: "WeeklyTrigger", TimeOfDay: "03:30", DayOfWeek: "Sunday", MaxRuntimeHours: 4}}},
+		{Key: "NeverRuns"},
+	}, cfg.Spec.ScheduledTasks)
+	assert.Contains(t, res.Warnings, "scheduled task CleanCache has a time the config can't express, so it stays as set in Jellyfin")
 	require.Len(t, cfg.Spec.Libraries, 2)
 	assert.Equal(t, []string{"/media/movies"}, cfg.Spec.Libraries[0].Paths)
 	assert.True(t, *cfg.Spec.Libraries[0].EnableRealtimeMonitor)
@@ -74,7 +95,7 @@ func TestJellyfinExportsWithAnAPIKeyInsteadOfSigningIn(t *testing.T) {
 		switch r.URL.Path {
 		case "/Users/AuthenticateByName":
 			t.Error("export signed in although it had an API key")
-		case "/Library/VirtualFolders":
+		case "/Library/VirtualFolders", "/ScheduledTasks":
 			_, _ = w.Write([]byte(`[]`))
 		default:
 			_, _ = w.Write([]byte(`{}`))

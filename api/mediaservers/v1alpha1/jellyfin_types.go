@@ -50,6 +50,17 @@ type JellyfinSpec struct {
 	// +optional
 	Network *JellyfinNetwork `json:"network,omitempty"`
 
+	// branding configures the login page and the web client's look.
+	// +optional
+	Branding *JellyfinBranding `json:"branding,omitempty"`
+
+	// scheduledTasks sets when Jellyfin runs its scheduled tasks. A listed
+	// task's triggers replace the ones it has; tasks left out keep theirs.
+	// +optional
+	// +listType=map
+	// +listMapKey=key
+	ScheduledTasks []JellyfinScheduledTask `json:"scheduledTasks,omitempty"`
+
 	// libraries defines media libraries, matched by name. An existing library
 	// keeps the declared folders and options: folders it doesn't list are
 	// removed. Libraries are never deleted, and a library's type can't change
@@ -285,6 +296,73 @@ type JellyfinTrickplay struct {
 	// +optional
 	// +kubebuilder:validation:Minimum=0
 	ProcessThreads *int32 `json:"processThreads,omitempty"`
+}
+
+// JellyfinScheduledTask sets when one of Jellyfin's scheduled tasks runs.
+type JellyfinScheduledTask struct {
+	// key is the task's key as Jellyfin's /ScheduledTasks lists it, such as
+	// RefreshLibrary (Scan Media Library) or RefreshChapterImages.
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	Key string `json:"key,omitempty"`
+
+	// triggers are when the task runs. Left out or empty, the task runs only
+	// when started by hand.
+	// +optional
+	// +listType=atomic
+	// +kubebuilder:validation:MaxItems=16
+	Triggers []JellyfinTaskTrigger `json:"triggers,omitempty"`
+}
+
+// JellyfinTaskTrigger is one time a scheduled task runs.
+// +kubebuilder:validation:XValidation:rule="has(self.timeOfDay) == (self.type == 'DailyTrigger' || self.type == 'WeeklyTrigger')",message="timeOfDay goes with a DailyTrigger or WeeklyTrigger"
+// +kubebuilder:validation:XValidation:rule="has(self.dayOfWeek) == (self.type == 'WeeklyTrigger')",message="dayOfWeek goes with a WeeklyTrigger"
+// +kubebuilder:validation:XValidation:rule="has(self.intervalMinutes) == (self.type == 'IntervalTrigger')",message="intervalMinutes goes with an IntervalTrigger"
+type JellyfinTaskTrigger struct {
+	// type is DailyTrigger, WeeklyTrigger, IntervalTrigger, or StartupTrigger
+	// to run when Jellyfin starts.
+	// +required
+	// +kubebuilder:validation:Enum=DailyTrigger;WeeklyTrigger;IntervalTrigger;StartupTrigger
+	Type string `json:"type,omitempty"`
+
+	// timeOfDay is when a daily or weekly trigger fires, as HH:MM in the
+	// server's time zone.
+	// +optional
+	// +kubebuilder:validation:MinLength=5
+	// +kubebuilder:validation:MaxLength=5
+	// +kubebuilder:validation:Pattern=`^([01][0-9]|2[0-3]):[0-5][0-9]$`
+	TimeOfDay string `json:"timeOfDay,omitempty"`
+
+	// dayOfWeek is the day a weekly trigger fires.
+	// +optional
+	// +kubebuilder:validation:Enum=Sunday;Monday;Tuesday;Wednesday;Thursday;Friday;Saturday
+	DayOfWeek string `json:"dayOfWeek,omitempty"`
+
+	// intervalMinutes is how often an interval trigger fires.
+	// +optional
+	// +kubebuilder:validation:Minimum=1
+	IntervalMinutes int32 `json:"intervalMinutes,omitempty"`
+
+	// maxRuntimeHours stops the task after it has run this many hours.
+	// +optional
+	// +kubebuilder:validation:Minimum=1
+	MaxRuntimeHours int32 `json:"maxRuntimeHours,omitempty"`
+}
+
+// JellyfinBranding configures Jellyfin's branding. The splash screen image is
+// uploaded in Jellyfin, so it stays out.
+type JellyfinBranding struct {
+	// loginDisclaimer is shown below the login form, and can hold HTML.
+	// +optional
+	LoginDisclaimer *string `json:"loginDisclaimer,omitempty"`
+
+	// customCss is CSS the web client applies to every page.
+	// +optional
+	CustomCss *string `json:"customCss,omitempty"`
+
+	// splashscreenEnabled shows the splash screen while the web client loads.
+	// +optional
+	SplashscreenEnabled *bool `json:"splashscreenEnabled,omitempty"`
 }
 
 // JellyfinNetwork configures Jellyfin's network settings. Ports, the base URL,

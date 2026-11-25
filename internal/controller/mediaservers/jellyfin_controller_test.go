@@ -428,6 +428,24 @@ func TestReconcileWritesJellyfinNetworkSettings(t *testing.T) {
 	assert.Equal(t, conditionTrue, jellyfinSynced(t, c))
 }
 
+func TestReconcileWritesJellyfinBranding(t *testing.T) {
+	app := &fakeJellyfin{setupComplete: true}
+	url := app.serve(t)
+	cfg := jellyfinConfig(url)
+	cfg.Spec.Branding = &mediaserversv1alpha1.JellyfinBranding{LoginDisclaimer: new("Members only"), SplashscreenEnabled: new(true)}
+
+	c := runJellyfin(t, adminSecret(), cfg)
+
+	assert.True(t, app.saw("POST", "/System/Configuration/branding"), "branding was never written")
+	assert.Equal(t, conditionTrue, jellyfinSynced(t, c))
+}
+
+func TestJellyfinSettingsNameBrandingAsJellyfinDoes(t *testing.T) {
+	out, err := jellyfinSettings(&mediaserversv1alpha1.JellyfinBranding{CustomCss: new(""), SplashscreenEnabled: new(false)})
+	require.NoError(t, err)
+	assert.Equal(t, map[string]any{"CustomCss": "", "SplashscreenEnabled": false}, out, "an empty customCss clears it")
+}
+
 func jellyfinWithAPIKey(url string) (*mediaserversv1alpha1.Jellyfin, *corev1.Secret) {
 	cfg := jellyfinConfig(url)
 	cfg.Spec.Connection.APIKeySecretRef = &commonv1alpha1.SecretKeyRef{Name: "jellyfin-admin", Key: "api-key"}

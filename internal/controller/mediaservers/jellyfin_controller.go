@@ -149,6 +149,8 @@ func (r *JellyfinReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		}
 	}
 
+	syncErrors = append(syncErrors, reconcileJellyfinTasks(ctx, jf, config.Spec.ScheduledTasks, &engine.Writes{App: "jellyfin"})...)
+
 	// Reconcile libraries (create-only)
 	for _, lib := range config.Spec.Libraries {
 		if err := reconcileJellyfinLibrary(ctx, jf, lib); err != nil {
@@ -224,6 +226,9 @@ func jellyfinSections(spec mediaserversv1alpha1.JellyfinSpec) []jellyfinSection 
 	}
 	if spec.Network != nil {
 		sections = append(sections, jellyfinSection{"network", "/System/Configuration/network", spec.Network})
+	}
+	if spec.Branding != nil {
+		sections = append(sections, jellyfinSection{"branding", "/System/Configuration/branding", spec.Branding})
 	}
 	return sections
 }
@@ -618,6 +623,7 @@ func observeJellyfinConfig(ctx context.Context, jf *jellyfinclient.Client, spec 
 			return err
 		}
 	}
+	missing = append(missing, reconcileJellyfinTasks(ctx, jf, spec.ScheduledTasks, w)...)
 	var missingErr error
 	if len(missing) > 0 {
 		missingErr = errors.New(strings.Join(missing, "; "))

@@ -2,6 +2,7 @@ package export
 
 import (
 	"fmt"
+	"math"
 	"reflect"
 	"slices"
 	"strings"
@@ -31,6 +32,10 @@ func exportJellyfin(r *reader) (map[string]any, error) {
 	if err != nil {
 		return nil, err
 	}
+	branding, err := jf.GetConfig(r.ctx, "/System/Configuration/branding")
+	if err != nil {
+		return nil, err
+	}
 	spec := map[string]any{
 		"adminUser": map[string]any{
 			"usernameSecretRef": r.creds.ref(r.username, "username"),
@@ -39,6 +44,16 @@ func exportJellyfin(r *reader) (map[string]any, error) {
 		"server":   jellyfinSettings(server, reflect.TypeFor[mediaserversv1alpha1.JellyfinServer]()),
 		"encoding": jellyfinSettings(encoding, reflect.TypeFor[mediaserversv1alpha1.JellyfinEncoding]()),
 		"network":  jellyfinSettings(network, reflect.TypeFor[mediaserversv1alpha1.JellyfinNetwork]()),
+	}
+	if b := jellyfinSettings(branding, reflect.TypeFor[mediaserversv1alpha1.JellyfinBranding]()); len(b) > 0 {
+		spec["branding"] = b
+	}
+	tasks, err := jf.ScheduledTasks(r.ctx)
+	if err != nil {
+		return nil, err
+	}
+	if scheduled := r.jellyfinTasks(tasks); len(scheduled) > 0 {
+		spec["scheduledTasks"] = scheduled
 	}
 
 	folders, err := jf.ListLibraries(r.ctx)
@@ -153,6 +168,56 @@ func stringValues(v any) []string {
 		if s, ok := item.(string); ok {
 			out = append(out, s)
 		}
+	}
+	return out
+}
+
+// jellyfinTicksPerMinute converts Jellyfin's 100-nanosecond trigger ticks.
+const jellyfinTicksPerMinute = 600_000_000
+
+// jellyfinTasks exports the triggers of the tasks Jellyfin's UI shows, with
+// times in minutes and hours. A task with a time that isn't whole minutes, or
+// a time limit that isn't whole hours, stays as Jellyfin has it.
+func (r *reader) jellyfinTasks(tasks []map[string]any) []any {
+	var out []any
+	for _, task := range tasks {
+		key, _ := task["Key"].(string)
+		if hidden, _ := task["IsHidden"].(bool); hidden || key == "" {
+			continue
+		}
+		var triggers []any
+		exact := true
+		for _, t := range list(task["Triggers"]) {
+			trigger := map[string]any{"type": t["Type"]}
+			if ticks, ok := t["TimeOfDayTicks"].(float64); ok {
+				minutes := ticks / jellyfinTicksPerMinute
+				exact = exact && minutes == math.Trunc(minutes)
+				trigger["timeOfDay"] = fmt.Sprintf("%02d:%02d", int(minutes)/60, int(minutes)%60)
+			}
+			if day, ok := t["DayOfWeek"].(string); ok {
+				trigger["dayOfWeek"] = day
+			}
+			if ticks, ok := t["IntervalTicks"].(float64); ok {
+				minutes := ticks / jellyfinTicksPerMinute
+				exact = exact && minutes == math.Trunc(minutes) && minutes >= 1
+				trigger["intervalMinutes"] = int(minutes)
+			}
+			if ticks, ok := t["MaxRuntimeTicks"].(float64); ok {
+				hours := ticks / (60 * jellyfinTicksPerMinute)
+				exact = exact && hours == math.Trunc(hours) && hours >= 1
+				trigger["maxRuntimeHours"] = int(hours)
+			}
+			triggers = append(triggers, trigger)
+		}
+		if !exact {
+			r.warn("scheduled task %s has a time the config can't express, so it stays as set in Jellyfin", key)
+			continue
+		}
+		scheduled := map[string]any{"key": key}
+		if len(triggers) > 0 {
+			scheduled["triggers"] = triggers
+		}
+		out = append(out, scheduled)
 	}
 	return out
 }

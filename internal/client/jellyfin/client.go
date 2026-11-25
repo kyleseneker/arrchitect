@@ -171,3 +171,14 @@ func (c *Client) AvailableLibraryOptions(ctx context.Context, collectionType str
 func (c *Client) UpdateLibraryOptions(ctx context.Context, id string, options map[string]any) error {
 	return c.hc.PostJSON(ctx, "/Library/VirtualFolders/LibraryOptions", map[string]any{"Id": id, "LibraryOptions": options})
 }
+
+// ScheduledTasks lists Jellyfin's scheduled tasks with their triggers.
+func (c *Client) ScheduledTasks(ctx context.Context) ([]map[string]any, error) {
+	return c.hc.GetJSONList(ctx, "/ScheduledTasks")
+}
+
+// SetTaskTriggers replaces the triggers of the task with id.
+func (c *Client) SetTaskTriggers(ctx context.Context, id string, triggers []map[string]any) error {
+	_, err := c.hc.Do(ctx, http.MethodPost, "/ScheduledTasks/"+url.PathEscape(id)+"/Triggers", triggers)
+	return err
+}
