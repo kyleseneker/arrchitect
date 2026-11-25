@@ -7,27 +7,24 @@ in its database.
 
 ## References by name
 
-Apps link items by ID, and a rebuilt app hands out new IDs. Resources refer to
-those items by name instead, and the names are looked up on every reconcile.
+Apps link items by ID, and a rebuilt app hands out new IDs. Resources can
+refer to those items by name instead, and the names are looked up on every
+reconcile. [References by name](guide.md#references-by-name) lists each one.
 [portable-references.yaml](../examples/portable-references.yaml) is a starting
 point; replace its endpoints, paths and Secret references before applying it.
 
-- Tags, by label with `tagLabels`. Tags declared in `spec.tags` are created
-  before references are looked up, and a label that matches no tag blocks
-  writes.
-- Prowlarr sync profiles. `appProfiles` are created or updated before indexers,
-  and `indexers[].appProfileName` looks up a profile's current ID, taking
-  precedence over `appProfileId`. Sync profiles are never pruned or deleted,
-  since indexers the operator doesn't manage may use them.
-- Custom formats in quality profiles, looked up after formats are applied, and
-  quality profiles in import lists, looked up after profiles are applied.
-- Seerr's `activeProfileName`, looked up from the Sonarr or Radarr it connects
-  to. When another tool, such as Recyclarr, owns those profiles, run it first.
+Declared items are created before references to them are looked up. Tags in
+`spec.tags` come first. Prowlarr sync profiles come before indexers, custom
+formats before quality profiles, and quality profiles before import lists. A
+Prowlarr indexer's `appProfileName` takes precedence over its `appProfileId`.
+Sync profiles are never pruned or deleted, since indexers the operator doesn't
+manage may use them. Seerr's `activeProfileName` is looked up from the Sonarr
+or Radarr it connects to. When another tool, such as Recyclarr, owns those
+profiles, run it first.
 
-A name that matches nothing, or more than one item, fails that stage and says
-so in status; items already created stay recorded. A reconcile isn't a
-transaction, so other stages may still have made changes. Observe mode creates
-nothing, so it reports references to things that don't exist yet.
+When a name matches nothing, or more than one item, the items already created
+stay recorded in `status.managedResources`. Observe mode creates nothing, so
+it reports references to things that don't exist yet.
 
 ## Remote download paths
 
@@ -36,7 +33,7 @@ Sonarr, Radarr, Lidarr and Readarr take `remotePathMappings` with `host`,
 configured hostname, and the local directory must already exist inside the
 app's container.
 
-A mapping is identified by `host` and `remotePath`: changing `localPath`
+A mapping is identified by `host` and `remotePath`. Changing `localPath`
 updates it in place, and changing either of the others makes a new one.
 Directory paths get the trailing separator these apps store, Windows paths
 included. To remove a mapping the operator created, use prune with at least
@@ -70,19 +67,17 @@ never a production database.
    status, existing associations should stay, and the first reconcile after the
    fix should succeed.
 
-CI checks the same on every change: `make test-compat` reconciles every app
-against fresh containers of the versions pinned in
-[test/compat/images_test.go](../test/compat/images_test.go), the oldest and
-newest each app is supported at, reads the settings back and checks that a
-second pass writes nothing.
+CI covers part of this on every change. `make test-compat` starts every app
+with empty configuration and a known API key, at the oldest and newest
+versions pinned in [test/compat/images_test.go](../test/compat/images_test.go).
+It reconciles each one, reads the settings back and checks that a second pass
+writes nothing. It doesn't recreate the apps or break references, so steps 5
+and 6 aren't covered.
 
 ## Limits
 
 - Bazarr language profiles are identified by an explicit `profileId`, not
   looked up by name. After a rebuild, check the default profiles and existing
   media assignments.
-- Seerr's first-time setup enables Jellyfin libraries only. With Plex it
-  neither configures the Plex server nor enables its libraries, so finish that
-  in Seerr.
 - Users, history, media assignments and settings the resources don't cover
   need backups or separate provisioning.

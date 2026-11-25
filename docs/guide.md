@@ -5,7 +5,7 @@
 - [Connecting apps](#connecting-apps)
 - [Status](#status)
 - [Observe mode](#observe-mode)
-- [Delay profiles and quality definitions](#delay-profiles-and-quality-definitions)
+- [Delay profiles, quality definitions and metadata consumers](#delay-profiles-quality-definitions-and-metadata-consumers)
 - [Prune](#prune)
 - [Deletion](#deletion)
 - [Credentials](#credentials)
@@ -19,20 +19,24 @@
 
 The operator reads each app's configuration through its API, compares it with
 the resource, and writes what differs. Fields left out of the resource are not
-managed: an item that already exists in the app keeps them, and a new item gets
+managed. An item that already exists in the app keeps them, and a new item gets
 the app's defaults. An empty list, such as `tagLabels: []`, is declared and
 clears the item's tags. It reconciles every 5 minutes, when the resource
 changes, and when a Secret the resource refers to changes.
 `spec.reconcile.intervalSeconds` changes the period, down to a minimum of 30.
 
 Download clients, indexers, notifications and other lists are matched by name.
-Root folders are matched by path and created if missing. Lidarr's and
-Readarr's are kept as declared; Sonarr's and Radarr's have nothing else to
-keep. Jellyfin and Plex libraries are created if missing and otherwise kept as
-declared, folders included: a folder the resource doesn't list is removed from
-the library.
-Libraries are never deleted, changing a library's type means recreating it,
-and a name two libraries share is refused rather than guessed.
+Root folders are matched by path and created if missing. Lidarr and Readarr
+root folders also have a name, default profiles and other settings, and the
+operator keeps those as declared. Sonarr and Radarr root folders have only a
+path.
+
+Jellyfin and Plex libraries are matched by name and created if missing. An
+existing library is kept as declared, including its folders. A folder the
+resource doesn't list is removed from the library. Libraries are never
+deleted. The operator doesn't change a library's type. To change it, recreate
+the library. When two libraries share a name, the operator reports an error
+and changes neither.
 
 On a fresh install, the operator runs the Jellyfin and Seerr setup wizards.
 Seerr's needs Seerr 3.5.0 or later, and when set up through Jellyfin it waits
@@ -45,8 +49,9 @@ fails the reconcile.
 
 Sonarr, Radarr, Lidarr and Readarr indexers and download clients are resources
 of their own, such as `SonarrIndexer` and `SonarrDownloadClient`. Each one
-configures one item in the app that its reference, such as `spec.sonarrRef`,
-names in the same namespace, and its other fields are the item's:
+configures one item in one app. Its reference, such as `spec.sonarrRef`, names
+that app's resource in the same namespace. Its other fields are the item's
+settings:
 
 ```yaml
 apiVersion: arrchitect.dev/v1alpha1
@@ -60,22 +65,29 @@ spec:
   name: qBittorrent
   protocol: torrent
   implementation: QBittorrent
-  host: qbittorrent
+  host: qbittorrent.media.svc.cluster.local
   port: 8080
+  usernameSecretRef:
+    name: qbittorrent-credentials
+    key: username
+  passwordSecretRef:
+    name: qbittorrent-credentials
+    key: password
   category: tv
 ```
 
 - The app's connection, `driftPolicy` and `intervalSeconds` apply to it. Until the
   app's resource exists, it reports `ReferenceNotFound`.
 - `status.id` is the item's ID in the app.
-- An item that already exists is adopted: configured as declared, but never
-  deleted.
+- An item that already exists is adopted. The operator configures it as
+  declared and never deletes it.
 - Renaming `spec.name` replaces the item the resource created.
 - When two resources name the same item in the same app, the older one
   configures it and the other reports `NameConflict`.
-- `spec.deletionPolicy` defaults to `delete`: deleting the resource deletes the
-  item it created. `orphan` leaves it. If the app's resource is deleted first,
-  nothing can be removed, and an `InstanceMissing` warning event says so.
+- `spec.deletionPolicy` defaults to `delete`. Deleting the resource then
+  deletes the item it created. `orphan` leaves it. If the app's resource is
+  deleted first, nothing can be removed, and an `InstanceMissing` warning event
+  says so.
 
 ## Connecting apps
 
@@ -88,10 +100,13 @@ apiVersion: arrchitect.dev/v1alpha1
 kind: Prowlarr
 metadata:
   name: prowlarr
+  namespace: media
 spec:
   connection:
     url: http://prowlarr.media.svc.cluster.local:9696
-    apiKeySecretRef: {name: prowlarr-credentials, key: api-key}
+    apiKeySecretRef:
+      name: prowlarr-credentials
+      key: api-key
   applications:
     - name: Sonarr
       appRef:
@@ -101,24 +116,24 @@ spec:
 
 | Connection | `appRef` kinds | In place of |
 | --- | --- | --- |
-| Prowlarr `applications` | Sonarr, Radarr, Lidarr, Readarr | `implementation`, `baseUrl`, `apiKeySecretRef`; `prowlarrUrl` defaults to the Prowlarr resource's URL |
-| Seerr `sonarr`, `radarr` | Sonarr in `sonarr`, Radarr in `radarr` | `hostname`, `port`, `useSsl`, `baseUrl`, `apiKeySecretRef` |
-| Seerr `jellyfinAuth` | Jellyfin | the address and the admin user |
-| Seerr `plexAuth` | Plex | the address and the token |
-| Bazarr `sonarrConnection`, `radarrConnection` | Sonarr, Radarr | `host`, `port`, `ssl`, `basePath`, `apiKeySecretRef` |
-| Bazarr `jellyfin` | Jellyfin | `url`, `apiKeySecretRef`; the Jellyfin resource must set `connection.apiKeySecretRef` |
-| Maintainerr `sonarr`, `radarr` | Sonarr in `sonarr`, Radarr in `radarr` | `url`, `apiKeySecretRef` |
-| Maintainerr `seerr` | Seerr | `url`, `apiKeySecretRef` |
-| Maintainerr `mediaServer.plex` | Plex | `hostname`, `port`, `ssl`, `tokenSecretRef` |
-| Maintainerr `mediaServer.jellyfin` | Jellyfin | `url`, `apiKeySecretRef` |
-| Sonarr, Radarr, Lidarr and Readarr download clients | QBittorrent, Sabnzbd | `implementation`, `protocol`, `host`, `port`, `useSsl`, `urlBase` and the credentials |
-| Autobrr `downloadClients` | QBittorrent, Sabnzbd, Sonarr, Radarr, Lidarr, Readarr | `type`, `host`, `port`, `tls` and the credentials |
-| Sonarr, Radarr and Lidarr `notifications` | Jellyfin, Plex | `implementation`, `configContract` and the `host`, `port`, `useSsl`, `urlBase` and `apiKey` or `authToken` fields; the Jellyfin resource must set `connection.apiKeySecretRef` |
-| Readarr `notifications` | Plex | the same; Readarr has no Jellyfin notification |
+| Prowlarr `applications` | `Sonarr`, `Radarr`, `Lidarr`, `Readarr` | `implementation`, `baseUrl`, `apiKeySecretRef`; `prowlarrUrl` defaults to the Prowlarr resource's URL |
+| Seerr `sonarr`, `radarr` | `Sonarr` in `sonarr`, `Radarr` in `radarr` | `hostname`, `port`, `useSsl`, `baseUrl`, `apiKeySecretRef` |
+| Seerr `jellyfinAuth` | `Jellyfin` | the address and the admin user |
+| Seerr `plexAuth` | `Plex` | the address and the token |
+| Bazarr `sonarrConnection`, `radarrConnection` | `Sonarr`, `Radarr` | `host`, `port`, `ssl`, `basePath`, `apiKeySecretRef` |
+| Bazarr `jellyfin` | `Jellyfin` | `url`, `apiKeySecretRef`; the Jellyfin resource must set `connection.apiKeySecretRef` |
+| Maintainerr `sonarr`, `radarr` | `Sonarr` in `sonarr`, `Radarr` in `radarr` | `url`, `apiKeySecretRef` |
+| Maintainerr `seerr` | `Seerr` | `url`, `apiKeySecretRef`; the Seerr resource must set `connection.apiKeySecretRef` |
+| Maintainerr `mediaServer.plex` | `Plex` | `hostname`, `port`, `ssl`, `tokenSecretRef` |
+| Maintainerr `mediaServer.jellyfin` | `Jellyfin` | `url`, `apiKeySecretRef`; the Jellyfin resource must set `connection.apiKeySecretRef` |
+| Sonarr, Radarr, Lidarr and Readarr download clients | `QBittorrent`, `Sabnzbd` | `implementation`, `protocol`, `host`, `port`, `useSsl`, `urlBase` and the credentials |
+| Autobrr `downloadClients` | `QBittorrent`, `Sabnzbd`, `Sonarr`, `Radarr`, `Lidarr`, `Readarr` | `type`, `host`, `port`, `tls` and the credentials |
+| Sonarr, Radarr and Lidarr `notifications` | `Jellyfin`, `Plex` | `implementation`, `configContract` and the `host`, `port`, `useSsl`, `urlBase` and `apiKey` or `authToken` fields; the Jellyfin resource must set `connection.apiKeySecretRef` |
+| Readarr `notifications` | `Plex` | the same; Readarr has no Jellyfin notification |
 
 - A connection sets `appRef` or the fields it stands for, not both, and the API
   server rejects a mix. A notification's `fields` beside its `appRef` are the
-  exception: the operator reports those as a sync error instead. To have an
+  exception. The operator reports those as a sync error instead. To have an
   app reach another at a different address from the operator's, set the
   fields.
 - The resource must be in the same namespace. The operator only reads it, and
@@ -133,12 +148,10 @@ spec:
   it refers to, report `ReferenceNotFound` instead and write nothing.
 - A change to the resource, or to a Secret it names, reconciles the resources
   that refer to it straight away.
-- Maintainerr connects with API keys, so its `seerr` and `mediaServer.jellyfin`
-  references need the Seerr or Jellyfin resource to set
-  `connection.apiKeySecretRef`. A Jellyfin resource with a key also uses it
-  instead of signing in as `adminUser` once Jellyfin is set up, so the
-  operator no longer adds a Jellyfin session on each reconcile.
-- `arrchitect export` writes the address and credentials: it can't tell which
+- Once Jellyfin is set up, a Jellyfin resource with
+  `connection.apiKeySecretRef` uses that key instead of signing in as
+  `adminUser`. Signing in adds a Jellyfin session on every reconcile.
+- `arrchitect export` writes the address and credentials. It can't tell which
   resource, if any, describes the app at a URL.
 
 ## Status
@@ -155,7 +168,7 @@ apps. The `Synced` reason is one of:
 | `AppUnreachable` | The app did not respond, or rejected the credentials. |
 | `SecretNotFound` | A Secret or key the connection needs does not exist. |
 | `InvalidConfig` | The resource asks for something the operator does not support. |
-| `ReferenceNotFound` | The app's resource an indexer or download client names does not exist, or one an `appRef` the resource can't sync without names. |
+| `ReferenceNotFound` | An indexer's or download client's app resource doesn't exist, or an `appRef` the resource needs names a missing resource. |
 | `NameConflict` | An older resource already configures the item this one names. |
 | `Observed` | Observe mode found no differences. |
 | `DriftDetected` | Observe mode found differences. |
@@ -169,7 +182,8 @@ the condition's message (the first ten), and increment
 
 Some things can't be compared by reading:
 
-- qBittorrent, Jellyfin and Seerr still sign in to read protected settings.
+- qBittorrent still signs in to read protected settings, and so do Jellyfin
+  and Seerr without `connection.apiKeySecretRef`.
 - An uninitialized Jellyfin or Seerr is reported as needing setup; the wizard
   doesn't run.
 - An item that refers by name to something the same resource declares, such as
@@ -183,7 +197,7 @@ Some things can't be compared by reading:
   operator wrote them and the Secret has changed since.
 - Plex preferences that Plex doesn't list are not compared.
 
-## Delay profiles and quality definitions
+## Delay profiles, quality definitions and metadata consumers
 
 Delay profiles have no name. Each one in the resource is matched to the app's
 profile that holds any of its tags, and the one without tags to the app's
@@ -194,12 +208,12 @@ first one before it's added. The app checks tagged profiles in the order the
 resource lists them.
 
 Quality definitions are a fixed set. The operator updates the ones listed,
-matched by `quality`, and leaves the rest alone. Sizes are in the app's units:
-megabytes per minute of runtime in Sonarr and Radarr, kilobits per second in
-Lidarr. A `maxSize` or `preferredSize` of 0 means unlimited. Readarr has no
+matched by `quality`, and leaves the rest alone. Sizes are in the app's units.
+Sonarr and Radarr use megabytes per minute of runtime, and Lidarr uses
+kilobits per second. A `maxSize` or `preferredSize` of 0 means unlimited. Readarr has no
 preferred size.
 
-Metadata consumers are a fixed set too: Sonarr, Radarr and Lidarr keep one of
+Metadata consumers are a fixed set too. Sonarr, Radarr and Lidarr keep one of
 each type, off until turned on. The operator updates the ones listed, matched
 by `implementation`, and leaves the rest alone. Readarr has none.
 
@@ -244,17 +258,18 @@ Deleting an app's resource leaves the app unchanged unless
 `spec.reconcile.deletionPolicy` is `delete`. Then the operator first deletes
 the items it created, the same kinds prune covers, and keeps everything else.
 Indexers and download clients default to `delete`; see
-[Indexers and download clients](#indexers-and-download-clients). Only
-resources set to delete carry the operator's finalizer, so removing the
-operator never leaves the others stuck; delete the ones that do before
-uninstalling it.
+[Indexers and download clients](#indexers-and-download-clients).
 
-`delete` is supported for the apps in the prune table, and not in observe mode;
-the API server rejects it on Jellyfin and Plex and alongside
-`driftPolicy: observe`. An item the app won't delete because something still
-uses it, such as a Lidarr or Readarr quality profile a root folder defaults to,
-is kept and named in a `ResourceKept` warning event. If cleanup keeps failing
-for another reason, the operator gives up after 10 minutes, records a warning
+Only resources set to `delete` carry the operator's finalizer. Removing the
+operator never leaves the other resources stuck. Delete the ones with the
+finalizer before uninstalling it.
+
+`delete` is supported for the apps in the prune table. The API server rejects
+it on Jellyfin and Plex, and alongside `driftPolicy: observe`. An item the app
+won't delete because something still uses it is kept and named in a
+`ResourceKept` warning event. A Lidarr or Readarr quality profile that a root
+folder defaults to is one example. If cleanup keeps failing for another
+reason, the operator gives up after 10 minutes. It then records a warning
 event and removes the finalizer.
 
 ## Credentials
@@ -308,8 +323,10 @@ references can use names instead:
   feeds, `downloadClientName` and `filters` on lists, and `proxyName` on
   indexers and IRC networks.
 
-A name that matches nothing, or more than one item, fails the reconcile. See
-[Rebuilding apps](rebuilding.md) for more.
+A name that matches nothing, or more than one item, sets `Synced` to `False`
+with reason `SyncFailed`, and the message names the reference. What uses the
+name isn't written. A reconcile isn't a transaction, so other changes in the
+same pass may still be made. See [Rebuilding apps](rebuilding.md) for more.
 
 ## Access
 

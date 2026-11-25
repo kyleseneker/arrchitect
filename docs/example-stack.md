@@ -112,7 +112,8 @@ spec:
   downloads under `/data/torrents` and the library under `/data/media`. A path
   then means the same thing to qBittorrent and Sonarr, no remote path mapping
   is needed, and imports can hardlink rather than copy, which needs both on
-  one mount. The `data` claim is shared across pods, so it needs storage that
+  one mount.
+- Create the `data` claim yourself. Pods share it, so it needs storage that
   allows `ReadWriteMany`, such as NFS.
 - The API key is all the operator needs. Set the login for the web UI with the
   app's other variables; see Sonarr's
@@ -239,4 +240,4 @@ How each app's credentials get into a Secret:
 | Autobrr | | A key created under Settings, API keys. From 1.91 it needs `config:read` and write access to `downloaders`, `indexers`, `irc`, `feeds`, `filters`, `notifications`, `lists` and `proxies`. Export needs only read access, and leaves out what the key can't read |
 | qBittorrent | | The password you set after first start |
 | Plex | | The token Plex stores after `PLEX_CLAIM`; see [finding a token](https://support.plex.tv/articles/204059436-finding-an-authentication-token-x-plex-token/) |
-| Maintainerr | No key needed | |
+| FlareSolverr, Maintainerr | No key needed | |
