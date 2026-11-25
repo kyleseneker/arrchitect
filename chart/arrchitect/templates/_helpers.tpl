@@ -28,12 +28,8 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
 {{- define "arrchitect.enabledApps" -}}
-{{- $known := list "sonarr" "radarr" "lidarr" "readarr" "prowlarr" "flaresolverr" "bazarr" "qbittorrent" "sabnzbd" "jellyfin" "plex" "seerr" "maintainerr" "tdarr" "autobrr" }}
 {{- $enabled := list }}
 {{- range $app, $on := .Values.apps }}
-{{- if not (has $app $known) }}
-{{- fail (printf "apps.%s is not an app; the apps are %s" $app (join ", " $known)) }}
-{{- end }}
 {{- if $on }}
 {{- $enabled = append $enabled $app }}
 {{- end }}

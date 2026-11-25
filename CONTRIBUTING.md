@@ -72,7 +72,7 @@ package named the same way.
 | `automation` | Autobrr | `api/automation/v1alpha1/` |
 
 A new app also needs its controller in `cmd/operator/main.go` and its name in
-the chart's `apps` and `arrchitect.enabledApps`.
+the chart's `values.yaml` and `values.schema.json`.
 
 ## Dependency updates
 
