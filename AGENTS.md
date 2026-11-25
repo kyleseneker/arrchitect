@@ -13,21 +13,22 @@ doesn't deploy the apps. Each app has a custom resource in
 `arrchitect.dev/v1alpha1`, and its controller makes the app's settings match
 the resource on every reconcile.
 
-## Ask before you
+## Agree on these first
 
-These need the maintainer. Don't do them unless you're asked to.
+Open an issue, or ask in the pull request, before you:
 
-- Push, create or move a tag, cut a release or edit release notes.
-- Rename or remove a json field, change a field's type, or tighten validation.
-  These break existing resources.
+- Make a breaking API change: rename or remove a json field, change a field's
+  type, or tighten validation. These break existing resources, so they're
+  planned into a minor release and documented in its notes.
 - Change an app's supported version range. Ranges follow
   [docs/stability.md](docs/stability.md#apps), and floors only move in a minor
   release.
-- Add a dependency or bump Go or a tool version.
-- Edit `.github/workflows/`, `renovate.json`, `.golangci.yml`, `LICENSE` or
-  `SECURITY.md`.
-- Run `make test-compat` or `make test-e2e`. They start containers and take
-  several minutes, and CI runs them on every push.
+- Add an app. Start with the "Support a new app" issue form, which asks for the
+  app's API docs and the settings people want managed.
+
+Maintainers cut releases, so leave tags and release notes alone. Renovate opens
+routine dependency and tool updates, so a pull request only adds or bumps a
+dependency when the change needs it.
 
 ## Commands
 
@@ -39,11 +40,19 @@ make test                                          # unit, envtest and consisten
 make test-chart                                    # the chart's helm-unittest suites
 make manifests generate sync-crds api-docs         # regenerate after any change under api/
 make verify-crds verify-api-docs                   # generated files match, once committed
-go vet -tags compat ./test/compat/                 # the compat suite compiles
+make test-compat COMPAT_RUN=TestSonarr             # one app in a container, against the real app
+make test-e2e                                      # the image and chart in a kind cluster
 ```
 
 `test/envtest` needs `KUBEBUILDER_ASSETS`, which `make test` sets. To run it on
 its own, copy the variable from the `test` target in the Makefile.
+
+`make test-compat` needs Docker, or Podman with `CONTAINER_TOOL=podman`, and
+`make test-e2e` needs Docker. Both take several minutes. CI runs them on every
+pull request, but running compat for the apps you changed catches API mismatches
+sooner. `COMPAT_VERSIONS=oldest` tests each app's oldest supported release.
+Where containers aren't available, `go vet -tags compat ./test/compat/` at least
+checks that the compat suite compiles.
 
 ## Before you call it done
 
@@ -54,10 +63,10 @@ targets, plus compat and e2e.
 | You changed | Also run or check |
 | --- | --- |
 | `api/` | `make manifests generate sync-crds api-docs` and commit the output. The verify targets compare against git, so they fail until it's committed. |
-| A controller, client or `internal/export/` | The package's tests with `go test`. A new or changed field also needs a compat fixture value (see below). |
+| A controller, client or `internal/export/` | The package's tests with `go test`. A new or changed field also needs a compat fixture value (see below), and `make test-compat COMPAT_RUN=Test<App>` if you can run containers. |
 | `chart/` | `make test-chart` and `helm lint chart/arrchitect`. A new value goes in `values.yaml` and `values.schema.json`. |
 | `config/samples/`, `examples/` or YAML in docs | `make test`. envtest applies every sample and example to a real API server. |
-| `test/compat/` | `go vet -tags compat ./test/compat/` |
+| `test/compat/` | `make test-compat COMPAT_RUN=Test<App>` for the case you changed, or at least `go vet -tags compat ./test/compat/` |
 | `README.md` | `go test ./test/consistency/...`, which checks the supported-apps table. Keep links relative. |
 
 ## Where things are
@@ -191,8 +200,6 @@ Never edit these by hand. Change the source, then regenerate.
   its port with the same bare 401.
 - Seerr's CSRF protection blocks API writes, so the operator leaves that
   setting alone on purpose.
-- `git grep -E` doesn't support `\b`. Try a search on a known hit before
-  trusting an empty result.
 
 ## Docs and YAML
 
@@ -212,14 +219,19 @@ Never edit these by hand. Change the source, then regenerate.
 - Keep links in `README.md` relative. The release copies it into the chart and
   points them at the tag.
 
-## Commits
+## Pull requests
 
-- Use Conventional Commits with the app or area as the scope:
-  `fix(tdarr): ...`, `feat(chart)!: ...`. Write one short subject line and no
-  body.
-- `feat` and `fix` subjects should read as a change a user would notice. They
-  feed the release notes and the Artifact Hub changelog.
-- Don't add AI attribution, such as `Co-Authored-By` or "Generated with" lines.
+- Pull requests are squash merged, and the title becomes the commit subject.
+  Write the title as a Conventional Commit with the app or area as the scope:
+  `fix(tdarr): ...`, `feat(chart)!: ...`. A `!` marks a change that needs
+  action on upgrade.
+- `feat` and `fix` titles should read as a change a user would notice. They
+  feed the release notes and the Artifact Hub changelog. `docs`, `test`, `ci`,
+  `refactor` and most `chore` changes are left out of both.
+- Fill in the pull request template, including which app versions you tested
+  against. These integrations mostly break against real APIs, so say what you
+  actually ran.
+- Keep a pull request to one change.
 
 ## Keeping this file current
 
