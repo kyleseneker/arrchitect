@@ -1,10 +1,9 @@
 # AGENTS.md
 
-Guidance for coding agents working on Arrchitect. Read it with
-[CONTRIBUTING.md](CONTRIBUTING.md), which has the full test table, the package
-layout and the release process.
-
-## What this is
+Guidance for coding agents working on Arrchitect. It covers what you need to
+change code safely here. [CONTRIBUTING.md](CONTRIBUTING.md) has the full test
+table, the package layout and the release process, and this file links to it
+instead of repeating it.
 
 Arrchitect is a Kubernetes operator, built with kubebuilder and
 controller-runtime, that configures self-hosted media apps through their HTTP
@@ -14,23 +13,54 @@ doesn't deploy the apps. Each app has a custom resource in
 `arrchitect.dev/v1alpha1`, and its controller makes the app's settings match
 the resource on every reconcile.
 
+## Ask before you
+
+These need the maintainer. Don't do them unless you're asked to.
+
+- Push, create or move a tag, cut a release or edit release notes.
+- Rename or remove a json field, change a field's type, or tighten validation.
+  These break existing resources.
+- Change an app's supported version range. Ranges follow
+  [docs/stability.md](docs/stability.md#apps), and floors only move in a minor
+  release.
+- Add a dependency or bump Go or a tool version.
+- Edit `.github/workflows/`, `renovate.json`, `.golangci.yml`, `LICENSE` or
+  `SECURITY.md`.
+- Run `make test-compat` or `make test-e2e`. They start containers and take
+  several minutes, and CI runs them on every push.
+
 ## Commands
 
-- `make help` lists every target.
-- Before you call work done, run
-  `make lint test test-chart verify-crds verify-api-docs`. CI runs the same
-  targets.
-- After changing anything under `api/`, run
-  `make manifests generate sync-crds api-docs` and commit what it regenerates.
-  The two verify targets compare against git, so they fail until the
-  regenerated files are committed.
-- `make test-compat` and `make test-e2e` start containers and take several
-  minutes. Don't run them unless asked. CI runs compat against each app's
-  oldest and newest supported release.
-- `go vet -tags compat ./test/compat/` checks that the compat suite compiles
-  without running it.
+```bash
+make help                                          # every target
+go test ./internal/controller/pvr/ -run TestName   # one package or test while you work
+make lint                                          # golangci-lint, including kube-api-linter
+make test                                          # unit, envtest and consistency tests
+make test-chart                                    # the chart's helm-unittest suites
+make manifests generate sync-crds api-docs         # regenerate after any change under api/
+make verify-crds verify-api-docs                   # generated files match, once committed
+go vet -tags compat ./test/compat/                 # the compat suite compiles
+```
 
-## Layout
+`test/envtest` needs `KUBEBUILDER_ASSETS`, which `make test` sets. To run it on
+its own, copy the variable from the `test` target in the Makefile.
+
+## Before you call it done
+
+Run what matches the change, then the full gate:
+`make lint test test-chart verify-crds verify-api-docs`. CI runs the same
+targets, plus compat and e2e.
+
+| You changed | Also run or check |
+| --- | --- |
+| `api/` | `make manifests generate sync-crds api-docs` and commit the output. The verify targets compare against git, so they fail until it's committed. |
+| A controller, client or `internal/export/` | The package's tests with `go test`. A new or changed field also needs a compat fixture value (see below). |
+| `chart/` | `make test-chart` and `helm lint chart/arrchitect`. A new value goes in `values.yaml` and `values.schema.json`. |
+| `config/samples/`, `examples/` or YAML in docs | `make test`. envtest applies every sample and example to a real API server. |
+| `test/compat/` | `go vet -tags compat ./test/compat/` |
+| `README.md` | `go test ./test/consistency/...`, which checks the supported-apps table. Keep links relative. |
+
+## Where things are
 
 - `api/<group>/v1alpha1/`: the API types. `api/common/v1alpha1/` holds the
   types several apps share.
@@ -42,22 +72,40 @@ the resource on every reconcile.
   tracking, and the status and event reason constants.
 - `internal/export/`: `arrchitect export`, which writes a resource from a
   running app.
-- `chart/arrchitect/`: the Helm chart, with `values.schema.json`.
+- `chart/arrchitect/`: the Helm chart and its `values.schema.json`.
 - `config/samples/`: one readable sample per kind. `examples/`: complete setups
-  users copy. envtest applies every file in both to a real API server.
+  users copy.
 - `test/compat/`: each app in a container, reconciled from the fixtures in
-  `test/compat/testdata/`.
-- `test/consistency/`: checks that the chart, CRDs, README, Renovate config and
-  API docs agree with the code.
+  `test/compat/testdata/`. `test/envtest/`: the CRDs, samples and admission
+  rules against a real API server. `test/consistency/`: checks that the chart,
+  CRDs, README, Renovate config and API docs agree with the code.
+
+Copy these when you add something similar:
+
+- A controller's client setup: `tdarrClient` in
+  `internal/controller/transcode/tdarr_controller.go`. It returns the client, a
+  reason and an error, and cleanup reuses it.
+- Status and events: `UpdateSyncStatus` in
+  `internal/controller/common/helpers.go`, with the reasons in
+  `internal/engine/controller.go`.
+- appRef resolution: `internal/controller/common/appref.go`. A failure goes
+  through `AppRefFailure`, which picks the reason and the requeue.
+- A compat case: `compatCase` in `test/compat/main_test.go`. A case has a
+  fixture, an `update` patch that changes what the first reconcile created,
+  `newerFields` for fields older releases lack, and an `export` check.
+- A CEL validation rule's test: `TestAdmissionRules` in
+  `test/envtest/apply_test.go`.
 
 ## Generated files
 
-Never edit these by hand. Change the source and regenerate.
+Never edit these by hand. Change the source, then regenerate.
 
-- `api/**/zz_generated.deepcopy.go`, from `make generate`
-- `config/crd/bases/`, from `make manifests`
-- `chart/arrchitect/files/crds/`, from `make sync-crds`
-- `docs/api.md`, from `make api-docs`, built from the API doc comments
+| File | Source | Command |
+| --- | --- | --- |
+| `api/**/zz_generated.deepcopy.go` | the API types | `make generate` |
+| `config/crd/bases/*.yaml` | the API types and markers | `make manifests` |
+| `chart/arrchitect/files/crds/*.yaml` | `config/crd/bases/` | `make sync-crds` |
+| `docs/api.md` | the API doc comments | `make api-docs` |
 
 ## Changing the API
 
@@ -80,13 +128,13 @@ Never edit these by hand. Change the source and regenerate.
 - A new field needs the type with its kubebuilder markers, the controller
   mapping, export support, and a value in the compat fixture
   (`test/compat/testdata/<app>.yaml`) so CI tests it against the real app. Add
-  it to the kind's sample when the sample shows similar fields. A field the app
-  only has from some version on goes in that app's `newerFields` in the compat
-  suite.
-- Renaming a json field or tightening validation is a breaking change. Mark the
-  commit with `!` and add an Upgrading line to the release notes.
+  it to the kind's sample when the sample shows similar fields. If only newer
+  releases of the app have it, list it in the case's `newerFields`.
+- A breaking change gets `!` in the commit and an Upgrading line in the release
+  notes. The API is `v1alpha1`, so a minor release may break it, but prefer
+  additive changes.
 - CEL validation rules run against a cost budget. A rule that walks a list of
-  objects can exceed it, so check new rules with envtest.
+  objects can exceed it, so test new rules in `TestAdmissionRules`.
 
 ## Code
 
@@ -102,13 +150,25 @@ Never edit these by hand. Change the source and regenerate.
   `Maintainerr has no Radarr server named "M"`,
   `Tdarr has more than one node named "T"`. The lint config allows a capital
   first letter in an error string only for an app name.
-- Report status through `ctrlcommon.UpdateSyncStatus` and the reason constants
-  in `internal/engine/controller.go`. An appRef failure goes through
-  `common.AppRefFailure`, which picks the reason and the requeue.
-- Never put a credential in a spec, status, event or log line. Status messages
-  strip every Secret value the operator has read.
+- Keep the existing requeue policy: 30 seconds for a missing Secret, 60 when an
+  app is unreachable, none for `InvalidConfig`. The shared helpers apply it.
+
+## Safety
+
+- Never put a credential in a spec, status, event or log line. Read Secrets
+  through `reconciler.ResolveSecretKeyRef`, which registers each value for
+  redaction, and pass any text an app sends back, such as an error body,
+  through `reconciler.Redact` before it goes into an error.
+- TLS verification stays on unless the user sets `insecureSkipVerify`. Every
+  client built for an app, including the target of an `appRef`, passes that
+  connection's TLS settings and its app name: `engine.WithTLSConfig` and
+  `engine.WithAppLabel`.
+- The engine's HTTP client refuses loopback and link-local addresses, to keep
+  the operator away from cloud metadata services. Don't weaken that. Tests
+  serve on `testnet.RoutableAddr(t)` or pass `engine.WithTransport`.
 - Prune and `deletionPolicy: delete` only delete items the operator created,
-  which `status.managedResources` records.
+  which `status.managedResources` records. Never delete an item the operator
+  didn't create.
 
 ## Things that have caught us before
 
@@ -119,12 +179,18 @@ Never edit these by hand. Change the source and regenerate.
   Several controllers map fields to app keys through the json tag (Jellyfin
   pascal-cases it, Tdarr sends it as is), so changing a json tag changes what
   the app receives.
+- The PVR clients take a provider's config contract from the app's schema.
+  Prowlarr's guess `<implementation>Settings`.
 - Changing a field from an object to a list breaks server-side apply of
   resources already stored. Avoid it, or put the one-off fix in the release
   notes.
 - A scoped API key, as Autobrr allows, gets 403 on kinds the operator doesn't
   own. List only kinds that `engine.Ownership` says the operator owns. Compat
   can't catch this, because its key has every scope.
+- qBittorrent 5.3 answers a bad password and a Host header that doesn't match
+  its port with the same bare 401.
+- Seerr's CSRF protection blocks API writes, so the operator leaves that
+  setting alone on purpose.
 - `git grep -E` doesn't support `\b`. Try a search on a known hit before
   trusting an empty result.
 
@@ -135,7 +201,7 @@ Never edit these by hand. Change the source and regenerate.
   no trailing period.
 - Spell apps as they do: qBittorrent, SABnzbd, Seerr, FlareSolverr. Never write
   "Servarr". Name the apps, or say "PVR apps". Readarr is archived upstream,
-  not deprecated.
+  not deprecated, and supported at its final releases.
 - Lead with plain manifests or the apps' official charts, not a generic chart
   such as app-template.
 - In YAML, use `http://<app>.media.svc.cluster.local:<port>`, namespace
@@ -154,3 +220,9 @@ Never edit these by hand. Change the source and regenerate.
 - `feat` and `fix` subjects should read as a change a user would notice. They
   feed the release notes and the Artifact Hub changelog.
 - Don't add AI attribution, such as `Co-Authored-By` or "Generated with" lines.
+
+## Keeping this file current
+
+When an agent makes the same mistake twice, or a reviewer corrects the same
+thing twice, add a line here. When a command, path or rule changes, change it
+here in the same commit. A stale instruction is worse than none.
