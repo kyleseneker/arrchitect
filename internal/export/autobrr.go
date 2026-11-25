@@ -422,7 +422,7 @@ func (r *reader) autobrrIndexer(i map[string]any) map[string]any {
 	if implementation, _ := i["implementation"].(string); implementation != autobrrclient.ImplementationIRC {
 		idx["identifier"] = implementation
 	} else {
-		setText(idx, "baseURL", i["base_url"])
+		setText(idx, "baseUrl", i["base_url"])
 	}
 	settings, _ := i["settings"].(map[string]any)
 	var out []any
