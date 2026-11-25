@@ -199,6 +199,56 @@ func TestUpdateStatusSurvivesASpecEditMidPass(t *testing.T) {
 	assert.Equal(t, "http://sonarr.edited:8989", got.Spec.Connection.URL, "the status write reverted the spec edit")
 }
 
+// lagging serves reads from a copy taken before a spec edit, as the informer
+// cache can right after one, and reads the latest version through APIReader.
+type lagging struct {
+	client.Client
+	snapshot *pvrv1alpha1.Sonarr
+}
+
+func (l lagging) Get(_ context.Context, _ client.ObjectKey, obj client.Object, _ ...client.GetOption) error {
+	*obj.(*pvrv1alpha1.Sonarr) = *l.snapshot.DeepCopy()
+	return nil
+}
+
+func (l lagging) APIReader() client.Reader { return l.Client }
+
+func TestUpdateStatusReadsPastALaggingCache(t *testing.T) {
+	ctx := context.Background()
+	obj := newConfig("", 0)
+	cl := testClient(obj).WithStatusSubresource(obj).Build()
+	key := client.ObjectKeyFromObject(obj)
+
+	stale := &pvrv1alpha1.Sonarr{}
+	require.NoError(t, cl.Get(ctx, key, stale))
+	edited := stale.DeepCopy()
+	edited.Spec.Connection.URL = "http://sonarr.edited:8989"
+	require.NoError(t, cl.Update(ctx, edited))
+	cache := lagging{Client: cl, snapshot: stale.DeepCopy()}
+
+	UpdateStatusManaged(stale, map[string][]string{"downloadClients": {"qbit"}})
+	UpdateStatus(ctx, cache, stale, true, engine.ReasonSynced, "ok")
+
+	got := &pvrv1alpha1.Sonarr{}
+	require.NoError(t, cl.Get(ctx, key, got))
+	assert.Equal(t, map[string][]string{"downloadClients": {"qbit"}}, got.GetManagedResources(),
+		"retrying against the cached version kept conflicting, and the ownership was lost")
+}
+
+func TestUpdateStatusOutlivesACancelledReconcile(t *testing.T) {
+	obj := newConfig("", 0)
+	cl := testClient(obj).WithStatusSubresource(obj).Build()
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	UpdateStatusManaged(obj, map[string][]string{"downloadClients": {"qbit"}})
+	UpdateStatus(ctx, cl, obj, true, engine.ReasonSynced, "ok")
+
+	got := &pvrv1alpha1.Sonarr{}
+	require.NoError(t, cl.Get(context.Background(), client.ObjectKeyFromObject(obj), got))
+	assert.Equal(t, map[string][]string{"downloadClients": {"qbit"}}, got.GetManagedResources())
+}
+
 func TestUpdateSyncStatus(t *testing.T) {
 	for _, tc := range []struct {
 		name    string

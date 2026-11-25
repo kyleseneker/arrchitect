@@ -190,7 +190,19 @@ func UpdateStatusUnreachable(ctx context.Context, c client.Client, obj ConfigRes
 // recorded in status.managedResources, and a resource the operator created but
 // no longer tracks can never be pruned or cleaned up. So retry against the
 // latest resourceVersion; the status subresource ignores everything but status.
+// The latest version is read past the cache, which can still hold the version
+// from before the edit, and the write outlives a reconcile cancelled mid-pass.
+// statusWriteTimeout bounds a status write, which runs on after its reconcile
+// is cancelled.
+const statusWriteTimeout = 10 * time.Second
+
 func writeStatus(ctx context.Context, c client.Client, obj ConfigResource) {
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), statusWriteTimeout)
+	defer cancel()
+	var latestReader client.Reader = c
+	if live, ok := c.(interface{ APIReader() client.Reader }); ok {
+		latestReader = live.APIReader()
+	}
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		err := c.Status().Update(ctx, obj)
 		if !apierrors.IsConflict(err) {
@@ -200,7 +212,7 @@ func writeStatus(ctx context.Context, c client.Client, obj ConfigResource) {
 		if !ok {
 			return err
 		}
-		if getErr := c.Get(ctx, client.ObjectKeyFromObject(obj), latest); getErr != nil {
+		if getErr := latestReader.Get(ctx, client.ObjectKeyFromObject(obj), latest); getErr != nil {
 			return getErr
 		}
 		obj.SetResourceVersion(latest.GetResourceVersion())
