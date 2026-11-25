@@ -17,3 +17,11 @@ func TestRedactRemovesRememberedSecrets(t *testing.T) {
 	assert.Equal(t, "GET /api?password=<redacted>", Redact("GET /api?password=p%40ss+word%2Fredact"), "URL-encoded")
 	assert.Equal(t, "ab cd", Redact("ab cd"), "too short to tell from ordinary text")
 }
+
+func TestRememberSecretAsReplacesARotatedValue(t *testing.T) {
+	RememberSecretAs("media/sonarr-credentials/api-key", "first-key-rotate-test")
+	RememberSecretAs("media/sonarr-credentials/api-key", "second-key-rotate-test")
+
+	assert.Equal(t, "first-key-rotate-test <redacted>", Redact("first-key-rotate-test second-key-rotate-test"),
+		"only the current value of a Secret key is kept")
+}
