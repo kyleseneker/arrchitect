@@ -65,7 +65,7 @@ func exportPlex(r *reader) (map[string]any, error) {
 						out[name] = value
 					}
 				default:
-					return nil, fmt.Errorf("plex %s.%s: unsupported type %s", section, name, field.Type)
+					return nil, fmt.Errorf("Plex %s.%s: unsupported type %s", section, name, field.Type)
 				}
 			}
 		}

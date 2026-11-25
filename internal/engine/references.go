@@ -47,7 +47,7 @@ func (ids NamedIDs) Find(name string) (id int, found bool, err error) {
 	case 1:
 		return values[0], true, nil
 	default:
-		return 0, true, fmt.Errorf("reference %q is ambiguous (%d matches)", name, len(values))
+		return 0, true, fmt.Errorf("the app has more than one item named %q", name)
 	}
 }
 
@@ -74,7 +74,7 @@ func (ids NamedIDs) Resolve(name string) (int, error) {
 	case err != nil:
 		return 0, err
 	case !found:
-		return 0, fmt.Errorf("reference %q does not exist", name)
+		return 0, fmt.Errorf("the app has no item named %q", name)
 	case id <= 0 && id != PlannedID:
 		return 0, fmt.Errorf("reference %q has an invalid ID", name)
 	}

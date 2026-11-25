@@ -51,7 +51,7 @@ func (s *maintainerrSync) notification(ctx context.Context, n *curationv1alpha1.
 			continue
 		}
 		if current != nil {
-			return fmt.Errorf("maintainerr has more than one notification named %q", n.Name)
+			return fmt.Errorf("Maintainerr has more than one notification named %q", n.Name)
 		}
 		current = e
 	}

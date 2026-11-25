@@ -78,6 +78,11 @@ linters:
           - dupl
           - lll
         path: internal/*
+      # An error may start with an app's name, which is a proper noun.
+      - linters:
+          - staticcheck
+        text: 'ST1005:'
+        source: '"(Autobrr|Bazarr|FlareSolverr|Jellyfin|Lidarr|Maintainerr|Plex|Prowlarr|Radarr|Readarr|SABnzbd|Seerr|Sonarr|Tautulli|Tdarr) '
     paths:
       - third_party$
       - builtin$

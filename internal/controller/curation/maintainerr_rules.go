@@ -143,7 +143,7 @@ func (s *maintainerrSync) ruleGroup(
 			continue
 		}
 		if match != nil {
-			return fmt.Errorf("maintainerr has more than one rule group named %q", g.Name)
+			return fmt.Errorf("Maintainerr has more than one rule group named %q", g.Name)
 		}
 		match = e
 	}
@@ -182,13 +182,13 @@ func (s *maintainerrSync) qualityProfile(
 	if name == "" {
 		return nil, fmt.Errorf("arrAction changeQualityProfile needs radarrServer or sonarrServer")
 	}
-	id, err := oneNamed(env.servers[kind], string(kind)+" server", name)
+	id, err := oneNamed(env.servers[kind], engine.AppName(string(kind))+" server", name)
 	if err != nil {
 		return nil, err
 	}
 	profiles, err := s.mc.QualityProfiles(ctx, kind, id)
 	if err != nil {
-		return nil, fmt.Errorf("listing %s quality profiles: %w", kind, err)
+		return nil, fmt.Errorf("listing %s quality profiles: %w", engine.AppName(string(kind)), err)
 	}
 	for _, p := range profiles {
 		if p["name"] == g.QualityProfile {
@@ -198,7 +198,7 @@ func (s *maintainerrSync) qualityProfile(
 			}
 		}
 	}
-	return nil, fmt.Errorf("%s server %q has no quality profile named %q", kind, name, g.QualityProfile)
+	return nil, fmt.Errorf("%s server %q has no quality profile named %q", engine.AppName(string(kind)), name, g.QualityProfile)
 }
 
 // buildRuleGroup renders a rule group as Maintainerr saves it (send) and the
@@ -221,11 +221,11 @@ func buildRuleGroup(
 		return nil, nil, fmt.Errorf("unknown arrAction %q", g.ArrAction)
 	}
 	if isTrue(g.CleanupLeftoverFolders) && !leftoverCleanupAllowed(dataType, g.ArrAction) {
-		return nil, nil, fmt.Errorf("maintainerr does not clean up leftover folders for %s on %s; "+
+		return nil, nil, fmt.Errorf("Maintainerr does not clean up leftover folders for %s on %s; "+
 			"it would store cleanupLeftoverFolders as false", g.ArrAction, dataType)
 	}
 	if isTrue(g.ForceSeerr) && dataType == dataEpisode {
-		return nil, nil, fmt.Errorf("maintainerr does not support forceSeerr for episodes; it would store it as false")
+		return nil, nil, fmt.Errorf("Maintainerr does not support forceSeerr for episodes; it would store it as false")
 	}
 	radarr, err := serverID(env, maintainerrclient.Radarr, g.RadarrServer)
 	if err != nil {
@@ -415,7 +415,7 @@ func (env ruleEnv) resolve(identifier string) ([]int, error) {
 	}
 	appKey := strings.ToLower(appName)
 	if slices.Contains(maintainerrMediaServerApps, appKey) && appKey != env.mediaServer {
-		server := env.mediaServer
+		server := engine.AppName(env.mediaServer)
 		if server == "" {
 			server = "not set"
 		}
@@ -423,11 +423,11 @@ func (env ruleEnv) resolve(identifier string) ([]int, error) {
 	}
 	app, ok := env.apps[appKey]
 	if !ok {
-		return nil, fmt.Errorf("maintainerr lists no application %q; it lists only the apps it is connected to", appName)
+		return nil, fmt.Errorf("Maintainerr lists no application %q; it lists only the apps it is connected to", appName)
 	}
 	candidates := app.props[strings.ToLower(propName)]
 	if len(candidates) == 0 {
-		return nil, fmt.Errorf("maintainerr has no %s property %q", appName, propName)
+		return nil, fmt.Errorf("Maintainerr has no %s property named %q", appName, propName)
 	}
 	chosen := candidates[0]
 	for _, p := range candidates {
@@ -480,12 +480,12 @@ func findLibrary(libraries []map[string]any, title string) (map[string]any, erro
 			continue
 		}
 		if match != nil {
-			return nil, fmt.Errorf("the media server has more than one library titled %q", title)
+			return nil, fmt.Errorf("the media server has more than one library named %q", title)
 		}
 		match = lib
 	}
 	if match == nil {
-		return nil, fmt.Errorf("the media server has no library titled %q (it has %s)", title, strings.Join(titles, ", "))
+		return nil, fmt.Errorf("the media server has no library named %q (it has %s)", title, strings.Join(titles, ", "))
 	}
 	return match, nil
 }
@@ -526,7 +526,7 @@ func serverID(env ruleEnv, kind maintainerrclient.Arr, name string) (any, error)
 	if name == "" {
 		return nil, nil
 	}
-	return oneNamed(env.servers[kind], string(kind)+" server", name)
+	return oneNamed(env.servers[kind], engine.AppName(string(kind))+" server", name)
 }
 
 // oneNamed returns the ID of the single item named name, refusing a name that
@@ -535,9 +535,9 @@ func oneNamed(ids engine.NamedIDs, what, name string) (int, error) {
 	id, found, err := ids.Find(name)
 	switch {
 	case err != nil:
-		return 0, fmt.Errorf("maintainerr has more than one %s named %q", what, name)
+		return 0, fmt.Errorf("Maintainerr has more than one %s named %q", what, name)
 	case !found:
-		return 0, fmt.Errorf("maintainerr has no %s named %q", what, name)
+		return 0, fmt.Errorf("Maintainerr has no %s named %q", what, name)
 	}
 	return id, nil
 }

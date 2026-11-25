@@ -118,7 +118,7 @@ type KeptError struct {
 }
 
 func (e *KeptError) Error() string {
-	return fmt.Sprintf("%s refused to delete %d item(s)", e.App, len(e.Kept))
+	return fmt.Sprintf("%s refused to delete %d item(s)", AppName(e.App), len(e.Kept))
 }
 
 // SplitKept separates what an app refused to delete, which no retry will

@@ -236,7 +236,7 @@ func (r *SeerrReconciler) cleanup(ctx context.Context, config *requestsv1alpha1.
 func seerrServices(ctx context.Context, sc *seerrclient.Client, kind string) ([]string, map[string]int, error) {
 	servers, err := sc.GetList(ctx, "/api/v1/settings/"+kind)
 	if err != nil {
-		return nil, nil, fmt.Errorf("listing %s connections: %w", kind, err)
+		return nil, nil, fmt.Errorf("listing %s connections: %w", engine.AppName(kind), err)
 	}
 	var names []string
 	ids := map[string]int{}
@@ -437,7 +437,7 @@ func reconcileSeerrLibraries(ctx context.Context, sc *seerrclient.Client, w *eng
 	for _, lib := range libraries {
 		name, _ := lib["name"].(string)
 		if seen[name] {
-			return fmt.Errorf("two libraries are named %q", name)
+			return fmt.Errorf("the media server has more than one library named %q", name)
 		}
 		seen[name] = true
 	}
@@ -850,7 +850,7 @@ func reconcileSeerrJellyfin(ctx context.Context, sc *seerrclient.Client, w *engi
 	}
 	current, err := sc.Get(ctx, "/api/v1/settings/jellyfin")
 	if err != nil {
-		return fmt.Errorf("reading jellyfin settings: %w", err)
+		return fmt.Errorf("reading Jellyfin settings: %w", err)
 	}
 	if !seerrDiffers(current, payload) {
 		return nil
@@ -877,7 +877,7 @@ func setUpLibraries(ctx context.Context, sc *seerrclient.Client, w *engine.Write
 		return enableLibraries(ctx, sc, server)
 	}
 	if _, err := sc.PostList(ctx, fmt.Sprintf("/api/v1/settings/%s/library/sync", server), map[string]any{}); err != nil {
-		return fmt.Errorf("%s library sync: %w", server, err)
+		return fmt.Errorf("%s library sync: %w", engine.AppName(server), err)
 	}
 	return reconcileSeerrLibraries(ctx, sc, w, server, libraries)
 }
@@ -896,7 +896,7 @@ func reconcileSeerrPlex(ctx context.Context, sc *seerrclient.Client, w *engine.W
 	}
 	current, err := sc.Get(ctx, "/api/v1/settings/plex")
 	if err != nil {
-		return fmt.Errorf("reading plex settings: %w", err)
+		return fmt.Errorf("reading Plex settings: %w", err)
 	}
 	if !seerrDiffers(current, payload) {
 		return nil
@@ -915,7 +915,7 @@ func reconcileSeerrPlex(ctx context.Context, sc *seerrclient.Client, w *engine.W
 func enableLibraries(ctx context.Context, sc *seerrclient.Client, server string) error {
 	libraries, err := sc.PostList(ctx, fmt.Sprintf("/api/v1/settings/%s/library/sync", server), map[string]any{})
 	if err != nil {
-		return fmt.Errorf("%s library sync: %w", server, err)
+		return fmt.Errorf("%s library sync: %w", engine.AppName(server), err)
 	}
 	for _, lib := range libraries {
 		id, ok := lib["id"].(string)
@@ -923,7 +923,7 @@ func enableLibraries(ctx context.Context, sc *seerrclient.Client, server string)
 			continue
 		}
 		if err := sc.Put(ctx, fmt.Sprintf("/api/v1/settings/%s/library/%s", server, id), map[string]any{"enabled": true}); err != nil {
-			return fmt.Errorf("enabling %s library %s: %w", server, id, err)
+			return fmt.Errorf("enabling %s library %s: %w", engine.AppName(server), id, err)
 		}
 	}
 	return nil
@@ -959,7 +959,7 @@ func (r *SeerrReconciler) authenticate(ctx context.Context, sc *seerrclient.Clie
 		}
 		plexToken, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, namespace, *plex.TokenSecretRef)
 		if err != nil {
-			return fmt.Errorf("resolving plex token: %w", err)
+			return fmt.Errorf("resolving Plex token: %w", err)
 		}
 		return sc.AuthenticatePlex(ctx, plexToken)
 	}
@@ -969,11 +969,11 @@ func (r *SeerrReconciler) authenticate(ctx context.Context, sc *seerrclient.Clie
 		}
 		jfUsername, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, namespace, *jf.UsernameSecretRef)
 		if err != nil {
-			return fmt.Errorf("resolving jellyfin username: %w", err)
+			return fmt.Errorf("resolving Jellyfin username: %w", err)
 		}
 		jfPassword, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, namespace, *jf.PasswordSecretRef)
 		if err != nil {
-			return fmt.Errorf("resolving jellyfin password: %w", err)
+			return fmt.Errorf("resolving Jellyfin password: %w", err)
 		}
 		jfPort := 0
 		if jf.Port != nil {

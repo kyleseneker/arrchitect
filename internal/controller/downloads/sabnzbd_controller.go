@@ -302,7 +302,7 @@ func applySabnzbd(ctx context.Context, sc *sabnzbdclient.Client, writes []sabWri
 			err = sc.SetNamed(ctx, w.section, w.name, w.values)
 		}
 		if err != nil {
-			log.FromContext(ctx).Error(err, "failed to write sabnzbd config", "section", w.section, "name", w.name)
+			log.FromContext(ctx).Error(err, "failed to write SABnzbd config", "section", w.section, "name", w.name)
 			problems = append(problems, fmt.Sprintf("%s(%s): %v", w.resourceType, w.name, err))
 			continue
 		}

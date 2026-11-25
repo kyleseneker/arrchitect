@@ -98,9 +98,9 @@ func TestResolveReferencesInObserveModePlansWhatTheSpecDeclares(t *testing.T) {
 
 	spec.Indexers[0].TagLabels = []string{"typo"}
 	_, _, err = ResolveReferences(context.Background(), hc, spec, true)
-	assert.ErrorContains(t, err, `reference "typo" does not exist`, "a name the spec doesn't declare still fails")
+	assert.ErrorContains(t, err, `the app has no item named "typo"`, "a name the spec doesn't declare still fails")
 
 	spec.Indexers[0].TagLabels = []string{"tv"}
 	_, _, err = ResolveReferences(context.Background(), hc, spec, false)
-	assert.ErrorContains(t, err, `reference "tv" does not exist`, "enforcing creates tags before resolving them")
+	assert.ErrorContains(t, err, `the app has no item named "tv"`, "enforcing creates tags before resolving them")
 }
