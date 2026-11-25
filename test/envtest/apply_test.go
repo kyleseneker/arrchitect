@@ -456,6 +456,9 @@ func TestAdmissionRules(t *testing.T) {
 		{name: "Sonarr keepAndTag without a tag", kind: "Sonarr", spec: conn + `
   importListConfig: {listSyncLevel: keepAndTag}`,
 			rejected: "listSyncTagLabel goes with listSyncLevel keepAndTag"},
+		{name: "a Sonarr list sync tag without a level", kind: "Sonarr", spec: conn + `
+  importListConfig: {listSyncTagLabel: unlisted}`,
+			rejected: "listSyncLevel: Required value"},
 		{name: "Radarr list sync removing movies", kind: "Radarr", spec: conn + `
   importListConfig: {listSyncLevel: removeAndKeep}`},
 		{name: "Radarr keepAndTag", kind: "Radarr", spec: conn + `

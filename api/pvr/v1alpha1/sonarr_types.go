@@ -39,7 +39,7 @@ type SonarrSpec struct {
 	// importListConfig configures what Sonarr does with a series its import
 	// lists no longer have.
 	// +optional
-	ImportListConfig *SonarrImportListConfig `json:"importListConfig,omitempty"`
+	ImportListConfig SonarrImportListConfig `json:"importListConfig,omitzero"`
 
 	// rootFolders defines media library root folder paths.
 	// +optional
@@ -366,12 +366,12 @@ type SonarrUI struct {
 }
 
 // SonarrImportListConfig configures Sonarr's import list sync.
-// +kubebuilder:validation:XValidation:rule="has(self.listSyncTagLabel) == (has(self.listSyncLevel) && self.listSyncLevel == 'keepAndTag')",message="listSyncTagLabel goes with listSyncLevel keepAndTag"
+// +kubebuilder:validation:XValidation:rule="has(self.listSyncTagLabel) == (self.listSyncLevel == 'keepAndTag')",message="listSyncTagLabel goes with listSyncLevel keepAndTag"
 type SonarrImportListConfig struct {
 	// listSyncLevel is what Sonarr does with a series no import list has any
 	// more: disabled, logOnly, keepAndUnmonitor, or keepAndTag to tag it with
 	// listSyncTagLabel.
-	// +optional
+	// +required
 	// +kubebuilder:validation:Enum=disabled;logOnly;keepAndUnmonitor;keepAndTag
 	ListSyncLevel string `json:"listSyncLevel,omitempty"`
 

@@ -2644,11 +2644,7 @@ func (in *SonarrSpec) DeepCopyInto(out *SonarrSpec) {
 		*out = new(SonarrUI)
 		(*in).DeepCopyInto(*out)
 	}
-	if in.ImportListConfig != nil {
-		in, out := &in.ImportListConfig, &out.ImportListConfig
-		*out = new(SonarrImportListConfig)
-		**out = **in
-	}
+	out.ImportListConfig = in.ImportListConfig
 	if in.RootFolders != nil {
 		in, out := &in.RootFolders, &out.RootFolders
 		*out = make([]commonv1alpha1.RootFolder, len(*in))
