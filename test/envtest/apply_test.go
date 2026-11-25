@@ -191,6 +191,46 @@ func TestAdmissionRules(t *testing.T) {
 		{name: "a Lidarr root folder without profiles", kind: "Lidarr", spec: conn + `
   rootFolders: [{path: /music}]`,
 			rejected: "Lidarr root folders need defaultQualityProfileName and defaultMetadataProfileName"},
+		{name: "Jellyfin branding and scheduled tasks", kind: "Jellyfin", spec: `
+  connection: {url: http://jellyfin:8096}
+  adminUser:
+    usernameSecretRef: {name: app, key: username}
+    passwordSecretRef: {name: app, key: password}
+  branding: {loginDisclaimer: Members only, splashscreenEnabled: true}
+  scheduledTasks:
+    - key: RefreshLibrary
+      triggers: [{type: IntervalTrigger, intervalMinutes: 720}]
+    - key: RefreshChapterImages
+      triggers: [{type: WeeklyTrigger, timeOfDay: "03:30", dayOfWeek: Sunday, maxRuntimeHours: 4}]
+    - key: CleanCache
+      triggers: []`},
+		{name: "a Jellyfin daily trigger without a time", kind: "Jellyfin", spec: `
+  connection: {url: http://jellyfin:8096}
+  adminUser:
+    usernameSecretRef: {name: app, key: username}
+    passwordSecretRef: {name: app, key: password}
+  scheduledTasks: [{key: RefreshLibrary, triggers: [{type: DailyTrigger}]}]`,
+			rejected: "timeOfDay goes with a DailyTrigger or WeeklyTrigger"},
+		{name: "a Jellyfin interval trigger with a day", kind: "Jellyfin", spec: `
+  connection: {url: http://jellyfin:8096}
+  adminUser:
+    usernameSecretRef: {name: app, key: username}
+    passwordSecretRef: {name: app, key: password}
+  scheduledTasks: [{key: RefreshLibrary, triggers: [{type: IntervalTrigger, intervalMinutes: 60, dayOfWeek: Monday}]}]`,
+			rejected: "dayOfWeek goes with a WeeklyTrigger"},
+		{name: "a Jellyfin trigger time past midnight", kind: "Jellyfin", spec: `
+  connection: {url: http://jellyfin:8096}
+  adminUser:
+    usernameSecretRef: {name: app, key: username}
+    passwordSecretRef: {name: app, key: password}
+  scheduledTasks: [{key: RefreshLibrary, triggers: [{type: DailyTrigger, timeOfDay: "24:00"}]}]`,
+			rejected: "should match"},
+		{name: "a Jellyfin task left to run by hand", kind: "Jellyfin", spec: `
+  connection: {url: http://jellyfin:8096}
+  adminUser:
+    usernameSecretRef: {name: app, key: username}
+    passwordSecretRef: {name: app, key: password}
+  scheduledTasks: [{key: RefreshLibrary}]`},
 		{name: "prune on Jellyfin", kind: "Jellyfin", spec: `
   connection: {url: http://jellyfin:8096}
   adminUser:

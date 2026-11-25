@@ -95,6 +95,23 @@ spec:
                 - passwordSecretRef
                 - usernameSecretRef
                 type: object
+              branding:
+                description: branding configures the login page and the web client's
+                  look.
+                properties:
+                  customCss:
+                    description: customCss is CSS the web client applies to every
+                      page.
+                    type: string
+                  loginDisclaimer:
+                    description: loginDisclaimer is shown below the login form, and
+                      can hold HTML.
+                    type: string
+                  splashscreenEnabled:
+                    description: splashscreenEnabled shows the splash screen while
+                      the web client loads.
+                    type: boolean
+                type: object
               connection:
                 description: connection defines how to connect to the Jellyfin instance.
                 properties:
@@ -819,6 +836,90 @@ spec:
                 - message: deletionPolicy delete conflicts with driftPolicy observe
                   rule: '!has(self.deletionPolicy) || self.deletionPolicy != ''delete''
                     || !has(self.driftPolicy) || self.driftPolicy != ''observe'''
+              scheduledTasks:
+                description: |-
+                  scheduledTasks sets when Jellyfin runs its scheduled tasks. A listed
+                  task's triggers replace the ones it has; tasks left out keep theirs.
+                items:
+                  description: JellyfinScheduledTask sets when one of Jellyfin's scheduled
+                    tasks runs.
+                  properties:
+                    key:
+                      description: |-
+                        key is the task's key as Jellyfin's /ScheduledTasks lists it, such as
+                        RefreshLibrary (Scan Media Library) or RefreshChapterImages.
+                      minLength: 1
+                      type: string
+                    triggers:
+                      description: |-
+                        triggers are when the task runs. Left out or empty, the task runs only
+                        when started by hand.
+                      items:
+                        description: JellyfinTaskTrigger is one time a scheduled task
+                          runs.
+                        properties:
+                          dayOfWeek:
+                            description: dayOfWeek is the day a weekly trigger fires.
+                            enum:
+                            - Sunday
+                            - Monday
+                            - Tuesday
+                            - Wednesday
+                            - Thursday
+                            - Friday
+                            - Saturday
+                            type: string
+                          intervalMinutes:
+                            description: intervalMinutes is how often an interval
+                              trigger fires.
+                            format: int32
+                            minimum: 1
+                            type: integer
+                          maxRuntimeHours:
+                            description: maxRuntimeHours stops the task after it has
+                              run this many hours.
+                            format: int32
+                            minimum: 1
+                            type: integer
+                          timeOfDay:
+                            description: |-
+                              timeOfDay is when a daily or weekly trigger fires, as HH:MM in the
+                              server's time zone.
+                            maxLength: 5
+                            minLength: 5
+                            pattern: ^([01][0-9]|2[0-3]):[0-5][0-9]$
+                            type: string
+                          type:
+                            description: |-
+                              type is DailyTrigger, WeeklyTrigger, IntervalTrigger, or StartupTrigger
+                              to run when Jellyfin starts.
+                            enum:
+                            - DailyTrigger
+                            - WeeklyTrigger
+                            - IntervalTrigger
+                            - StartupTrigger
+                            type: string
+                        required:
+                        - type
+                        type: object
+                        x-kubernetes-validations:
+                        - message: timeOfDay goes with a DailyTrigger or WeeklyTrigger
+                          rule: has(self.timeOfDay) == (self.type == 'DailyTrigger'
+                            || self.type == 'WeeklyTrigger')
+                        - message: dayOfWeek goes with a WeeklyTrigger
+                          rule: has(self.dayOfWeek) == (self.type == 'WeeklyTrigger')
+                        - message: intervalMinutes goes with an IntervalTrigger
+                          rule: has(self.intervalMinutes) == (self.type == 'IntervalTrigger')
+                      maxItems: 16
+                      type: array
+                      x-kubernetes-list-type: atomic
+                  required:
+                  - key
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - key
+                x-kubernetes-list-type: map
               server:
                 description: server configures Jellyfin server settings.
                 properties:

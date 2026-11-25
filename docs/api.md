@@ -1180,6 +1180,25 @@ _Appears in:_
 | `passwordSecretRef` _[SecretKeyRef](#secretkeyref)_ | passwordSecretRef references a Secret containing the admin password. |  | Required: \{\} <br /> |
 
 
+#### JellyfinBranding
+
+
+
+JellyfinBranding configures Jellyfin's branding. The splash screen image is
+uploaded in Jellyfin, so it stays out.
+
+
+
+_Appears in:_
+- [JellyfinSpec](#jellyfinspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `loginDisclaimer` _string_ | loginDisclaimer is shown below the login form, and can hold HTML. |  | Optional: \{\} <br /> |
+| `customCss` _string_ | customCss is CSS the web client applies to every page. |  | Optional: \{\} <br /> |
+| `splashscreenEnabled` _boolean_ | splashscreenEnabled shows the splash screen while the web client loads. |  | Optional: \{\} <br /> |
+
+
 #### JellyfinConnection
 
 
@@ -1336,6 +1355,23 @@ _Appears in:_
 | `isRemoteIPFilterBlacklist` _boolean_ | isRemoteIPFilterBlacklist blocks the addresses in remoteIPFilter instead<br />of allowing only them. |  | Optional: \{\} <br /> |
 
 
+#### JellyfinScheduledTask
+
+
+
+JellyfinScheduledTask sets when one of Jellyfin's scheduled tasks runs.
+
+
+
+_Appears in:_
+- [JellyfinSpec](#jellyfinspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `key` _string_ | key is the task's key as Jellyfin's /ScheduledTasks lists it, such as<br />RefreshLibrary (Scan Media Library) or RefreshChapterImages. |  | MinLength: 1 <br />Required: \{\} <br /> |
+| `triggers` _[JellyfinTaskTrigger](#jellyfintasktrigger) array_ | triggers are when the task runs. Left out or empty, the task runs only<br />when started by hand. |  | MaxItems: 16 <br />Optional: \{\} <br /> |
+
+
 #### JellyfinServer
 
 
@@ -1396,6 +1432,8 @@ _Appears in:_
 | `server` _[JellyfinServer](#jellyfinserver)_ | server configures Jellyfin server settings. |  | Optional: \{\} <br /> |
 | `encoding` _[JellyfinEncoding](#jellyfinencoding)_ | encoding configures hardware-accelerated transcoding settings. |  | Optional: \{\} <br /> |
 | `network` _[JellyfinNetwork](#jellyfinnetwork)_ | network configures how Jellyfin tells local clients from remote ones and<br />which proxies it trusts. |  | Optional: \{\} <br /> |
+| `branding` _[JellyfinBranding](#jellyfinbranding)_ | branding configures the login page and the web client's look. |  | Optional: \{\} <br /> |
+| `scheduledTasks` _[JellyfinScheduledTask](#jellyfinscheduledtask) array_ | scheduledTasks sets when Jellyfin runs its scheduled tasks. A listed<br />task's triggers replace the ones it has; tasks left out keep theirs. |  | Optional: \{\} <br /> |
 | `libraries` _[JellyfinLibrary](#jellyfinlibrary) array_ | libraries defines media libraries, matched by name. An existing library<br />keeps the declared folders and options: folders it doesn't list are<br />removed. Libraries are never deleted, and a library's type can't change<br />in place. |  | Optional: \{\} <br /> |
 
 
@@ -1418,6 +1456,26 @@ _Appears in:_
 | `lastSyncTime` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#time-v1-meta)_ | lastSyncTime is the timestamp of the last successful reconciliation. |  | Optional: \{\} <br /> |
 | `initialized` _boolean_ | initialized indicates whether the Jellyfin setup wizard has been completed. |  | Optional: \{\} <br /> |
 | `managedResources` _[ManagedResource](#managedresource) array_ | managedResources records the resources this operator created, keyed by<br />resource type. Prune only removes entries listed here, so resources<br />created outside the operator are never deleted. |  | Optional: \{\} <br /> |
+
+
+#### JellyfinTaskTrigger
+
+
+
+JellyfinTaskTrigger is one time a scheduled task runs.
+
+
+
+_Appears in:_
+- [JellyfinScheduledTask](#jellyfinscheduledtask)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `type` _string_ | type is DailyTrigger, WeeklyTrigger, IntervalTrigger, or StartupTrigger<br />to run when Jellyfin starts. |  | Enum: [DailyTrigger WeeklyTrigger IntervalTrigger StartupTrigger] <br />Required: \{\} <br /> |
+| `timeOfDay` _string_ | timeOfDay is when a daily or weekly trigger fires, as HH:MM in the<br />server's time zone. |  | MaxLength: 5 <br />MinLength: 5 <br />Pattern: `^([01][0-9]\|2[0-3]):[0-5][0-9]$` <br />Optional: \{\} <br /> |
+| `dayOfWeek` _string_ | dayOfWeek is the day a weekly trigger fires. |  | Enum: [Sunday Monday Tuesday Wednesday Thursday Friday Saturday] <br />Optional: \{\} <br /> |
+| `intervalMinutes` _integer_ | intervalMinutes is how often an interval trigger fires. |  | Minimum: 1 <br />Optional: \{\} <br /> |
+| `maxRuntimeHours` _integer_ | maxRuntimeHours stops the task after it has run this many hours. |  | Minimum: 1 <br />Optional: \{\} <br /> |
 
 
 #### JellyfinTrickplay
