@@ -151,7 +151,7 @@ type SeerrPlexAuth struct {
 
 	// useSsl enables SSL for the Plex connection.
 	// +optional
-	UseSsl *bool `json:"useSsl,omitempty"`
+	UseSSL *bool `json:"useSsl,omitempty"`
 
 	// tokenSecretRef references a Secret containing a Plex token.
 	// +optional
@@ -180,12 +180,12 @@ type SeerrJellyfinAuth struct {
 
 	// useSsl enables SSL for the Jellyfin connection.
 	// +optional
-	UseSsl *bool `json:"useSsl,omitempty"`
+	UseSSL *bool `json:"useSsl,omitempty"`
 
 	// urlBase is the subpath Jellyfin is served under, if any.
 	// +optional
 	// +kubebuilder:validation:MinLength=1
-	UrlBase string `json:"urlBase,omitempty"`
+	URLBase string `json:"urlBase,omitempty"`
 
 	// usernameSecretRef references a Secret containing the Jellyfin username.
 	// +optional
@@ -246,7 +246,7 @@ type SeerrMain struct {
 	// applicationUrl is the external URL for the application.
 	// +optional
 	// +kubebuilder:validation:MinLength=1
-	ApplicationUrl string `json:"applicationUrl,omitempty"`
+	ApplicationURL string `json:"applicationUrl,omitempty"`
 
 	// hideAvailable hides already-available media from discovery.
 	// +optional
@@ -310,7 +310,7 @@ type SeerrMain struct {
 	// +optional
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:Pattern=`^https?://`
-	YoutubeUrl string `json:"youtubeUrl,omitempty"`
+	YoutubeURL string `json:"youtubeUrl,omitempty"`
 
 	// discoverRegion limits discovery to what's released in this ISO 3166-1
 	// region, such as US.
@@ -426,17 +426,17 @@ type SeerrServiceConnection struct {
 
 	// useSsl enables SSL for the service connection.
 	// +optional
-	UseSsl *bool `json:"useSsl,omitempty"`
+	UseSSL *bool `json:"useSsl,omitempty"`
 
 	// baseUrl is the URL base path for the service.
 	// +optional
 	// +kubebuilder:validation:MinLength=1
-	BaseUrl string `json:"baseUrl,omitempty"`
+	BaseURL string `json:"baseUrl,omitempty"`
 
 	// activeProfileId is the quality profile's ID, used when activeProfileName
 	// is not set.
 	// +optional
-	ActiveProfileId *int32 `json:"activeProfileId,omitempty"`
+	ActiveProfileID *int32 `json:"activeProfileId,omitempty"`
 
 	// activeProfileName is the quality profile's name, resolved against the
 	// server on each reconciliation. It takes precedence over activeProfileId.
@@ -478,7 +478,7 @@ type SeerrServiceConnection struct {
 	// externalUrl is the address users open the server at, for links in Seerr.
 	// +optional
 	// +kubebuilder:validation:MinLength=1
-	ExternalUrl string `json:"externalUrl,omitempty"`
+	ExternalURL string `json:"externalUrl,omitempty"`
 
 	// syncEnabled scans the server for media and request status.
 	// +optional

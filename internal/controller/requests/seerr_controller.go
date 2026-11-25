@@ -350,7 +350,7 @@ func (r *SeerrReconciler) reconcileServiceConnection(
 		return fmt.Errorf("resolving profile: %w", err)
 	}
 	if svc.AppRef != nil {
-		payload["baseUrl"] = svc.BaseUrl
+		payload["baseUrl"] = svc.BaseURL
 	}
 
 	for _, e := range existing {
@@ -482,7 +482,7 @@ func (r *SeerrReconciler) resolveService(
 		if err != nil {
 			return svc, nil, fmt.Errorf("appRef: %w", err)
 		}
-		svc.Hostname, svc.Port, svc.UseSsl, svc.BaseUrl, svc.APIKeySecretRef = addr.Host, &addr.Port, &addr.TLS, addr.Base, app.APIKeySecretRef
+		svc.Hostname, svc.Port, svc.UseSSL, svc.BaseURL, svc.APIKeySecretRef = addr.Host, &addr.Port, &addr.TLS, addr.Base, app.APIKeySecretRef
 		tlsSpec = app.TLS
 	}
 	if svc.APIKeySecretRef == nil {
@@ -506,7 +506,7 @@ func (r *SeerrReconciler) mediaServer(ctx context.Context, config *requestsv1alp
 				return m, fmt.Errorf("jellyfinAuth appRef: %w", err)
 			}
 			auth = requestsv1alpha1.SeerrJellyfinAuth{
-				Hostname: addr.Host, Port: &addr.Port, UseSsl: &addr.TLS, UrlBase: addr.Base,
+				Hostname: addr.Host, Port: &addr.Port, UseSSL: &addr.TLS, URLBase: addr.Base,
 				UsernameSecretRef: app.UsernameSecretRef, PasswordSecretRef: app.PasswordSecretRef,
 			}
 		}
@@ -518,7 +518,7 @@ func (r *SeerrReconciler) mediaServer(ctx context.Context, config *requestsv1alp
 			if err != nil {
 				return m, fmt.Errorf("plexAuth appRef: %w", err)
 			}
-			auth = requestsv1alpha1.SeerrPlexAuth{Hostname: addr.Host, Port: &addr.Port, UseSsl: &addr.TLS, TokenSecretRef: app.TokenSecretRef}
+			auth = requestsv1alpha1.SeerrPlexAuth{Hostname: addr.Host, Port: &addr.Port, UseSSL: &addr.TLS, TokenSecretRef: app.TokenSecretRef}
 		}
 		m.plex = &auth
 	}
@@ -550,14 +550,14 @@ func buildServicePayload(svc *requestsv1alpha1.SeerrServiceConnection, apiKey st
 	if svc.Port != nil {
 		payload["port"] = *svc.Port
 	}
-	if svc.UseSsl != nil {
-		payload["useSsl"] = *svc.UseSsl
+	if svc.UseSSL != nil {
+		payload["useSsl"] = *svc.UseSSL
 	}
-	if svc.BaseUrl != "" {
-		payload["baseUrl"] = svc.BaseUrl
+	if svc.BaseURL != "" {
+		payload["baseUrl"] = svc.BaseURL
 	}
-	if svc.ActiveProfileId != nil {
-		payload["activeProfileId"] = *svc.ActiveProfileId
+	if svc.ActiveProfileID != nil {
+		payload["activeProfileId"] = *svc.ActiveProfileID
 	}
 	if svc.ActiveProfileName != "" {
 		payload["activeProfileName"] = svc.ActiveProfileName
@@ -581,7 +581,7 @@ func buildServicePayload(svc *requestsv1alpha1.SeerrServiceConnection, apiKey st
 		payload["enableSeasonFolders"] = *svc.EnableSeasonFolders
 	}
 	for key, value := range map[string]string{
-		"externalUrl": svc.ExternalUrl, "activeAnimeProfileName": svc.ActiveAnimeProfileName,
+		"externalUrl": svc.ExternalURL, "activeAnimeProfileName": svc.ActiveAnimeProfileName,
 		"activeAnimeDirectory": svc.ActiveAnimeDirectory, "animeSeriesType": svc.AnimeSeriesType,
 		"monitorNewItems": svc.MonitorNewItems,
 	} {
@@ -619,8 +619,8 @@ func reconcileSeerrMainSettings(ctx context.Context, sc *seerrclient.Client, w *
 func seerrMainPayload(main *requestsv1alpha1.SeerrMain) map[string]any {
 	payload := map[string]any{}
 	for key, value := range map[string]string{
-		"applicationTitle": main.ApplicationTitle, "applicationUrl": main.ApplicationUrl, "locale": main.Locale,
-		"youtubeUrl": main.YoutubeUrl, "discoverRegion": main.DiscoverRegion, "streamingRegion": main.StreamingRegion,
+		"applicationTitle": main.ApplicationTitle, "applicationUrl": main.ApplicationURL, "locale": main.Locale,
+		"youtubeUrl": main.YoutubeURL, "discoverRegion": main.DiscoverRegion, "streamingRegion": main.StreamingRegion,
 		"blocklistRegion":  main.BlocklistRegion,
 		"originalLanguage": strings.Join(main.OriginalLanguages, "|"), "blocklistLanguage": strings.Join(main.BlocklistLanguages, "|"),
 	} {
@@ -849,8 +849,8 @@ func reconcileSeerrJellyfin(ctx context.Context, sc *seerrclient.Client, w *engi
 	payload := map[string]any{
 		"ip":      auth.Hostname,
 		"port":    port,
-		"useSsl":  auth.UseSsl != nil && *auth.UseSsl,
-		"urlBase": auth.UrlBase,
+		"useSsl":  auth.UseSSL != nil && *auth.UseSSL,
+		"urlBase": auth.URLBase,
 	}
 	current, err := sc.Get(ctx, "/api/v1/settings/jellyfin")
 	if err != nil {
@@ -896,7 +896,7 @@ func reconcileSeerrPlex(ctx context.Context, sc *seerrclient.Client, w *engine.W
 	payload := map[string]any{
 		"ip":     auth.Hostname,
 		"port":   port,
-		"useSsl": auth.UseSsl != nil && *auth.UseSsl,
+		"useSsl": auth.UseSSL != nil && *auth.UseSSL,
 	}
 	current, err := sc.Get(ctx, "/api/v1/settings/plex")
 	if err != nil {
@@ -983,12 +983,12 @@ func (r *SeerrReconciler) authenticate(ctx context.Context, sc *seerrclient.Clie
 		if jf.Port != nil {
 			jfPort = int(*jf.Port)
 		}
-		useSsl := jf.UseSsl != nil && *jf.UseSsl
+		useSsl := jf.UseSSL != nil && *jf.UseSSL
 		configured, err := sc.MediaServerConfigured(ctx)
 		if err != nil {
 			return fmt.Errorf("reading media server state: %w", err)
 		}
-		return sc.AuthenticateJellyfin(ctx, jfUsername, jfPassword, jf.Hostname, jfPort, jf.UrlBase, useSsl, configured)
+		return sc.AuthenticateJellyfin(ctx, jfUsername, jfPassword, jf.Hostname, jfPort, jf.URLBase, useSsl, configured)
 	}
 	return fmt.Errorf("either jellyfinAuth or plexAuth must be configured")
 }

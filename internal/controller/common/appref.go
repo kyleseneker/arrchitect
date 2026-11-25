@@ -236,7 +236,7 @@ func ResolveDownloadClient(
 	if err != nil {
 		return dc, fmt.Errorf("download client %q appRef: %w", dc.Name, err)
 	}
-	dc.Implementation, dc.Host, dc.Port, dc.UseSsl, dc.UrlBase = app.Kind, addr.Host, addr.Port, &addr.TLS, addr.Base
+	dc.Implementation, dc.Host, dc.Port, dc.UseSSL, dc.URLBase = app.Kind, addr.Host, addr.Port, &addr.TLS, addr.Base
 	switch app.Kind {
 	case "QBittorrent":
 		dc.Protocol = "torrent"

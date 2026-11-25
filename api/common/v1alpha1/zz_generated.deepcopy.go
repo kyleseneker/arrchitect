@@ -250,8 +250,8 @@ func (in *DownloadClient) DeepCopyInto(out *DownloadClient) {
 		*out = new(bool)
 		**out = **in
 	}
-	if in.UseSsl != nil {
-		in, out := &in.UseSsl, &out.UseSsl
+	if in.UseSSL != nil {
+		in, out := &in.UseSSL, &out.UseSSL
 		*out = new(bool)
 		**out = **in
 	}
@@ -377,8 +377,8 @@ func (in *Indexer) DeepCopyInto(out *Indexer) {
 		*out = new(bool)
 		**out = **in
 	}
-	if in.EnableRss != nil {
-		in, out := &in.EnableRss, &out.EnableRss
+	if in.EnableRSS != nil {
+		in, out := &in.EnableRSS, &out.EnableRSS
 		*out = new(bool)
 		**out = **in
 	}

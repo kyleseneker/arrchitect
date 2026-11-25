@@ -70,7 +70,7 @@ func TestResolveServiceProfileByName(t *testing.T) {
 			n, _ := strconv.Atoi(endpoint.Port())
 			port := int32(n)
 			oldID := int32(7)
-			svc := &requestsv1alpha1.SeerrServiceConnection{Hostname: endpoint.Hostname(), Port: &port, BaseUrl: "/sonarr/", ActiveProfileId: &oldID, ActiveProfileName: "WEB-1080p"}
+			svc := &requestsv1alpha1.SeerrServiceConnection{Hostname: endpoint.Hostname(), Port: &port, BaseURL: "/sonarr/", ActiveProfileID: &oldID, ActiveProfileName: "WEB-1080p"}
 			payload, err := (&SeerrReconciler{}).resolvedServicePayload(context.Background(), "media", "sonarr", svc, nil, "lab-key")
 			if tc.wantError {
 				require.Error(t, err)
@@ -79,7 +79,7 @@ func TestResolveServiceProfileByName(t *testing.T) {
 				require.NoError(t, err)
 				require.Equal(t, tc.wantID, payload["activeProfileId"], "profile ID")
 			}
-			require.Equal(t, oldID, *svc.ActiveProfileId, "resolution mutated the custom resource")
+			require.Equal(t, oldID, *svc.ActiveProfileID, "resolution mutated the custom resource")
 		})
 	}
 }
@@ -87,7 +87,7 @@ func TestResolveServiceProfileByName(t *testing.T) {
 func TestResolveServiceProfileIDOnly(t *testing.T) {
 	id := int32(7)
 	// Invalid hostname proves ID-only configurations do not need an API lookup.
-	svc := &requestsv1alpha1.SeerrServiceConnection{Hostname: "", ActiveProfileId: &id}
+	svc := &requestsv1alpha1.SeerrServiceConnection{Hostname: "", ActiveProfileID: &id}
 	payload, err := (&SeerrReconciler{}).resolvedServicePayload(context.Background(), "media", "sonarr", svc, nil, "lab-key")
 	require.NoError(t, err, "legacy ID-only configuration changed")
 	require.Equal(t, id, payload["activeProfileId"], "legacy ID-only configuration changed")

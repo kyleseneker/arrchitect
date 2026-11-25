@@ -250,12 +250,12 @@ type DownloadClient struct {
 
 	// useSsl enables SSL/TLS for the download client connection.
 	// +optional
-	UseSsl *bool `json:"useSsl,omitempty"`
+	UseSSL *bool `json:"useSsl,omitempty"`
 
 	// urlBase is the base URL path for the download client (e.g., "/qbittorrent").
 	// +optional
 	// +kubebuilder:validation:MinLength=1
-	UrlBase string `json:"urlBase,omitempty"`
+	URLBase string `json:"urlBase,omitempty"`
 
 	// category is the download category to use.
 	// +optional
@@ -747,7 +747,7 @@ type Indexer struct {
 	// enableRss enables RSS feed polling for this indexer. A new indexer
 	// polls unless this or enable is false.
 	// +optional
-	EnableRss *bool `json:"enableRss,omitempty"`
+	EnableRSS *bool `json:"enableRss,omitempty"`
 
 	// enableAutomaticSearch enables automatic search for this indexer. A new
 	// indexer searches unless this or enable is false.

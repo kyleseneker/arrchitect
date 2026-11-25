@@ -181,9 +181,9 @@ func (r *ProwlarrReconciler) buildApplicationPayloads(
 			if err != nil {
 				return nil, fmt.Errorf("application %q appRef: %w", app.Name, err)
 			}
-			app.Implementation, app.BaseUrl, app.APIKeySecretRef = ref.Kind, ref.URL, ref.APIKeySecretRef
-			if app.ProwlarrUrl == "" {
-				app.ProwlarrUrl = config.Spec.Connection.URL
+			app.Implementation, app.BaseURL, app.APIKeySecretRef = ref.Kind, ref.URL, ref.APIKeySecretRef
+			if app.ProwlarrURL == "" {
+				app.ProwlarrURL = config.Spec.Connection.URL
 			}
 		}
 		if app.APIKeySecretRef == nil {

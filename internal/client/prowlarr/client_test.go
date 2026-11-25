@@ -75,8 +75,8 @@ func TestBuildProwlarrApplicationPayload(t *testing.T) {
 		SyncLevel:      "fullSync",
 		Implementation: "Sonarr",
 		ConfigContract: "SonarrSettings",
-		ProwlarrUrl:    "http://prowlarr:9696",
-		BaseUrl:        "http://sonarr:8989",
+		ProwlarrURL:    "http://prowlarr:9696",
+		BaseURL:        "http://sonarr:8989",
 		SyncCategories: []int32{5030, 5040},
 		TagLabels:      []string{"tag1", "tag2"},
 	}
@@ -106,7 +106,7 @@ func TestBuildProwlarrApplicationPayload(t *testing.T) {
 
 func TestBuildProwlarrApplicationPayloadLeavesOutWhatTheResourceLeavesOut(t *testing.T) {
 	p := BuildProwlarrApplicationPayload(indexersv1alpha1.ProwlarrApplication{
-		Name: "Sonarr", Implementation: "Sonarr", ConfigContract: "SonarrSettings", BaseUrl: "http://sonarr:8989",
+		Name: "Sonarr", Implementation: "Sonarr", ConfigContract: "SonarrSettings", BaseURL: "http://sonarr:8989",
 	}, map[string]string{"apiKey": "key"}, nil)
 
 	assert.NotContains(t, p, "syncLevel")
@@ -119,7 +119,7 @@ func TestBuildProwlarrApplicationPayloadLeavesOutWhatTheResourceLeavesOut(t *tes
 
 func TestBuildProwlarrApplicationPayloadSendsBasicAuth(t *testing.T) {
 	p := BuildProwlarrApplicationPayload(indexersv1alpha1.ProwlarrApplication{
-		Name: "Radarr", Implementation: "Radarr", BaseUrl: "https://radarr.example",
+		Name: "Radarr", Implementation: "Radarr", BaseURL: "https://radarr.example",
 	}, map[string]string{"apiKey": "key", "authUsername": "proxy", "authPassword": "secret"}, nil)
 
 	assert.Equal(t, []map[string]any{
@@ -151,7 +151,7 @@ func TestBuildProwlarrIndexerPayload(t *testing.T) {
 			name: "all options",
 			idx: indexersv1alpha1.ProwlarrIndexer{
 				Name: "NZBgeek", Implementation: "Newznab", ConfigContract: "NewznabSettings",
-				Enable: new(false), AppProfileId: new(int32(1)), Priority: new(int32(25)),
+				Enable: new(false), AppProfileID: new(int32(1)), Priority: new(int32(25)),
 				Fields: []commonv1alpha1.ConfigField{
 					{Name: "baseUrl", Value: &commonv1alpha1.FieldValue{Raw: []byte(`"http://nzbgeek.info"`)}},
 					{Name: "apiKey", Value: nil},

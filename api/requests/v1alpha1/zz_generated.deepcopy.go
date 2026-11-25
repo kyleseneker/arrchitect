@@ -92,8 +92,8 @@ func (in *SeerrJellyfinAuth) DeepCopyInto(out *SeerrJellyfinAuth) {
 		*out = new(int32)
 		**out = **in
 	}
-	if in.UseSsl != nil {
-		in, out := &in.UseSsl, &out.UseSsl
+	if in.UseSSL != nil {
+		in, out := &in.UseSSL, &out.UseSSL
 		*out = new(bool)
 		**out = **in
 	}
@@ -332,8 +332,8 @@ func (in *SeerrPlexAuth) DeepCopyInto(out *SeerrPlexAuth) {
 		*out = new(int32)
 		**out = **in
 	}
-	if in.UseSsl != nil {
-		in, out := &in.UseSsl, &out.UseSsl
+	if in.UseSSL != nil {
+		in, out := &in.UseSSL, &out.UseSSL
 		*out = new(bool)
 		**out = **in
 	}
@@ -397,13 +397,13 @@ func (in *SeerrServiceConnection) DeepCopyInto(out *SeerrServiceConnection) {
 		*out = new(commonv1alpha1.SecretKeyRef)
 		**out = **in
 	}
-	if in.UseSsl != nil {
-		in, out := &in.UseSsl, &out.UseSsl
+	if in.UseSSL != nil {
+		in, out := &in.UseSSL, &out.UseSSL
 		*out = new(bool)
 		**out = **in
 	}
-	if in.ActiveProfileId != nil {
-		in, out := &in.ActiveProfileId, &out.ActiveProfileId
+	if in.ActiveProfileID != nil {
+		in, out := &in.ActiveProfileID, &out.ActiveProfileID
 		*out = new(int32)
 		**out = **in
 	}

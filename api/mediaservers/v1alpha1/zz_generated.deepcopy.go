@@ -526,13 +526,13 @@ func (in *JellyfinNetwork) DeepCopyInto(out *JellyfinNetwork) {
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
-	if in.EnablePublishedServerUriByRequest != nil {
-		in, out := &in.EnablePublishedServerUriByRequest, &out.EnablePublishedServerUriByRequest
+	if in.EnablePublishedServerURIByRequest != nil {
+		in, out := &in.EnablePublishedServerURIByRequest, &out.EnablePublishedServerURIByRequest
 		*out = new(bool)
 		**out = **in
 	}
-	if in.PublishedServerUriBySubnet != nil {
-		in, out := &in.PublishedServerUriBySubnet, &out.PublishedServerUriBySubnet
+	if in.PublishedServerURIBySubnet != nil {
+		in, out := &in.PublishedServerURIBySubnet, &out.PublishedServerURIBySubnet
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}

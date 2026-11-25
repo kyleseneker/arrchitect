@@ -221,8 +221,8 @@ func (in *LidarrIndexerConfig) DeepCopyInto(out *LidarrIndexerConfig) {
 		*out = new(int32)
 		**out = **in
 	}
-	if in.RssSyncInterval != nil {
-		in, out := &in.RssSyncInterval, &out.RssSyncInterval
+	if in.RSSSyncInterval != nil {
+		in, out := &in.RSSSyncInterval, &out.RSSSyncInterval
 		*out = new(int32)
 		**out = **in
 	}
@@ -947,8 +947,8 @@ func (in *RadarrIndexerConfig) DeepCopyInto(out *RadarrIndexerConfig) {
 		*out = new(int32)
 		**out = **in
 	}
-	if in.RssSyncInterval != nil {
-		in, out := &in.RssSyncInterval, &out.RssSyncInterval
+	if in.RSSSyncInterval != nil {
+		in, out := &in.RSSSyncInterval, &out.RSSSyncInterval
 		*out = new(int32)
 		**out = **in
 	}
@@ -1650,8 +1650,8 @@ func (in *ReadarrIndexerConfig) DeepCopyInto(out *ReadarrIndexerConfig) {
 		*out = new(int32)
 		**out = **in
 	}
-	if in.RssSyncInterval != nil {
-		in, out := &in.RssSyncInterval, &out.RssSyncInterval
+	if in.RSSSyncInterval != nil {
+		in, out := &in.RSSSyncInterval, &out.RSSSyncInterval
 		*out = new(int32)
 		**out = **in
 	}
@@ -2378,8 +2378,8 @@ func (in *SonarrIndexerConfig) DeepCopyInto(out *SonarrIndexerConfig) {
 		*out = new(int32)
 		**out = **in
 	}
-	if in.RssSyncInterval != nil {
-		in, out := &in.RssSyncInterval, &out.RssSyncInterval
+	if in.RSSSyncInterval != nil {
+		in, out := &in.RSSSyncInterval, &out.RSSSyncInterval
 		*out = new(int32)
 		**out = **in
 	}

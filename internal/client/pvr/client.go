@@ -527,14 +527,14 @@ func BuildDownloadClientPayload(
 		{"name": "host", "value": dc.Host},
 		{"name": "port", "value": dc.Port},
 	}
-	if dc.UseSsl != nil {
-		fields = append(fields, map[string]any{"name": "useSsl", "value": *dc.UseSsl})
+	if dc.UseSSL != nil {
+		fields = append(fields, map[string]any{"name": "useSsl", "value": *dc.UseSSL})
 	}
 	if dc.Category != "" {
 		fields = append(fields, map[string]any{"name": categoryField, "value": dc.Category})
 	}
-	if dc.UrlBase != "" || dc.AppRef != (commonv1alpha1.AppRef{}) {
-		fields = append(fields, map[string]any{"name": "urlBase", "value": dc.UrlBase})
+	if dc.URLBase != "" || dc.AppRef != (commonv1alpha1.AppRef{}) {
+		fields = append(fields, map[string]any{"name": "urlBase", "value": dc.URLBase})
 	}
 	if secrets.Username != "" {
 		fields = append(fields, map[string]any{"name": "username", "value": secrets.Username})
@@ -598,7 +598,7 @@ func BuildIndexerPayload(idx commonv1alpha1.Indexer, tags []int) map[string]any 
 	// The apps have no on/off switch for an indexer, only the three uses of it,
 	// so enable gates those instead of being sent and dropped as drift.
 	uses := map[string]*bool{
-		"enableRss":               idx.EnableRss,
+		"enableRss":               idx.EnableRSS,
 		"enableAutomaticSearch":   idx.EnableAutomaticSearch,
 		"enableInteractiveSearch": idx.EnableInteractiveSearch,
 	}

@@ -317,7 +317,7 @@ type BazarrAppConnection struct {
 	// httpTimeout is the HTTP request timeout in seconds.
 	// +optional
 	// +kubebuilder:validation:Enum=60;120;180;240;300;600
-	HttpTimeout *int32 `json:"httpTimeout,omitempty"`
+	HTTPTimeout *int32 `json:"httpTimeout,omitempty"`
 
 	// fullUpdate controls how often a full library sync is performed.
 	// +optional
@@ -481,7 +481,7 @@ type BazarrLanguages struct {
 type BazarrLanguageProfile struct {
 	// profileId is the unique identifier for this profile.
 	// +required
-	ProfileId *int32 `json:"profileId,omitempty"`
+	ProfileID *int32 `json:"profileId,omitempty"`
 
 	// name is the display name of the language profile.
 	// +required
