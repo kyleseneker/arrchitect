@@ -396,7 +396,7 @@ func reconcileQBCategory(
 	if err != nil || !changed {
 		return err
 	}
-	return qb.EditCategory(ctx, cat.Name, qbPath(cat.SavePath))
+	return qb.EditCategory(ctx, cat.Name, qbPath(cat.SavePath), current)
 }
 
 // SetupWithManager sets up the controller with the Manager.
