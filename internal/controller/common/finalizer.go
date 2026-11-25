@@ -3,7 +3,6 @@ package common
 import (
 	"context"
 	"fmt"
-	"slices"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -180,7 +179,7 @@ func HandleLifecycle(ctx context.Context, c client.Client, recorder events.Event
 // doesn't connect at all.
 func CleanupApp(ctx context.Context, c client.Reader, recorder events.EventRecorder, obj ConfigResource, connection commonv1alpha1.AppConnection, def engine.AppDefinition, app string) error {
 	owned := engine.NewOwnership(app, obj.GetManagedResources())
-	if !slices.ContainsFunc(def.Resources, func(r engine.ResourceEndpoint) bool { return r.Prunable && owned.Owns(r.Name) }) {
+	if !def.Deletable(owned) {
 		return nil
 	}
 	apiKey, err := reconciler.ResolveSecretKeyRef(ctx, c, obj.GetNamespace(), connection.APIKeySecretRef)

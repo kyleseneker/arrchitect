@@ -45,7 +45,8 @@ func (r *ProwlarrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		Cleanup: func(ctx context.Context, hc *engine.HTTPClient, owned *engine.Ownership) error {
 			return engine.DeleteManagedResources(ctx, hc, prowlarrclient.ProwlarrDefinition(), owned)
 		},
-		Prune: true,
+		Deletable: prowlarrclient.ProwlarrDefinition().Deletable,
+		Prune:     true,
 	}
 	return integration.Reconcile(ctx, r.Client, r.Recorder, req, &indexersv1alpha1.Prowlarr{})
 }

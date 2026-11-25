@@ -1080,3 +1080,46 @@ func TestAnUpdateMergesOverTheItemAsItIsNow(t *testing.T) {
 	assert.Equal(t, true, put["rss"])
 	assert.InDelta(t, 3, put["minimumSeeders"], 0, "an undeclared field keeps the value the app has now")
 }
+
+func TestPruneSparesAnItemRenamedInTheAppDuringThePass(t *testing.T) {
+	lists, deleted := 0, false
+	hc := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			lists++
+			old := "old"
+			if lists > 1 {
+				old = "renamed by hand" // renamed in the app after the pass listed the endpoint
+			}
+			_ = json.NewEncoder(w).Encode([]map[string]any{{"id": float64(1), "name": "kept"}, {"id": float64(5), "name": old}})
+		case http.MethodDelete:
+			deleted = true
+		}
+	})
+	def := AppDefinition{Resources: []ResourceEndpoint{{Name: "indexers", Path: "/indexer", MatchField: "name", Policy: CreateOrUpdate, Prunable: true}}}
+
+	result := run(context.Background(), hc, def, nil, map[string][]map[string]any{"indexers": {{"name": "kept"}}},
+		SyncPolicy{Prune: true}, map[string][]string{"indexers": {"kept", "old"}})
+
+	require.Empty(t, result.Errors)
+	assert.False(t, deleted, "the item no longer has the name the operator owns")
+}
+
+func TestPruneRefusesANameTheAppHasTwice(t *testing.T) {
+	deleted := false
+	hc := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodDelete {
+			deleted = true
+			return
+		}
+		_ = json.NewEncoder(w).Encode([]map[string]any{
+			{"id": float64(1), "name": "kept"}, {"id": float64(5), "name": "old"}, {"id": float64(6), "name": "old"},
+		})
+	})
+	endpoint := ResourceEndpoint{Name: "indexers", Path: "/indexer", MatchField: "name", Prunable: true}
+
+	_, err := pruneResources(context.Background(), hc, endpoint, []map[string]any{{"name": "kept"}}, []string{"old"})
+
+	require.ErrorContains(t, err, `has 2 indexers named "old"`)
+	assert.False(t, deleted)
+}

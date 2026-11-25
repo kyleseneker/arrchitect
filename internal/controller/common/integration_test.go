@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -64,4 +65,24 @@ func TestCleanupSkipsCheck(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.True(t, cleaned, "a spec problem Check finds must not block deleting what the operator created")
+}
+
+func TestDeletionWithNothingDeletableNeedsNoConnection(t *testing.T) {
+	obj := newConfig(DeletionPolicyDelete, time.Minute)
+	c := testClient(obj).WithStatusSubresource(obj).Build()
+	integration := Integration[*pvrv1alpha1.Sonarr, string]{
+		App: "sonarr",
+		Connect: func(context.Context, *pvrv1alpha1.Sonarr) (string, error) {
+			return "", errors.New("the API key Secret is already gone")
+		},
+		Sync:      func(context.Context, string, *pvrv1alpha1.Sonarr, *engine.Pass) []string { return nil },
+		Cleanup:   func(context.Context, string, *engine.Ownership) error { return nil },
+		Deletable: func(*engine.Ownership) bool { return false },
+	}
+
+	_, err := integration.Reconcile(context.Background(), c, nil, ctrl.Request{NamespacedName: client.ObjectKeyFromObject(obj)}, &pvrv1alpha1.Sonarr{})
+
+	require.NoError(t, err)
+	err = c.Get(context.Background(), client.ObjectKeyFromObject(obj), &pvrv1alpha1.Sonarr{})
+	assert.True(t, apierrors.IsNotFound(err), "the finalizer is released without reading credentials, so the resource is gone")
 }

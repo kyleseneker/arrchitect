@@ -124,7 +124,9 @@ func ReconcileApp(ctx context.Context, client *HTTPClient, def AppDefinition, se
 }
 
 // pruneEndpoint deletes the items of r the operator created that items no
-// longer declares.
+// longer declares. It reads the endpoint again before deleting, so an item
+// renamed in the app since the pass listed it is never deleted under its old
+// name.
 func pruneEndpoint(ctx context.Context, client *HTTPClient, pass *Pass, r ResourceEndpoint, items, existing []map[string]any) error {
 	declared := make([]string, 0, len(items))
 	for _, item := range items {
@@ -133,26 +135,52 @@ func pruneEndpoint(ctx context.Context, client *HTTPClient, pass *Pass, r Resour
 		}
 	}
 	keys, ids := identities(r, existing)
+	if len(pass.Owned.Candidates(r.Name, declared, keys)) == 0 {
+		return nil
+	}
+	if !pass.Observe {
+		latest, err := client.GetJSONList(ctx, r.Path)
+		if err != nil {
+			return fmt.Errorf("listing: %w", err)
+		}
+		keys, ids = identities(r, latest)
+	}
 	return pass.Prune(pass.Owned, r.Name, declared, keys, func(name string) error {
-		log.FromContext(ctx).Info("pruning unmanaged resource", "type", r.Name, "match", name, "id", ids[name])
-		return client.DeleteJSON(ctx, fmt.Sprintf("%s/%d", r.Path, ids[name]))
+		id, err := soleID(client, r, ids, name)
+		if err != nil {
+			return err
+		}
+		log.FromContext(ctx).Info("pruning unmanaged resource", "type", r.Name, "match", name, "id", id)
+		return client.DeleteJSON(ctx, fmt.Sprintf("%s/%d", r.Path, id))
 	})
 }
 
-// identities lists the keys of the items that carry an id, with each id.
-func identities(r ResourceEndpoint, items []map[string]any) ([]string, map[string]int) {
+// identities lists the keys of the items that carry an id, each once, with the
+// ids of the items holding it.
+func identities(r ResourceEndpoint, items []map[string]any) ([]string, map[string][]int) {
 	keys := make([]string, 0, len(items))
-	ids := make(map[string]int, len(items))
+	ids := make(map[string][]int, len(items))
 	for _, item := range items {
 		key := r.resourceKey(item)
 		id, ok := item["id"].(float64)
 		if key == "" || !ok {
 			continue
 		}
-		keys = append(keys, key)
-		ids[key] = int(id)
+		if _, seen := ids[key]; !seen {
+			keys = append(keys, key)
+		}
+		ids[key] = append(ids[key], int(id))
 	}
 	return keys, ids
+}
+
+// soleID is the id of the one item holding key. Two items with the same key
+// can't be told apart, so neither is deleted.
+func soleID(client *HTTPClient, r ResourceEndpoint, ids map[string][]int, key string) (int, error) {
+	if n := len(ids[key]); n != 1 {
+		return 0, fmt.Errorf("%s has %d %s named %q", AppName(client.AppLabel()), n, r.Name, key)
+	}
+	return ids[key][0], nil
 }
 
 // reconcileSetting brings a singleton config endpoint in line: GET, merge, PUT.
@@ -368,7 +396,11 @@ func DeleteManagedResources(ctx context.Context, client *HTTPClient, def AppDefi
 		}
 		keys, ids := identities(endpoint, existing)
 		err = owned.Cleanup(endpoint.Name, keys, func(name string) error {
-			if err := client.DeleteJSON(ctx, fmt.Sprintf("%s/%d", endpoint.Path, ids[name])); err != nil && !isNotFound(err) {
+			id, err := soleID(client, endpoint, ids, name)
+			if err != nil {
+				return err
+			}
+			if err := client.DeleteJSON(ctx, fmt.Sprintf("%s/%d", endpoint.Path, id)); err != nil && !isNotFound(err) {
 				return err
 			}
 			return nil

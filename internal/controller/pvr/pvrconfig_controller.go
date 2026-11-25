@@ -52,7 +52,8 @@ func pvrIntegration[T ctrlcommon.ConfigResource](
 		Cleanup: func(ctx context.Context, hc *engine.HTTPClient, owned *engine.Ownership) error {
 			return engine.DeleteManagedResources(ctx, hc, pvrclient.Definition(app.APIVersion), owned)
 		},
-		Prune: true,
+		Deletable: pvrclient.Definition(app.APIVersion).Deletable,
+		Prune:     true,
 	}
 }
 

@@ -33,6 +33,10 @@ type Integration[T ConfigResource, C any] struct {
 	// Cleanup deletes the items owned records, for deletionPolicy delete. Nil
 	// when the integration doesn't support it.
 	Cleanup func(ctx context.Context, conn C, owned *engine.Ownership) error
+	// Deletable reports whether owned holds anything Cleanup deletes, so a
+	// deletion with nothing to remove reads no credentials. Nil counts anything
+	// owned.
+	Deletable func(owned *engine.Ownership) bool
 	// Prune is set when Sync implements spec.reconcile.prune.
 	Prune bool
 }
@@ -48,11 +52,14 @@ func (in Integration[T, C]) Reconcile(
 	lifecycle := Lifecycle{Prune: in.Prune}
 	if in.Cleanup != nil {
 		lifecycle.Remove = func(ctx context.Context) error {
+			owned := engine.NewOwnership(in.App, obj.GetManagedResources())
+			if in.Deletable != nil && !in.Deletable(owned) {
+				return nil
+			}
 			conn, err := in.Connect(ctx, obj)
 			if err != nil {
 				return err
 			}
-			owned := engine.NewOwnership(in.App, obj.GetManagedResources())
 			err = in.Cleanup(ctx, conn, owned)
 			EmitPruneEvents(recorder, obj, owned.Pruned())
 			return err
