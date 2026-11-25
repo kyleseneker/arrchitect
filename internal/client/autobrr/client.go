@@ -82,7 +82,7 @@ var FilterFields = map[string]string{
 var ActionFields = map[string]string{
 	"category":               "category",
 	"savePath":               "save_path",
-	"webhookURL":             "webhook_host",
+	"webhookUrl":             "webhook_host",
 	"execCommand":            "exec_cmd",
 	"execArgs":               "exec_args",
 	"watchFolder":            "watch_folder",

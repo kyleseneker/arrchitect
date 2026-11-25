@@ -338,7 +338,7 @@ _Appears in:_
 | `clientRef` _string_ | clientRef is the name of the download client to use (must match a downloadClients entry). |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `category` _string_ | category overrides the download client's default category. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `savePath` _string_ | savePath overrides the download client's default save path. |  | MinLength: 1 <br />Optional: \{\} <br /> |
-| `webhookURL` _string_ | webhookURL is the webhook URL (for Webhook action type). |  | MinLength: 1 <br />Optional: \{\} <br /> |
+| `webhookUrl` _string_ | webhookUrl is the webhook URL (for Webhook action type). |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `execCommand` _string_ | execCommand is the command to execute (for Exec action type). |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `execArgs` _string_ | execArgs is the arguments for the exec command. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `watchFolder` _string_ | watchFolder is the folder path (for WatchFolder action type). |  | MinLength: 1 <br />Optional: \{\} <br /> |
@@ -447,7 +447,7 @@ _Appears in:_
 | `name` _string_ | name is the display name of the indexer. |  | MinLength: 1 <br />Required: \{\} <br /> |
 | `enable` _boolean_ | enable controls whether this indexer is active. A new indexer is enabled<br />unless this is false. |  | Optional: \{\} <br /> |
 | `identifier` _string_ | identifier is the Autobrr indexer definition, such as "ipt" or "btn", or<br />"torznab", "newznab" or "rss" for an indexer that a feed reads from. |  | MinLength: 1 <br />Required: \{\} <br /> |
-| `baseURL` _string_ | baseURL is the tracker's site URL. It defaults to the definition's first URL. |  | MinLength: 1 <br />Optional: \{\} <br /> |
+| `baseUrl` _string_ | baseUrl is the tracker's site URL. It defaults to the definition's first URL. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `proxyName` _string_ | proxyName names the proxy the indexer, and a feed on it, connects<br />through. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `settings` _[ConfigField](#configfield) array_ | settings are the definition's settings, such as passkey or rsskey. |  | MaxProperties: 2 <br />Optional: \{\} <br /> |
 

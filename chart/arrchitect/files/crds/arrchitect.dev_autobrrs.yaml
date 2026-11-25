@@ -681,8 +681,8 @@ spec:
                               sends, such as JSON.
                             minLength: 1
                             type: string
-                          webhookURL:
-                            description: webhookURL is the webhook URL (for Webhook
+                          webhookUrl:
+                            description: webhookUrl is the webhook URL (for Webhook
                               action type).
                             minLength: 1
                             type: string
@@ -1063,8 +1063,8 @@ spec:
                   description: AutobrrIndexer defines an indexer/tracker connection
                     in Autobrr.
                   properties:
-                    baseURL:
-                      description: baseURL is the tracker's site URL. It defaults
+                    baseUrl:
+                      description: baseUrl is the tracker's site URL. It defaults
                         to the definition's first URL.
                       minLength: 1
                       type: string

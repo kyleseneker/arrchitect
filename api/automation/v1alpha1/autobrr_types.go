@@ -227,10 +227,10 @@ type AutobrrIndexer struct {
 	// +kubebuilder:validation:MinLength=1
 	Identifier string `json:"identifier,omitempty"`
 
-	// baseURL is the tracker's site URL. It defaults to the definition's first URL.
+	// baseUrl is the tracker's site URL. It defaults to the definition's first URL.
 	// +optional
 	// +kubebuilder:validation:MinLength=1
-	BaseURL string `json:"baseURL,omitempty"`
+	BaseURL string `json:"baseUrl,omitempty"`
 
 	// proxyName names the proxy the indexer, and a feed on it, connects
 	// through.
@@ -902,10 +902,10 @@ type AutobrrFilterAction struct {
 	// +kubebuilder:validation:MinLength=1
 	SavePath string `json:"savePath,omitempty"`
 
-	// webhookURL is the webhook URL (for Webhook action type).
+	// webhookUrl is the webhook URL (for Webhook action type).
 	// +optional
 	// +kubebuilder:validation:MinLength=1
-	WebhookURL string `json:"webhookURL,omitempty"`
+	WebhookURL string `json:"webhookUrl,omitempty"`
 
 	// execCommand is the command to execute (for Exec action type).
 	// +optional
