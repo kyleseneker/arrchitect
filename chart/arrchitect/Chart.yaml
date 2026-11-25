@@ -5,6 +5,7 @@ type: application
 version: 0.1.0
 appVersion: "0.1.0"
 home: https://github.com/kyleseneker/arrchitect
+icon: https://raw.githubusercontent.com/kyleseneker/arrchitect/main/docs/assets/logo.png
 sources:
   - https://github.com/kyleseneker/arrchitect
 keywords:
