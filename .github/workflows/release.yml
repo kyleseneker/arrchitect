@@ -80,6 +80,12 @@ jobs:
           if [ -s changes.yaml ]; then
             yq -i '.annotations["artifacthub.io/changes"] = load_str("changes.yaml")' chart/arrchitect/Chart.yaml
           fi
+      - name: Copy the README into the chart
+        run: |
+          {
+            printf '# Arrchitect\n\n'
+            perl -0pe 's/\A(?:[ \t]*<[^\n]*\n|[ \t]*\n)+//; s{\]\((?!https?://|#|mailto:)([^)\s]+)\)}{](https://github.com/kyleseneker/arrchitect/blob/$ENV{GITHUB_REF_NAME}/$1)}g' README.md
+          } > chart/arrchitect/README.md
       - uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
           registry: ghcr.io
