@@ -16,6 +16,7 @@ import (
 	mediaserversv1alpha1 "github.com/kyleseneker/arrchitect/api/mediaservers/v1alpha1"
 	jellyfinclient "github.com/kyleseneker/arrchitect/internal/client/jellyfin"
 	"github.com/kyleseneker/arrchitect/internal/engine"
+	"github.com/kyleseneker/arrchitect/internal/testnet"
 )
 
 // fakeJellyfinTasks keeps scheduled tasks as Jellyfin does: a POST replaces a
@@ -28,7 +29,7 @@ type fakeJellyfinTasks struct {
 
 func (f *fakeJellyfinTasks) client(t *testing.T) *jellyfinclient.Client {
 	t.Helper()
-	ln, err := net.Listen("tcp", net.JoinHostPort(routableAddr(t), "0"))
+	ln, err := net.Listen("tcp", net.JoinHostPort(testnet.RoutableAddr(t), "0"))
 	require.NoError(t, err)
 	srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		f.mu.Lock()

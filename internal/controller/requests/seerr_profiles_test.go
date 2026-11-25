@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	requestsv1alpha1 "github.com/kyleseneker/arrchitect/api/requests/v1alpha1"
+	"github.com/kyleseneker/arrchitect/internal/testnet"
 )
 
 func TestResolveServiceProfileByName(t *testing.T) {
@@ -34,7 +35,7 @@ func TestResolveServiceProfileByName(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			ln, err := net.Listen("tcp", net.JoinHostPort(routableAddr(t), "0"))
+			ln, err := net.Listen("tcp", net.JoinHostPort(testnet.RoutableAddr(t), "0"))
 			require.NoError(t, err)
 			server := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				assert.Equal(t, "GET", r.Method, "unexpected request method")

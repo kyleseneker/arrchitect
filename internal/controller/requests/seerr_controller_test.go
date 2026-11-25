@@ -37,6 +37,7 @@ import (
 	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
 	"github.com/kyleseneker/arrchitect/internal/controller/internal/contract"
 	"github.com/kyleseneker/arrchitect/internal/metrics"
+	"github.com/kyleseneker/arrchitect/internal/testnet"
 )
 
 func observeSeerr(t *testing.T, cfg *requestsv1alpha1.Seerr) metav1.Condition {
@@ -220,30 +221,6 @@ func (f *fakeSeerr) authBody(path string) map[string]any {
 	return f.authBodies[path]
 }
 
-// routableAddr returns a non-loopback IPv4 address. The operator's HTTP client
-// blocks loopback and link-local as SSRF protection, so a fake on 127.0.0.1 is
-// unreachable by design and assertions against it pass for the wrong reason.
-func routableAddr(t *testing.T) string {
-	t.Helper()
-	addrs, err := net.InterfaceAddrs()
-	if err != nil {
-		t.Skipf("cannot enumerate interfaces: %v", err)
-	}
-	for _, a := range addrs {
-		ipnet, ok := a.(*net.IPNet)
-		if !ok {
-			continue
-		}
-		ip := ipnet.IP.To4()
-		if ip == nil || ip.IsLoopback() || ip.IsLinkLocalUnicast() {
-			continue
-		}
-		return ip.String()
-	}
-	t.Skip("no routable non-loopback IPv4 address on this host")
-	return ""
-}
-
 func (f *fakeSeerr) serve(t *testing.T) string {
 	t.Helper()
 	if f.authBodies == nil {
@@ -255,7 +232,7 @@ func (f *fakeSeerr) serve(t *testing.T) string {
 	if f.notifications == nil {
 		f.notifications = map[string]map[string]any{}
 	}
-	ln, err := net.Listen("tcp", net.JoinHostPort(routableAddr(t), "0"))
+	ln, err := net.Listen("tcp", net.JoinHostPort(testnet.RoutableAddr(t), "0"))
 	if err != nil {
 		t.Skipf("cannot bind a routable listener: %v", err)
 	}

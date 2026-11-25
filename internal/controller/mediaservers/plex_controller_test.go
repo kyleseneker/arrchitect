@@ -26,6 +26,7 @@ import (
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
 	mediaserversv1alpha1 "github.com/kyleseneker/arrchitect/api/mediaservers/v1alpha1"
 	"github.com/kyleseneker/arrchitect/internal/controller/internal/contract"
+	"github.com/kyleseneker/arrchitect/internal/testnet"
 )
 
 // fakePlex serves the two endpoints the reconciler drives: the section list and
@@ -46,7 +47,7 @@ func (f *fakePlex) sawSections(method string) bool {
 
 func (f *fakePlex) serve(t *testing.T) string {
 	t.Helper()
-	ln, err := net.Listen("tcp", net.JoinHostPort(routableAddr(t), "0"))
+	ln, err := net.Listen("tcp", net.JoinHostPort(testnet.RoutableAddr(t), "0"))
 	if err != nil {
 		t.Skipf("cannot bind a routable listener: %v", err)
 	}

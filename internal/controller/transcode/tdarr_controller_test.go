@@ -30,6 +30,7 @@ import (
 	transcodev1alpha1 "github.com/kyleseneker/arrchitect/api/transcode/v1alpha1"
 	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
 	"github.com/kyleseneker/arrchitect/internal/metrics"
+	"github.com/kyleseneker/arrchitect/internal/testnet"
 )
 
 const (
@@ -77,7 +78,7 @@ func (f *fakeTdarr) varWrites() []varWrite {
 
 func (f *fakeTdarr) serve(t *testing.T) string {
 	t.Helper()
-	ln, err := net.Listen("tcp", net.JoinHostPort(routableAddr(t), "0"))
+	ln, err := net.Listen("tcp", net.JoinHostPort(testnet.RoutableAddr(t), "0"))
 	if err != nil {
 		t.Skipf("cannot bind a routable listener: %v", err)
 	}

@@ -18,6 +18,7 @@ import (
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
 	downloadsv1alpha1 "github.com/kyleseneker/arrchitect/api/downloads/v1alpha1"
 	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
+	"github.com/kyleseneker/arrchitect/internal/testnet"
 )
 
 // fakeQBRSS keeps RSS feeds, folders and rules as qBittorrent does: a feed's
@@ -42,7 +43,7 @@ func (f *fakeQBRSS) serve(t *testing.T) string {
 	if f.rules == nil {
 		f.rules = map[string]map[string]any{}
 	}
-	ln, err := net.Listen("tcp", net.JoinHostPort(routableAddr(t), "0"))
+	ln, err := net.Listen("tcp", net.JoinHostPort(testnet.RoutableAddr(t), "0"))
 	require.NoError(t, err)
 	srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		f.mu.Lock()

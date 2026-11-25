@@ -30,6 +30,7 @@ import (
 	downloadsv1alpha1 "github.com/kyleseneker/arrchitect/api/downloads/v1alpha1"
 	pvrv1alpha1 "github.com/kyleseneker/arrchitect/api/pvr/v1alpha1"
 	autobrrclient "github.com/kyleseneker/arrchitect/internal/client/autobrr"
+	"github.com/kyleseneker/arrchitect/internal/testnet"
 )
 
 const conditionTrue = "True"
@@ -63,7 +64,7 @@ func (f *fakeAutobrr) serve(t *testing.T) string {
 	if f.existing == nil {
 		f.existing = map[string][]map[string]any{}
 	}
-	ln, err := net.Listen("tcp", net.JoinHostPort(routableAddr(t), "0"))
+	ln, err := net.Listen("tcp", net.JoinHostPort(testnet.RoutableAddr(t), "0"))
 	if err != nil {
 		t.Skipf("cannot bind a routable listener: %v", err)
 	}
