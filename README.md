@@ -17,6 +17,11 @@ self-hosted media apps as Kubernetes resources. Arrchitect doesn't deploy the
 apps. It configures the ones you already run, however you deploy them, and
 connects them to each other.
 
+Your app settings live in git with the rest of your cluster, instead of in a
+dozen web UIs. Apps find each other by reference, so an address or API key is
+written once. A rebuilt app is configured again on the next reconcile, and a
+change made in an app's web UI is put back or reported.
+
 Arrchitect is alpha. The API is `v1alpha1` and can change in any minor release.
 See [stability and support](docs/stability.md) for details.
 
@@ -79,13 +84,49 @@ See [examples/jellyfin-stack.yaml](examples/jellyfin-stack.yaml) for a full
 stack, and [connecting apps](docs/guide.md#connecting-apps) for every
 connection that supports `appRef`.
 
+## Getting started
+
+Install the chart. It runs a controller for every supported app unless you
+turn some off under `apps`:
+
+```bash
+helm install arrchitect oci://ghcr.io/kyleseneker/charts/arrchitect \
+  --namespace media --create-namespace \
+  --set apps.plex=false --set apps.autobrr=false
+```
+
+Then try it on one app. Download
+[examples/minimal-sonarr.yaml](examples/minimal-sonarr.yaml), which adds a root
+folder to Sonarr, and change three things to match your Sonarr:
+
+- the API key in the Secret, which Sonarr shows under Settings, General
+- the URL, if Sonarr isn't at `sonarr.media.svc.cluster.local:8989`
+- the root folder, to a path Sonarr can see
+
+```bash
+kubectl apply -f minimal-sonarr.yaml
+kubectl get sonarr -n media
+```
+
+```text
+NAME     SYNCED   READY   LAST SYNC   AGE
+sonarr   True     True    12s         15s
+```
+
+`kubectl get arrchitect -A` lists every Arrchitect resource in the cluster. To
+start from the apps you already run, see
+[Exporting an existing app](docs/export.md).
+
 ## Features
 
 - Settings, download clients, indexers, quality profiles, notifications and other app configuration as YAML
+- Connections between apps by reference, with `appRef`
+- References to other items by name instead of ID, so a rebuilt app gets the same configuration
 - Drift correction on every reconcile, or an observe mode that only reports differences
 - Credentials read from Kubernetes Secrets
 - Optional pruning, limited to what the operator created
 - `arrchitect export` to generate config from an app you already run
+- Status conditions on every resource, and Prometheus metrics
 - Tested in CI against real app containers, at the oldest and newest supported version of each app
 
 ## Supported apps
@@ -114,37 +155,24 @@ exceptions.
 | Tdarr | `Tdarr` | 3.00.00 to 3.08.00 |
 | Autobrr | `Autobrr` | 1.69.0 to 1.91.1 |
 
-## Getting started
+## Other tools
 
-Install the chart. It runs every app's controller unless you turn some off in
-`apps`:
-
-```bash
-helm install arrchitect oci://ghcr.io/kyleseneker/charts/arrchitect \
-  --namespace media --create-namespace \
-  --set apps.plex=false --set apps.autobrr=false
-```
-
-Then apply a config. [examples/minimal-sonarr.yaml](examples/minimal-sonarr.yaml)
-adds a root folder to Sonarr:
-
-```bash
-kubectl apply -f examples/minimal-sonarr.yaml
-kubectl get sonarr -n media
-```
-
-To start from an existing setup instead, see
-[Exporting an existing app](docs/export.md).
+Recyclarr, Configarr and Profilarr sync quality profiles and custom formats,
+often from the TRaSH Guides, and Prowlarr syncs indexers into the apps. Each one
+can run beside Arrchitect as long as every setting has one owner. Arrchitect
+only touches what a resource declares, so leave out whatever another tool
+manages. [Sharing apps with other tools](docs/other-tools.md) lists who writes
+what.
 
 ## Documentation
 
-- [User guide](docs/guide.md)
-- [Example stack](docs/example-stack.md)
-- [Sharing apps with other tools](docs/other-tools.md) such as Recyclarr and Prowlarr
-- [API reference](docs/api.md)
-- [Stability and support](docs/stability.md)
-- [Exporting an existing app](docs/export.md)
-- [Rebuilding apps](docs/rebuilding.md)
+- [Example stack](docs/example-stack.md): deploying the apps and wiring them together
+- [User guide](docs/guide.md): how resources reconcile, connect apps and report status
+- [Exporting an existing app](docs/export.md): generating resources from apps you already run
+- [Rebuilding apps](docs/rebuilding.md): getting a rebuilt app configured again
+- [Sharing apps with other tools](docs/other-tools.md): Recyclarr, Configarr, Profilarr and Prowlarr
+- [API reference](docs/api.md): every kind and field
+- [Stability and support](docs/stability.md): versioning, and the app and Kubernetes versions supported
 - [Examples](examples/) and [one sample per resource](config/samples/)
 
 ## Contributing
