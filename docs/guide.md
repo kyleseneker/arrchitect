@@ -76,8 +76,8 @@ spec:
   category: tv
 ```
 
-- The app's connection, `driftPolicy` and `intervalSeconds` apply to it. Until the
-  app's resource exists, it reports `ReferenceNotFound`.
+- The app's connection, `driftPolicy` and `intervalSeconds` apply to it.
+  Until the app's resource exists, it reports `ReferenceNotFound`.
 - `status.id` is the item's ID in the app.
 - An item that already exists is adopted. The operator configures it as
   declared and never deletes it.
@@ -210,8 +210,8 @@ resource lists them.
 Quality definitions are a fixed set. The operator updates the ones listed,
 matched by `quality`, and leaves the rest alone. Sizes are in the app's units.
 Sonarr and Radarr use megabytes per minute of runtime, and Lidarr uses
-kilobits per second. A `maxSize` or `preferredSize` of 0 means unlimited. Readarr has no
-preferred size.
+kilobits per second. A `maxSize` or `preferredSize` of 0 means unlimited.
+Readarr has no preferred size.
 
 Metadata consumers are a fixed set too. Sonarr, Radarr and Lidarr keep one of
 each type, off until turned on. The operator updates the ones listed, matched
@@ -291,7 +291,7 @@ fields:
   - name: apiKey
     valueFrom:
       secretKeyRef:
-        name: indexer-credentials
+        name: usenet-indexer-credentials
         key: api-key
 ```
 

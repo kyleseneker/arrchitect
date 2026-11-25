@@ -177,7 +177,7 @@ spec:
       name: qbittorrent-credentials
       key: password
   categories:
-    - name: tv-sonarr
+    - name: tv
       savePath: /data/torrents/tv
 ---
 apiVersion: arrchitect.dev/v1alpha1
@@ -192,7 +192,7 @@ spec:
   appRef:
     kind: QBittorrent
     name: qbittorrent
-  category: tv-sonarr
+  category: tv
 ---
 apiVersion: arrchitect.dev/v1alpha1
 kind: Prowlarr
