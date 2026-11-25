@@ -2,6 +2,7 @@
 
 [![CI](https://github.com/kyleseneker/arrchitect/actions/workflows/ci.yml/badge.svg)](https://github.com/kyleseneker/arrchitect/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/kyleseneker/arrchitect)](https://github.com/kyleseneker/arrchitect/releases)
+[![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/arrchitect)](https://artifacthub.io/packages/helm/arrchitect/arrchitect)
 
 Configure and wire Sonarr, Radarr, Prowlarr, Jellyfin, Plex and other
 self-hosted media apps as Kubernetes resources. Arrchitect configures the apps
