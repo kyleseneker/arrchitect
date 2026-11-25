@@ -67,9 +67,10 @@ func TestSplitURL(t *testing.T) {
 }
 
 func TestResolveAppRefTakesEachKindsConnection(t *testing.T) {
+	privateCA := &commonv1alpha1.TLSConfig{CASecretRef: *ref("ca", "ca.crt")}
 	c := appRefClient(t,
 		&pvrv1alpha1.Sonarr{Name: "sonarr", Namespace: "media", Spec: pvrv1alpha1.SonarrSpec{
-			Connection: commonv1alpha1.AppConnection{URL: "http://sonarr:8989", APIKeySecretRef: *ref("keys", "sonarr")},
+			Connection: commonv1alpha1.AppConnection{URL: "https://sonarr:8989", APIKeySecretRef: *ref("keys", "sonarr"), TLS: privateCA},
 		}},
 		&requestsv1alpha1.Seerr{Name: "seerr", Namespace: "media", Spec: requestsv1alpha1.SeerrSpec{
 			Connection: requestsv1alpha1.SeerrConnection{URL: "http://seerr:5055", APIKeySecretRef: ref("keys", "seerr")},
@@ -91,7 +92,7 @@ func TestResolveAppRefTakesEachKindsConnection(t *testing.T) {
 		want App
 	}{
 		{commonv1alpha1.AppRef{Kind: "Sonarr", Name: "sonarr"},
-			App{Kind: "Sonarr", URL: "http://sonarr:8989", APIKeySecretRef: ref("keys", "sonarr")}},
+			App{Kind: "Sonarr", URL: "https://sonarr:8989", TLS: privateCA, APIKeySecretRef: ref("keys", "sonarr")}},
 		{commonv1alpha1.AppRef{Kind: "Seerr", Name: "seerr"},
 			App{Kind: "Seerr", URL: "http://seerr:5055", APIKeySecretRef: ref("keys", "seerr")}},
 		{commonv1alpha1.AppRef{Kind: "Jellyfin", Name: "jellyfin"},
