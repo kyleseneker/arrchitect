@@ -112,5 +112,5 @@ Prowlarr sync them.
 When two tools manage the same setting, `arrchitect_drift_corrected_total`
 keeps rising for that resource, since every pass corrects the other tool's
 write. To see what overlaps, set `spec.reconcile.driftPolicy: observe` after
-the other tool has run: `Synced` turns `False` with reason `DriftDetected`, and
+the other tool has run. `Synced` turns `False` with reason `DriftDetected`, and
 its message lists what differs. Remove those settings from one of the two.

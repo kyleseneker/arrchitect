@@ -24,7 +24,8 @@ From a workstation, through a port-forward:
 ```bash
 kubectl -n media port-forward svc/sonarr 8989 &
 arrchitect export sonarr \
-  --url http://localhost:8989 --connection-url http://sonarr.media:8989 \
+  --url http://localhost:8989 \
+  --connection-url http://sonarr.media.svc.cluster.local:8989 \
   --api-key "$SONARR_API_KEY" --namespace media > sonarr.yaml
 ```
 
@@ -33,7 +34,8 @@ From inside the cluster:
 ```bash
 kubectl -n media run export --rm -i --quiet --restart=Never \
   --image ghcr.io/kyleseneker/arrchitect-cli:<version> \
-  -- export sonarr --url http://sonarr:8989 --api-key "$SONARR_API_KEY" --namespace media > sonarr.yaml
+  -- export sonarr --url http://sonarr.media.svc.cluster.local:8989 \
+  --api-key "$SONARR_API_KEY" --namespace media > sonarr.yaml
 ```
 
 | Flag | Description |
