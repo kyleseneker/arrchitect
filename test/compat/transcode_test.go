@@ -52,7 +52,7 @@ func TestTdarr(t *testing.T) {
 	checkCompat(t, compatCase{
 		fixture: "tdarr.yaml",
 		update: `[
-			{"op": "replace", "path": "/spec/workers/0/transcodeCPU", "value": 2},
+			{"op": "replace", "path": "/spec/workers/0/transcodeCpu", "value": 2},
 			{"op": "replace", "path": "/spec/flows/0/description", "value": "Checks the container"},
 			{"op": "replace", "path": "/spec/libraries/0/folderWatchScanInterval", "value": 90}
 		]`,

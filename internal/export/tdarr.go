@@ -12,8 +12,8 @@ import (
 )
 
 var tdarrWorkerTypes = map[string]string{
-	"transcodeGPU": "transcodegpu", "transcodeCPU": "transcodecpu",
-	"healthcheckGPU": "healthcheckgpu", "healthcheckCPU": "healthcheckcpu",
+	"transcodeGpu": "transcodegpu", "transcodeCpu": "transcodecpu",
+	"healthcheckGpu": "healthcheckgpu", "healthcheckCpu": "healthcheckcpu",
 }
 
 func exportTdarr(r *reader) (map[string]any, error) {

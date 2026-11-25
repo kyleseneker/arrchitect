@@ -897,9 +897,9 @@ spec:
                             type: string
                           type: array
                           x-kubernetes-list-type: set
-                        useAutoTMM:
+                        useAutoTmm:
                           description: |-
-                            useAutoTMM has automatic torrent management choose the torrents' paths
+                            useAutoTmm has automatic torrent management choose the torrents' paths
                             from their category.
                           type: boolean
                       type: object

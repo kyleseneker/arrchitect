@@ -10,10 +10,10 @@ spec:
       key: api-key
   workers:
     - nodeName: InternalNode
-      transcodeGPU: 1
-      transcodeCPU: 0
-      healthcheckGPU: 1
-      healthcheckCPU: 1
+      transcodeGpu: 1
+      transcodeCpu: 0
+      healthcheckGpu: 1
+      healthcheckCpu: 1
   settings:
     autoAcceptTranscodes: true
     autoPauseIfCacheFull: true

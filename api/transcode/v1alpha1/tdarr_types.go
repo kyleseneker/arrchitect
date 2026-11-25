@@ -346,21 +346,21 @@ type TdarrWorkers struct {
 	// +kubebuilder:validation:MinLength=1
 	NodeName string `json:"nodeName,omitempty"`
 
-	// transcodeGPU is the number of GPU transcode workers.
+	// transcodeGpu is the number of GPU transcode workers.
 	// +optional
-	TranscodeGPU *int32 `json:"transcodeGPU,omitempty"`
+	TranscodeGPU *int32 `json:"transcodeGpu,omitempty"`
 
-	// transcodeCPU is the number of CPU transcode workers.
+	// transcodeCpu is the number of CPU transcode workers.
 	// +optional
-	TranscodeCPU *int32 `json:"transcodeCPU,omitempty"`
+	TranscodeCPU *int32 `json:"transcodeCpu,omitempty"`
 
-	// healthcheckGPU is the number of GPU health check workers.
+	// healthcheckGpu is the number of GPU health check workers.
 	// +optional
-	HealthcheckGPU *int32 `json:"healthcheckGPU,omitempty"`
+	HealthcheckGPU *int32 `json:"healthcheckGpu,omitempty"`
 
-	// healthcheckCPU is the number of CPU health check workers.
+	// healthcheckCpu is the number of CPU health check workers.
 	// +optional
-	HealthcheckCPU *int32 `json:"healthcheckCPU,omitempty"`
+	HealthcheckCPU *int32 `json:"healthcheckCpu,omitempty"`
 }
 
 // TdarrStatus defines the observed state of Tdarr.
