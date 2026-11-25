@@ -32,8 +32,8 @@ serviceAccount:
   name: arrchitect
 
 rbac:
-  # Grants read access to the enabled apps' resources through the built-in
-  # view, edit and admin roles, and write access through edit and admin.
+  # Grant access to the enabled apps' resources through the built-in view, edit
+  # and admin roles.
   aggregateClusterRoles: true
 
 resources:
@@ -44,7 +44,8 @@ resources:
     cpu: 500m
     memory: 256Mi
 
-watchNamespace: ""  # Empty watches all namespaces. Set to restrict, comma-separated (e.g., "media,arr")
+# Namespaces to watch, comma-separated. Empty watches every namespace.
+watchNamespace: ""
 
 extraArgs: []
 
@@ -65,16 +66,12 @@ securityContext:
     drop:
       - ALL
 
-# Metrics & observability.
-# The operator exposes Prometheus metrics on :8443 over HTTPS with k8s TokenReview auth.
-# Built-in controller-runtime metrics and custom arrchitect_* metrics are both served
-# on the same endpoint. arrchitect_config_synced goes to 0 when a resource stops
-# reconciling, which is the one worth alerting on.
+# Metrics are served on :8443 over HTTPS and need a token with access to them.
+# arrchitect_config_synced is 0 when a resource's last reconcile failed.
 metrics:
   enabled: true
   serviceMonitor:
-    # Requires the Prometheus Operator CRDs (monitoring.coreos.com/v1) to be installed.
-    # Leave disabled on clusters that don't use prometheus-operator.
+    # Create a ServiceMonitor. Needs the Prometheus Operator CRDs.
     enabled: false
     interval: 30s
     # Additional labels applied to the ServiceMonitor (e.g., for Prometheus selector matching).
