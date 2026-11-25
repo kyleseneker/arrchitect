@@ -10,6 +10,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -45,8 +47,7 @@ func TestClassify(t *testing.T) {
 }
 
 func TestCleanupSkipsCheck(t *testing.T) {
-	obj := newConfig(DeletionPolicyDelete, time.Minute)
-	c := testClient(obj).WithStatusSubresource(obj).Build()
+	obj, c := deletingSonarr(t)
 	cleaned := false
 	integration := Integration[*pvrv1alpha1.Sonarr, string]{
 		App:     "sonarr",
@@ -68,8 +69,7 @@ func TestCleanupSkipsCheck(t *testing.T) {
 }
 
 func TestDeletionWithNothingDeletableNeedsNoConnection(t *testing.T) {
-	obj := newConfig(DeletionPolicyDelete, time.Minute)
-	c := testClient(obj).WithStatusSubresource(obj).Build()
+	obj, c := deletingSonarr(t)
 	integration := Integration[*pvrv1alpha1.Sonarr, string]{
 		App: "sonarr",
 		Connect: func(context.Context, *pvrv1alpha1.Sonarr) (string, error) {
@@ -85,4 +85,17 @@ func TestDeletionWithNothingDeletableNeedsNoConnection(t *testing.T) {
 	require.NoError(t, err)
 	err = c.Get(context.Background(), client.ObjectKeyFromObject(obj), &pvrv1alpha1.Sonarr{})
 	assert.True(t, apierrors.IsNotFound(err), "the finalizer is released without reading credentials, so the resource is gone")
+}
+
+// deletingSonarr is a Sonarr with deletionPolicy delete, deleted a minute ago
+// and still holding the operator's finalizer, in a fake API server.
+func deletingSonarr(t *testing.T) (*pvrv1alpha1.Sonarr, client.Client) {
+	t.Helper()
+	deleted := metav1.NewTime(time.Now().Add(-time.Minute))
+	obj := &pvrv1alpha1.Sonarr{Name: "sonarr", Namespace: "media", Finalizers: []string{Finalizer}, DeletionTimestamp: &deleted}
+	obj.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{DeletionPolicy: DeletionPolicyDelete}
+	obj.SetManagedResources(map[string][]string{"indexers": {"created"}})
+	s := runtime.NewScheme()
+	require.NoError(t, pvrv1alpha1.AddToScheme(s))
+	return obj, fake.NewClientBuilder().WithScheme(s).WithObjects(obj).WithStatusSubresource(obj).Build()
 }
