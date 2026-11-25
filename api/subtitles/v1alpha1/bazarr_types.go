@@ -379,7 +379,7 @@ type BazarrJellyfin struct {
 	// +kubebuilder:validation:XValidation:rule="self.kind == 'Jellyfin'",message="jellyfin refers to a Jellyfin"
 	AppRef *commonv1alpha1.AppRef `json:"appRef,omitempty"`
 
-	// url is the Jellyfin URL as Bazarr reaches it (e.g., http://jellyfin:8096).
+	// url is the Jellyfin URL as Bazarr reaches it (e.g., http://jellyfin.media.svc.cluster.local:8096).
 	// +optional
 	// +kubebuilder:validation:Pattern=`^https?://`
 	// +kubebuilder:validation:MinLength=1

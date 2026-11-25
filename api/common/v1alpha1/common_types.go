@@ -76,7 +76,7 @@ type TLSConfig struct {
 
 // AppConnection defines how the operator connects to an app's API.
 type AppConnection struct {
-	// url is the base URL of the app (e.g., http://arr-sonarr.arr.svc.cluster.local:8989).
+	// url is the base URL of the app (e.g., http://sonarr.media.svc.cluster.local:8989).
 	// +required
 	// +kubebuilder:validation:Pattern=`^https?://`
 	// +kubebuilder:validation:MinLength=1
