@@ -489,8 +489,8 @@ _Appears in:_
 | `type` _string_ | type is the proxy protocol. HTTP needs Autobrr 1.70.0 or later. |  | Enum: [Socks5 HTTP] <br />Required: \{\} <br /> |
 | `addr` _string_ | addr is the proxy's address, such as socks5://proxy:1080. |  | MinLength: 1 <br />Required: \{\} <br /> |
 | `enable` _boolean_ | enable turns the proxy on. A new proxy is enabled unless this is false. |  | Optional: \{\} <br /> |
-| `usernameSecretRef` _[SecretKeyRef](#secretkeyref)_ | usernameSecretRef is the Secret key holding the proxy's user name. |  | Optional: \{\} <br /> |
-| `passwordSecretRef` _[SecretKeyRef](#secretkeyref)_ | passwordSecretRef is the Secret key holding the proxy's password. |  | Optional: \{\} <br /> |
+| `usernameSecretRef` _[SecretKeyRef](#secretkeyref)_ | usernameSecretRef references a Secret containing the proxy's username. |  | Optional: \{\} <br /> |
+| `passwordSecretRef` _[SecretKeyRef](#secretkeyref)_ | passwordSecretRef references a Secret containing the proxy's password. |  | Optional: \{\} <br /> |
 | `timeout` _integer_ | timeout is how long a connection through the proxy may take, in seconds. |  | Minimum: 1 <br />Optional: \{\} <br /> |
 
 
@@ -738,7 +738,7 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `name` _string_ | name is the provider, as Bazarr lists it, such as Discord or Telegram. |  | MinLength: 1 <br />Required: \{\} <br /> |
 | `enabled` _boolean_ | enabled turns the provider on. |  | Optional: \{\} <br /> |
-| `urlSecretRef` _[SecretKeyRef](#secretkeyref)_ | urlSecretRef is the Secret key holding the provider's Apprise URL, such<br />as discord://webhook_id/webhook_token. |  | Optional: \{\} <br /> |
+| `urlSecretRef` _[SecretKeyRef](#secretkeyref)_ | urlSecretRef references a Secret containing the provider's Apprise URL,<br />such as discord://webhook_id/webhook_token. |  | Optional: \{\} <br /> |
 
 
 #### BazarrPathMapping
@@ -991,7 +991,7 @@ _Appears in:_
 | `enable` _boolean_ | enable controls whether this download client is active. A new download<br />client is enabled unless this is false. |  | Optional: \{\} <br /> |
 | `protocol` _string_ | protocol is the download protocol. |  | Enum: [torrent usenet] <br />Optional: \{\} <br /> |
 | `implementation` _string_ | implementation is the download client type (e.g., QBittorrent, Sabnzbd, NzbGet, Transmission, Deluge). |  | MinLength: 1 <br />Optional: \{\} <br /> |
-| `configContract` _string_ | configContract overrides the default config contract name.<br />Defaults to "<implementation>Settings" if not set. |  | MinLength: 1 <br />Optional: \{\} <br /> |
+| `configContract` _string_ | configContract is the configuration contract name for the implementation.<br />Defaults to the contract the app's schema lists for the implementation. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `host` _string_ | host is the hostname or IP of the download client. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `port` _integer_ | port is the port of the download client. |  | Maximum: 65535 <br />Minimum: 1 <br />Optional: \{\} <br /> |
 | `useSsl` _boolean_ | useSsl enables SSL/TLS for the download client connection. |  | Optional: \{\} <br /> |
@@ -1134,7 +1134,7 @@ _Appears in:_
 | `enable` _boolean_ | enable controls whether this indexer is active. False turns off RSS,<br />automatic and interactive search; true turns on those not set below. |  | Optional: \{\} <br /> |
 | `protocol` _string_ | protocol is the indexer protocol. |  | Enum: [torrent usenet] <br />Required: \{\} <br /> |
 | `implementation` _string_ | implementation is the indexer type (e.g., Newznab, Torznab). |  | MinLength: 1 <br />Required: \{\} <br /> |
-| `configContract` _string_ | configContract is the configuration contract name for the implementation.<br />Defaults to "<implementation>Settings" if not set. |  | MinLength: 1 <br />Optional: \{\} <br /> |
+| `configContract` _string_ | configContract is the configuration contract name for the implementation.<br />Defaults to the contract the app's schema lists for the implementation. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `priority` _integer_ | priority is the indexer priority. Lower values are higher priority. |  | Minimum: 1 <br />Optional: \{\} <br /> |
 | `enableRss` _boolean_ | enableRss enables RSS feed polling for this indexer. A new indexer<br />polls unless this or enable is false. |  | Optional: \{\} <br /> |
 | `enableAutomaticSearch` _boolean_ | enableAutomaticSearch enables automatic search for this indexer. A new<br />indexer searches unless this or enable is false. |  | Optional: \{\} <br /> |
@@ -1602,7 +1602,7 @@ _Appears in:_
 | `enable` _boolean_ | enable controls whether this download client is active. A new download<br />client is enabled unless this is false. |  | Optional: \{\} <br /> |
 | `protocol` _string_ | protocol is the download protocol. |  | Enum: [torrent usenet] <br />Optional: \{\} <br /> |
 | `implementation` _string_ | implementation is the download client type (e.g., QBittorrent, Sabnzbd, NzbGet, Transmission, Deluge). |  | MinLength: 1 <br />Optional: \{\} <br /> |
-| `configContract` _string_ | configContract overrides the default config contract name.<br />Defaults to "<implementation>Settings" if not set. |  | MinLength: 1 <br />Optional: \{\} <br /> |
+| `configContract` _string_ | configContract is the configuration contract name for the implementation.<br />Defaults to the contract the app's schema lists for the implementation. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `host` _string_ | host is the hostname or IP of the download client. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `port` _integer_ | port is the port of the download client. |  | Maximum: 65535 <br />Minimum: 1 <br />Optional: \{\} <br /> |
 | `useSsl` _boolean_ | useSsl enables SSL/TLS for the download client connection. |  | Optional: \{\} <br /> |
@@ -1672,9 +1672,9 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `minimumAge` _integer_ | minimumAge is the minimum age in minutes before downloading. |  | Optional: \{\} <br /> |
-| `retention` _integer_ | retention is the usenet retention in days. |  | Optional: \{\} <br /> |
-| `maximumSize` _integer_ | maximumSize is the maximum release size in MB. |  | Optional: \{\} <br /> |
-| `rssSyncInterval` _integer_ | rssSyncInterval is the RSS sync interval in minutes. |  | Optional: \{\} <br /> |
+| `retention` _integer_ | retention is the usenet retention in days. 0 means unlimited. |  | Optional: \{\} <br /> |
+| `maximumSize` _integer_ | maximumSize is the maximum release size in MB. 0 means unlimited. |  | Optional: \{\} <br /> |
+| `rssSyncInterval` _integer_ | rssSyncInterval is the RSS sync interval in minutes. 0 disables RSS. |  | Optional: \{\} <br /> |
 
 
 #### LidarrIndexerSpec
@@ -1696,7 +1696,7 @@ _Appears in:_
 | `enable` _boolean_ | enable controls whether this indexer is active. False turns off RSS,<br />automatic and interactive search; true turns on those not set below. |  | Optional: \{\} <br /> |
 | `protocol` _string_ | protocol is the indexer protocol. |  | Enum: [torrent usenet] <br />Required: \{\} <br /> |
 | `implementation` _string_ | implementation is the indexer type (e.g., Newznab, Torznab). |  | MinLength: 1 <br />Required: \{\} <br /> |
-| `configContract` _string_ | configContract is the configuration contract name for the implementation.<br />Defaults to "<implementation>Settings" if not set. |  | MinLength: 1 <br />Optional: \{\} <br /> |
+| `configContract` _string_ | configContract is the configuration contract name for the implementation.<br />Defaults to the contract the app's schema lists for the implementation. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `priority` _integer_ | priority is the indexer priority. Lower values are higher priority. |  | Minimum: 1 <br />Optional: \{\} <br /> |
 | `enableRss` _boolean_ | enableRss enables RSS feed polling for this indexer. A new indexer<br />polls unless this or enable is false. |  | Optional: \{\} <br /> |
 | `enableAutomaticSearch` _boolean_ | enableAutomaticSearch enables automatic search for this indexer. A new<br />indexer searches unless this or enable is false. |  | Optional: \{\} <br /> |
@@ -1747,7 +1747,7 @@ _Appears in:_
 | `downloadPropersAndRepacks` _string_ | downloadPropersAndRepacks controls how proper/repack releases are handled. |  | Enum: [preferAndUpgrade doNotPrefer doNotUpgrade] <br />Optional: \{\} <br /> |
 | `recycleBin` _string_ | recycleBin is the path to the recycling bin folder. An empty string<br />turns the recycling bin off. |  | Optional: \{\} <br /> |
 | `recycleBinCleanupDays` _integer_ | recycleBinCleanupDays is how many days files stay in the recycling bin. |  | Optional: \{\} <br /> |
-| `minimumFreeSpaceWhenImporting` _integer_ | minimumFreeSpaceWhenImporting is the minimum free space in MB required. |  | Optional: \{\} <br /> |
+| `minimumFreeSpaceWhenImporting` _integer_ | minimumFreeSpaceWhenImporting is the minimum free space in MB required to import. |  | Optional: \{\} <br /> |
 | `rescanAfterRefresh` _string_ | rescanAfterRefresh controls when to rescan artist folders. |  | Enum: [always afterManual never] <br />Optional: \{\} <br /> |
 | `setPermissionsLinux` _boolean_ | setPermissionsLinux enables setting file permissions on import. |  | Optional: \{\} <br /> |
 | `createEmptyArtistFolders` _boolean_ | createEmptyArtistFolders creates folders for artists with no files. |  | Optional: \{\} <br /> |
@@ -1897,7 +1897,7 @@ _Appears in:_
 | `longDateFormat` _string_ | longDateFormat is the long date display format. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `timeFormat` _string_ | timeFormat is the time display format. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `theme` _string_ | theme is the UI theme. |  | Enum: [auto dark light] <br />Optional: \{\} <br /> |
-| `uiLanguage` _integer_ | uiLanguage is the UI language ID. |  | Optional: \{\} <br /> |
+| `uiLanguage` _integer_ | uiLanguage is the UI language ID. 1=English. |  | Optional: \{\} <br /> |
 
 
 #### LocalObjectReference
@@ -2353,7 +2353,7 @@ _Appears in:_
 | `name` _string_ | name is the display name of the notification. |  | MinLength: 1 <br />Required: \{\} <br /> |
 | `appRef` _[AppRef](#appref)_ | appRef names the media server's resource, a Jellyfin or Plex, whose<br />connection is used in place of implementation, configContract and the<br />host, port, useSsl, urlBase and apiKey or authToken fields. That Jellyfin<br />must set its connection's apiKeySecretRef. |  | Optional: \{\} <br /> |
 | `implementation` _string_ | implementation is the notification type (e.g., Discord, Slack, Webhook, Email). |  | MinLength: 1 <br />Optional: \{\} <br /> |
-| `configContract` _string_ | configContract is the configuration contract name for the implementation.<br />Defaults to "<implementation>Settings" if not set. |  | MinLength: 1 <br />Optional: \{\} <br /> |
+| `configContract` _string_ | configContract is the configuration contract name for the implementation.<br />Defaults to the contract the app's schema lists for the implementation.<br />Prowlarr defaults to "<implementation>Settings". |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `tagLabels` _string array_ | tagLabels references tags by label, resolved against the app on each<br />reconciliation. A missing or ambiguous label blocks writes, and an empty<br />list clears the tags. |  | Optional: \{\} <br /> |
 | `fields` _[ConfigField](#configfield) array_ | fields defines the notification's configuration fields (e.g., webhook URL, API token). |  | MaxProperties: 2 <br />Optional: \{\} <br /> |
 | `onGrab` _boolean_ | onGrab fires when a release is grabbed (sent to download client). |  | Optional: \{\} <br /> |
@@ -2423,7 +2423,7 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `url` _string_ | url is the base URL of the Plex server (e.g., http://plex.media.svc.cluster.local:32400). |  | MinLength: 1 <br />Pattern: `^https?://` <br />Required: \{\} <br /> |
-| `tokenSecretRef` _[SecretKeyRef](#secretkeyref)_ | tokenSecretRef references a Secret containing the X-Plex-Token. |  | Required: \{\} <br /> |
+| `tokenSecretRef` _[SecretKeyRef](#secretkeyref)_ | tokenSecretRef references a Secret containing a Plex token. |  | Required: \{\} <br /> |
 | `tls` _[TLSConfig](#tlsconfig)_ | tls configures TLS settings for the connection.<br />Only needed when Plex uses HTTPS with self-signed or private CA certificates. |  | Optional: \{\} <br /> |
 
 
@@ -2643,8 +2643,8 @@ _Appears in:_
 | `prowlarrUrl` _string_ | prowlarrUrl is the URL Prowlarr uses to reach itself (for callbacks). |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `baseUrl` _string_ | baseUrl is the base URL of the application. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `apiKeySecretRef` _[SecretKeyRef](#secretkeyref)_ | apiKeySecretRef references a Secret containing the application's API key. |  | Optional: \{\} <br /> |
-| `authUsernameSecretRef` _[SecretKeyRef](#secretkeyref)_ | authUsernameSecretRef references a Secret key holding the username for<br />HTTP basic auth in front of the application, such as at a reverse proxy.<br />Needs Prowlarr 2.4.0 or later. |  | Optional: \{\} <br /> |
-| `authPasswordSecretRef` _[SecretKeyRef](#secretkeyref)_ | authPasswordSecretRef references a Secret key holding the password for<br />HTTP basic auth in front of the application. Needs Prowlarr 2.4.0 or<br />later. |  | Optional: \{\} <br /> |
+| `authUsernameSecretRef` _[SecretKeyRef](#secretkeyref)_ | authUsernameSecretRef references a Secret containing the username for<br />HTTP basic auth in front of the application, such as at a reverse proxy.<br />Needs Prowlarr 2.4.0 or later. |  | Optional: \{\} <br /> |
+| `authPasswordSecretRef` _[SecretKeyRef](#secretkeyref)_ | authPasswordSecretRef references a Secret containing the password for<br />HTTP basic auth in front of the application. Needs Prowlarr 2.4.0 or<br />later. |  | Optional: \{\} <br /> |
 | `syncCategories` _integer array_ | syncCategories is the list of category IDs to sync to this application. |  | Optional: \{\} <br /> |
 | `animeSyncCategories` _integer array_ | animeSyncCategories is the list of category IDs to sync as anime to a<br />Sonarr application. |  | Optional: \{\} <br /> |
 | `syncAnimeStandardFormatSearch` _boolean_ | syncAnimeStandardFormatSearch lets a Sonarr application also search for<br />anime by standard numbering. |  | Optional: \{\} <br /> |
@@ -2710,8 +2710,8 @@ _Appears in:_
 | `implementation` _string_ | implementation is the indexer type (e.g., Newznab, Torznab). |  | MinLength: 1 <br />Required: \{\} <br /> |
 | `configContract` _string_ | configContract is the configuration contract name.<br />Defaults to "<implementation>Settings" if not set. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `enable` _boolean_ | enable controls whether this indexer is active. A new indexer is enabled<br />unless this is false. |  | Optional: \{\} <br /> |
-| `appProfileId` _integer_ | appProfileId is the application profile ID for this indexer. |  | Optional: \{\} <br /> |
-| `appProfileName` _string_ | appProfileName resolves the current sync profile ID by name on each reconciliation.<br />Takes precedence over appProfileId. Missing or ambiguous names block indexer writes. |  | MinLength: 1 <br />Optional: \{\} <br /> |
+| `appProfileId` _integer_ | appProfileId is the sync profile's ID, used when appProfileName is not<br />set. |  | Optional: \{\} <br /> |
+| `appProfileName` _string_ | appProfileName is the sync profile's name, resolved against Prowlarr on<br />each reconciliation. It takes precedence over appProfileId. A missing or<br />ambiguous name blocks writes. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `priority` _integer_ | priority is the indexer priority. Lower values are higher priority. |  | Optional: \{\} <br /> |
 | `fields` _[ConfigField](#configfield) array_ | fields defines configuration fields for the indexer. |  | MaxProperties: 2 <br />Optional: \{\} <br /> |
 | `tagLabels` _string array_ | tagLabels references tags by label, resolved against Prowlarr on each<br />reconciliation. A missing or ambiguous label blocks writes, and an empty<br />list clears the tags. |  | Optional: \{\} <br /> |
@@ -2735,8 +2735,8 @@ _Appears in:_
 | `configContract` _string_ | configContract is the configuration contract name for the implementation. |  | MinLength: 1 <br />Required: \{\} <br /> |
 | `host` _string_ | host is the hostname or IP of the proxy, or FlareSolverr's URL. |  | MinLength: 1 <br />Required: \{\} <br /> |
 | `port` _integer_ | port is the port of an Http, Socks4 or Socks5 proxy. |  | Maximum: 65535 <br />Minimum: 1 <br />Optional: \{\} <br /> |
-| `usernameSecretRef` _[SecretKeyRef](#secretkeyref)_ | usernameSecretRef is the Secret key holding an Http, Socks4 or Socks5<br />proxy's user name. |  | Optional: \{\} <br /> |
-| `passwordSecretRef` _[SecretKeyRef](#secretkeyref)_ | passwordSecretRef is the Secret key holding an Http, Socks4 or Socks5<br />proxy's password. |  | Optional: \{\} <br /> |
+| `usernameSecretRef` _[SecretKeyRef](#secretkeyref)_ | usernameSecretRef references a Secret containing an Http, Socks4 or<br />Socks5 proxy's username. |  | Optional: \{\} <br /> |
+| `passwordSecretRef` _[SecretKeyRef](#secretkeyref)_ | passwordSecretRef references a Secret containing an Http, Socks4 or<br />Socks5 proxy's password. |  | Optional: \{\} <br /> |
 | `requestTimeout` _integer_ | requestTimeout is FlareSolverr's request timeout in seconds. |  | Optional: \{\} <br /> |
 | `tagLabels` _string array_ | tagLabels references tags by label, resolved against Prowlarr on each<br />reconciliation. A missing or ambiguous label blocks writes, and an empty<br />list clears the tags. |  | Optional: \{\} <br /> |
 
@@ -2926,8 +2926,8 @@ _Appears in:_
 | `proxyIp` _string_ | proxyIp is the proxy's host name or address. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `proxyPort` _integer_ | proxyPort is the proxy's port. |  | Maximum: 65535 <br />Minimum: 1 <br />Optional: \{\} <br /> |
 | `proxyAuthEnabled` _boolean_ | proxyAuthEnabled signs in to the proxy with proxyUsernameSecretRef and<br />proxyPasswordSecretRef. SOCKS4 has no sign-in. |  | Optional: \{\} <br /> |
-| `proxyUsernameSecretRef` _[SecretKeyRef](#secretkeyref)_ | proxyUsernameSecretRef is the Secret key holding the proxy's user name. |  | Optional: \{\} <br /> |
-| `proxyPasswordSecretRef` _[SecretKeyRef](#secretkeyref)_ | proxyPasswordSecretRef is the Secret key holding the proxy's password. |  | Optional: \{\} <br /> |
+| `proxyUsernameSecretRef` _[SecretKeyRef](#secretkeyref)_ | proxyUsernameSecretRef references a Secret containing the proxy's username. |  | Optional: \{\} <br /> |
+| `proxyPasswordSecretRef` _[SecretKeyRef](#secretkeyref)_ | proxyPasswordSecretRef references a Secret containing the proxy's password. |  | Optional: \{\} <br /> |
 | `proxyHostnameLookup` _boolean_ | proxyHostnameLookup has the proxy, rather than qBittorrent, resolve host<br />names. |  | Optional: \{\} <br /> |
 | `proxyBittorrent` _boolean_ | proxyBittorrent sends BitTorrent traffic through the proxy. |  | Optional: \{\} <br /> |
 | `proxyPeerConnections` _boolean_ | proxyPeerConnections sends connections to peers, not only to trackers,<br />through the proxy. |  | Optional: \{\} <br /> |
@@ -3267,7 +3267,7 @@ _Appears in:_
 | `enable` _boolean_ | enable controls whether this download client is active. A new download<br />client is enabled unless this is false. |  | Optional: \{\} <br /> |
 | `protocol` _string_ | protocol is the download protocol. |  | Enum: [torrent usenet] <br />Optional: \{\} <br /> |
 | `implementation` _string_ | implementation is the download client type (e.g., QBittorrent, Sabnzbd, NzbGet, Transmission, Deluge). |  | MinLength: 1 <br />Optional: \{\} <br /> |
-| `configContract` _string_ | configContract overrides the default config contract name.<br />Defaults to "<implementation>Settings" if not set. |  | MinLength: 1 <br />Optional: \{\} <br /> |
+| `configContract` _string_ | configContract is the configuration contract name for the implementation.<br />Defaults to the contract the app's schema lists for the implementation. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `host` _string_ | host is the hostname or IP of the download client. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `port` _integer_ | port is the port of the download client. |  | Maximum: 65535 <br />Minimum: 1 <br />Optional: \{\} <br /> |
 | `useSsl` _boolean_ | useSsl enables SSL/TLS for the download client connection. |  | Optional: \{\} <br /> |
@@ -3381,7 +3381,7 @@ _Appears in:_
 | `enable` _boolean_ | enable controls whether this indexer is active. False turns off RSS,<br />automatic and interactive search; true turns on those not set below. |  | Optional: \{\} <br /> |
 | `protocol` _string_ | protocol is the indexer protocol. |  | Enum: [torrent usenet] <br />Required: \{\} <br /> |
 | `implementation` _string_ | implementation is the indexer type (e.g., Newznab, Torznab). |  | MinLength: 1 <br />Required: \{\} <br /> |
-| `configContract` _string_ | configContract is the configuration contract name for the implementation.<br />Defaults to "<implementation>Settings" if not set. |  | MinLength: 1 <br />Optional: \{\} <br /> |
+| `configContract` _string_ | configContract is the configuration contract name for the implementation.<br />Defaults to the contract the app's schema lists for the implementation. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `priority` _integer_ | priority is the indexer priority. Lower values are higher priority. |  | Minimum: 1 <br />Optional: \{\} <br /> |
 | `enableRss` _boolean_ | enableRss enables RSS feed polling for this indexer. A new indexer<br />polls unless this or enable is false. |  | Optional: \{\} <br /> |
 | `enableAutomaticSearch` _boolean_ | enableAutomaticSearch enables automatic search for this indexer. A new<br />indexer searches unless this or enable is false. |  | Optional: \{\} <br /> |
@@ -3425,7 +3425,7 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `autoUnmonitorPreviouslyDownloadedMovies` _boolean_ | autoUnmonitorPreviouslyDownloadedMovies unmonitors movies that have been downloaded. |  | Optional: \{\} <br /> |
+| `autoUnmonitorPreviouslyDownloadedMovies` _boolean_ | autoUnmonitorPreviouslyDownloadedMovies unmonitors movies deleted from<br />disk. |  | Optional: \{\} <br /> |
 | `createEmptyMovieFolders` _boolean_ | createEmptyMovieFolders creates folders for movies with no files. |  | Optional: \{\} <br /> |
 | `autoRenameFolders` _boolean_ | autoRenameFolders automatically renames movie folders when the movie title changes. |  | Optional: \{\} <br /> |
 | `pathsDefaultStatic` _boolean_ | pathsDefaultStatic prevents Radarr from updating paths when the root folder changes. |  | Optional: \{\} <br /> |
@@ -3659,7 +3659,7 @@ _Appears in:_
 | `enable` _boolean_ | enable controls whether this download client is active. A new download<br />client is enabled unless this is false. |  | Optional: \{\} <br /> |
 | `protocol` _string_ | protocol is the download protocol. |  | Enum: [torrent usenet] <br />Optional: \{\} <br /> |
 | `implementation` _string_ | implementation is the download client type (e.g., QBittorrent, Sabnzbd, NzbGet, Transmission, Deluge). |  | MinLength: 1 <br />Optional: \{\} <br /> |
-| `configContract` _string_ | configContract overrides the default config contract name.<br />Defaults to "<implementation>Settings" if not set. |  | MinLength: 1 <br />Optional: \{\} <br /> |
+| `configContract` _string_ | configContract is the configuration contract name for the implementation.<br />Defaults to the contract the app's schema lists for the implementation. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `host` _string_ | host is the hostname or IP of the download client. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `port` _integer_ | port is the port of the download client. |  | Maximum: 65535 <br />Minimum: 1 <br />Optional: \{\} <br /> |
 | `useSsl` _boolean_ | useSsl enables SSL/TLS for the download client connection. |  | Optional: \{\} <br /> |
@@ -3729,9 +3729,9 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `minimumAge` _integer_ | minimumAge is the minimum age in minutes before downloading. |  | Optional: \{\} <br /> |
-| `retention` _integer_ | retention is the usenet retention in days. |  | Optional: \{\} <br /> |
-| `maximumSize` _integer_ | maximumSize is the maximum release size in MB. |  | Optional: \{\} <br /> |
-| `rssSyncInterval` _integer_ | rssSyncInterval is the RSS sync interval in minutes. |  | Optional: \{\} <br /> |
+| `retention` _integer_ | retention is the usenet retention in days. 0 means unlimited. |  | Optional: \{\} <br /> |
+| `maximumSize` _integer_ | maximumSize is the maximum release size in MB. 0 means unlimited. |  | Optional: \{\} <br /> |
+| `rssSyncInterval` _integer_ | rssSyncInterval is the RSS sync interval in minutes. 0 disables RSS. |  | Optional: \{\} <br /> |
 
 
 #### ReadarrIndexerSpec
@@ -3753,7 +3753,7 @@ _Appears in:_
 | `enable` _boolean_ | enable controls whether this indexer is active. False turns off RSS,<br />automatic and interactive search; true turns on those not set below. |  | Optional: \{\} <br /> |
 | `protocol` _string_ | protocol is the indexer protocol. |  | Enum: [torrent usenet] <br />Required: \{\} <br /> |
 | `implementation` _string_ | implementation is the indexer type (e.g., Newznab, Torznab). |  | MinLength: 1 <br />Required: \{\} <br /> |
-| `configContract` _string_ | configContract is the configuration contract name for the implementation.<br />Defaults to "<implementation>Settings" if not set. |  | MinLength: 1 <br />Optional: \{\} <br /> |
+| `configContract` _string_ | configContract is the configuration contract name for the implementation.<br />Defaults to the contract the app's schema lists for the implementation. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `priority` _integer_ | priority is the indexer priority. Lower values are higher priority. |  | Minimum: 1 <br />Optional: \{\} <br /> |
 | `enableRss` _boolean_ | enableRss enables RSS feed polling for this indexer. A new indexer<br />polls unless this or enable is false. |  | Optional: \{\} <br /> |
 | `enableAutomaticSearch` _boolean_ | enableAutomaticSearch enables automatic search for this indexer. A new<br />indexer searches unless this or enable is false. |  | Optional: \{\} <br /> |
@@ -3804,7 +3804,7 @@ _Appears in:_
 | `downloadPropersAndRepacks` _string_ | downloadPropersAndRepacks controls how proper/repack releases are handled. |  | Enum: [preferAndUpgrade doNotPrefer doNotUpgrade] <br />Optional: \{\} <br /> |
 | `recycleBin` _string_ | recycleBin is the path to the recycling bin folder. An empty string<br />turns the recycling bin off. |  | Optional: \{\} <br /> |
 | `recycleBinCleanupDays` _integer_ | recycleBinCleanupDays is how many days files stay in the recycling bin. |  | Optional: \{\} <br /> |
-| `minimumFreeSpaceWhenImporting` _integer_ | minimumFreeSpaceWhenImporting is the minimum free space in MB required. |  | Optional: \{\} <br /> |
+| `minimumFreeSpaceWhenImporting` _integer_ | minimumFreeSpaceWhenImporting is the minimum free space in MB required to import. |  | Optional: \{\} <br /> |
 | `rescanAfterRefresh` _string_ | rescanAfterRefresh controls when to rescan author folders. |  | Enum: [always afterManual never] <br />Optional: \{\} <br /> |
 | `setPermissionsLinux` _boolean_ | setPermissionsLinux enables setting file permissions on import. |  | Optional: \{\} <br /> |
 | `createEmptyAuthorFolders` _boolean_ | createEmptyAuthorFolders creates folders for authors with no files. |  | Optional: \{\} <br /> |
@@ -3954,7 +3954,7 @@ _Appears in:_
 | `longDateFormat` _string_ | longDateFormat is the long date display format. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `timeFormat` _string_ | timeFormat is the time display format. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `theme` _string_ | theme is the UI theme. |  | Enum: [auto dark light] <br />Optional: \{\} <br /> |
-| `uiLanguage` _integer_ | uiLanguage is the UI language ID. |  | Optional: \{\} <br /> |
+| `uiLanguage` _integer_ | uiLanguage is the UI language ID. 1=English. |  | Optional: \{\} <br /> |
 
 
 #### ReconcileConfig
@@ -4053,8 +4053,8 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `path` _string_ | path is the filesystem path for the root folder inside the container. |  | MinLength: 1 <br />Required: \{\} <br /> |
 | `name` _string_ | name labels the root folder (Lidarr, Readarr). A new folder is named<br />after the last element of path unless this is set. |  | MinLength: 1 <br />Optional: \{\} <br /> |
-| `defaultQualityProfileName` _string_ | defaultQualityProfileName is the quality profile for content added to<br />this folder (Lidarr, Readarr; required there). Resolved to an ID at<br />reconciliation time, after declared quality profiles are applied. |  | MinLength: 1 <br />Optional: \{\} <br /> |
-| `defaultMetadataProfileName` _string_ | defaultMetadataProfileName is the metadata profile for content added to<br />this folder (Lidarr, Readarr; required there). Resolved to an ID at<br />reconciliation time. |  | MinLength: 1 <br />Optional: \{\} <br /> |
+| `defaultQualityProfileName` _string_ | defaultQualityProfileName is the quality profile for content added to<br />this folder (Lidarr, Readarr; required there), resolved against the app<br />on each reconciliation after declared quality profiles are applied. |  | MinLength: 1 <br />Optional: \{\} <br /> |
+| `defaultMetadataProfileName` _string_ | defaultMetadataProfileName is the metadata profile for content added to<br />this folder (Lidarr, Readarr; required there), resolved against the app<br />on each reconciliation. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `defaultMonitorOption` _string_ | defaultMonitorOption is what to monitor of an artist or author added to<br />this folder (Lidarr, Readarr). |  | Enum: [all future missing existing latest first none] <br />Optional: \{\} <br /> |
 | `defaultNewItemMonitorOption` _string_ | defaultNewItemMonitorOption is whether albums or books released later<br />are monitored: all, none or new (Lidarr, Readarr). |  | Enum: [all none new] <br />Optional: \{\} <br /> |
 | `defaultTagLabels` _string array_ | defaultTagLabels tags artists or authors added to this folder, by label<br />(Lidarr, Readarr). An empty list clears the tags. |  | items:MinLength: 1 <br />Optional: \{\} <br /> |
@@ -4094,7 +4094,7 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `enabled` _boolean_ | enabled turns Apprise notifications on. |  | Optional: \{\} <br /> |
-| `urlsSecretRef` _[SecretKeyRef](#secretkeyref)_ | urlsSecretRef is the Secret key holding the Apprise URLs to notify,<br />separated by commas, such as discord://webhook_id/webhook_token. |  | Optional: \{\} <br /> |
+| `urlsSecretRef` _[SecretKeyRef](#secretkeyref)_ | urlsSecretRef references a Secret containing the Apprise URLs to notify,<br />separated by commas, such as discord://webhook_id/webhook_token. |  | Optional: \{\} <br /> |
 | `categories` _string array_ | categories limits notifications to jobs in these categories; * is every<br />category. |  | items:MinLength: 1 <br />Optional: \{\} <br /> |
 | `events` _string array_ | events are the events to notify about. Those listed are turned on and the<br />rest off. |  | items:Enum: [startup download pauseResume pp complete failed diskFull quota newLogin warning error queueDone other] <br />Optional: \{\} <br /> |
 
@@ -4201,8 +4201,8 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `usernameSecretRef` _[SecretKeyRef](#secretkeyref)_ | usernameSecretRef is the Secret key holding the user name. |  | Required: \{\} <br /> |
-| `passwordSecretRef` _[SecretKeyRef](#secretkeyref)_ | passwordSecretRef is the Secret key holding the password. |  | Required: \{\} <br /> |
+| `usernameSecretRef` _[SecretKeyRef](#secretkeyref)_ | usernameSecretRef references a Secret containing the username. |  | Required: \{\} <br /> |
+| `passwordSecretRef` _[SecretKeyRef](#secretkeyref)_ | passwordSecretRef references a Secret containing the password. |  | Required: \{\} <br /> |
 
 
 #### SabnzbdQuota
@@ -4277,7 +4277,7 @@ _Appears in:_
 | `categories` _[SabnzbdCategory](#sabnzbdcategory) array_ | categories defines download categories. |  | Optional: \{\} <br /> |
 | `folders` _[SabnzbdFolders](#sabnzbdfolders)_ | folders configures download and temp folder paths. |  | Optional: \{\} <br /> |
 | `apprise` _[SabnzbdApprise](#sabnzbdapprise)_ | apprise sends SABnzbd's notifications through Apprise, to services such<br />as Discord or Telegram. |  | MinProperties: 1 <br />Optional: \{\} <br /> |
-| `login` _[SabnzbdLogin](#sabnzbdlogin)_ | login is the user name and password SABnzbd's web interface asks for.<br />The operator connects with the API key, so the login doesn't affect it. |  | Optional: \{\} <br /> |
+| `login` _[SabnzbdLogin](#sabnzbdlogin)_ | login is the username and password SABnzbd's web interface asks for.<br />The operator connects with the API key, so the login doesn't affect it. |  | Optional: \{\} <br /> |
 | `quota` _[SabnzbdQuota](#sabnzbdquota)_ | quota limits how much SABnzbd downloads in a period; it pauses when the<br />quota is used up. |  | MinProperties: 1 <br />Optional: \{\} <br /> |
 
 
@@ -4386,7 +4386,7 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `url` _string_ | url is the base URL of the Seerr instance (e.g., http://jellyseerr.media.svc.cluster.local:5055). |  | MinLength: 1 <br />Pattern: `^https?://` <br />Required: \{\} <br /> |
+| `url` _string_ | url is the base URL of the Seerr instance (e.g., http://seerr.media.svc.cluster.local:5055). |  | MinLength: 1 <br />Pattern: `^https?://` <br />Required: \{\} <br /> |
 | `apiKeySecretRef` _[SecretKeyRef](#secretkeyref)_ | apiKeySecretRef references a Secret containing Seerr's API key. When set,<br />it is used instead of logging in through the media server. |  | Optional: \{\} <br /> |
 | `tls` _[TLSConfig](#tlsconfig)_ | tls configures TLS settings for the connection.<br />Only needed when Seerr uses HTTPS with self-signed or private CA certificates. |  | Optional: \{\} <br /> |
 
@@ -4561,7 +4561,7 @@ _Appears in:_
 | `hostname` _string_ | hostname is the Plex server hostname. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `port` _integer_ | port is the Plex server port. Defaults to 32400. |  | Optional: \{\} <br /> |
 | `useSsl` _boolean_ | useSsl enables SSL for the Plex connection. |  | Optional: \{\} <br /> |
-| `tokenSecretRef` _[SecretKeyRef](#secretkeyref)_ | tokenSecretRef references a Secret containing the Plex auth token. |  | Optional: \{\} <br /> |
+| `tokenSecretRef` _[SecretKeyRef](#secretkeyref)_ | tokenSecretRef references a Secret containing a Plex token. |  | Optional: \{\} <br /> |
 
 
 #### SeerrQuota
@@ -4602,8 +4602,8 @@ _Appears in:_
 | `apiKeySecretRef` _[SecretKeyRef](#secretkeyref)_ | apiKeySecretRef references a Secret containing the service API key. |  | Optional: \{\} <br /> |
 | `useSsl` _boolean_ | useSsl enables SSL for the service connection. |  | Optional: \{\} <br /> |
 | `baseUrl` _string_ | baseUrl is the URL base path for the service. |  | MinLength: 1 <br />Optional: \{\} <br /> |
-| `activeProfileId` _integer_ | activeProfileId is used when activeProfileName is omitted. |  | Optional: \{\} <br /> |
-| `activeProfileName` _string_ | activeProfileName is resolved against the service on each reconciliation.<br />When set, it takes precedence over activeProfileId; exactly one match is required. |  | MinLength: 1 <br />Optional: \{\} <br /> |
+| `activeProfileId` _integer_ | activeProfileId is the quality profile's ID, used when activeProfileName<br />is not set. |  | Optional: \{\} <br /> |
+| `activeProfileName` _string_ | activeProfileName is the quality profile's name, resolved against the<br />server on each reconciliation. It takes precedence over activeProfileId.<br />A missing or ambiguous name blocks writes. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `activeDirectory` _string_ | activeDirectory is the root folder path for media. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `is4k` _boolean_ | is4k indicates this is a 4K instance. |  | Optional: \{\} <br /> |
 | `isDefault` _boolean_ | isDefault indicates this is the default service for its type. |  | Optional: \{\} <br /> |
@@ -4644,7 +4644,7 @@ _Appears in:_
 | `jobSchedules` _[SeerrJobSchedule](#seerrjobschedule) array_ | jobSchedules sets when Seerr runs its scheduled jobs. Jobs left out keep<br />their schedules. |  | Optional: \{\} <br /> |
 | `sonarr` _[SeerrServiceConnection](#seerrserviceconnection) array_ | sonarr lists the Sonarr servers Seerr sends TV requests to, matched by<br />name. Seerr uses the default server, and the default 4K server for 4K<br />requests. |  | Optional: \{\} <br /> |
 | `radarr` _[SeerrServiceConnection](#seerrserviceconnection) array_ | radarr lists the Radarr servers Seerr sends movie requests to, matched by<br />name. Seerr uses the default server, and the default 4K server for 4K<br />requests. |  | Optional: \{\} <br /> |
-| `notifications` _[SeerrNotificationAgent](#seerrnotificationagent) array_ | notifications configures notification agents (Discord, Slack, Telegram, etc.).<br />Each agent is a singleton — only one configuration per agent type. |  | Optional: \{\} <br /> |
+| `notifications` _[SeerrNotificationAgent](#seerrnotificationagent) array_ | notifications configures notification agents (Discord, Slack, Telegram, etc.).<br />Each agent takes one configuration. |  | Optional: \{\} <br /> |
 
 
 #### SeerrStatus
@@ -4745,7 +4745,7 @@ _Appears in:_
 | `enable` _boolean_ | enable controls whether this download client is active. A new download<br />client is enabled unless this is false. |  | Optional: \{\} <br /> |
 | `protocol` _string_ | protocol is the download protocol. |  | Enum: [torrent usenet] <br />Optional: \{\} <br /> |
 | `implementation` _string_ | implementation is the download client type (e.g., QBittorrent, Sabnzbd, NzbGet, Transmission, Deluge). |  | MinLength: 1 <br />Optional: \{\} <br /> |
-| `configContract` _string_ | configContract overrides the default config contract name.<br />Defaults to "<implementation>Settings" if not set. |  | MinLength: 1 <br />Optional: \{\} <br /> |
+| `configContract` _string_ | configContract is the configuration contract name for the implementation.<br />Defaults to the contract the app's schema lists for the implementation. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `host` _string_ | host is the hostname or IP of the download client. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `port` _integer_ | port is the port of the download client. |  | Maximum: 65535 <br />Minimum: 1 <br />Optional: \{\} <br /> |
 | `useSsl` _boolean_ | useSsl enables SSL/TLS for the download client connection. |  | Optional: \{\} <br /> |
@@ -4856,7 +4856,7 @@ _Appears in:_
 | `enable` _boolean_ | enable controls whether this indexer is active. False turns off RSS,<br />automatic and interactive search; true turns on those not set below. |  | Optional: \{\} <br /> |
 | `protocol` _string_ | protocol is the indexer protocol. |  | Enum: [torrent usenet] <br />Required: \{\} <br /> |
 | `implementation` _string_ | implementation is the indexer type (e.g., Newznab, Torznab). |  | MinLength: 1 <br />Required: \{\} <br /> |
-| `configContract` _string_ | configContract is the configuration contract name for the implementation.<br />Defaults to "<implementation>Settings" if not set. |  | MinLength: 1 <br />Optional: \{\} <br /> |
+| `configContract` _string_ | configContract is the configuration contract name for the implementation.<br />Defaults to the contract the app's schema lists for the implementation. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `priority` _integer_ | priority is the indexer priority. Lower values are higher priority. |  | Minimum: 1 <br />Optional: \{\} <br /> |
 | `enableRss` _boolean_ | enableRss enables RSS feed polling for this indexer. A new indexer<br />polls unless this or enable is false. |  | Optional: \{\} <br /> |
 | `enableAutomaticSearch` _boolean_ | enableAutomaticSearch enables automatic search for this indexer. A new<br />indexer searches unless this or enable is false. |  | Optional: \{\} <br /> |
@@ -5183,7 +5183,7 @@ _Appears in:_
 | `backupLimit` _integer_ | backupLimit is how many server backups are kept. |  | Minimum: 0 <br />Optional: \{\} <br /> |
 | `logFullCliOutput` _boolean_ | logFullCliOutput logs the whole FFmpeg and HandBrake output of each job. |  | Optional: \{\} <br /> |
 | `verboseLogs` _boolean_ | verboseLogs enables verbose logging. |  | Optional: \{\} <br /> |
-| `notificationsDiscordWebhookSecretRef` _[SecretKeyRef](#secretkeyref)_ | notificationsDiscordWebhookSecretRef references the Discord webhook URL<br />notifications go to. |  | Optional: \{\} <br /> |
+| `notificationsDiscordWebhookSecretRef` _[SecretKeyRef](#secretkeyref)_ | notificationsDiscordWebhookSecretRef references a Secret containing the<br />Discord webhook URL notifications go to. |  | Optional: \{\} <br /> |
 | `notificationsTranscodeSuccess` _boolean_ | notificationsTranscodeSuccess notifies when a transcode succeeds. |  | Optional: \{\} <br /> |
 | `notificationsTranscodeError` _boolean_ | notificationsTranscodeError notifies when a transcode fails. |  | Optional: \{\} <br /> |
 | `notificationsTranscodeCancelled` _boolean_ | notificationsTranscodeCancelled notifies when a transcode is cancelled. |  | Optional: \{\} <br /> |

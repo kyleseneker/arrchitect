@@ -419,8 +419,8 @@ spec:
                     type: string
                   notificationsDiscordWebhookSecretRef:
                     description: |-
-                      notificationsDiscordWebhookSecretRef references the Discord webhook URL
-                      notifications go to.
+                      notificationsDiscordWebhookSecretRef references a Secret containing the
+                      Discord webhook URL notifications go to.
                     properties:
                       key:
                         description: key is the key within the Secret.

@@ -340,7 +340,7 @@ spec:
                     configContract:
                       description: |-
                         configContract is the configuration contract name for the implementation.
-                        Defaults to "<implementation>Settings" if not set.
+                        Defaults to the contract the app's schema lists for the implementation.
                       minLength: 1
                       type: string
                     enable:
@@ -410,7 +410,7 @@ spec:
                     metadataProfileName:
                       description: |-
                         metadataProfileName is the metadata profile for imported items (Lidarr,
-                        Readarr). Resolved to an ID at reconciliation time.
+                        Readarr), resolved against the app on each reconciliation.
                       minLength: 1
                       type: string
                     minimumAvailability:
@@ -447,8 +447,9 @@ spec:
                       type: string
                     qualityProfileName:
                       description: |-
-                        qualityProfileName is the name of the quality profile to assign to imported items.
-                        Must match an existing quality profile. Resolved to an ID at reconciliation time.
+                        qualityProfileName is the quality profile for imported items, resolved
+                        against the app on each reconciliation. It must match an existing quality
+                        profile.
                       minLength: 1
                       type: string
                     rootFolderPath:
@@ -491,7 +492,8 @@ spec:
                 description: indexerConfig configures global indexer settings.
                 properties:
                   maximumSize:
-                    description: maximumSize is the maximum release size in MB.
+                    description: maximumSize is the maximum release size in MB. 0
+                      means unlimited.
                     format: int32
                     type: integer
                   minimumAge:
@@ -499,11 +501,13 @@ spec:
                     format: int32
                     type: integer
                   retention:
-                    description: retention is the usenet retention in days.
+                    description: retention is the usenet retention in days. 0 means
+                      unlimited.
                     format: int32
                     type: integer
                   rssSyncInterval:
                     description: rssSyncInterval is the RSS sync interval in minutes.
+                      0 disables RSS.
                     format: int32
                     type: integer
                 type: object
@@ -575,7 +579,7 @@ spec:
                     type: boolean
                   minimumFreeSpaceWhenImporting:
                     description: minimumFreeSpaceWhenImporting is the minimum free
-                      space in MB required.
+                      space in MB required to import.
                     format: int32
                     type: integer
                   recycleBin:
@@ -795,7 +799,8 @@ spec:
                     configContract:
                       description: |-
                         configContract is the configuration contract name for the implementation.
-                        Defaults to "<implementation>Settings" if not set.
+                        Defaults to the contract the app's schema lists for the implementation.
+                        Prowlarr defaults to "<implementation>Settings".
                       minLength: 1
                       type: string
                     fields:
@@ -1285,8 +1290,8 @@ spec:
                     defaultMetadataProfileName:
                       description: |-
                         defaultMetadataProfileName is the metadata profile for content added to
-                        this folder (Lidarr, Readarr; required there). Resolved to an ID at
-                        reconciliation time.
+                        this folder (Lidarr, Readarr; required there), resolved against the app
+                        on each reconciliation.
                       minLength: 1
                       type: string
                     defaultMonitorOption:
@@ -1314,8 +1319,8 @@ spec:
                     defaultQualityProfileName:
                       description: |-
                         defaultQualityProfileName is the quality profile for content added to
-                        this folder (Lidarr, Readarr; required there). Resolved to an ID at
-                        reconciliation time, after declared quality profiles are applied.
+                        this folder (Lidarr, Readarr; required there), resolved against the app
+                        on each reconciliation after declared quality profiles are applied.
                       minLength: 1
                       type: string
                     defaultTagLabels:
@@ -1395,7 +1400,7 @@ spec:
                     minLength: 1
                     type: string
                   uiLanguage:
-                    description: uiLanguage is the UI language ID.
+                    description: uiLanguage is the UI language ID. 1=English.
                     format: int32
                     type: integer
                 type: object

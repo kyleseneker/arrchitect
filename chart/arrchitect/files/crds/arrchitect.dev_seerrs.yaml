@@ -108,7 +108,7 @@ spec:
                     type: object
                   url:
                     description: url is the base URL of the Seerr instance (e.g.,
-                      http://jellyseerr.media.svc.cluster.local:5055).
+                      http://seerr.media.svc.cluster.local:5055).
                     minLength: 1
                     pattern: ^https?://
                     type: string
@@ -479,7 +479,7 @@ spec:
               notifications:
                 description: |-
                   notifications configures notification agents (Discord, Slack, Telegram, etc.).
-                  Each agent is a singleton — only one configuration per agent type.
+                  Each agent takes one configuration.
                 items:
                   description: SeerrNotificationAgent configures a single notification
                     agent in Seerr.
@@ -621,8 +621,8 @@ spec:
                     format: int32
                     type: integer
                   tokenSecretRef:
-                    description: tokenSecretRef references a Secret containing the
-                      Plex auth token.
+                    description: tokenSecretRef references a Secret containing a Plex
+                      token.
                     properties:
                       key:
                         description: key is the key within the Secret.
@@ -671,14 +671,16 @@ spec:
                       minLength: 1
                       type: string
                     activeProfileId:
-                      description: activeProfileId is used when activeProfileName
-                        is omitted.
+                      description: |-
+                        activeProfileId is the quality profile's ID, used when activeProfileName
+                        is not set.
                       format: int32
                       type: integer
                     activeProfileName:
                       description: |-
-                        activeProfileName is resolved against the service on each reconciliation.
-                        When set, it takes precedence over activeProfileId; exactly one match is required.
+                        activeProfileName is the quality profile's name, resolved against the
+                        server on each reconciliation. It takes precedence over activeProfileId.
+                        A missing or ambiguous name blocks writes.
                       minLength: 1
                       type: string
                     animeSeriesType:
@@ -902,14 +904,16 @@ spec:
                       minLength: 1
                       type: string
                     activeProfileId:
-                      description: activeProfileId is used when activeProfileName
-                        is omitted.
+                      description: |-
+                        activeProfileId is the quality profile's ID, used when activeProfileName
+                        is not set.
                       format: int32
                       type: integer
                     activeProfileName:
                       description: |-
-                        activeProfileName is resolved against the service on each reconciliation.
-                        When set, it takes precedence over activeProfileId; exactly one match is required.
+                        activeProfileName is the quality profile's name, resolved against the
+                        server on each reconciliation. It takes precedence over activeProfileId.
+                        A missing or ambiguous name blocks writes.
                       minLength: 1
                       type: string
                     animeSeriesType:

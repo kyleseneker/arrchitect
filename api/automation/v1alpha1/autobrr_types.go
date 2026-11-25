@@ -366,8 +366,8 @@ type AutobrrTitleList struct {
 	// +kubebuilder:validation:MinLength=1
 	URL string `json:"url,omitempty"`
 
-	// apiKeySecretRef is the Secret key holding the list's API key, for the
-	// types that take one.
+	// apiKeySecretRef references a Secret containing the list's API key, for
+	// the types that take one.
 	// +optional
 	APIKeySecretRef *commonv1alpha1.SecretKeyRef `json:"apiKeySecretRef,omitempty"`
 
@@ -434,11 +434,11 @@ type AutobrrProxy struct {
 	// +optional
 	Enable *bool `json:"enable,omitempty"`
 
-	// usernameSecretRef is the Secret key holding the proxy's user name.
+	// usernameSecretRef references a Secret containing the proxy's username.
 	// +optional
 	UsernameSecretRef *commonv1alpha1.SecretKeyRef `json:"usernameSecretRef,omitempty"`
 
-	// passwordSecretRef is the Secret key holding the proxy's password.
+	// passwordSecretRef references a Secret containing the proxy's password.
 	// +optional
 	PasswordSecretRef *commonv1alpha1.SecretKeyRef `json:"passwordSecretRef,omitempty"`
 

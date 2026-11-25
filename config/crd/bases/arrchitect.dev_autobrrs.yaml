@@ -1307,8 +1307,8 @@ spec:
                   properties:
                     apiKeySecretRef:
                       description: |-
-                        apiKeySecretRef is the Secret key holding the list's API key, for the
-                        types that take one.
+                        apiKeySecretRef references a Secret containing the list's API key, for
+                        the types that take one.
                       properties:
                         key:
                           description: key is the key within the Secret.
@@ -1548,8 +1548,8 @@ spec:
                       minLength: 1
                       type: string
                     passwordSecretRef:
-                      description: passwordSecretRef is the Secret key holding the
-                        proxy's password.
+                      description: passwordSecretRef references a Secret containing
+                        the proxy's password.
                       properties:
                         key:
                           description: key is the key within the Secret.
@@ -1577,8 +1577,8 @@ spec:
                       - HTTP
                       type: string
                     usernameSecretRef:
-                      description: usernameSecretRef is the Secret key holding the
-                        proxy's user name.
+                      description: usernameSecretRef references a Secret containing
+                        the proxy's username.
                       properties:
                         key:
                           description: key is the key within the Secret.

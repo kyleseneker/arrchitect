@@ -439,11 +439,11 @@ type QBittorrentPreferences struct {
 	// +optional
 	ProxyAuthEnabled *bool `json:"proxyAuthEnabled,omitempty"`
 
-	// proxyUsernameSecretRef is the Secret key holding the proxy's user name.
+	// proxyUsernameSecretRef references a Secret containing the proxy's username.
 	// +optional
 	ProxyUsernameSecretRef *commonv1alpha1.SecretKeyRef `json:"proxyUsernameSecretRef,omitempty"`
 
-	// proxyPasswordSecretRef is the Secret key holding the proxy's password.
+	// proxyPasswordSecretRef references a Secret containing the proxy's password.
 	// +optional
 	ProxyPasswordSecretRef *commonv1alpha1.SecretKeyRef `json:"proxyPasswordSecretRef,omitempty"`
 

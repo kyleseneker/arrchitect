@@ -92,7 +92,7 @@ type SeerrSpec struct {
 	Radarr []SeerrServiceConnection `json:"radarr,omitempty"`
 
 	// notifications configures notification agents (Discord, Slack, Telegram, etc.).
-	// Each agent is a singleton — only one configuration per agent type.
+	// Each agent takes one configuration.
 	// +optional
 	// +listType=map
 	// +listMapKey=agent
@@ -129,7 +129,7 @@ type SeerrNotificationAgent struct {
 
 // SeerrConnection defines how the operator connects to Seerr.
 type SeerrConnection struct {
-	// url is the base URL of the Seerr instance (e.g., http://jellyseerr.media.svc.cluster.local:5055).
+	// url is the base URL of the Seerr instance (e.g., http://seerr.media.svc.cluster.local:5055).
 	// +required
 	// +kubebuilder:validation:Pattern=`^https?://`
 	// +kubebuilder:validation:MinLength=1
@@ -169,7 +169,7 @@ type SeerrPlexAuth struct {
 	// +optional
 	UseSsl *bool `json:"useSsl,omitempty"`
 
-	// tokenSecretRef references a Secret containing the Plex auth token.
+	// tokenSecretRef references a Secret containing a Plex token.
 	// +optional
 	TokenSecretRef *commonv1alpha1.SecretKeyRef `json:"tokenSecretRef,omitempty"`
 }
@@ -449,12 +449,14 @@ type SeerrServiceConnection struct {
 	// +kubebuilder:validation:MinLength=1
 	BaseUrl string `json:"baseUrl,omitempty"`
 
-	// activeProfileId is used when activeProfileName is omitted.
+	// activeProfileId is the quality profile's ID, used when activeProfileName
+	// is not set.
 	// +optional
 	ActiveProfileId *int32 `json:"activeProfileId,omitempty"`
 
-	// activeProfileName is resolved against the service on each reconciliation.
-	// When set, it takes precedence over activeProfileId; exactly one match is required.
+	// activeProfileName is the quality profile's name, resolved against the
+	// server on each reconciliation. It takes precedence over activeProfileId.
+	// A missing or ambiguous name blocks writes.
 	// +optional
 	// +kubebuilder:validation:MinLength=1
 	ActiveProfileName string `json:"activeProfileName,omitempty"`

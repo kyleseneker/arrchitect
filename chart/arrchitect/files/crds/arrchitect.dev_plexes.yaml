@@ -90,8 +90,8 @@ spec:
                         type: boolean
                     type: object
                   tokenSecretRef:
-                    description: tokenSecretRef references a Secret containing the
-                      X-Plex-Token.
+                    description: tokenSecretRef references a Secret containing a Plex
+                      token.
                     properties:
                       key:
                         description: key is the key within the Secret.

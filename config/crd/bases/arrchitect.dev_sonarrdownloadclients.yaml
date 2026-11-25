@@ -115,8 +115,8 @@ spec:
                 type: string
               configContract:
                 description: |-
-                  configContract overrides the default config contract name.
-                  Defaults to "<implementation>Settings" if not set.
+                  configContract is the configuration contract name for the implementation.
+                  Defaults to the contract the app's schema lists for the implementation.
                 minLength: 1
                 type: string
               deletionPolicy:

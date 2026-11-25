@@ -455,7 +455,7 @@ spec:
                       tracker lists, through the proxy.
                     type: boolean
                   proxyPasswordSecretRef:
-                    description: proxyPasswordSecretRef is the Secret key holding
+                    description: proxyPasswordSecretRef references a Secret containing
                       the proxy's password.
                     properties:
                       key:
@@ -495,8 +495,8 @@ spec:
                     - SOCKS4
                     type: string
                   proxyUsernameSecretRef:
-                    description: proxyUsernameSecretRef is the Secret key holding
-                      the proxy's user name.
+                    description: proxyUsernameSecretRef references a Secret containing
+                      the proxy's username.
                     properties:
                       key:
                         description: key is the key within the Secret.

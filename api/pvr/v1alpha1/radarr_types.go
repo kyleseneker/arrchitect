@@ -146,7 +146,8 @@ type RadarrSpec struct {
 
 // RadarrMediaManagement configures how Radarr handles media files.
 type RadarrMediaManagement struct {
-	// autoUnmonitorPreviouslyDownloadedMovies unmonitors movies that have been downloaded.
+	// autoUnmonitorPreviouslyDownloadedMovies unmonitors movies deleted from
+	// disk.
 	// +optional
 	AutoUnmonitorPreviouslyDownloadedMovies *bool `json:"autoUnmonitorPreviouslyDownloadedMovies,omitempty"`
 

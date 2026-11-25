@@ -40,7 +40,7 @@ type SabnzbdSpec struct {
 	// +optional
 	Apprise SabnzbdApprise `json:"apprise,omitzero"`
 
-	// login is the user name and password SABnzbd's web interface asks for.
+	// login is the username and password SABnzbd's web interface asks for.
 	// The operator connects with the API key, so the login doesn't affect it.
 	// +optional
 	Login SabnzbdLogin `json:"login,omitzero"`
@@ -54,11 +54,11 @@ type SabnzbdSpec struct {
 // SabnzbdLogin is SABnzbd's web interface login. Empty values in the Secret
 // turn the login off.
 type SabnzbdLogin struct {
-	// usernameSecretRef is the Secret key holding the user name.
+	// usernameSecretRef references a Secret containing the username.
 	// +required
 	UsernameSecretRef commonv1alpha1.SecretKeyRef `json:"usernameSecretRef,omitempty"`
 
-	// passwordSecretRef is the Secret key holding the password.
+	// passwordSecretRef references a Secret containing the password.
 	// +required
 	PasswordSecretRef commonv1alpha1.SecretKeyRef `json:"passwordSecretRef,omitempty"`
 }
@@ -388,7 +388,7 @@ type SabnzbdApprise struct {
 	// +optional
 	Enabled *bool `json:"enabled,omitempty"`
 
-	// urlsSecretRef is the Secret key holding the Apprise URLs to notify,
+	// urlsSecretRef references a Secret containing the Apprise URLs to notify,
 	// separated by commas, such as discord://webhook_id/webhook_token.
 	// +optional
 	URLsSecretRef *commonv1alpha1.SecretKeyRef `json:"urlsSecretRef,omitempty"`
