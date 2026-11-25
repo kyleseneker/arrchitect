@@ -291,13 +291,41 @@ func TestSecretReferrersFollowReferences(t *testing.T) {
 		}},
 		&indexersv1alpha1.Prowlarr{Name: "unrelated", Namespace: "media"},
 	)
-	referrers := secretReferrers(c, &indexersv1alpha1.ProwlarrList{}, prowlarrRefs)
+	referrers := secretReferrers(c, nil, &indexersv1alpha1.ProwlarrList{}, prowlarrRefs)
 
 	reqs := referrers(context.Background(), &metav1.PartialObjectMetadata{Name: "sonarr-key", Namespace: "media"})
 	assert.ElementsMatch(t, []reconcile.Request{
 		{Name: "through-ref", Namespace: "media"},
 		{Name: "direct", Namespace: "media"},
 	}, reqs)
+}
+
+// gets records the type of every object read through it.
+type gets struct {
+	client.Client
+	types []string
+}
+
+func (g *gets) Get(ctx context.Context, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+	g.types = append(g.types, fmt.Sprintf("%T", obj))
+	return g.Client.Get(ctx, key, obj, opts...)
+}
+
+func TestSecretReferrersSkipAppsTheOperatorDoesntRun(t *testing.T) {
+	c := &gets{Client: appRefClient(t,
+		&pvrv1alpha1.Sonarr{Name: "sonarr", Namespace: "media", Spec: pvrv1alpha1.SonarrSpec{
+			Connection: commonv1alpha1.AppConnection{URL: "http://sonarr:8989", APIKeySecretRef: *ref("sonarr-key", "api-key")},
+		}},
+		&indexersv1alpha1.Prowlarr{Name: "through-ref", Namespace: "media", Spec: indexersv1alpha1.ProwlarrSpec{
+			Applications: []indexersv1alpha1.ProwlarrApplication{{Name: "Sonarr", AppRef: &commonv1alpha1.AppRef{Kind: "Sonarr", Name: "sonarr"}}},
+		}},
+	)}
+	referrers := secretReferrers(c, Apps{"prowlarr": true}, &indexersv1alpha1.ProwlarrList{}, prowlarrRefs)
+
+	reqs := referrers(context.Background(), &metav1.PartialObjectMetadata{Name: "sonarr-key", Namespace: "media"})
+	assert.Empty(t, reqs)
+	assert.NotContains(t, c.types, "*v1alpha1.Sonarr",
+		"the cache can't read a kind the operator doesn't run, and the read would wait forever")
 }
 
 func prowlarrRefs(o client.Object) []commonv1alpha1.AppRef {

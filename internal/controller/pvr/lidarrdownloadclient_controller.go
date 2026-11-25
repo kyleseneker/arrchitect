@@ -72,7 +72,7 @@ func (r *LidarrDownloadClientReconciler) SetupWithManager(mgr ctrl.Manager) erro
 		For(&pvrv1alpha1.LidarrDownloadClient{}, builder.WithPredicates(ctrlcommon.ConfigChangedPredicate())).
 		Watches(&pvrv1alpha1.Lidarr{}, handler.EnqueueRequestsFromMapFunc(objectsOf(r.Client, &pvrv1alpha1.LidarrDownloadClientList{})),
 			builder.WithPredicates(instanceChanged())).
-		WatchesMetadata(&corev1.Secret{}, ctrlcommon.EnqueueForSecretThroughRefs(r.Client, &pvrv1alpha1.LidarrDownloadClientList{}, downloadClientAppRefs))
+		WatchesMetadata(&corev1.Secret{}, ctrlcommon.EnqueueForSecretThroughRefs(r.Client, r.Apps, &pvrv1alpha1.LidarrDownloadClientList{}, downloadClientAppRefs))
 	b, err = ctrlcommon.WatchAppRefs(mgr, b, r.Apps, &pvrv1alpha1.LidarrDownloadClient{}, &pvrv1alpha1.LidarrDownloadClientList{},
 		downloadClientAppRefs, "QBittorrent", "Sabnzbd")
 	if err != nil {

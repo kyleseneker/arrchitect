@@ -650,7 +650,7 @@ func sameBazarrProfiles(current []map[string]any, desiredJSON string) bool {
 func (r *BazarrReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	b := ctrl.NewControllerManagedBy(mgr).
 		For(&subtitlesv1alpha1.Bazarr{}, builder.WithPredicates(ctrlcommon.ConfigChangedPredicate())).
-		WatchesMetadata(&corev1.Secret{}, ctrlcommon.EnqueueForSecretThroughRefs(r.Client, &subtitlesv1alpha1.BazarrList{}, bazarrAppRefs))
+		WatchesMetadata(&corev1.Secret{}, ctrlcommon.EnqueueForSecretThroughRefs(r.Client, r.Apps, &subtitlesv1alpha1.BazarrList{}, bazarrAppRefs))
 	b, err := ctrlcommon.WatchAppRefs(mgr, b, r.Apps, &subtitlesv1alpha1.Bazarr{}, &subtitlesv1alpha1.BazarrList{}, bazarrAppRefs, "Sonarr", "Radarr", "Jellyfin")
 	if err != nil {
 		return err

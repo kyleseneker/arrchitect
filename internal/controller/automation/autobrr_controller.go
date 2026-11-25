@@ -1028,7 +1028,7 @@ func (s *autobrrSync) actions(
 func (r *AutobrrReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	b := ctrl.NewControllerManagedBy(mgr).
 		For(&automationv1alpha1.Autobrr{}, builder.WithPredicates(ctrlcommon.ConfigChangedPredicate())).
-		WatchesMetadata(&corev1.Secret{}, ctrlcommon.EnqueueForSecretThroughRefs(r.Client, &automationv1alpha1.AutobrrList{}, autobrrAppRefs))
+		WatchesMetadata(&corev1.Secret{}, ctrlcommon.EnqueueForSecretThroughRefs(r.Client, r.Apps, &automationv1alpha1.AutobrrList{}, autobrrAppRefs))
 	b, err := ctrlcommon.WatchAppRefs(mgr, b, r.Apps, &automationv1alpha1.Autobrr{}, &automationv1alpha1.AutobrrList{}, autobrrAppRefs,
 		"QBittorrent", "Sabnzbd", "Sonarr", "Radarr", "Lidarr", "Readarr")
 	if err != nil {

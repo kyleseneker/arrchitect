@@ -502,7 +502,7 @@ func serviceURL(url string) string {
 func (r *MaintainerrReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	b := ctrl.NewControllerManagedBy(mgr).
 		For(&curationv1alpha1.Maintainerr{}, builder.WithPredicates(ctrlcommon.ConfigChangedPredicate())).
-		WatchesMetadata(&corev1.Secret{}, ctrlcommon.EnqueueForSecretThroughRefs(r.Client, &curationv1alpha1.MaintainerrList{}, maintainerrAppRefs))
+		WatchesMetadata(&corev1.Secret{}, ctrlcommon.EnqueueForSecretThroughRefs(r.Client, r.Apps, &curationv1alpha1.MaintainerrList{}, maintainerrAppRefs))
 	b, err := ctrlcommon.WatchAppRefs(mgr, b, r.Apps, &curationv1alpha1.Maintainerr{}, &curationv1alpha1.MaintainerrList{}, maintainerrAppRefs, "Sonarr", "Radarr", "Seerr", "Plex", "Jellyfin")
 	if err != nil {
 		return err

@@ -58,7 +58,7 @@ func (r *LidarrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 func (r *LidarrReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	b := ctrl.NewControllerManagedBy(mgr).
 		For(&pvrv1alpha1.Lidarr{}, builder.WithPredicates(ctrlcommon.ConfigChangedPredicate())).
-		WatchesMetadata(&corev1.Secret{}, ctrlcommon.EnqueueForSecretThroughRefs(r.Client, &pvrv1alpha1.LidarrList{}, lidarrAppRefs))
+		WatchesMetadata(&corev1.Secret{}, ctrlcommon.EnqueueForSecretThroughRefs(r.Client, r.Apps, &pvrv1alpha1.LidarrList{}, lidarrAppRefs))
 	b, err := ctrlcommon.WatchAppRefs(mgr, b, r.Apps, &pvrv1alpha1.Lidarr{}, &pvrv1alpha1.LidarrList{}, lidarrAppRefs, "Jellyfin", "Plex")
 	if err != nil {
 		return err
