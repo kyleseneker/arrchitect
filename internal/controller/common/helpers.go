@@ -64,9 +64,9 @@ func UpdateObservationStatus(ctx context.Context, c client.Client, obj ConfigRes
 	if err != nil {
 		UpdateStatus(ctx, c, obj, false, engine.ReasonSyncFailed, "observation failed: "+err.Error())
 	} else if len(drift) > 0 {
-		UpdateStatus(ctx, c, obj, false, "DriftDetected", "differs: "+driftSummary(drift)+"; observe policy prevents application writes")
+		UpdateStatus(ctx, c, obj, false, engine.ReasonDriftDetected, "differs: "+driftSummary(drift)+"; observe policy prevents application writes")
 	} else {
-		UpdateStatus(ctx, c, obj, true, "Observed", "observable configuration matches; no application writes performed")
+		UpdateStatus(ctx, c, obj, true, engine.ReasonObserved, "observable configuration matches; no application writes performed")
 	}
 }
 
@@ -410,12 +410,15 @@ func collectSecretKeyRefs(v reflect.Value, refs *[]commonv1alpha1.SecretKeyRef) 
 // from the app, by prune or by deletionPolicy delete. Either only ever deletes
 // resources the operator created.
 func EmitPruneEvents(recorder events.EventRecorder, obj client.Object, pruned []engine.PrunedResource) {
+	if recorder == nil {
+		return
+	}
 	for _, p := range pruned {
 		id := ""
 		if p.ID != 0 {
 			id = fmt.Sprintf(" (id=%d)", p.ID)
 		}
-		recorder.Eventf(obj, nil, corev1.EventTypeWarning, "ResourcePruned", "Prune",
+		recorder.Eventf(obj, nil, corev1.EventTypeWarning, engine.ReasonResourcePruned, "Prune",
 			"Deleted %s %q%s, which the operator created", p.Type, p.Name, id)
 	}
 }

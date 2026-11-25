@@ -13,4 +13,13 @@ const (
 	ReasonInvalidConfig      = "InvalidConfig"
 	ReasonReferenceNotFound  = "ReferenceNotFound"
 	ReasonNameConflict       = "NameConflict"
+	ReasonDriftDetected      = "DriftDetected"
+	ReasonObserved           = "Observed"
+)
+
+const (
+	ReasonResourcePruned  = "ResourcePruned"
+	ReasonResourceKept    = "ResourceKept"
+	ReasonCleanupFailed   = "CleanupFailed"
+	ReasonInstanceMissing = "InstanceMissing"
 )

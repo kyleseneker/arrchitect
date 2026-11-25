@@ -86,7 +86,7 @@ func HandleDeletion(ctx context.Context, c client.Client, recorder events.EventR
 				}
 			} else {
 				if recorder != nil {
-					recorder.Eventf(obj, nil, corev1.EventTypeWarning, "CleanupFailed", "Cleanup",
+					recorder.Eventf(obj, nil, corev1.EventTypeWarning, engine.ReasonCleanupFailed, "Cleanup",
 						"removing remote resources failed; retrying until the finalizer is released at %s: %v",
 						obj.GetDeletionTimestamp().Add(DeletionGiveUpAfter).Format(time.RFC3339), err)
 				}
@@ -197,7 +197,7 @@ func EmitKeptEvents(recorder events.EventRecorder, obj ConfigResource, app strin
 		return
 	}
 	for _, k := range kept {
-		recorder.Eventf(obj, nil, corev1.EventTypeWarning, "ResourceKept", "Cleanup",
+		recorder.Eventf(obj, nil, corev1.EventTypeWarning, engine.ReasonResourceKept, "Cleanup",
 			"Kept %s %q, which the operator created: %s refused to delete it: %s", k.Type, k.Name, app, k.Reason)
 	}
 }
