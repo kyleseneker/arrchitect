@@ -34,6 +34,7 @@ import (
 	requestsv1alpha1 "github.com/kyleseneker/arrchitect/api/requests/v1alpha1"
 	"github.com/kyleseneker/arrchitect/internal/controller/internal/contract"
 	"github.com/kyleseneker/arrchitect/internal/engine"
+	"github.com/kyleseneker/arrchitect/internal/testnet"
 )
 
 const conditionTrue = "True"
@@ -288,7 +289,7 @@ func fakeRuleConstants(radarr bool) map[string]any {
 
 func (f *fakeMaintainerr) serve(t *testing.T) string {
 	t.Helper()
-	ln, err := net.Listen("tcp", net.JoinHostPort(routableAddr(t), "0"))
+	ln, err := net.Listen("tcp", net.JoinHostPort(testnet.RoutableAddr(t), "0"))
 	if err != nil {
 		t.Skipf("cannot bind a routable listener: %v", err)
 	}
@@ -507,7 +508,7 @@ func TestMaintainerrReportsAnUnknownServerWithoutBlockingTheRest(t *testing.T) {
 }
 
 func TestMaintainerrMarksUnhealthyAppNotReady(t *testing.T) {
-	ln, err := net.Listen("tcp", net.JoinHostPort(routableAddr(t), "0"))
+	ln, err := net.Listen("tcp", net.JoinHostPort(testnet.RoutableAddr(t), "0"))
 	if err != nil {
 		t.Skipf("cannot bind: %v", err)
 	}

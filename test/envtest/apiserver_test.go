@@ -21,6 +21,8 @@ import (
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
+
+	"github.com/kyleseneker/arrchitect/internal/testnet"
 )
 
 // startControlPlane boots one control plane for a set of API groups, so a table
@@ -88,26 +90,7 @@ func fakeListAppServer(t *testing.T) string {
 
 func serveApp(t *testing.T, handle http.HandlerFunc) string {
 	t.Helper()
-	addrs, err := net.InterfaceAddrs()
-	if err != nil {
-		t.Skipf("cannot enumerate interfaces: %v", err)
-	}
-	host := ""
-	for _, a := range addrs {
-		ipnet, ok := a.(*net.IPNet)
-		if !ok {
-			continue
-		}
-		if ip := ipnet.IP.To4(); ip != nil && !ip.IsLoopback() && !ip.IsLinkLocalUnicast() {
-			host = ip.String()
-			break
-		}
-	}
-	if host == "" {
-		t.Skip("no routable non-loopback IPv4 address on this host")
-	}
-
-	ln, err := net.Listen("tcp", net.JoinHostPort(host, "0"))
+	ln, err := net.Listen("tcp", net.JoinHostPort(testnet.RoutableAddr(t), "0"))
 	if err != nil {
 		t.Skipf("cannot bind a routable listener: %v", err)
 	}

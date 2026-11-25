@@ -14,6 +14,7 @@ import (
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
 	pvrv1alpha1 "github.com/kyleseneker/arrchitect/api/pvr/v1alpha1"
 	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
+	"github.com/kyleseneker/arrchitect/internal/testnet"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
@@ -202,38 +203,13 @@ func (f *fakeArr) sawPrefix(method, prefix string) bool {
 
 func (f *fakeArr) path(suffix string) string { return "/api/" + f.apiVer + "/" + suffix }
 
-// routableAddr returns a non-loopback IPv4 address on this host. The operator's
-// HTTP client refuses to dial loopback and link-local addresses as SSRF
-// protection, so a fake app on 127.0.0.1 is unreachable by design and every
-// assertion against it would pass for the wrong reason.
-func routableAddr(t *testing.T) string {
-	t.Helper()
-	addrs, err := net.InterfaceAddrs()
-	if err != nil {
-		t.Skipf("cannot enumerate interfaces: %v", err)
-	}
-	for _, a := range addrs {
-		ipnet, ok := a.(*net.IPNet)
-		if !ok {
-			continue
-		}
-		ip := ipnet.IP.To4()
-		if ip == nil || ip.IsLoopback() || ip.IsLinkLocalUnicast() {
-			continue
-		}
-		return ip.String()
-	}
-	t.Skip("no routable non-loopback IPv4 address on this host")
-	return ""
-}
-
 // unhealthyURL returns an app that answers but fails its health check. This
 // drives the same Ping-failure branch as an unroutable host, without depending
 // on how the host OS treats connections to a closed port — macOS drops them and
 // the dial hangs for the full timeout, Linux refuses immediately.
 func unhealthyURL(t *testing.T) string {
 	t.Helper()
-	ln, err := net.Listen("tcp", net.JoinHostPort(routableAddr(t), "0"))
+	ln, err := net.Listen("tcp", net.JoinHostPort(testnet.RoutableAddr(t), "0"))
 	if err != nil {
 		t.Skipf("cannot bind: %v", err)
 	}
@@ -261,7 +237,7 @@ func newFakeArr(t *testing.T, apiVer string, existing map[string][]map[string]an
 	f := &fakeArr{apiVer: apiVer, existing: existing, bodies: map[string][]map[string]any{}}
 	prefix := "/api/" + apiVer + "/"
 
-	ln, err := net.Listen("tcp", net.JoinHostPort(routableAddr(t), "0"))
+	ln, err := net.Listen("tcp", net.JoinHostPort(testnet.RoutableAddr(t), "0"))
 	if err != nil {
 		t.Skipf("cannot bind a routable listener: %v", err)
 	}

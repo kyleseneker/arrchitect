@@ -31,6 +31,7 @@ import (
 	"github.com/kyleseneker/arrchitect/internal/controller/internal/contract"
 	"github.com/kyleseneker/arrchitect/internal/metrics"
 	"github.com/kyleseneker/arrchitect/internal/reconciler"
+	"github.com/kyleseneker/arrchitect/internal/testnet"
 )
 
 // fakeSabnzbd records the form parameters of every /api call. SABnzbd drives
@@ -65,7 +66,7 @@ func (f *fakeSabnzbd) sawMode(mode string) bool {
 
 func (f *fakeSabnzbd) serve(t *testing.T) string {
 	t.Helper()
-	ln, err := net.Listen("tcp", net.JoinHostPort(routableAddr(t), "0"))
+	ln, err := net.Listen("tcp", net.JoinHostPort(testnet.RoutableAddr(t), "0"))
 	if err != nil {
 		t.Skipf("cannot bind a routable listener: %v", err)
 	}

@@ -27,6 +27,7 @@ import (
 	downloadsv1alpha1 "github.com/kyleseneker/arrchitect/api/downloads/v1alpha1"
 	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
 	"github.com/kyleseneker/arrchitect/internal/controller/internal/contract"
+	"github.com/kyleseneker/arrchitect/internal/testnet"
 )
 
 func TestQBPreferencePayloadUsesAPIKeyNames(t *testing.T) {
@@ -198,7 +199,7 @@ func TestQBObserveReadsWithoutChangingPreferencesOrCategories(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			var requests []string
 			var mu sync.Mutex
-			ln, err := net.Listen("tcp", net.JoinHostPort(routableAddr(t), "0"))
+			ln, err := net.Listen("tcp", net.JoinHostPort(testnet.RoutableAddr(t), "0"))
 			require.NoError(t, err)
 			srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				mu.Lock()
@@ -282,7 +283,7 @@ func TestQBEnforceWritesOnlyWhatDiffers(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			var writes []string
 			var mu sync.Mutex
-			ln, err := net.Listen("tcp", net.JoinHostPort(routableAddr(t), "0"))
+			ln, err := net.Listen("tcp", net.JoinHostPort(testnet.RoutableAddr(t), "0"))
 			require.NoError(t, err)
 			srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				switch r.URL.Path {
@@ -337,7 +338,7 @@ type fakeQB struct {
 
 func (f *fakeQB) serve(t *testing.T) string {
 	t.Helper()
-	ln, err := net.Listen("tcp", net.JoinHostPort(routableAddr(t), "0"))
+	ln, err := net.Listen("tcp", net.JoinHostPort(testnet.RoutableAddr(t), "0"))
 	require.NoError(t, err)
 	srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		f.mu.Lock()
