@@ -69,7 +69,7 @@ func TestJellyfinExportsSettingsLibrariesAndTheAdminUser(t *testing.T) {
 	assert.Equal(t, &mediaserversv1alpha1.JellyfinNetwork{KnownProxies: []string{"10.0.0.1"}, EnableRemoteAccess: new(true)},
 		cfg.Spec.Network, "the base URL and ports aren't in the config")
 	assert.Equal(t, &mediaserversv1alpha1.JellyfinBranding{
-		LoginDisclaimer: new("Members only"), CustomCss: new(""), SplashscreenEnabled: new(true),
+		LoginDisclaimer: new("Members only"), CustomCSS: new(""), SplashscreenEnabled: new(true),
 	}, cfg.Spec.Branding, "the uploaded splash screen's location isn't in the config")
 	assert.Equal(t, []mediaserversv1alpha1.JellyfinScheduledTask{
 		{Key: "RefreshLibrary", Triggers: []mediaserversv1alpha1.JellyfinTaskTrigger{{Type: "IntervalTrigger", IntervalMinutes: 720}}},

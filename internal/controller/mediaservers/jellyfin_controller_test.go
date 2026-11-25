@@ -419,7 +419,7 @@ func TestReconcileWritesJellyfinBranding(t *testing.T) {
 }
 
 func TestJellyfinSettingsNameBrandingAsJellyfinDoes(t *testing.T) {
-	out, err := jellyfinSettings(&mediaserversv1alpha1.JellyfinBranding{CustomCss: new(""), SplashscreenEnabled: new(false)})
+	out, err := jellyfinSettings(&mediaserversv1alpha1.JellyfinBranding{CustomCSS: new(""), SplashscreenEnabled: new(false)})
 	require.NoError(t, err)
 	assert.Equal(t, map[string]any{"CustomCss": "", "SplashscreenEnabled": false}, out, "an empty customCss clears it")
 }
