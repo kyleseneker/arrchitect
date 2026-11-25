@@ -210,7 +210,7 @@ func TestUpdateSyncStatus(t *testing.T) {
 		message string
 	}{
 		{"synced", false, nil, nil, metav1.ConditionTrue, engine.ReasonSynced, "all configuration sections synced"},
-		{"partial failure", false, nil, []string{"flow(a): x"}, metav1.ConditionFalse, engine.ReasonSyncFailed, "partial sync failure: [flow(a): x]"},
+		{"partial failure", false, nil, []string{"flow(a): x"}, metav1.ConditionFalse, engine.ReasonSyncFailed, "errors: [flow(a): x]"},
 		{"observe match", true, nil, nil, metav1.ConditionTrue, "Observed", ""},
 		{"observe drift", true, []string{"flows(a)"}, nil, metav1.ConditionFalse, "DriftDetected",
 			"differs: flows(a); observe policy prevents application writes"},

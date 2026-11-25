@@ -90,14 +90,7 @@ func ReportResult(ctx context.Context, c client.Client, obj ConfigResource, obse
 // own client: under the observe policy, whether anything differs; otherwise
 // what failed.
 func UpdateSyncStatus(ctx context.Context, c client.Client, obj ConfigResource, observe bool, drift, syncErrors []string) {
-	switch {
-	case observe:
-		UpdateObservationStatus(ctx, c, obj, drift, syncError(syncErrors))
-	case len(syncErrors) > 0:
-		UpdateStatus(ctx, c, obj, false, engine.ReasonSyncFailed, fmt.Sprintf("partial sync failure: %v", syncErrors))
-	default:
-		UpdateStatus(ctx, c, obj, true, engine.ReasonSynced, "all configuration sections synced")
-	}
+	ReportResult(ctx, c, obj, observe, engine.ReconcileResult{Errors: syncErrors, Drift: drift})
 }
 
 // maxDriftListed caps how many differences a status message names.
