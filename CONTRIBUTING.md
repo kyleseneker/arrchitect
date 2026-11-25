@@ -8,10 +8,10 @@
 4. `make lint test test-chart verify-crds verify-api-docs`
 5. Push and open a PR
 
-You'll need the Go version in `go.mod` and helm; the Makefile installs every
-other tool into `bin/`. The app and end-to-end suites also need docker or
-podman. Most of the interesting behavior only shows up against a real Sonarr or
-Jellyfin, so it helps to have one running.
+You'll need the Go version in `go.mod` and Helm; the Makefile installs every
+other tool into `bin/`. The compat suite also needs Docker or Podman, and the
+end-to-end suite needs Docker. Most of the interesting behavior only shows up
+against a real Sonarr or Jellyfin, so it helps to have one running.
 
 ```bash
 make help                     # every target
@@ -30,26 +30,28 @@ of the same name.
 
 | Target | What it covers | Needs |
 | --- | --- | --- |
-| `make test` | Unit tests against fakes, with the race detector; envtest tests against a real kube-apiserver for every sample, admission rule and controller; and `test/consistency`, which checks the chart, Renovate and CI agree with the code | Go, helm |
-| `make test-chart` | The chart's templates, with the helm-unittest suites in `chart/arrchitect/tests`. CI also runs `ct lint` | helm |
+| `make test` | Unit tests against fakes, with the race detector; envtest tests against a real kube-apiserver for every sample, admission rule and controller; and `test/consistency`, which checks that the chart, Renovate, CI, the README's supported apps table and `docs/api.md` agree with the code | Go, Helm |
+| `make test-chart` | The chart's templates, with the helm-unittest suites in `chart/arrchitect/tests`. CI also runs `ct lint` | Helm |
 | `make verify-crds` | That the chart carries the generated CRDs | |
 | `make verify-api-docs` | That `docs/api.md` matches the API types | |
 | `make verify-crd-compat` | crdify's report of CRD changes since the last release that existing resources could break on. In CI it shows as a warning, not a failure, while the API is v1alpha1 | git history |
-| `make test-compat` | Each app running in a container, reconciled from its fixture in `test/compat/testdata`. `COMPAT_VERSIONS=oldest` runs each app's oldest supported version, `previous-major` the newest of the major before its newest | docker or podman |
-| `make test-e2e` | The image and chart in a kind cluster, with the Chainsaw tests in `test/e2e`: install and upgrade from the last release, every controller, and a single-namespace install. `KIND_NODE_IMAGE=` picks the Kubernetes version; CI runs each one [the stability policy](docs/stability.md#kubernetes) supports | docker |
+| `make test-compat` | Each app running in a container, reconciled from its fixture in `test/compat/testdata`. `COMPAT_VERSIONS=oldest` runs each app's oldest supported version, `previous-major` the newest of the major before its newest | Docker or Podman |
+| `make test-e2e` | The image and chart in a kind cluster, with the Chainsaw tests in `test/e2e`: install and upgrade from the last release, every controller, and a single-namespace install. `KIND_NODE_IMAGE=` picks the Kubernetes version; CI runs each one [the stability policy](docs/stability.md#kubernetes) supports | Docker |
 
 `config/samples` holds one readable example per kind for users; envtest checks
 the API server accepts each one, and the end-to-end suite runs them. The compat
-fixtures in `test/compat/testdata` are different: they set as many fields as the
-app accepts and point at the test's containers.
+fixtures in `test/compat/testdata` are different. They set as many fields as
+the app accepts and point at the test's containers.
 
-None of the suites reads or changes your default kubeconfig: envtest and compat
+None of the suites reads or changes your default kubeconfig. Envtest and compat
 start their own API server, and the end-to-end suite writes its kind cluster to
 a kubeconfig in a temporary directory.
 
-`test/compat/images_test.go` pins each app's current version, which Renovate
-bumps, and the newest release of the line before it. When a current pin moves
-to a new line, move its previous pin too.
+`test/compat/images_test.go` pins each app's newest release, which Renovate
+bumps, and its oldest supported release, which moves by hand in a minor
+release. An app whose newest pin starts a major line also has a pin for the
+newest release of the line before it. When a newest pin moves to a new major
+line, add or update that pin.
 
 ## Layout
 
@@ -66,7 +68,7 @@ package named the same way.
 | `subtitles` | Bazarr | `api/subtitles/v1alpha1/` |
 | `downloads` | qBittorrent, SABnzbd | `api/downloads/v1alpha1/` |
 | `mediaservers` | Jellyfin, Plex | `api/mediaservers/v1alpha1/` |
-| `requests` | Seerr/Jellyseerr | `api/requests/v1alpha1/` |
+| `requests` | Seerr | `api/requests/v1alpha1/` |
 | `curation` | Maintainerr | `api/curation/v1alpha1/` |
 | `transcode` | Tdarr | `api/transcode/v1alpha1/` |
 | `automation` | Autobrr | `api/automation/v1alpha1/` |
@@ -84,12 +86,12 @@ before `verify-crds` passes, and a crd-ref-docs PR needs `make api-docs`.
 ## Commit messages and releases
 
 Commits use [Conventional Commits](https://www.conventionalcommits.org/) with
-the app as the scope: `fix(tdarr): ...`, `feat(prowlarr): ...`. Release notes
-are generated from them, so `feat` and `fix` subjects should read as a change a
-user would notice. `chore(deps)` commits are listed as dependencies. `test`,
-`docs`, `refactor`, `style`, `ci` and other `chore` commits are left out. Mark
-anything that needs action on upgrade with `!` (`feat(maintainerr)!: ...`) and
-it is listed under Breaking changes.
+the app or area as the scope, such as `fix(tdarr)` or `feat(chart)`. Release
+notes are generated from them, so `feat` and `fix` subjects should read as a
+change a user would notice. `chore(deps)` commits are listed as dependencies.
+`test`, `docs`, `refactor`, `style`, `ci` and other `chore` commits are left
+out. Mark anything that needs action on upgrade with `!`
+(`feat(maintainerr)!: ...`) and it is listed under Breaking changes.
 
 A release is a tag on `main`:
 
@@ -98,7 +100,7 @@ git tag v0.2.0
 git push origin v0.2.0
 ```
 
-The release workflow publishes the image, CLI and chart, and drafts the notes
-from the commits, which are then edited by hand. The draft lists `kubectl
-apply` commands for any CRD that changed since the previous tag, for installs
-that set `crds.enabled: false`.
+The release workflow publishes the image, CLI and chart, and a GitHub release
+with notes generated from the commits. The notes are then edited by hand. They
+list `kubectl apply` commands for any CRD that changed since the previous tag,
+for installs that set `crds.enabled: false`.
