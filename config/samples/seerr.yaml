@@ -51,7 +51,7 @@ spec:
       types: [mediaPending, mediaApproved, mediaAvailable, mediaFailed, mediaDeclined]
       options:
         - name: botUsername
-          value: "Seerr"
+          value: Seerr
         - name: enableMentions
           value: false
         - name: webhookUrl
@@ -64,7 +64,7 @@ spec:
       types: [mediaPending, mediaApproved, mediaAvailable, mediaFailed, mediaDeclined]
       options:
         - name: chatId
-          value: "your-chat-id"
+          value: your-chat-id
         - name: botAPI
           valueFrom:
             secretKeyRef:

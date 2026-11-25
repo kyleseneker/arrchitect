@@ -37,7 +37,7 @@ spec:
         - name: definitionFile
           value: internetarchive
         - name: baseUrl
-          value: "https://archive.org/"
+          value: https://archive.org/
     - name: Usenet Indexer
       implementation: Newznab
       enable: true
@@ -45,7 +45,7 @@ spec:
       priority: 25
       fields:
         - name: baseUrl
-          value: "https://indexer.example.com"
+          value: https://indexer.example.com
         - name: apiPath
           value: /api
         - name: apiKey

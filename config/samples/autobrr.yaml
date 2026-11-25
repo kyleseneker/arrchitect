@@ -32,21 +32,21 @@ spec:
         name: prowlarr-credentials
         key: api-key
   filters:
-    - name: "TV Shows - 1080p"
+    - name: TV Shows - 1080p
       priority: 1
       indexers:
         - Prowlarr
       resolutions:
-        - "1080p"
+        - 1080p
       sources:
-        - "BluRay"
-        - "WEB-DL"
-        - "WEB"
+        - BluRay
+        - WEB-DL
+        - WEB
       smartEpisode: true
       maxDownloads: 10
       maxDownloadsUnit: DAY
       actions:
-        - name: "Send to qBittorrent"
+        - name: Send to qBittorrent
           type: qBittorrent
           clientRef: qBittorrent
           category: tv

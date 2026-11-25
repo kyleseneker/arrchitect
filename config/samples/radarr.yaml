@@ -38,9 +38,9 @@ spec:
     checkForFinishedDownloadInterval: 1
   ui:
     firstDayOfWeek: 0
-    shortDateFormat: "MMM D YYYY"
-    longDateFormat: "dddd, MMMM D YYYY"
-    timeFormat: "h(:mm)a"
+    shortDateFormat: MMM D YYYY
+    longDateFormat: dddd, MMMM D YYYY
+    timeFormat: h(:mm)a
     showRelativeDates: true
     theme: auto
     movieRuntimeFormat: hoursMinutes

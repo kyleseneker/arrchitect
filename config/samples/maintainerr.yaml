@@ -42,8 +42,8 @@ spec:
       name: tautulli-credentials
       key: api-key
   jobs:
-    rules: "0 0-23/8 * * *"
-    collections: "0 0-23/12 * * *"
+    rules: 0 0-23/8 * * *
+    collections: 0 0-23/12 * * *
   notifications:
     - name: Discord
       agent: discord
@@ -76,7 +76,7 @@ spec:
       keepInMaintainerrOnly: false
       visibleOnHome: true
       visibleOnRecommended: false
-      schedule: "0 3 * * *"
+      schedule: 0 3 * * *
       notifications:
         - Discord
       sections:

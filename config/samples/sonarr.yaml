@@ -26,7 +26,7 @@ spec:
     dailyEpisodeFormat: "{Series TitleYear} - {Air-Date} - {Episode CleanTitle} [{Custom Formats }{Quality Full}]{[MediaInfo VideoDynamicRangeType]}{[MediaInfo AudioCodec}{ MediaInfo AudioChannels]}{[MediaInfo VideoCodec]}{-Release Group}"
     animeEpisodeFormat: "{Series TitleYear} - S{season:00}E{episode:00} - {absolute:000} - {Episode CleanTitle} [{Custom Formats }{Quality Full}]{[MediaInfo VideoDynamicRangeType]}{[MediaInfo AudioCodec}{ MediaInfo AudioChannels]}{[MediaInfo VideoCodec]}{-Release Group}"
     seriesFolderFormat: "{Series TitleYear} [tvdbid-{TvdbId}]"
-    seasonFolderFormat: "Season {season:00}"
+    seasonFolderFormat: Season {season:00}
     specialsFolderFormat: Specials
   indexerConfig:
     minimumAge: 0
@@ -39,9 +39,9 @@ spec:
     autoRedownloadFailedFromInteractiveSearch: true
   ui:
     firstDayOfWeek: 0
-    shortDateFormat: "MMM D YYYY"
-    longDateFormat: "dddd, MMMM D YYYY"
-    timeFormat: "h(:mm)a"
+    shortDateFormat: MMM D YYYY
+    longDateFormat: dddd, MMMM D YYYY
+    timeFormat: h(:mm)a
     showRelativeDates: true
     theme: auto
     uiLanguage: 1

@@ -28,8 +28,8 @@ spec:
       name: TV Shows
       folder: /data/media/tv
       cache: /temp
-      container: ".mkv"
-      containerFilter: "mkv,mp4,mov,m4v,mpg,mpeg,avi,flv,webm,wmv,vob,evo,m2ts,ts"
+      container: .mkv
+      containerFilter: mkv,mp4,mov,m4v,mpg,mpeg,avi,flv,webm,wmv,vob,evo,m2ts,ts
       folderWatching: true
       processLibrary: true
       scanOnStart: true
@@ -40,8 +40,8 @@ spec:
       name: Movies
       folder: /data/media/movies
       cache: /temp
-      container: ".mkv"
-      containerFilter: "mkv,mp4,mov,m4v,mpg,mpeg,avi,flv,webm,wmv,vob,evo,m2ts,ts"
+      container: .mkv
+      containerFilter: mkv,mp4,mov,m4v,mpg,mpeg,avi,flv,webm,wmv,vob,evo,m2ts,ts
       folderWatching: true
       processLibrary: true
       scanOnStart: true
