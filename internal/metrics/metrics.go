@@ -35,15 +35,15 @@ var (
 		[]string{"app", "status_class"},
 	)
 
-	// ResourcesPrunedTotal counts resources deleted by the prune logic.
-	// Pruning is destructive, so this is the most critical custom metric —
+	// ResourcesPrunedTotal counts app items the operator created and then
+	// deleted, by prune or deletionPolicy delete. Deleting is destructive, so
 	// alert on `rate(arrchitect_resources_pruned_total[5m]) > threshold`.
 	// Labels: app, resource_type (downloadClients/indexers/qualityProfiles/etc).
 	ResourcesPrunedTotal = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: namespace,
 			Name:      "resources_pruned_total",
-			Help:      "Total number of unmanaged resources deleted by the prune logic.",
+			Help:      "Total number of app items deleted by prune or deletionPolicy delete.",
 		},
 		[]string{"app", "resource_type"},
 	)
