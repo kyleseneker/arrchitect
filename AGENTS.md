@@ -172,9 +172,10 @@ Never edit these by hand. Change the source, then regenerate.
   client built for an app, including the target of an `appRef`, passes that
   connection's TLS settings and its app name: `engine.WithTLSConfig` and
   `engine.WithAppLabel`.
-- The engine's HTTP client refuses loopback and link-local addresses, to keep
-  the operator away from cloud metadata services. Don't weaken that. Tests
-  serve on `testnet.RoutableAddr(t)` or pass `engine.WithTransport`.
+- The engine's HTTP client refuses loopback, link-local, unspecified and cloud
+  metadata addresses, follows redirects only on the app's own host and caps
+  response bodies. Don't weaken that. Tests serve on `testnet.RoutableAddr(t)`
+  or pass `engine.WithTransport`.
 - Prune and `deletionPolicy: delete` only delete items the operator created,
   which `status.managedResources` records. Never delete an item the operator
   didn't create.
