@@ -99,7 +99,7 @@ func TestJellyfin(t *testing.T) {
 			network, err := jc.GetConfig(context.Background(), "/System/Configuration/network")
 			require.NoError(t, err)
 			assert.Equal(t, []any{"10.0.0.1"}, network["KnownProxies"])
-			assert.Equal(t, []any{"all=https://jellyfin.example.com"}, network["PublishedServerURIBySubnet"])
+			assert.Equal(t, []any{"all=https://jellyfin.example.com"}, network["PublishedServerUriBySubnet"])
 			libraries, err := jc.ListLibraries(context.Background())
 			require.NoError(t, err)
 			names := make([]any, 0, len(libraries))

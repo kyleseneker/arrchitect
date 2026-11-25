@@ -25,7 +25,7 @@ func exportFakeJellyfin(t *testing.T, libraries string) (Result, *mediaserversv1
 			_, _ = w.Write([]byte(`{"HardwareAccelerationType":"vaapi","H264Crf":23,"HardwareDecodingCodecs":["h264","hevc"],
 				"TonemappingPeak":100,"DownMixAudioBoost":2.5}`))
 		case "/System/Configuration/network":
-			_, _ = w.Write([]byte(`{"BaseURL":"/jf","InternalHttpPort":8096,"KnownProxies":["10.0.0.1"],"EnableRemoteAccess":true}`))
+			_, _ = w.Write([]byte(`{"BaseUrl":"/jf","InternalHttpPort":8096,"KnownProxies":["10.0.0.1"],"EnableRemoteAccess":true}`))
 		case "/System/Configuration/branding":
 			_, _ = w.Write([]byte(`{"LoginDisclaimer":"Members only","CustomCss":"","SplashscreenEnabled":true,` +
 				`"SplashscreenLocation":"/config/splashscreen.png"}`))
