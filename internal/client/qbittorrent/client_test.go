@@ -111,11 +111,35 @@ func TestCreateCategory(t *testing.T) {
 }
 
 func TestEditCategory(t *testing.T) {
-	c := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/api/v2/torrents/editCategory", r.URL.Path)
-		w.WriteHeader(http.StatusOK)
-	})
-	assert.NoError(t, c.EditCategory(context.Background(), "movies", "/new-movies"))
+	for _, tc := range []struct {
+		name         string
+		current      map[string]any
+		wantEnabled  []string
+		wantDownload []string
+	}{
+		{name: "default download path, as 5.1 lists it", current: map[string]any{"savePath": "/movies"}},
+		{name: "default download path, as 5.3 lists it", current: map[string]any{"download_path": nil}},
+		{name: "download path turned off", current: map[string]any{"download_path": false}, wantEnabled: []string{"false"}},
+		{
+			name:         "download path set",
+			current:      map[string]any{"download_path": "/incomplete/movies"},
+			wantEnabled:  []string{"true"},
+			wantDownload: []string{"/incomplete/movies"},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			c := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+				assert.Equal(t, "/api/v2/torrents/editCategory", r.URL.Path)
+				assert.NoError(t, r.ParseForm())
+				assert.Equal(t, "movies", r.PostForm.Get("category"))
+				assert.Equal(t, "/new-movies", r.PostForm.Get("savePath"))
+				assert.Equal(t, tc.wantEnabled, r.PostForm["downloadPathEnabled"])
+				assert.Equal(t, tc.wantDownload, r.PostForm["downloadPath"])
+				w.WriteHeader(http.StatusOK)
+			})
+			assert.NoError(t, c.EditCategory(context.Background(), "movies", "/new-movies", tc.current))
+		})
+	}
 }
 
 func TestLogin_NoContentWithPortSuffixedCookie(t *testing.T) {

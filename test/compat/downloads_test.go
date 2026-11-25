@@ -178,6 +178,12 @@ func TestQBittorrent(t *testing.T) {
 			rule, _ := rules["Compat Show"].(map[string]any)
 			assert.Equal(t, "Compat Show 2160p", rule["mustContain"])
 			assert.Equal(t, "x265", rule["mustNotContain"], "the update kept the fields it didn't change")
+			categories, err := hc.GetJSON(context.Background(), "/api/v2/torrents/categories")
+			require.NoError(t, err)
+			tv, _ := categories["tv"].(map[string]any)
+			assert.Equal(t, "/downloads/complete/series", tv["savePath"])
+			assert.Equal(t, "/downloads/incomplete/tv", tv["download_path"],
+				"changing the save path kept the download path set in qBittorrent")
 		},
 		export: "qbittorrent",
 		vars:   map[string]string{"URL": proxy.url()},
@@ -220,6 +226,11 @@ func TestQBittorrent(t *testing.T) {
 			categories, err := hc.GetJSON(context.Background(), "/api/v2/torrents/categories")
 			require.NoError(t, err)
 			assert.Contains(t, categories, "movies")
+			_, err = hc.DoForm(context.Background(), "/api/v2/torrents/editCategory", url.Values{
+				"category": {"tv"}, "savePath": {"/downloads/complete/tv"},
+				"downloadPathEnabled": {"true"}, "downloadPath": {"/downloads/incomplete/tv"},
+			})
+			require.NoError(t, err, "giving tv a download path, as a user would in qBittorrent")
 			assert.InDelta(t, 45, prefs["rss_refresh_interval"], 0)
 			assert.Equal(t, true, prefs["rss_processing_enabled"])
 			assert.Equal(t, "s(\\d+)e(\\d+)\n(\\d+)x(\\d+)", prefs["rss_smart_episode_filters"])

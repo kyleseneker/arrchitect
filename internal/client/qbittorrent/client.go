@@ -220,11 +220,22 @@ func (c *Client) RemoveCategory(ctx context.Context, name string) error {
 	return err
 }
 
-// EditCategory updates an existing torrent category's save path.
-func (c *Client) EditCategory(ctx context.Context, name, savePath string) error {
+// EditCategory updates an existing torrent category's save path. current is
+// the category as ListCategories returned it. qBittorrent 5.1 replaces every
+// option of a category on edit, so its download path is sent back with it.
+func (c *Client) EditCategory(ctx context.Context, name, savePath string, current map[string]any) error {
 	form := url.Values{}
 	form.Set("category", name)
 	form.Set("savePath", savePath)
+	switch downloadPath := current["download_path"].(type) {
+	case string:
+		form.Set("downloadPathEnabled", "true")
+		form.Set("downloadPath", downloadPath)
+	case bool:
+		if !downloadPath {
+			form.Set("downloadPathEnabled", "false")
+		}
+	}
 
 	_, err := c.hc.DoForm(ctx, "/api/v2/torrents/editCategory", form)
 	return err
