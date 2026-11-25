@@ -1892,7 +1892,7 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `firstDayOfWeek` _integer_ | firstDayOfWeek is the first day of the week. 0=Sunday, 1=Monday. |  | Optional: \{\} <br /> |
+| `firstDayOfWeek` _integer_ | firstDayOfWeek is the first day of the week. 0=Sunday, 1=Monday. |  | Maximum: 1 <br />Minimum: 0 <br />Optional: \{\} <br /> |
 | `shortDateFormat` _string_ | shortDateFormat is the short date display format. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `longDateFormat` _string_ | longDateFormat is the long date display format. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `timeFormat` _string_ | timeFormat is the time display format. |  | MinLength: 1 <br />Optional: \{\} <br /> |
@@ -3949,7 +3949,7 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `firstDayOfWeek` _integer_ | firstDayOfWeek is the first day of the week. 0=Sunday, 1=Monday. |  | Optional: \{\} <br /> |
+| `firstDayOfWeek` _integer_ | firstDayOfWeek is the first day of the week. 0=Sunday, 1=Monday. |  | Maximum: 1 <br />Minimum: 0 <br />Optional: \{\} <br /> |
 | `shortDateFormat` _string_ | shortDateFormat is the short date display format. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `longDateFormat` _string_ | longDateFormat is the long date display format. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `timeFormat` _string_ | timeFormat is the time display format. |  | MinLength: 1 <br />Optional: \{\} <br /> |
