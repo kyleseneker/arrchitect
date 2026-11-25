@@ -80,3 +80,26 @@ func TestWritesPruneEnforceDeletes(t *testing.T) {
 	}))
 	assert.Equal(t, []string{"old"}, removed)
 }
+
+func TestWritesSyncWritesOnlyWhatDiffers(t *testing.T) {
+	w := &Writes{App: "writes-sync"}
+	var wrote []string
+	write := func(name string) func(map[string]any) error {
+		return func(map[string]any) error { wrote = append(wrote, name); return nil }
+	}
+
+	require.NoError(t, w.Sync("settings", "same", map[string]any{"a": 1.0, "b": "x"}, map[string]any{"a": 1}, write("same")))
+	require.NoError(t, w.Sync("settings", "changed", map[string]any{"a": 1.0}, map[string]any{"a": 2}, write("changed")))
+	require.NoError(t, w.Sync("settings", "missing", nil, map[string]any{}, write("missing")))
+
+	assert.Equal(t, []string{"changed", "missing"}, wrote)
+}
+
+func TestWritesSyncObserveRecordsTheDifference(t *testing.T) {
+	w := &Writes{App: "writes-sync-observe", Observe: true}
+	require.NoError(t, w.Sync("settings", "main", map[string]any{"a": 1.0}, map[string]any{"a": 2}, func(map[string]any) error {
+		require.Fail(t, "observe mode must not write")
+		return nil
+	}))
+	assert.Equal(t, []string{"settings(main)"}, w.Drift())
+}

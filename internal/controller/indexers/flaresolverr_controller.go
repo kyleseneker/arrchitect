@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"slices"
-	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -33,78 +32,39 @@ type FlareSolverrReconciler struct {
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
 
 func (r *FlareSolverrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	logger := log.FromContext(ctx)
-
-	var config indexersv1alpha1.FlareSolverr
-	if err := r.Get(ctx, req.NamespacedName, &config); err != nil {
-		return ctrl.Result{}, ctrlcommon.IgnoreDeleted(&config, req.NamespacedName, err)
+	integration := ctrlcommon.Integration[*indexersv1alpha1.FlareSolverr, *flaresolverrclient.Client]{
+		App:     "flaresolverr",
+		Connect: r.connect,
+		Sync:    syncFlareSolverr,
+		Cleanup: cleanupFlareSolverr,
+		Prune:   true,
 	}
-
-	cleanup := func(ctx context.Context) error { return r.cleanup(ctx, &config) }
-	if done, after := ctrlcommon.HandleLifecycle(ctx, r.Client, r.Recorder, &config, ctrlcommon.Lifecycle{Remove: cleanup, Prune: true}); done {
-		return ctrl.Result{RequeueAfter: after}, nil
-	}
-
-	fc, reason, err := r.flaresolverrClient(ctx, &config)
-	if err != nil {
-		logger.Error(err, "failed to build the FlareSolverr client")
-		ctrlcommon.UpdateStatusUnreachable(ctx, r.Client, &config, reason, err.Error())
-		if reason == engine.ReasonInvalidConfig {
-			return ctrl.Result{}, nil
-		}
-		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
-	}
-
-	if err := fc.Ping(ctx); err != nil {
-		logger.Error(err, "FlareSolverr unreachable")
-		ctrlcommon.UpdateStatusUnreachable(ctx, r.Client, &config, engine.ReasonAppUnreachable, err.Error())
-		return ctrl.Result{RequeueAfter: 60 * time.Second}, nil
-	}
-
-	owned := engine.NewOwnership("flaresolverr", config.GetManagedResources())
-	if ctrlcommon.ObserveOnly(config.Spec.Reconcile) {
-		observed := &engine.Writes{App: "flaresolverr", Observe: true}
-		count, err := observeFlareSolverrSessions(ctx, fc, config.Spec.Sessions,
-			ctrlcommon.PruneEnabled(config.Spec.Reconcile), owned, observed)
-		if err == nil {
-			config.Status.ActiveSessions = int32(count)
-		}
-		ctrlcommon.UpdateObservationStatus(ctx, r.Client, &config, observed.Drift(), err)
-		return ctrl.Result{RequeueAfter: ctrlcommon.ReconcileInterval(config.Spec.Reconcile)}, nil
-	}
-
-	var syncErrors []string
-
-	if err := reconcileFlareSolverrSessions(ctx, fc, config.Spec.Sessions, ctrlcommon.PruneEnabled(config.Spec.Reconcile), owned); err != nil {
-		logger.Error(err, "failed to reconcile sessions")
-		syncErrors = append(syncErrors, fmt.Sprintf("sessions: %v", err))
-	}
-	ctrlcommon.UpdateStatusManaged(&config, owned.Managed())
-	ctrlcommon.EmitPruneEvents(r.Recorder, &config, owned.Pruned())
-
-	if sessions, err := fc.ListSessions(ctx); err == nil {
-		config.Status.ActiveSessions = int32(len(sessions))
-	}
-
-	ctrlcommon.UpdateSyncStatus(ctx, r.Client, &config, false, nil, syncErrors)
-
-	return ctrl.Result{RequeueAfter: ctrlcommon.ReconcileInterval(config.Spec.Reconcile)}, nil
+	return integration.Reconcile(ctx, r.Client, r.Recorder, req, &indexersv1alpha1.FlareSolverr{})
 }
 
-// flaresolverrClient builds the client for a config, or returns the status
-// reason it can't.
-func (r *FlareSolverrReconciler) flaresolverrClient(
-	ctx context.Context, config *indexersv1alpha1.FlareSolverr,
-) (*flaresolverrclient.Client, string, error) {
+func (r *FlareSolverrReconciler) connect(ctx context.Context, config *indexersv1alpha1.FlareSolverr) (*flaresolverrclient.Client, error) {
 	tlsCfg, err := engine.ResolveTLSConfig(ctx, r.Client, config.Namespace, config.Spec.Connection.TLS)
 	if err != nil {
-		return nil, engine.ReasonSecretNotFound, err
+		return nil, err
 	}
 	hc, err := engine.NewHTTPClient(config.Spec.Connection.URL, engine.AuthNone, engine.WithTLSConfig(tlsCfg), engine.WithAppLabel("flaresolverr"))
 	if err != nil {
-		return nil, engine.ReasonInvalidConfig, err
+		return nil, err
 	}
-	return flaresolverrclient.NewClient(hc), "", nil
+	fc := flaresolverrclient.NewClient(hc)
+	return fc, fc.Ping(ctx)
+}
+
+func syncFlareSolverr(ctx context.Context, fc *flaresolverrclient.Client, config *indexersv1alpha1.FlareSolverr, pass *engine.Pass) []string {
+	var problems []string
+	if err := reconcileFlareSolverrSessions(ctx, fc, pass, config.Spec.Sessions); err != nil {
+		log.FromContext(ctx).Error(err, "failed to reconcile sessions")
+		problems = append(problems, fmt.Sprintf("sessions: %v", err))
+	}
+	if sessions, err := fc.ListSessions(ctx); err == nil {
+		config.Status.ActiveSessions = int32(len(sessions))
+	}
+	return problems
 }
 
 // reconcileFlareSolverrSessions creates the declared sessions and, under prune,
@@ -112,7 +72,7 @@ func (r *FlareSolverrReconciler) flaresolverrClient(
 // create are left alone: Prowlarr opens sessions on demand, and tearing those
 // down mid-request breaks the indexers FlareSolverr serves.
 func reconcileFlareSolverrSessions(
-	ctx context.Context, fc *flaresolverrclient.Client, desired []indexersv1alpha1.FlareSolverrSession, prune bool, owned *engine.Ownership,
+	ctx context.Context, fc *flaresolverrclient.Client, pass *engine.Pass, desired []indexersv1alpha1.FlareSolverrSession,
 ) error {
 	existing, err := fc.ListSessions(ctx)
 	if err != nil {
@@ -123,15 +83,21 @@ func reconcileFlareSolverrSessions(
 		if slices.Contains(existing, name) {
 			continue
 		}
-		if err := fc.CreateSession(ctx, name); err != nil {
+		err := pass.Apply("sessions", name, func() error {
+			if err := fc.CreateSession(ctx, name); err != nil {
+				return err
+			}
+			pass.Owned.Created("sessions", name)
+			return nil
+		})
+		if err != nil {
 			return fmt.Errorf("creating session %q: %w", name, err)
 		}
-		owned.Created("sessions", name)
 	}
-	if !prune {
+	if !pass.PruneEnabled {
 		return nil
 	}
-	return owned.Prune("sessions", declared, existing, func(name string) error { return fc.DestroySession(ctx, name) })
+	return pass.Prune(pass.Owned, "sessions", declared, existing, func(name string) error { return fc.DestroySession(ctx, name) })
 }
 
 func sessionNames(sessions []indexersv1alpha1.FlareSolverrSession) []string {
@@ -151,40 +117,12 @@ func (r *FlareSolverrReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func observeFlareSolverrSessions(
-	ctx context.Context, fc *flaresolverrclient.Client, desired []indexersv1alpha1.FlareSolverrSession, prune bool,
-	owned *engine.Ownership, w *engine.Writes,
-) (int, error) {
-	existing, err := fc.ListSessions(ctx)
-	if err != nil {
-		return 0, fmt.Errorf("listing sessions: %w", err)
-	}
-	for _, session := range desired {
-		err := w.Compare("sessions", session.Name,
-			map[string]any{"exists": slices.Contains(existing, session.Name)}, map[string]any{"exists": true})
-		if err != nil {
-			return len(existing), err
-		}
-	}
-	if prune {
-		return len(existing), w.Prune(owned, "sessions", sessionNames(desired), existing, nil)
-	}
-	return len(existing), nil
-}
-
-// cleanup destroys the sessions the operator created, for deletionPolicy delete.
-func (r *FlareSolverrReconciler) cleanup(ctx context.Context, config *indexersv1alpha1.FlareSolverr) error {
-	if len(config.GetManagedResources()["sessions"]) == 0 {
-		return nil
-	}
-	fc, _, err := r.flaresolverrClient(ctx, config)
-	if err != nil {
-		return err
-	}
+// cleanupFlareSolverr destroys the sessions the operator created, for
+// deletionPolicy delete.
+func cleanupFlareSolverr(ctx context.Context, fc *flaresolverrclient.Client, owned *engine.Ownership) error {
 	existing, err := fc.ListSessions(ctx)
 	if err != nil {
 		return fmt.Errorf("listing sessions: %w", err)
 	}
-	owned := engine.NewOwnership("flaresolverr", config.GetManagedResources())
 	return owned.Cleanup("sessions", existing, func(name string) error { return fc.DestroySession(ctx, name) })
 }

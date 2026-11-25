@@ -91,12 +91,12 @@ targets, plus compat and e2e.
 
 Copy these when you add something similar:
 
-- A controller's client setup: `tdarrClient` in
-  `internal/controller/transcode/tdarr_controller.go`. It returns the client, a
-  reason and an error, and cleanup reuses it.
-- Status and events: `UpdateSyncStatus` in
-  `internal/controller/common/helpers.go`, with the reasons in
-  `internal/engine/controller.go`.
+- A controller: `TdarrReconciler` in
+  `internal/controller/transcode/tdarr_controller.go`. It declares a
+  `ctrlcommon.Integration`, whose `Connect` builds the client and checks the
+  app answers, and whose `Sync` writes through the `engine.Pass` it's given.
+  `Integration.Reconcile` does the lifecycle, status, events and requeue, with
+  the reasons in `internal/engine/controller.go`.
 - appRef resolution: `internal/controller/common/appref.go`. A failure goes
   through `AppRefFailure`, which picks the reason and the requeue.
 - A compat case: `compatCase` in `test/compat/main_test.go`. A case has a
@@ -160,7 +160,11 @@ Never edit these by hand. Change the source, then regenerate.
   `Tdarr has more than one node named "T"`. The lint config allows a capital
   first letter in an error string only for an app name.
 - Keep the existing requeue policy: 30 seconds for a missing Secret, 60 when an
-  app is unreachable, none for `InvalidConfig`. The shared helpers apply it.
+  app is unreachable, none for `InvalidConfig`. `ctrlcommon.Classify` applies
+  it to what `Connect` returns; wrap a spec problem in `engine.InvalidConfig`.
+- Send every write to an app through `engine.Writes` (`Apply`, `Sync`,
+  `Prune`), so observe mode reports exactly what enforce mode would write.
+  Don't add a separate observe path.
 
 ## Safety
 

@@ -25,6 +25,7 @@ import (
 
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
 	mediaserversv1alpha1 "github.com/kyleseneker/arrchitect/api/mediaservers/v1alpha1"
+	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
 	"github.com/kyleseneker/arrchitect/internal/controller/internal/contract"
 	"github.com/kyleseneker/arrchitect/internal/engine"
 	"github.com/kyleseneker/arrchitect/internal/testnet"
@@ -314,7 +315,7 @@ func TestPlexClientSaysWhyItCantConnect(t *testing.T) {
 	}{
 		{"missing token Secret", "http://plex:32400", false, engine.ReasonSecretNotFound},
 		{"unusable URL", "ftp://plex", true, engine.ReasonInvalidConfig},
-		{"connects", "http://plex:32400", true, ""},
+		{"builds the client and tries the app", "http://plex.invalid:32400", true, engine.ReasonAppUnreachable},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			b := fake.NewClientBuilder().WithScheme(scheme)
@@ -322,14 +323,9 @@ func TestPlexClientSaysWhyItCantConnect(t *testing.T) {
 				b = b.WithObjects(plexSecret())
 			}
 			r := &PlexReconciler{Client: b.Build()}
-			pc, reason, err := r.plexClient(context.Background(), plexConfig(tc.url))
+			_, err := r.connect(context.Background(), plexConfig(tc.url))
+			reason, _ := ctrlcommon.Classify(err)
 			assert.Equal(t, tc.reason, reason)
-			if tc.reason != "" {
-				require.Error(t, err)
-				return
-			}
-			require.NoError(t, err)
-			assert.NotNil(t, pc)
 		})
 	}
 }

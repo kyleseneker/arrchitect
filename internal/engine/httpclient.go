@@ -136,7 +136,7 @@ func (j secureAgnosticJar) SetCookies(u *url.URL, cookies []*http.Cookie) {
 // Returns an error if the URL scheme is not http/https.
 func NewHTTPClient(baseURL string, authType AuthType, opts ...HTTPClientOption) (*HTTPClient, error) {
 	if err := validateBaseURL(baseURL); err != nil {
-		return nil, err
+		return nil, InvalidConfig(err)
 	}
 
 	jar, err := cookiejar.New(nil)

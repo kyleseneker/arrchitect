@@ -77,8 +77,8 @@ func (r *SeerrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		// Signing in to a Seerr that has not been set up configures its media
 		// server, so observe mode reports the setup as missing and stops.
 		config.Status.Initialized = &isInitialized
-		err := writes.Compare("settings", "initialization", nil, map[string]any{"initialized": true})
-		ctrlcommon.UpdateObservationStatus(ctx, r.Client, &config, writes.Drift(), err)
+		writes.RecordDrift("settings", "initialization")
+		ctrlcommon.UpdateObservationStatus(ctx, r.Client, &config, writes.Drift(), nil)
 		return ctrl.Result{RequeueAfter: ctrlcommon.ReconcileInterval(config.Spec.Reconcile)}, nil
 	}
 

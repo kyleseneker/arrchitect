@@ -39,45 +39,37 @@ type TdarrReconciler struct {
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
 
 func (r *TdarrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	logger := log.FromContext(ctx)
-
-	var config transcodev1alpha1.Tdarr
-	if err := r.Get(ctx, req.NamespacedName, &config); err != nil {
-		return ctrl.Result{}, ctrlcommon.IgnoreDeleted(&config, req.NamespacedName, err)
+	integration := ctrlcommon.Integration[*transcodev1alpha1.Tdarr, *tdarrclient.Client]{
+		App:     "tdarr",
+		Connect: r.connect,
+		Sync:    r.sync,
+		Cleanup: cleanupTdarr,
+		Prune:   true,
 	}
+	return integration.Reconcile(ctx, r.Client, r.Recorder, req, &transcodev1alpha1.Tdarr{})
+}
 
-	cleanup := func(ctx context.Context) error {
-		tc, _, err := r.tdarrClient(ctx, &config)
-		if err != nil {
-			return err
-		}
-		return (&tdarrSync{tc: tc, owned: engine.NewOwnership("tdarr", config.GetManagedResources())}).cleanup(ctx)
-	}
-	lifecycle := ctrlcommon.Lifecycle{Remove: cleanup, Prune: true}
-	if done, after := ctrlcommon.HandleLifecycle(ctx, r.Client, r.Recorder, &config, lifecycle); done {
-		return ctrl.Result{RequeueAfter: after}, nil
-	}
-
-	tc, reason, err := r.tdarrClient(ctx, &config)
+func (r *TdarrReconciler) connect(ctx context.Context, config *transcodev1alpha1.Tdarr) (*tdarrclient.Client, error) {
+	apiKey, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, config.Spec.Connection.APIKeySecretRef)
 	if err != nil {
-		logger.Error(err, "failed to build the Tdarr client")
-		ctrlcommon.UpdateStatusUnreachable(ctx, r.Client, &config, reason, err.Error())
-		if reason == engine.ReasonInvalidConfig {
-			return ctrl.Result{}, nil
-		}
-		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
+		return nil, err
 	}
+	tlsCfg, err := engine.ResolveTLSConfig(ctx, r.Client, config.Namespace, config.Spec.Connection.TLS)
+	if err != nil {
+		return nil, err
+	}
+	hc, err := engine.NewHTTPClient(config.Spec.Connection.URL, engine.AuthAPIKey, engine.WithAPIKey(apiKey),
+		engine.WithAPIKeyHeader("x-api-key"), engine.WithTLSConfig(tlsCfg), engine.WithAppLabel("tdarr"),
+		engine.WithTimeout(3*time.Minute))
+	if err != nil {
+		return nil, err
+	}
+	tc := tdarrclient.NewClient(hc)
+	return tc, tc.Ping(ctx)
+}
 
-	if err := tc.Ping(ctx); err != nil {
-		logger.Error(err, "Tdarr unreachable")
-		ctrlcommon.UpdateStatusUnreachable(ctx, r.Client, &config, engine.ReasonAppUnreachable, err.Error())
-		return ctrl.Result{RequeueAfter: 60 * time.Second}, nil
-	}
-
-	sync := &tdarrSync{
-		App: "tdarr", Observe: ctrlcommon.ObserveOnly(config.Spec.Reconcile), tc: tc,
-		prune: ctrlcommon.PruneEnabled(config.Spec.Reconcile), owned: engine.NewOwnership("tdarr", config.GetManagedResources()),
-	}
+func (r *TdarrReconciler) sync(ctx context.Context, tc *tdarrclient.Client, config *transcodev1alpha1.Tdarr, pass *engine.Pass) []string {
+	s := &tdarrSync{Pass: pass, tc: tc}
 	spec := config.Spec
 	var unresolved []string
 	if settings := spec.Settings; settings != nil && settings.NotificationsDiscordWebhookSecretRef != nil {
@@ -87,42 +79,17 @@ func (r *TdarrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 			unresolved = append(unresolved, fmt.Sprintf("settings: %v", err))
 			spec.Settings = nil
 		} else {
-			sync.discordWebhook = &webhook
+			s.discordWebhook = &webhook
 		}
 	}
-	syncErrors := append(unresolved, sync.run(ctx, &spec)...)
-	ctrlcommon.UpdateStatusManaged(&config, sync.owned.Managed())
-	ctrlcommon.EmitPruneEvents(r.Recorder, &config, sync.owned.Pruned())
-	ctrlcommon.UpdateSyncStatus(ctx, r.Client, &config, sync.Observe, sync.Drift(), syncErrors)
-
-	return ctrl.Result{RequeueAfter: ctrlcommon.ReconcileInterval(config.Spec.Reconcile)}, nil
-}
-
-func (r *TdarrReconciler) tdarrClient(ctx context.Context, config *transcodev1alpha1.Tdarr) (*tdarrclient.Client, string, error) {
-	apiKey, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, config.Spec.Connection.APIKeySecretRef)
-	if err != nil {
-		return nil, engine.ReasonSecretNotFound, err
-	}
-	tlsCfg, err := engine.ResolveTLSConfig(ctx, r.Client, config.Namespace, config.Spec.Connection.TLS)
-	if err != nil {
-		return nil, engine.ReasonSecretNotFound, err
-	}
-	hc, err := engine.NewHTTPClient(config.Spec.Connection.URL, engine.AuthAPIKey, engine.WithAPIKey(apiKey),
-		engine.WithAPIKeyHeader("x-api-key"), engine.WithTLSConfig(tlsCfg), engine.WithAppLabel("tdarr"),
-		engine.WithTimeout(3*time.Minute))
-	if err != nil {
-		return nil, engine.ReasonInvalidConfig, err
-	}
-	return tdarrclient.NewClient(hc), "", nil
+	return append(unresolved, s.run(ctx, &spec)...)
 }
 
 // tdarrSync applies one Tdarr. With observe set it only reads, and
 // records what it would have written.
 type tdarrSync struct {
-	engine.Writes
+	*engine.Pass
 	tc             *tdarrclient.Client
-	prune          bool
-	owned          *engine.Ownership
 	discordWebhook *string
 }
 
@@ -249,7 +216,7 @@ func (s *tdarrSync) libraryVariables(ctx context.Context, lib transcodev1alpha1.
 				if err := s.tc.Insert(ctx, variablesCollection, "", obj); err != nil {
 					return err
 				}
-				s.owned.Created(variablesResource, lib.ID+"/"+key)
+				s.Owned.Created(variablesResource, lib.ID+"/"+key)
 				return nil
 			})
 			if err != nil {
@@ -282,7 +249,7 @@ func (s *tdarrSync) libraryVariables(ctx context.Context, lib transcodev1alpha1.
 // pruneLibraryVariables deletes the variables the operator created that the
 // library no longer declares.
 func (s *tdarrSync) pruneLibraryVariables(ctx context.Context, lib transcodev1alpha1.TdarrLibrary, existing map[string]map[string]any) error {
-	if !s.prune {
+	if !s.PruneEnabled {
 		return nil
 	}
 	ids := map[string]string{}
@@ -296,15 +263,15 @@ func (s *tdarrSync) pruneLibraryVariables(ctx context.Context, lib transcodev1al
 	for key := range lib.Variables {
 		declared = append(declared, lib.ID+"/"+key)
 	}
-	return s.Prune(s.owned, variablesResource, declared, present, func(name string) error {
+	return s.Prune(s.Owned, variablesResource, declared, present, func(name string) error {
 		return s.tc.Remove(ctx, variablesCollection, ids[name])
 	})
 }
 
-// cleanup deletes the library variables the operator created, for
+// cleanupTdarr deletes the library variables the operator created, for
 // deletionPolicy delete. Libraries are kept.
-func (s *tdarrSync) cleanup(ctx context.Context) error {
-	docs, err := s.tc.GetAll(ctx, variablesCollection)
+func cleanupTdarr(ctx context.Context, tc *tdarrclient.Client, owned *engine.Ownership) error {
+	docs, err := tc.GetAll(ctx, variablesCollection)
 	if err != nil {
 		return err
 	}
@@ -321,8 +288,8 @@ func (s *tdarrSync) cleanup(ctx context.Context) error {
 		ids[libraryID+"/"+key] = id
 		present = append(present, libraryID+"/"+key)
 	}
-	return s.owned.Cleanup(variablesResource, present, func(name string) error {
-		return s.tc.Remove(ctx, variablesCollection, ids[name])
+	return owned.Cleanup(variablesResource, present, func(name string) error {
+		return tc.Remove(ctx, variablesCollection, ids[name])
 	})
 }
 

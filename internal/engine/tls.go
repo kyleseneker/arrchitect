@@ -34,7 +34,7 @@ func ResolveTLSConfig(ctx context.Context, c client.Reader, namespace string, tl
 		}
 		pool := x509.NewCertPool()
 		if !pool.AppendCertsFromPEM([]byte(caPEM)) {
-			return nil, fmt.Errorf("CA certificate secret %s/%s key %q contains no valid PEM certificates", namespace, tlsCfg.CASecretRef.Name, tlsCfg.CASecretRef.Key)
+			return nil, InvalidConfig(fmt.Errorf("CA certificate secret %s/%s key %q contains no valid PEM certificates", namespace, tlsCfg.CASecretRef.Name, tlsCfg.CASecretRef.Key))
 		}
 		cfg.RootCAs = pool
 	}
