@@ -119,6 +119,22 @@ func TestChartAppsMatchTheControllersAndCRDs(t *testing.T) {
 	}
 	assert.ElementsMatch(t, controllerNames(t), apps, "values.yaml apps and cmd/operator controllers differ")
 
+	data, err = os.ReadFile(filepath.Join(chartDir, "values.schema.json"))
+	require.NoError(t, err)
+	var schema struct {
+		Properties struct {
+			Apps struct {
+				Properties map[string]any `json:"properties"`
+			} `json:"apps"`
+		} `json:"properties"`
+	}
+	require.NoError(t, yaml.Unmarshal(data, &schema))
+	schemaApps := make([]string, 0, len(schema.Properties.Apps.Properties))
+	for app := range schema.Properties.Apps.Properties {
+		schemaApps = append(schemaApps, app)
+	}
+	assert.ElementsMatch(t, controllerNames(t), schemaApps, "values.schema.json apps and cmd/operator controllers differ")
+
 	var installed []string
 	for _, m := range render(t) {
 		if m.Kind == "CustomResourceDefinition" {

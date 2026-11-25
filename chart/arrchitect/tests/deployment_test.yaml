@@ -58,12 +58,6 @@ tests:
       - contains:
           path: spec.template.spec.containers[0].securityContext.capabilities.drop
           content: ALL
-  - it: refuses an app it doesn't know
-    set:
-      apps.notanapp: true
-    asserts:
-      - failedTemplate:
-          errorPattern: apps.notanapp is not an app
   - it: refuses to run with every app off
     set:
       apps:

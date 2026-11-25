@@ -1,0 +1,174 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "global": {
+      "type": "object"
+    },
+    "replicaCount": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Operator replicas. One leads and the rest stand by."
+    },
+    "image": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "repository": {
+          "type": "string",
+          "minLength": 1
+        },
+        "tag": {
+          "type": "string",
+          "description": "Defaults to the chart's appVersion."
+        },
+        "pullPolicy": {
+          "type": "string",
+          "enum": ["Always", "IfNotPresent", "Never"]
+        }
+      }
+    },
+    "imagePullSecrets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "apps": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The apps whose controllers run and whose CRDs the chart installs.",
+      "properties": {
+        "sonarr": { "type": "boolean" },
+        "radarr": { "type": "boolean" },
+        "lidarr": { "type": "boolean" },
+        "readarr": { "type": "boolean" },
+        "prowlarr": { "type": "boolean" },
+        "flaresolverr": { "type": "boolean" },
+        "bazarr": { "type": "boolean" },
+        "qbittorrent": { "type": "boolean" },
+        "sabnzbd": { "type": "boolean" },
+        "jellyfin": { "type": "boolean" },
+        "plex": { "type": "boolean" },
+        "seerr": { "type": "boolean" },
+        "maintainerr": { "type": "boolean" },
+        "tdarr": { "type": "boolean" },
+        "autobrr": { "type": "boolean" }
+      }
+    },
+    "crds": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Install and upgrade the CRDs with the chart."
+        }
+      }
+    },
+    "serviceAccount": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "create": {
+          "type": "boolean"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "rbac": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "aggregateClusterRoles": {
+          "type": "boolean",
+          "description": "Grant access to the enabled apps' resources through the built-in view, edit and admin roles."
+        }
+      }
+    },
+    "resources": {
+      "type": "object"
+    },
+    "watchNamespace": {
+      "type": "string",
+      "description": "Namespaces to watch, comma-separated. Empty watches every namespace."
+    },
+    "extraArgs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "podAnnotations": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "podLabels": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "podSecurityContext": {
+      "type": "object"
+    },
+    "securityContext": {
+      "type": "object"
+    },
+    "metrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "serviceMonitor": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Create a ServiceMonitor. Needs the Prometheus Operator CRDs."
+            },
+            "interval": {
+              "type": "string"
+            },
+            "labels": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "nodeSelector": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "tolerations": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "affinity": {
+      "type": "object"
+    }
+  }
+}

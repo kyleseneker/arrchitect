@@ -1,0 +1,37 @@
+suite: values schema
+templates:
+  - templates/deployment.yaml
+tests:
+  - it: accepts the default values
+    asserts:
+      - notFailedTemplate: {}
+  - it: accepts global values from a parent chart
+    set:
+      global.imageRegistry: registry.example.com
+    asserts:
+      - notFailedTemplate: {}
+  - it: rejects a misspelled app
+    set:
+      apps.sabnzb: false
+    asserts:
+      - failedTemplate:
+          errorPattern: sabnzb
+  - it: rejects an unknown top-level value
+    set:
+      watchNamespaces: media
+    asserts:
+      - failedTemplate:
+          errorPattern: watchNamespaces
+  - it: rejects a list of namespaces
+    set:
+      watchNamespace:
+        - media
+    asserts:
+      - failedTemplate:
+          errorPattern: watchNamespace
+  - it: rejects a non-string pod annotation
+    set:
+      podAnnotations.replicas: 2
+    asserts:
+      - failedTemplate:
+          errorPattern: podAnnotations
