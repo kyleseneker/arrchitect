@@ -4,7 +4,7 @@
 
 <h1 align="center">Arrchitect</h1>
 
-<p align="center"><strong>The keystone of your arr stack.</strong></p>
+<p align="center">The keystone of your arr stack</p>
 
 <p align="center">
   <a href="https://github.com/kyleseneker/arrchitect/actions/workflows/ci.yml"><img src="https://github.com/kyleseneker/arrchitect/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
@@ -17,15 +17,15 @@ self-hosted media apps as Kubernetes resources. Arrchitect configures the apps
 you already deploy, however you deploy them, and connects them to each other;
 it doesn't deploy them.
 
-Arrchitect is alpha: the API is `v1alpha1`, and a minor release can change it.
-See [stability and support](docs/stability.md) for what each release promises.
+Arrchitect is alpha. The API is `v1alpha1` and can change in any minor release.
+See [stability and support](docs/stability.md) for details.
 
 ## What it looks like
 
-Each app gets a resource, and one app reaches another by naming its resource
-with `appRef`. Here Sonarr gets a root folder and qBittorrent as its download
-client, and Prowlarr syncs its indexers to Sonarr, without either connection
-repeating an address or an API key:
+Each app is a resource. To connect two apps, point `appRef` at the other app's
+resource instead of repeating its URL and API key. This sets up Sonarr with a
+root folder and qBittorrent as its download client, and has Prowlarr sync its
+indexers to Sonarr:
 
 ```yaml
 apiVersion: arrchitect.dev/v1alpha1
@@ -67,11 +67,10 @@ spec:
         name: sonarr
 ```
 
-Arrchitect reads the `QBittorrent` and `Sonarr` resources' connections on every
-reconcile, so an address or a key changes in one place.
-[examples/jellyfin-stack.yaml](examples/jellyfin-stack.yaml) wires a whole
-stack, and [connecting apps](docs/guide.md#connecting-apps) lists every
-connection that takes an `appRef`.
+If qBittorrent's or Sonarr's address or API key changes, you only update its
+own resource. See [examples/jellyfin-stack.yaml](examples/jellyfin-stack.yaml)
+for a full stack, and [connecting apps](docs/guide.md#connecting-apps) for
+every connection that supports `appRef`.
 
 ## Features
 
@@ -80,7 +79,7 @@ connection that takes an `appRef`.
 - Credentials read from Kubernetes Secrets
 - Optional pruning, limited to what the operator created
 - `arrchitect export` to generate config from an app you already run
-- Tested in CI against each app running in a container, at both ends of its supported range
+- Tested in CI against real app containers, at the oldest and newest version each app supports
 
 ## Supported apps
 
@@ -143,7 +142,7 @@ To start from an existing setup instead, see
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). Everyone taking part follows the
+See [CONTRIBUTING.md](CONTRIBUTING.md) and the
 [code of conduct](CODE_OF_CONDUCT.md). Report security issues as described in
 [SECURITY.md](SECURITY.md).
 
