@@ -1009,10 +1009,10 @@ type ImportList struct {
 	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name,omitempty"`
 
-	// enable controls whether this import list is active. A new import list is
+	// enabled controls whether this import list is active. A new import list is
 	// enabled unless this is false.
 	// +optional
-	Enable *bool `json:"enable,omitempty"`
+	Enabled *bool `json:"enabled,omitempty"`
 
 	// enableAutomaticAdd automatically adds items from this list.
 	// +optional

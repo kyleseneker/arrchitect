@@ -236,6 +236,16 @@ func TestPVRImportListUsesTheAppsPropertyNames(t *testing.T) {
 	assert.Equal(t, "import-list-trakt-accesstoken", il.Fields[0].ValueFrom.SecretKeyRef.Key)
 }
 
+func TestPVRRadarrImportListExportsItsSwitchAsEnabled(t *testing.T) {
+	e := &pvrExport{reader: &reader{}, app: pvrclient.Radarr}
+	il := e.importList(map[string]any{
+		"name": "List", "implementation": "RadarrImport", "enabled": false, "enableAuto": true, "monitor": "movieOnly",
+	}, nil)
+	assert.Equal(t, false, il["enabled"])
+	assert.Equal(t, true, il["enableAutomaticAdd"])
+	assert.Equal(t, "movieOnly", il["monitor"])
+}
+
 func TestPVRQualityProfileNamesItsCutoffAndScoredFormats(t *testing.T) {
 	cfg, _ := exportSonarr(t, Options{})
 	require.Len(t, cfg.Spec.QualityProfiles, 1)

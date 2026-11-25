@@ -461,7 +461,7 @@ func TestBuildImportListPayload(t *testing.T) {
 		},
 		{
 			name:    "radarr names enable and automatic add differently",
-			il:      commonv1alpha1.ImportList{Name: "List", Implementation: "RadarrListImport", Enable: new(false), EnableAutomaticAdd: new(true)},
+			il:      commonv1alpha1.ImportList{Name: "List", Implementation: "RadarrListImport", Enabled: new(false), EnableAutomaticAdd: new(true)},
 			monitor: radarr,
 			check: func(t *testing.T, p map[string]any) {
 				assert.Equal(t, false, p["enabled"])

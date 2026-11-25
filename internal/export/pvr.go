@@ -273,7 +273,7 @@ func (e *pvrExport) importList(item map[string]any, defaults map[string]map[stri
 		"minimumAvailability", "listOrder")
 	names := e.app.ImportListFields
 	for field, name := range map[string]string{
-		"enable": names.Enable, "enableAutomaticAdd": names.AutomaticAdd, "searchOnAdd": names.Search,
+		"enabled": names.Enable, "enableAutomaticAdd": names.AutomaticAdd, "searchOnAdd": names.Search,
 		"monitorExisting": names.MonitorExisting,
 	} {
 		if v, ok := item[name].(bool); ok && name != "" {
