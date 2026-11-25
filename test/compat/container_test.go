@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	mobycontainer "github.com/moby/moby/api/types/container"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
 	tcexec "github.com/testcontainers/testcontainers-go/exec"
@@ -34,7 +35,9 @@ type container struct {
 
 // startContainer starts the application with its port published on a random
 // host port, and removes the container when the test ends. Logs are printed
-// whenever the test failed; ARRCHITECT_COMPAT_KEEP=1 keeps the container.
+// whenever the test failed; ARRCHITECT_COMPAT_KEEP=1 keeps the container. The
+// container is named for its host: Bazarr stores the hostname in YAML, and a
+// random one such as 10767258e338 reads back as a number too large to hold.
 func startContainer(t *testing.T, spec containerSpec) *container {
 	t.Helper()
 	ctx := context.Background()
@@ -44,6 +47,9 @@ func startContainer(t *testing.T, spec containerSpec) *container {
 		Env:          spec.env,
 		Cmd:          spec.args,
 		Labels:       map[string]string{"arrchitect-compat": "true"},
+		ConfigModifier: func(c *mobycontainer.Config) {
+			c.Hostname = spec.name
+		},
 	}
 	for path, content := range spec.files {
 		req.Files = append(req.Files, testcontainers.ContainerFile{
