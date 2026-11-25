@@ -1,0 +1,7 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+reviews:
+  path_filters:
+    - "!api/**/zz_generated.deepcopy.go"
+    - "!config/crd/bases/**"
+    - "!chart/arrchitect/files/crds/**"
+    - "!docs/api.md"
