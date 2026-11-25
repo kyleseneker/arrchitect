@@ -120,6 +120,11 @@ type Lifecycle struct {
 	// Prune is set when the integration implements spec.reconcile.prune:
 	// deleting resources it created once they leave the spec.
 	Prune bool
+	// Observe is set when another resource's driftPolicy observe governs this
+	// one's writes, as an app's resource does for its indexers and download
+	// clients. The finalizer is then dropped, and deleting the resource
+	// removes nothing from the app.
+	Observe bool
 }
 
 // HandleLifecycle performs the deletion and finalizer bookkeeping every
@@ -129,7 +134,17 @@ type Lifecycle struct {
 func HandleLifecycle(ctx context.Context, c client.Client, recorder events.EventRecorder, obj ConfigResource, lc Lifecycle) (bool, time.Duration) {
 	logger := log.FromContext(ctx)
 	if !obj.GetDeletionTimestamp().IsZero() {
-		if _, err := HandleDeletion(ctx, c, recorder, obj, lc.Remove); err != nil {
+		remove := lc.Remove
+		if lc.Observe && remove != nil {
+			remove = func(context.Context) error {
+				if recorder != nil {
+					recorder.Eventf(obj, nil, corev1.EventTypeNormal, engine.ReasonResourceKept, "Delete",
+						"Removed nothing from the app, because the app's resource is in observe mode")
+				}
+				return nil
+			}
+		}
+		if _, err := HandleDeletion(ctx, c, recorder, obj, remove); err != nil {
 			logger.Error(err, "deletion not finished; retrying")
 			return true, 30 * time.Second
 		}
@@ -138,7 +153,7 @@ func HandleLifecycle(ctx context.Context, c client.Client, recorder events.Event
 	rc := obj.GetReconcileConfig()
 	deletes := rc != nil && rc.DeletionPolicy == DeletionPolicyDelete
 	unsupported := deletes && (lc.Remove == nil || ObserveOnly(rc))
-	if err := SetFinalizer(ctx, c, obj, deletes && !unsupported); err != nil {
+	if err := SetFinalizer(ctx, c, obj, deletes && !unsupported && !lc.Observe); err != nil {
 		logger.Error(err, "updating finalizer; retrying")
 		return true, 30 * time.Second
 	}

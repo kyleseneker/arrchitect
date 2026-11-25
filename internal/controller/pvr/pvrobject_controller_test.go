@@ -153,6 +153,18 @@ func TestObjectFollowsItsInstancesObservePolicy(t *testing.T) {
 	assert.Equal(t, "DriftDetected", synced(t, got.Status.Conditions).Reason)
 }
 
+func TestObjectDropsItsFinalizerWhileItsInstanceObserves(t *testing.T) {
+	_, url := newFakeArr(t, "v3", nil)
+	dc := sonarrDownloadClient()
+	dc.Spec.DeletionPolicy = ctrlcommon.DeletionPolicyDelete
+	dc.Finalizers = []string{ctrlcommon.Finalizer}
+	got := reconcileDownloadClient(t, apiKeySecret(),
+		sonarrInstanceAt(url, &commonv1alpha1.ReconcileConfig{DriftPolicy: "observe"}), dc)
+
+	assert.NotContains(t, got.Finalizers, ctrlcommon.Finalizer, "observe forbids the cleanup the finalizer waits for")
+	assert.Equal(t, "DriftDetected", synced(t, got.Status.Conditions).Reason, "the object is still observed")
+}
+
 // The object owns the one item it names, so a rename replaces the item even
 // when the instance leaves prune off.
 func TestObjectRenameReplacesItsOldItem(t *testing.T) {
@@ -170,13 +182,18 @@ func TestObjectRenameReplacesItsOldItem(t *testing.T) {
 
 func TestObjectDeletion(t *testing.T) {
 	for name, tc := range map[string]struct {
-		policy  string
-		managed []string
-		deletes bool
+		policy   string
+		managed  []string
+		instance *commonv1alpha1.ReconcileConfig
+		deletes  bool
 	}{
 		"deletes the item it created":             {policy: ctrlcommon.DeletionPolicyDelete, managed: []string{"qBittorrent"}, deletes: true},
 		"leaves an item it adopted":               {policy: ctrlcommon.DeletionPolicyDelete},
 		"leaves the item under the orphan policy": {policy: "orphan", managed: []string{"qBittorrent"}},
+		"leaves the item while its instance observes": {
+			policy: ctrlcommon.DeletionPolicyDelete, managed: []string{"qBittorrent"},
+			instance: &commonv1alpha1.ReconcileConfig{DriftPolicy: "observe"},
+		},
 	} {
 		t.Run(name, func(t *testing.T) {
 			fa, url := newFakeArr(t, "v3", map[string][]map[string]any{
@@ -188,7 +205,7 @@ func TestObjectDeletion(t *testing.T) {
 			dc.Finalizers = []string{ctrlcommon.Finalizer}
 			now := metav1.Now()
 			dc.DeletionTimestamp = &now
-			got := reconcileDownloadClient(t, apiKeySecret(), sonarrInstanceAt(url, nil), dc)
+			got := reconcileDownloadClient(t, apiKeySecret(), sonarrInstanceAt(url, tc.instance), dc)
 
 			assert.Equal(t, tc.deletes, fa.saw("DELETE", fa.path("downloadclient/7")))
 			assert.Nil(t, got, "the finalizer was not released")

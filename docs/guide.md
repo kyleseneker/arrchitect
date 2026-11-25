@@ -188,6 +188,10 @@ Differences set `Synced` to `False` with reason `DriftDetected`, are listed in
 the condition's message (the first ten), and increment
 `arrchitect_drift_observed_total`.
 
+An app's indexer and download client resources follow the app resource's
+`driftPolicy`. While it observes, they hold no finalizer, and deleting one
+removes nothing from the app.
+
 Some things can't be compared by reading:
 
 - qBittorrent still signs in to read protected settings, and so do Jellyfin

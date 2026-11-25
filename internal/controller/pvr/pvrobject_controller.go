@@ -70,7 +70,7 @@ func reconcilePVRObject(ctx context.Context, c client.Client, recorder events.Ev
 		}
 		return ctrlcommon.CleanupApp(ctx, c, recorder, obj, instance.connection, pvrclient.Definition(o.app.APIVersion), o.app.Name)
 	}
-	if done, after := ctrlcommon.HandleLifecycle(ctx, c, recorder, obj, ctrlcommon.Lifecycle{Remove: cleanup}); done {
+	if done, after := ctrlcommon.HandleLifecycle(ctx, c, recorder, obj, ctrlcommon.Lifecycle{Remove: cleanup, Observe: ctrlcommon.Policy(instance.policy).Observe}); done {
 		return ctrl.Result{RequeueAfter: after}, nil
 	}
 	if missing {
