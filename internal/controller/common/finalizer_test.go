@@ -7,9 +7,6 @@ import (
 	"testing"
 	"time"
 
-	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
-	pvrv1alpha1 "github.com/kyleseneker/arrchitect/api/pvr/v1alpha1"
-	"github.com/kyleseneker/arrchitect/internal/engine"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -18,6 +15,10 @@ import (
 	"k8s.io/client-go/tools/events"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+
+	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
+	pvrv1alpha1 "github.com/kyleseneker/arrchitect/api/pvr/v1alpha1"
+	"github.com/kyleseneker/arrchitect/internal/engine"
 )
 
 func newConfig(policy string, deletedAgo time.Duration) *pvrv1alpha1.Sonarr {

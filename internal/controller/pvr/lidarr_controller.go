@@ -31,14 +31,9 @@ type LidarrReconciler struct {
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
 
 func (r *LidarrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	var config pvrv1alpha1.Lidarr
-	if err := r.Get(ctx, req.NamespacedName, &config); err != nil {
-		return ctrl.Result{}, ctrlcommon.IgnoreDeleted(&config, req.NamespacedName, err)
-	}
-	s := config.Spec
-	return reconcilePVR(ctx, r.Client, r.Recorder, pvrConfig{
-		app: pvrclient.Lidarr, apps: r.Apps, obj: &config, spec: s, connection: s.Connection, policy: s.Reconcile,
-		options: pvrclient.Options{
+	integration := pvrIntegration(r.Client, r.Apps, pvrclient.Lidarr, func(config *pvrv1alpha1.Lidarr) pvrConfig {
+		s := config.Spec
+		return pvrConfig{spec: s, connection: s.Connection, options: pvrclient.Options{
 			RootFolders:            s.RootFolders,
 			RemotePathMappings:     s.RemotePathMappings,
 			QualityProfiles:        s.QualityProfiles,
@@ -51,8 +46,9 @@ func (r *LidarrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 			AutoTags:               s.AutoTags,
 			DelayProfiles:          s.DelayProfiles,
 			LidarrMetadataProfiles: s.MetadataProfiles,
-		},
+		}}
 	})
+	return integration.Reconcile(ctx, r.Client, r.Recorder, req, &pvrv1alpha1.Lidarr{})
 }
 
 func (r *LidarrReconciler) SetupWithManager(mgr ctrl.Manager) error {

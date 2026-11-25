@@ -14,6 +14,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -89,9 +90,12 @@ func reconcilePVRObject(ctx context.Context, c client.Client, recorder events.Ev
 		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
 	}
 
-	hc, wait := connectPVR(ctx, c, obj, instance.connection, o.app)
-	if wait != nil {
-		return *wait, nil
+	hc, err := connectPVR(ctx, c, obj, instance.connection, o.app)
+	if err != nil {
+		reason, after := ctrlcommon.Classify(err)
+		log.FromContext(ctx).Error(err, "connecting to "+o.instanceKind, "reason", reason)
+		ctrlcommon.UpdateStatusUnreachable(ctx, c, obj, reason, err.Error())
+		return ctrl.Result{RequeueAfter: after}, nil
 	}
 	opts, err := o.options(ctx)
 	if err != nil {
@@ -104,17 +108,16 @@ func reconcilePVRObject(ctx context.Context, c client.Client, recorder events.Ev
 	policy := ctrlcommon.Policy(instance.policy)
 	// The object owns only the item it names, so prune replaces it on a rename.
 	policy.Prune = true
-	result, err := pvrclient.Reconcile(ctx, hc, o.app.APIVersion, nil, withApp(opts, o.app), policy, obj.GetManagedResources())
-	if err != nil {
-		ctrlcommon.UpdateStatus(ctx, c, obj, false, engine.ReasonSyncFailed, err.Error())
-		return ctrl.Result{RequeueAfter: interval}, nil
-	}
+	pass := engine.NewPass(o.app.Name, policy, obj.GetManagedResources())
+	problems := pvrclient.Reconcile(ctx, hc, o.app.APIVersion, nil, withApp(opts, o.app), pass)
 	if id, ok := idOf(ctx, hc, "/api/"+o.app.APIVersion+o.path, o.name); ok {
 		o.setID(id)
 	}
-	ctrlcommon.UpdateStatusManaged(obj, result.Managed)
-	ctrlcommon.EmitPruneEvents(recorder, obj, result.Pruned)
-	ctrlcommon.ReportResult(ctx, c, obj, policy.Observe, result)
+	ctrlcommon.UpdateStatusManaged(obj, pass.Owned.Managed())
+	ctrlcommon.EmitPruneEvents(recorder, obj, pass.Owned.Pruned())
+	ctrlcommon.ReportResult(ctx, c, obj, policy.Observe, engine.ReconcileResult{
+		Synced: pass.SyncedItems(), Errors: problems, Drift: pass.Drift(),
+	})
 	return ctrl.Result{RequeueAfter: interval}, nil
 }
 

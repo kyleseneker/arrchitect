@@ -14,11 +14,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
-	indexersv1alpha1 "github.com/kyleseneker/arrchitect/api/indexers/v1alpha1"
-	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
-	"github.com/kyleseneker/arrchitect/internal/engine"
-	"github.com/kyleseneker/arrchitect/internal/testnet"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -28,6 +23,12 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+
+	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
+	indexersv1alpha1 "github.com/kyleseneker/arrchitect/api/indexers/v1alpha1"
+	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
+	"github.com/kyleseneker/arrchitect/internal/engine"
+	"github.com/kyleseneker/arrchitect/internal/testnet"
 )
 
 // fakeFlareSolverr speaks the single-endpoint /v1 command protocol and records

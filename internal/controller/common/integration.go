@@ -47,7 +47,10 @@ func (in Integration[T, C]) Reconcile(
 			if err != nil {
 				return err
 			}
-			return in.Cleanup(ctx, conn, engine.NewOwnership(in.App, obj.GetManagedResources()))
+			owned := engine.NewOwnership(in.App, obj.GetManagedResources())
+			err = in.Cleanup(ctx, conn, owned)
+			EmitPruneEvents(recorder, obj, owned.Pruned())
+			return err
 		}
 	}
 	if done, after := HandleLifecycle(ctx, c, recorder, obj, lifecycle); done {

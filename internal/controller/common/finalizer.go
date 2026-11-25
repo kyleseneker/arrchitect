@@ -3,6 +3,7 @@ package common
 import (
 	"context"
 	"fmt"
+	"slices"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -173,18 +174,13 @@ func HandleLifecycle(ctx context.Context, c client.Client, recorder events.Event
 	return false, 0
 }
 
-// CleanupApp resolves only the credentials needed for deletion. Unrelated spec
-// Secrets must not prevent cleanup, and empty ownership needs no app connection.
+// CleanupApp deletes what obj owns in the app behind connection, for
+// deletionPolicy delete. It reads only the credentials deletion needs, so an
+// unrelated Secret in the spec can't block it, and with nothing to delete it
+// doesn't connect at all.
 func CleanupApp(ctx context.Context, c client.Reader, recorder events.EventRecorder, obj ConfigResource, connection commonv1alpha1.AppConnection, def engine.AppDefinition, app string) error {
-	managed := obj.GetManagedResources()
-	hasResources := false
-	for _, endpoint := range def.Resources {
-		if endpoint.Prunable && len(managed[endpoint.Name]) > 0 {
-			hasResources = true
-			break
-		}
-	}
-	if !hasResources {
+	owned := engine.NewOwnership(app, obj.GetManagedResources())
+	if !slices.ContainsFunc(def.Resources, func(r engine.ResourceEndpoint) bool { return r.Prunable && owned.Owns(r.Name) }) {
 		return nil
 	}
 	apiKey, err := reconciler.ResolveSecretKeyRef(ctx, c, obj.GetNamespace(), connection.APIKeySecretRef)
@@ -199,9 +195,8 @@ func CleanupApp(ctx context.Context, c client.Reader, recorder events.EventRecor
 	if err != nil {
 		return err
 	}
-	deleted, kept, err := engine.DeleteManagedResources(ctx, hc, def, managed)
-	EmitPruneEvents(recorder, obj, deleted)
-	EmitKeptEvents(recorder, obj, app, kept)
+	err = engine.DeleteManagedResources(ctx, hc, def, owned)
+	EmitPruneEvents(recorder, obj, owned.Pruned())
 	return err
 }
 

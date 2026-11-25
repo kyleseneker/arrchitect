@@ -31,14 +31,9 @@ type ReadarrReconciler struct {
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
 
 func (r *ReadarrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	var config pvrv1alpha1.Readarr
-	if err := r.Get(ctx, req.NamespacedName, &config); err != nil {
-		return ctrl.Result{}, ctrlcommon.IgnoreDeleted(&config, req.NamespacedName, err)
-	}
-	s := config.Spec
-	return reconcilePVR(ctx, r.Client, r.Recorder, pvrConfig{
-		app: pvrclient.Readarr, apps: r.Apps, obj: &config, spec: s, connection: s.Connection, policy: s.Reconcile,
-		options: pvrclient.Options{
+	integration := pvrIntegration(r.Client, r.Apps, pvrclient.Readarr, func(config *pvrv1alpha1.Readarr) pvrConfig {
+		s := config.Spec
+		return pvrConfig{spec: s, connection: s.Connection, options: pvrclient.Options{
 			RootFolders:             s.RootFolders,
 			RemotePathMappings:      s.RemotePathMappings,
 			QualityProfiles:         s.QualityProfiles,
@@ -49,8 +44,9 @@ func (r *ReadarrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			QualityDefinitions:      s.QualityDefinitions,
 			DelayProfiles:           s.DelayProfiles,
 			ReadarrMetadataProfiles: s.MetadataProfiles,
-		},
+		}}
 	})
+	return integration.Reconcile(ctx, r.Client, r.Recorder, req, &pvrv1alpha1.Readarr{})
 }
 
 func (r *ReadarrReconciler) SetupWithManager(mgr ctrl.Manager) error {
