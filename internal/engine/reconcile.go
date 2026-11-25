@@ -178,7 +178,7 @@ func identities(r ResourceEndpoint, items []map[string]any) ([]string, map[strin
 // can't be told apart, so neither is deleted.
 func soleID(client *HTTPClient, r ResourceEndpoint, ids map[string][]int, key string) (int, error) {
 	if n := len(ids[key]); n != 1 {
-		return 0, fmt.Errorf("%s has %d %s named %q", AppName(client.AppLabel()), n, r.Name, key)
+		return 0, &ambiguousError{msg: fmt.Sprintf("%s has %d %s named %q", AppName(client.AppLabel()), n, r.Name, key)}
 	}
 	return ids[key][0], nil
 }

@@ -122,7 +122,7 @@ func TestDeletionReportsWhatTheAppRefusesAndReleases(t *testing.T) {
 
 	_, err := HandleDeletion(context.Background(), cl, recorder, c, func(context.Context) error {
 		return &engine.KeptError{App: "seerr", Kept: []engine.KeptResource{{
-			Type: "sonarr", Name: "Sonarr", Reason: "in use",
+			Type: "sonarr", Name: "Sonarr", Reason: "Seerr refused to delete it: in use",
 		}}}
 	})
 

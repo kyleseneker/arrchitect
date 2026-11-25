@@ -75,7 +75,7 @@ func TestOwnershipCleanupKeepsWhatTheAppRefusesAndCarriesOn(t *testing.T) {
 	var kept *KeptError
 	require.ErrorAs(t, err, &kept)
 	assert.Equal(t, "ownership-test", kept.App)
-	assert.Equal(t, []KeptResource{{Type: "profiles", Name: "b", Reason: "in use by a root folder"}}, kept.Kept)
+	assert.Equal(t, []KeptResource{{Type: "profiles", Name: "b", Reason: "ownership-test refused to delete it: in use by a root folder"}}, kept.Kept)
 	assert.Equal(t, []string{"a", "c"}, removed)
 
 	err = o.Prune("profiles", []string{"x"}, []string{"b"}, func(string) error {

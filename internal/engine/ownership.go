@@ -91,7 +91,7 @@ func (o *Ownership) delete(kind string, names []string, remove func(name string)
 	kept := &KeptError{App: o.app}
 	for _, name := range names {
 		if err := remove(name); err != nil {
-			if reason, refused := Refusal(err); refused && keepRefused {
+			if reason, keep := o.keep(err); keep && keepRefused {
 				kept.Kept = append(kept.Kept, KeptResource{Type: kind, Name: name, Reason: reason})
 				continue
 			}
@@ -114,8 +114,27 @@ func (o *Ownership) delete(kind string, names []string, remove func(name string)
 	return nil
 }
 
-// KeptError is a cleanup that deleted everything but the items the app
-// refused to delete, such as a quality profile something still uses.
+// keep reports whether a failed delete is one no retry changes, with the
+// reason: the app refused it, or the name is ambiguous.
+func (o *Ownership) keep(err error) (string, bool) {
+	if reason, refused := Refusal(err); refused {
+		return AppName(o.app) + " refused to delete it: " + reason, true
+	}
+	if _, ambiguous := errors.AsType[*ambiguousError](err); ambiguous {
+		return err.Error(), true
+	}
+	return "", false
+}
+
+// ambiguousError is an owned name the app holds more than once. The operator
+// can't tell which item it created, so it deletes neither.
+type ambiguousError struct{ msg string }
+
+func (e *ambiguousError) Error() string { return e.msg }
+
+// KeptError is a cleanup that deleted everything but the items no retry can
+// delete: those the app refused, such as a quality profile something still
+// uses, and names the app holds more than once.
 type KeptError struct {
 	App  string
 	Kept []KeptResource

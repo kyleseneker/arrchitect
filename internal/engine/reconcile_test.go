@@ -278,7 +278,7 @@ func TestDeleteManagedResourcesKeepsWhatTheAppRefusesAndCarriesOn(t *testing.T) 
 	require.Len(t, refused, 1)
 	require.Len(t, refused[0].Kept, 1)
 	assert.Equal(t, "profiles", refused[0].Kept[0].Type)
-	assert.Equal(t, "Profile [Music] is in use.", refused[0].Kept[0].Reason)
+	assert.Equal(t, "test refused to delete it: Profile [Music] is in use.", refused[0].Kept[0].Reason)
 }
 
 func TestRefusalLeavesRetryableFailuresOut(t *testing.T) {
@@ -1122,4 +1122,29 @@ func TestPruneRefusesANameTheAppHasTwice(t *testing.T) {
 
 	require.ErrorContains(t, err, `has 2 indexers named "old"`)
 	assert.False(t, deleted)
+}
+
+func TestCleanupKeepsANameTheAppHasTwiceAndCarriesOn(t *testing.T) {
+	var deleted []string
+	hc := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodDelete {
+			deleted = append(deleted, r.URL.Path)
+			return
+		}
+		_ = json.NewEncoder(w).Encode([]map[string]any{
+			{"id": float64(1), "name": "dup"}, {"id": float64(2), "name": "dup"}, {"id": float64(3), "name": "single"},
+		})
+	})
+	def := AppDefinition{Resources: []ResourceEndpoint{
+		{Name: "formats", Path: "/formats", MatchField: "name", Prunable: true},
+		{Name: "profiles", Path: "/profiles", MatchField: "name", Prunable: true},
+	}}
+	owned := NewOwnership("sonarr", map[string][]string{"formats": {"single"}, "profiles": {"dup", "single"}})
+
+	refused, err := SplitKept(DeleteManagedResources(context.Background(), hc, def, owned))
+
+	require.NoError(t, err, "no retry fixes a duplicate, so it must not block the rest")
+	assert.Equal(t, []string{"/profiles/3", "/formats/3"}, deleted)
+	require.Len(t, refused, 1)
+	assert.Equal(t, `test-app has 2 profiles named "dup"`, refused[0].Kept[0].Reason)
 }

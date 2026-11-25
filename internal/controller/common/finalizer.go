@@ -74,7 +74,7 @@ func HandleDeletion(ctx context.Context, c client.Client, recorder events.EventR
 			var kept []*engine.KeptError
 			kept, cleanupErr = engine.SplitKept(remove(ctx))
 			for _, k := range kept {
-				EmitKeptEvents(recorder, obj, k.App, k.Kept)
+				EmitKeptEvents(recorder, obj, k.Kept)
 			}
 		}
 		if err := cleanupErr; err != nil {
@@ -201,13 +201,13 @@ func CleanupApp(ctx context.Context, c client.Reader, recorder events.EventRecor
 
 // EmitKeptEvents emits a ResourceKept warning for each item the app refused to
 // delete during cleanup.
-func EmitKeptEvents(recorder events.EventRecorder, obj ConfigResource, app string, kept []engine.KeptResource) {
+func EmitKeptEvents(recorder events.EventRecorder, obj ConfigResource, kept []engine.KeptResource) {
 	if recorder == nil {
 		return
 	}
 	for _, k := range kept {
 		recorder.Eventf(obj, nil, corev1.EventTypeWarning, engine.ReasonResourceKept, "Cleanup",
-			"Kept %s %q, which the operator created: %s refused to delete it: %s", k.Type, k.Name, engine.AppName(app), k.Reason)
+			"Kept %s %q, which the operator created: %s", k.Type, k.Name, k.Reason)
 	}
 }
 
