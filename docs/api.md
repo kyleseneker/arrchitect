@@ -1896,7 +1896,9 @@ _Appears in:_
 | `shortDateFormat` _string_ | shortDateFormat is the short date display format. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `longDateFormat` _string_ | longDateFormat is the long date display format. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `timeFormat` _string_ | timeFormat is the time display format. |  | MinLength: 1 <br />Optional: \{\} <br /> |
+| `showRelativeDates` _boolean_ | showRelativeDates shows relative dates (today, yesterday). |  | Optional: \{\} <br /> |
 | `theme` _string_ | theme is the UI theme. |  | Enum: [auto dark light] <br />Optional: \{\} <br /> |
+| `enableColorImpairedMode` _boolean_ | enableColorImpairedMode enables color-impaired accessibility mode. |  | Optional: \{\} <br /> |
 | `uiLanguage` _integer_ | uiLanguage is the UI language ID. 1=English. |  | Optional: \{\} <br /> |
 
 
@@ -3953,7 +3955,9 @@ _Appears in:_
 | `shortDateFormat` _string_ | shortDateFormat is the short date display format. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `longDateFormat` _string_ | longDateFormat is the long date display format. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `timeFormat` _string_ | timeFormat is the time display format. |  | MinLength: 1 <br />Optional: \{\} <br /> |
+| `showRelativeDates` _boolean_ | showRelativeDates shows relative dates (today, yesterday). |  | Optional: \{\} <br /> |
 | `theme` _string_ | theme is the UI theme. |  | Enum: [auto dark light] <br />Optional: \{\} <br /> |
+| `enableColorImpairedMode` _boolean_ | enableColorImpairedMode enables color-impaired accessibility mode. |  | Optional: \{\} <br /> |
 | `uiLanguage` _integer_ | uiLanguage is the UI language ID. 1=English. |  | Optional: \{\} <br /> |
 
 
