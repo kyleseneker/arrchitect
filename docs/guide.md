@@ -319,9 +319,9 @@ references can use names instead:
   conditions, in place of the condition's `value` ID.
 - `activeProfileName` on Seerr's Sonarr and Radarr connections, looked up from
   that Sonarr or Radarr.
-- In Autobrr: `indexers` on filters, `clientRef` on actions, `indexerRef` on
-  feeds, `downloadClientName` and `filters` on lists, and `proxyName` on
-  indexers and IRC networks.
+- In Autobrr: `indexers` on filters, `downloadClientName` on actions,
+  `indexerName` on feeds, `downloadClientName` and `filters` on lists, and
+  `proxyName` on indexers and IRC networks.
 
 A name that matches nothing, or more than one item, sets `Synced` to `False`
 with reason `SyncFailed`, and the message names the reference. What uses the

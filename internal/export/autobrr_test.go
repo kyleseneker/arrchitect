@@ -104,7 +104,7 @@ func TestAutobrrExportsEachResourceWithSecretsInTheSecret(t *testing.T) {
 	feed := cfg.Spec.Feeds[0]
 	assert.Equal(t, int32(15), *feed.Interval)
 	assert.Equal(t, "Torznab", feed.Type)
-	assert.Equal(t, "Feed", feed.IndexerRef)
+	assert.Equal(t, "Feed", feed.IndexerName)
 	require.Len(t, cfg.Spec.Indexers, 2)
 	tracker := cfg.Spec.Indexers[0]
 	assert.Equal(t, "ipt", tracker.Identifier)
@@ -122,7 +122,7 @@ func TestAutobrrExportsEachResourceWithSecretsInTheSecret(t *testing.T) {
 	assert.Equal(t, []string{"Tracker"}, filter.Indexers)
 	assert.Equal(t, []string{"tv", "hd"}, filter.Tags)
 	require.Len(t, filter.Actions, 1)
-	assert.Equal(t, "qBit", filter.Actions[0].ClientRef, "an action names its download client")
+	assert.Equal(t, "qBit", filter.Actions[0].DownloadClientName, "an action names its download client")
 	assert.Equal(t, "qBittorrent", filter.Actions[0].Type)
 	assert.Equal(t, "tv", filter.Actions[0].Category)
 

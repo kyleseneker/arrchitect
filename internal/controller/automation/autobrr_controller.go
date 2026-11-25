@@ -630,15 +630,15 @@ func (s *autobrrSync) feed(ctx context.Context, feed automationv1alpha1.AutobrrF
 	if err != nil {
 		return err
 	}
-	indexerID, found, err := indexerIDs.Find(feed.IndexerRef)
+	indexerID, found, err := indexerIDs.Find(feed.IndexerName)
 	switch {
 	case err != nil:
 		return fmt.Errorf("indexer: %w", err)
-	case !found && s.planned("indexers", feed.IndexerRef):
+	case !found && s.planned("indexers", feed.IndexerName):
 		s.RecordDrift("feed", feed.Name)
 		return nil
 	case !found:
-		return fmt.Errorf("references indexer %q, which does not exist", feed.IndexerRef)
+		return fmt.Errorf("references indexer %q, which does not exist", feed.IndexerName)
 	}
 
 	obj := map[string]any{
@@ -987,17 +987,17 @@ func (s *autobrrSync) actions(
 		aObj["name"] = a.Name
 		aObj["type"] = autobrrType(a.Type)
 		setEnabled(aObj, a.Enable)
-		if a.ClientRef != "" {
+		if a.DownloadClientName != "" {
 			// Autobrr links an action to a downloader by its numeric ID.
-			id, found, err := clientIDs.Find(a.ClientRef)
+			id, found, err := clientIDs.Find(a.DownloadClientName)
 			switch {
 			case err != nil:
 				return fmt.Errorf("action %q download client: %w", a.Name, err)
-			case !found && s.planned("downloadClients", a.ClientRef):
+			case !found && s.planned("downloadClients", a.DownloadClientName):
 				s.RecordDrift("action", a.Name)
 				continue
 			case !found:
-				return fmt.Errorf("action %q references download client %q, which does not exist", a.Name, a.ClientRef)
+				return fmt.Errorf("action %q references download client %q, which does not exist", a.Name, a.DownloadClientName)
 			}
 			aObj["client_id"] = id
 		}

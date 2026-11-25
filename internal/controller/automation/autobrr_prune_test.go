@@ -33,7 +33,7 @@ func TestAutobrrPrunesOnlyFeedsItCreated(t *testing.T) {
 	}}}
 	cfg := autobrrConfig(app.serve(t))
 	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{Prune: new(true)}
-	cfg.Spec.Feeds = []automationv1alpha1.AutobrrFeed{{Name: "kept", Type: "RSS", URL: "http://feed", IndexerRef: "Generic"}}
+	cfg.Spec.Feeds = []automationv1alpha1.AutobrrFeed{{Name: "kept", Type: "RSS", URL: "http://feed", IndexerName: "Generic"}}
 	cfg.SetManagedResources(map[string][]string{"feeds": {"old", "kept"}})
 
 	managed := autobrrManaged(t, cfg, true)
@@ -47,7 +47,7 @@ func TestAutobrrPrunesOnlyFeedsItCreated(t *testing.T) {
 func TestAutobrrRecordsWhatItCreates(t *testing.T) {
 	app := &fakeAutobrr{existing: map[string][]map[string]any{"indexer": genericIndexer}}
 	cfg := autobrrConfig(app.serve(t))
-	cfg.Spec.Feeds = []automationv1alpha1.AutobrrFeed{{Name: "feed", Type: "RSS", URL: "http://feed", IndexerRef: "Generic"}}
+	cfg.Spec.Feeds = []automationv1alpha1.AutobrrFeed{{Name: "feed", Type: "RSS", URL: "http://feed", IndexerName: "Generic"}}
 	cfg.Spec.Filters = []automationv1alpha1.AutobrrFilter{{
 		Name:    "TV",
 		Actions: []automationv1alpha1.AutobrrFilterAction{{Name: "notify", Type: "Webhook", WebhookURL: "http://hook"}},
@@ -89,7 +89,7 @@ func TestAutobrrObserveReportsWhatPruneWouldDelete(t *testing.T) {
 	cfg := autobrrConfig(app.serve(t))
 	observe := "observe"
 	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{Prune: new(true), DriftPolicy: observe}
-	cfg.Spec.Feeds = []automationv1alpha1.AutobrrFeed{{Name: "kept", Type: "RSS", URL: "http://feed", IndexerRef: "Generic"}}
+	cfg.Spec.Feeds = []automationv1alpha1.AutobrrFeed{{Name: "kept", Type: "RSS", URL: "http://feed", IndexerName: "Generic"}}
 	cfg.SetManagedResources(map[string][]string{"feeds": {"observe-old", "kept"}})
 	observed := metrics.DriftObservedTotal.WithLabelValues("autobrr", "feeds", "observe-old")
 	before := testutil.ToFloat64(observed)
@@ -134,7 +134,7 @@ func TestAutobrrPruneListsOnlyKindsItOwns(t *testing.T) {
 	}}}
 	cfg := autobrrConfig(app.serve(t))
 	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{Prune: new(true)}
-	cfg.Spec.Feeds = []automationv1alpha1.AutobrrFeed{{Name: "kept", Type: "RSS", URL: "http://feed", IndexerRef: "Generic"}}
+	cfg.Spec.Feeds = []automationv1alpha1.AutobrrFeed{{Name: "kept", Type: "RSS", URL: "http://feed", IndexerName: "Generic"}}
 	cfg.SetManagedResources(map[string][]string{"feeds": {"old", "kept"}})
 
 	c := runAutobrr(t, cfg, true)

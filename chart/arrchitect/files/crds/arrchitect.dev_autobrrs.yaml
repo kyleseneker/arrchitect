@@ -436,10 +436,10 @@ spec:
                         enable controls whether this feed is active. A new feed is enabled unless
                         this is false.
                       type: boolean
-                    indexerRef:
+                    indexerName:
                       description: |-
-                        indexerRef is the name of the indexer this feed belongs to: a torznab,
-                        newznab or rss indexer declared under indexers.
+                        indexerName names the indexer this feed belongs to, a torznab, newznab
+                        or rss indexer declared under indexers.
                       minLength: 1
                       type: string
                     interval:
@@ -478,7 +478,7 @@ spec:
                       minLength: 1
                       type: string
                   required:
-                  - indexerRef
+                  - indexerName
                   - name
                   - type
                   - url
@@ -506,11 +506,6 @@ spec:
                               default category.
                             minLength: 1
                             type: string
-                          clientRef:
-                            description: clientRef is the name of the download client
-                              to use (must match a downloadClients entry).
-                            minLength: 1
-                            type: string
                           contentLayout:
                             description: contentLayout decides whether the torrent's
                               files go in a folder of their own.
@@ -518,6 +513,12 @@ spec:
                             - ORIGINAL
                             - SUBFOLDER_CREATE
                             - SUBFOLDER_NONE
+                            type: string
+                          downloadClientName:
+                            description: |-
+                              downloadClientName names the download client to use, one declared under
+                              downloadClients.
+                            minLength: 1
                             type: string
                           downloadPath:
                             description: downloadPath is where the download client
