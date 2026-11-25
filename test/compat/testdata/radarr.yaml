@@ -157,7 +157,7 @@ spec:
   importLists:
     - name: Compat List
       implementation: ${RADARR_LIST}
-      enable: true
+      enabled: true
       enableAutomaticAdd: false
       monitor: movieOnly
       qualityProfileName: HD-1080p

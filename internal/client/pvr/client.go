@@ -727,7 +727,7 @@ func BuildImportListPayload(il commonv1alpha1.ImportList, qpIDs map[string]int, 
 	}
 
 	if names.Enable != "" {
-		SetOptionalBool(payload, names.Enable, il.Enable)
+		SetOptionalBool(payload, names.Enable, il.Enabled)
 	}
 	if names.AutomaticAdd != "" {
 		SetOptionalBool(payload, names.AutomaticAdd, il.EnableAutomaticAdd)
