@@ -122,3 +122,7 @@ The release workflow publishes the image, CLI and chart, and a GitHub release
 with notes generated from the commits. The notes are then edited by hand. They
 list `kubectl apply` commands for any CRD that changed since the previous tag,
 for installs that set `crds.enabled: false`.
+
+The chart carries a copy of `README.md` for Artifact Hub and `helm show
+readme`. The release drops its HTML header and points its relative links at the
+tag, so keep links in the README relative.
