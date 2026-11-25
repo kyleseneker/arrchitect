@@ -42,6 +42,9 @@ func (r *TdarrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	integration := ctrlcommon.Integration[*transcodev1alpha1.Tdarr, *tdarrclient.Client]{
 		App:     "tdarr",
 		Connect: r.connect,
+		Check: func(ctx context.Context, tc *tdarrclient.Client, _ *transcodev1alpha1.Tdarr) error {
+			return tc.Ping(ctx)
+		},
 		Sync:    r.sync,
 		Cleanup: cleanupTdarr,
 		Prune:   true,
@@ -64,8 +67,7 @@ func (r *TdarrReconciler) connect(ctx context.Context, config *transcodev1alpha1
 	if err != nil {
 		return nil, err
 	}
-	tc := tdarrclient.NewClient(hc)
-	return tc, tc.Ping(ctx)
+	return tdarrclient.NewClient(hc), nil
 }
 
 func (r *TdarrReconciler) sync(ctx context.Context, tc *tdarrclient.Client, config *transcodev1alpha1.Tdarr, pass *engine.Pass) []string {

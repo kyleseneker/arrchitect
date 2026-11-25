@@ -236,8 +236,8 @@ func TestPlexObserveReportsAMissingLibraryWithoutCreatingIt(t *testing.T) {
 	assert.Equal(t, "DriftDetected", synced.Reason)
 }
 
-// Plex accepts some preferences without ever listing them. Observe mode cannot
-// read those back, so they are not reported as drift.
+// Plex accepts some preferences without ever listing them. Observe mode can't
+// read those back, so one the operator never wrote isn't reported as drift.
 func TestPlexObserveDoesNotCountPreferencesPlexDoesNotList(t *testing.T) {
 	app := &fakePlex{existingLibs: []any{plexMovies()}}
 	cfg := plexConfig(app.serve(t), mediaserversv1alpha1.PlexLibrary{Name: "Movies", Type: "movie"})
@@ -315,7 +315,7 @@ func TestPlexClientSaysWhyItCantConnect(t *testing.T) {
 	}{
 		{"missing token Secret", "http://plex:32400", false, engine.ReasonSecretNotFound},
 		{"unusable URL", "ftp://plex", true, engine.ReasonInvalidConfig},
-		{"builds the client and tries the app", "http://plex.invalid:32400", true, engine.ReasonAppUnreachable},
+		{"connects", "http://plex:32400", true, ""},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			b := fake.NewClientBuilder().WithScheme(scheme)
@@ -324,6 +324,11 @@ func TestPlexClientSaysWhyItCantConnect(t *testing.T) {
 			}
 			r := &PlexReconciler{Client: b.Build()}
 			_, err := r.connect(context.Background(), plexConfig(tc.url))
+			if tc.reason == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.Error(t, err)
 			reason, _ := ctrlcommon.Classify(err)
 			assert.Equal(t, tc.reason, reason)
 		})

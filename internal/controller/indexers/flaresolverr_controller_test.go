@@ -236,15 +236,17 @@ func TestFlareSolverrClientSaysWhyItCantConnect(t *testing.T) {
 	withCA := flareConfig("https://flaresolverr:8191", false, nil)
 	withCA.Spec.Connection.TLS = &commonv1alpha1.TLSConfig{CASecretRef: commonv1alpha1.SecretKeyRef{Name: "ca", Key: "ca.crt"}}
 	_, err := r.connect(context.Background(), withCA)
+	require.Error(t, err)
 	reason, _ := ctrlcommon.Classify(err)
 	assert.Equal(t, engine.ReasonSecretNotFound, reason)
 
 	_, err = r.connect(context.Background(), flareConfig("ftp://flaresolverr", false, nil))
+	require.Error(t, err)
 	reason, after := ctrlcommon.Classify(err)
 	assert.Equal(t, engine.ReasonInvalidConfig, reason)
 	assert.Zero(t, after, "a spec problem waits for the spec to change")
 
-	_, err = r.connect(context.Background(), flareConfig("http://flaresolverr.invalid:8191", false, nil))
-	reason, _ = ctrlcommon.Classify(err)
-	assert.Equal(t, engine.ReasonAppUnreachable, reason)
+	fc, err := r.connect(context.Background(), flareConfig("http://flaresolverr:8191", false, nil))
+	require.NoError(t, err)
+	assert.NotNil(t, fc)
 }

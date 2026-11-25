@@ -39,6 +39,9 @@ func (r *PlexReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 	integration := ctrlcommon.Integration[*mediaserversv1alpha1.Plex, *plexclient.Client]{
 		App:     "plex",
 		Connect: r.connect,
+		Check: func(ctx context.Context, pc *plexclient.Client, _ *mediaserversv1alpha1.Plex) error {
+			return pc.Ping(ctx)
+		},
 		Sync: func(ctx context.Context, pc *plexclient.Client, config *mediaserversv1alpha1.Plex, pass *engine.Pass) []string {
 			problems := reconcilePlexPreferences(ctx, pc, &pass.Writes, string(config.UID), buildPlexPreferences(config.Spec))
 			return append(problems, reconcilePlexLibraries(ctx, pc, &pass.Writes, config.Spec.Libraries)...)
@@ -63,8 +66,7 @@ func (r *PlexReconciler) connect(ctx context.Context, config *mediaserversv1alph
 	if err != nil {
 		return nil, err
 	}
-	pc := plexclient.NewClient(hc)
-	return pc, pc.Ping(ctx)
+	return plexclient.NewClient(hc), nil
 }
 
 // reconcilePlexLibraries creates the declared libraries Plex does not have.
@@ -228,8 +230,9 @@ func plexPreferenceChanges(desired, current map[string]string) (map[string]strin
 }
 
 // reconcilePlexPreferences writes the declared preferences that differ, one
-// per request, and returns what could not be read or written. Observe mode
-// compares only the preferences Plex lists: the others cannot be read back.
+// per request, and returns what could not be read or written. A preference
+// Plex doesn't list is compared with what the operator last wrote, so observe
+// mode reports one only after it has been written once.
 func reconcilePlexPreferences(
 	ctx context.Context, pc *plexclient.Client, w *engine.Writes, owner string, desiredPrefs map[string]string,
 ) []string {
@@ -245,7 +248,7 @@ func reconcilePlexPreferences(
 			// but never listed, so what was last written is remembered instead.
 			remember := func(key string) string { return fmt.Sprintf("plex/%s/pref/%s", owner, key) }
 			for _, key := range unlisted {
-				if !w.Observe && reconciler.SecretsChangedSince(remember(key), desiredPrefs[key]) {
+				if reconciler.SecretsDiffer(remember(key), desiredPrefs[key], w.Observe) {
 					changes[key] = desiredPrefs[key]
 				}
 			}

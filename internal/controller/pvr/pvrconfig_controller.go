@@ -30,6 +30,7 @@ func pvrIntegration[T ctrlcommon.ConfigResource](
 		Connect: func(ctx context.Context, obj T) (*engine.HTTPClient, error) {
 			return connectPVR(ctx, c, obj, describe(obj).connection, app)
 		},
+		Check: func(ctx context.Context, hc *engine.HTTPClient, _ T) error { return pingPVR(ctx, hc, app) },
 		Sync: func(ctx context.Context, hc *engine.HTTPClient, obj T, pass *engine.Pass) []string {
 			cfg, namespace := describe(obj), obj.GetNamespace()
 			opts := withApp(cfg.options, app)
@@ -76,8 +77,7 @@ func withApp(opts pvrclient.Options, app pvrclient.App) pvrclient.Options {
 	return opts
 }
 
-// connectPVR builds the client for an app's connection and checks the app
-// answers.
+// connectPVR builds the client for an app's connection.
 func connectPVR(
 	ctx context.Context, c client.Reader, obj ctrlcommon.ConfigResource, conn commonv1alpha1.AppConnection, app pvrclient.App,
 ) (*engine.HTTPClient, error) {
@@ -96,5 +96,10 @@ func connectPVR(
 	if err != nil {
 		return nil, err
 	}
-	return hc, hc.Ping(ctx, "/api/"+app.APIVersion+"/system/status")
+	return hc, nil
+}
+
+// pingPVR checks an app answers.
+func pingPVR(ctx context.Context, hc *engine.HTTPClient, app pvrclient.App) error {
+	return hc.Ping(ctx, "/api/"+app.APIVersion+"/system/status")
 }

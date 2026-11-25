@@ -132,3 +132,18 @@ func TestOwnershipOwnsOnlyKindsWithCreatedItems(t *testing.T) {
 	require.NoError(t, o.Cleanup("proxies", []string{"vpn"}, func(string) error { return nil }))
 	assert.False(t, o.Owns("proxies"))
 }
+
+func TestCleanupKeepsARefusalWhenALaterDeleteFails(t *testing.T) {
+	owned := NewOwnership("ownership-kept", map[string][]string{"profiles": {"a-in-use", "b-flaky"}})
+	err := owned.Cleanup("profiles", []string{"a-in-use", "b-flaky"}, func(name string) error {
+		if name == "a-in-use" {
+			return &APIError{StatusCode: 400, Body: []byte(`{"message":"Profile is in use"}`)}
+		}
+		return errors.New("connection reset")
+	})
+
+	kept, failure := SplitKept(err)
+	require.Len(t, kept, 1, "the refusal must reach the ResourceKept event")
+	assert.Equal(t, "a-in-use", kept[0].Kept[0].Name)
+	require.ErrorContains(t, failure, "connection reset", "the failure must still be retried")
+}

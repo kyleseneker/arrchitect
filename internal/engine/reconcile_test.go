@@ -1055,3 +1055,28 @@ func TestReconcileAppListsEachEndpointOncePerPass(t *testing.T) {
 	assert.Equal(t, 1, creates, "an item created earlier in the pass is found by a later one")
 	assert.Equal(t, []string{"new"}, result.Managed["tags"])
 }
+
+func TestAnUpdateMergesOverTheItemAsItIsNow(t *testing.T) {
+	lists := 0
+	var put map[string]any
+	hc := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			lists++
+			seeders := 1.0
+			if lists > 1 {
+				seeders = 3 // changed in the app after the pass listed the endpoint
+			}
+			_ = json.NewEncoder(w).Encode([]map[string]any{{"id": float64(7), "name": "B", "rss": false, "minimumSeeders": seeders}})
+		case http.MethodPut:
+			_ = json.NewDecoder(r.Body).Decode(&put)
+		}
+	})
+	def := AppDefinition{Resources: []ResourceEndpoint{{Name: "indexers", Path: "/indexer", MatchField: "name", Policy: CreateOrUpdate}}}
+
+	result := run(context.Background(), hc, def, nil, map[string][]map[string]any{"indexers": {{"name": "B", "rss": true}}}, SyncPolicy{}, nil)
+
+	require.Empty(t, result.Errors)
+	assert.Equal(t, true, put["rss"])
+	assert.InDelta(t, 3, put["minimumSeeders"], 0, "an undeclared field keeps the value the app has now")
+}

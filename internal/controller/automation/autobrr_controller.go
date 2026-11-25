@@ -42,6 +42,9 @@ func (r *AutobrrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	integration := ctrlcommon.Integration[*automationv1alpha1.Autobrr, *autobrrclient.Client]{
 		App:     "autobrr",
 		Connect: r.connect,
+		Check: func(ctx context.Context, ac *autobrrclient.Client, _ *automationv1alpha1.Autobrr) error {
+			return ac.Ping(ctx)
+		},
 		Sync: func(ctx context.Context, ac *autobrrclient.Client, config *automationv1alpha1.Autobrr, pass *engine.Pass) []string {
 			sync := &autobrrSync{
 				Pass: pass, c: r.Client, apps: r.Apps, ac: ac, namespace: config.Namespace, owner: config.Namespace + "/" + config.Name,
@@ -71,8 +74,7 @@ func (r *AutobrrReconciler) connect(ctx context.Context, config *automationv1alp
 	if err != nil {
 		return nil, err
 	}
-	ac := autobrrclient.NewClient(hc)
-	return ac, ac.Ping(ctx)
+	return autobrrclient.NewClient(hc), nil
 }
 
 // autobrrSync applies one Autobrr. With observe set it only reads, and

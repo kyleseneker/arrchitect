@@ -91,17 +91,20 @@ func (r *JellyfinReconciler) sync(ctx context.Context, conn *jellyfinConn, confi
 	jf := conn.jf
 	if !conn.setupComplete {
 		config.Status.Initialized = &conn.setupComplete
-		if pass.Observe {
-			pass.RecordDrift("settings", "initialization")
-			return nil
-		}
-		if err := runJellyfinSetup(ctx, jf, config.Spec.Server, conn.admin); err != nil {
+		err := pass.Apply("settings", "initialization", func() error {
+			return runJellyfinSetup(ctx, jf, config.Spec.Server, conn.admin)
+		})
+		if err != nil {
 			logger.Error(err, "failed to run setup wizard")
 			pass.Retry = time.Minute
 			return []string{fmt.Sprintf("setup wizard: %v", err)}
 		}
+		if pass.Observe {
+			return nil
+		}
 		logger.Info("Jellyfin setup wizard completed")
 		if err := r.signIn(ctx, jf, config, conn.admin); err != nil {
+			_, pass.Retry = ctrlcommon.Classify(err)
 			return []string{fmt.Sprintf("authentication: %v", err)}
 		}
 	}

@@ -38,7 +38,10 @@ func (r *ProwlarrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	integration := ctrlcommon.Integration[*indexersv1alpha1.Prowlarr, *engine.HTTPClient]{
 		App:     "prowlarr",
 		Connect: r.connect,
-		Sync:    r.sync,
+		Check: func(ctx context.Context, hc *engine.HTTPClient, _ *indexersv1alpha1.Prowlarr) error {
+			return hc.Ping(ctx, prowlarrclient.ProwlarrDefinition().HealthPath)
+		},
+		Sync: r.sync,
 		Cleanup: func(ctx context.Context, hc *engine.HTTPClient, owned *engine.Ownership) error {
 			return engine.DeleteManagedResources(ctx, hc, prowlarrclient.ProwlarrDefinition(), owned)
 		},
@@ -62,7 +65,7 @@ func (r *ProwlarrReconciler) connect(ctx context.Context, config *indexersv1alph
 	if err != nil {
 		return nil, err
 	}
-	return hc, hc.Ping(ctx, prowlarrclient.ProwlarrDefinition().HealthPath)
+	return hc, nil
 }
 
 func (r *ProwlarrReconciler) sync(ctx context.Context, hc *engine.HTTPClient, config *indexersv1alpha1.Prowlarr, pass *engine.Pass) []string {

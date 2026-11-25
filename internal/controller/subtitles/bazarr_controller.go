@@ -46,6 +46,9 @@ func (r *BazarrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	integration := ctrlcommon.Integration[*subtitlesv1alpha1.Bazarr, *bazarrclient.Client]{
 		App:     "bazarr",
 		Connect: r.connect,
+		Check: func(ctx context.Context, bc *bazarrclient.Client, _ *subtitlesv1alpha1.Bazarr) error {
+			return bc.Ping(ctx)
+		},
 		Sync:    r.sync,
 		Cleanup: cleanupBazarr,
 		Prune:   true,
@@ -67,8 +70,7 @@ func (r *BazarrReconciler) connect(ctx context.Context, config *subtitlesv1alpha
 	if err != nil {
 		return nil, err
 	}
-	bc := bazarrclient.NewClient(hc)
-	return bc, bc.Ping(ctx)
+	return bazarrclient.NewClient(hc), nil
 }
 
 func (r *BazarrReconciler) sync(ctx context.Context, bc *bazarrclient.Client, config *subtitlesv1alpha1.Bazarr, pass *engine.Pass) []string {

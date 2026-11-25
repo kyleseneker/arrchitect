@@ -191,33 +191,34 @@ func reconcileItem(ctx context.Context, client *HTTPClient, pass *Pass, endpoint
 		return fmt.Errorf("resource has no identity")
 	}
 	key := client.secretKey(endpoint.Name, desiredMatch)
-	for _, e := range *existing {
-		if endpoint.resourceKey(e) != desiredMatch {
-			continue
-		}
+	if current := find(*existing, endpoint, desiredMatch); current != nil {
 		if endpoint.Policy == CreateOnly {
 			return nil
 		}
-		id, ok := e["id"].(float64)
-		if !ok {
-			return fmt.Errorf("resource %q has no id", desiredMatch)
-		}
-		current, trimmed, err := withoutUndeclared(e, desired, endpoint.ExactLists)
-		if err != nil {
+		update, err := planUpdate(current, desired, endpoint, key, pass.Observe)
+		if err != nil || update == nil {
 			return err
 		}
-		out, err := reconciler.MergeDesired(current, desired)
-		if err != nil {
-			return err
-		}
-		if !trimmed && !out.Changed && !reconciler.SecretsDiffer(key, out.SecretDigest, pass.Observe) {
-			return nil
-		}
-		return pass.Apply(endpoint.Name, desiredMatch, func() error {
-			if err := client.PutJSON(ctx, fmt.Sprintf("%s/%d", endpoint.Path, int(id)), out.Merged); err != nil {
+		if !pass.Observe {
+			// The list is from the start of the pass. Merge over the item as it
+			// is now, so a change made in the app since isn't written back.
+			latest, err := client.GetJSONList(ctx, endpoint.Path)
+			if err != nil {
+				return fmt.Errorf("re-reading: %w", err)
+			}
+			*existing = latest
+			if current = find(latest, endpoint, desiredMatch); current == nil {
+				return fmt.Errorf("the app no longer has %s %q", endpoint.Name, desiredMatch)
+			}
+			if update, err = planUpdate(current, desired, endpoint, key, false); err != nil || update == nil {
 				return err
 			}
-			reconciler.RecordSecrets(key, out.SecretDigest)
+		}
+		return pass.Apply(endpoint.Name, desiredMatch, func() error {
+			if err := client.PutJSON(ctx, fmt.Sprintf("%s/%d", endpoint.Path, update.id), update.Merged); err != nil {
+				return err
+			}
+			reconciler.RecordSecrets(key, update.SecretDigest)
 			return nil
 		})
 	}
@@ -250,6 +251,43 @@ func reconcileItem(ctx context.Context, client *HTTPClient, pass *Pass, endpoint
 		}
 		return nil
 	})
+}
+
+// itemUpdate is the body to PUT to an item to bring it in line.
+type itemUpdate struct {
+	reconciler.MergeOutcome
+	id int
+}
+
+// planUpdate merges desired over current and returns the update to send, or
+// nil when the item already matches.
+func planUpdate(current, desired map[string]any, endpoint ResourceEndpoint, key string, observe bool) (*itemUpdate, error) {
+	id, ok := current["id"].(float64)
+	if !ok {
+		return nil, fmt.Errorf("resource %q has no id", endpoint.resourceKey(current))
+	}
+	trimmedCurrent, trimmed, err := withoutUndeclared(current, desired, endpoint.ExactLists)
+	if err != nil {
+		return nil, err
+	}
+	out, err := reconciler.MergeDesired(trimmedCurrent, desired)
+	if err != nil {
+		return nil, err
+	}
+	if !trimmed && !out.Changed && !reconciler.SecretsDiffer(key, out.SecretDigest, observe) {
+		return nil, nil
+	}
+	return &itemUpdate{MergeOutcome: out, id: int(id)}, nil
+}
+
+// find returns the item of endpoint whose key is key, or nil.
+func find(items []map[string]any, endpoint ResourceEndpoint, key string) map[string]any {
+	for _, item := range items {
+		if endpoint.resourceKey(item) == key {
+			return item
+		}
+	}
+	return nil
 }
 
 // withoutUndeclared drops the entries of each exact list in current whose name
@@ -335,12 +373,12 @@ func DeleteManagedResources(ctx context.Context, client *HTTPClient, def AppDefi
 			}
 			return nil
 		})
-		if _, refused := errors.AsType[*KeptError](err); refused {
-			kept = append(kept, err)
-			continue
+		refusals, failure := SplitKept(err)
+		for _, refusal := range refusals {
+			kept = append(kept, refusal)
 		}
-		if err != nil {
-			return errors.Join(append(kept, fmt.Errorf("cleaning up %s: %w", endpoint.Name, err))...)
+		if failure != nil {
+			return errors.Join(append(kept, fmt.Errorf("cleaning up %s: %w", endpoint.Name, failure))...)
 		}
 	}
 	return errors.Join(kept...)

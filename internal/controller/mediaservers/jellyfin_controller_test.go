@@ -639,14 +639,17 @@ func TestJellyfinClientSaysWhyItCantConnect(t *testing.T) {
 	}
 
 	_, err := reconcilerWith().connect(context.Background(), jellyfinConfig("http://jellyfin:8096"))
+	require.Error(t, err)
 	reason, _ := ctrlcommon.Classify(err)
 	assert.Equal(t, engine.ReasonSecretNotFound, reason)
 
 	_, err = reconcilerWith(adminSecret()).connect(context.Background(), jellyfinConfig("ftp://jellyfin"))
+	require.Error(t, err)
 	reason, _ = ctrlcommon.Classify(err)
 	assert.Equal(t, engine.ReasonInvalidConfig, reason)
 
 	_, err = reconcilerWith(adminSecret()).connect(context.Background(), jellyfinConfig("http://jellyfin.invalid:8096"))
+	require.Error(t, err, "connect asks Jellyfin whether its setup is complete")
 	reason, _ = ctrlcommon.Classify(err)
 	assert.Equal(t, engine.ReasonAppUnreachable, reason)
 }

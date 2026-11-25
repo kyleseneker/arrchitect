@@ -8,9 +8,13 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
+	pvrv1alpha1 "github.com/kyleseneker/arrchitect/api/pvr/v1alpha1"
 	"github.com/kyleseneker/arrchitect/internal/engine"
 	"github.com/kyleseneker/arrchitect/internal/reconciler"
 )
@@ -37,4 +41,27 @@ func TestClassify(t *testing.T) {
 			assert.Equal(t, tc.after, after)
 		})
 	}
+}
+
+func TestCleanupSkipsCheck(t *testing.T) {
+	obj := newConfig(DeletionPolicyDelete, time.Minute)
+	c := testClient(obj).WithStatusSubresource(obj).Build()
+	cleaned := false
+	integration := Integration[*pvrv1alpha1.Sonarr, string]{
+		App:     "sonarr",
+		Connect: func(context.Context, *pvrv1alpha1.Sonarr) (string, error) { return "conn", nil },
+		Check: func(context.Context, string, *pvrv1alpha1.Sonarr) error {
+			return engine.InvalidConfig(errors.New("the spec's whitelist would lock the operator out"))
+		},
+		Sync: func(context.Context, string, *pvrv1alpha1.Sonarr, *engine.Pass) []string { return nil },
+		Cleanup: func(_ context.Context, conn string, owned *engine.Ownership) error {
+			cleaned = conn == "conn" && owned.Owns("indexers")
+			return nil
+		},
+	}
+
+	_, err := integration.Reconcile(context.Background(), c, nil, ctrl.Request{NamespacedName: client.ObjectKeyFromObject(obj)}, &pvrv1alpha1.Sonarr{})
+
+	require.NoError(t, err)
+	assert.True(t, cleaned, "a spec problem Check finds must not block deleting what the operator created")
 }

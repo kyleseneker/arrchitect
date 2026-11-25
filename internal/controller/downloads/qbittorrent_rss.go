@@ -20,15 +20,16 @@ func reconcileQBRSSFeeds(ctx context.Context, qb *qbclient.Client, pass *engine.
 		return []string{fmt.Sprintf("listing RSS feeds: %v", err)}
 	}
 	if pass.PruneEnabled {
-		err := pass.Prune(pass.Owned, "rssFeeds", qbRSSFeedNames(feeds), slices.Collect(maps.Keys(current)), func(path string) error {
-			if err := qb.RemoveRSSItem(ctx, path); err != nil {
-				return err
-			}
-			delete(current, path)
-			return nil
+		names, present := qbRSSFeedNames(feeds), slices.Collect(maps.Keys(current))
+		planned := pass.Owned.Candidates("rssFeeds", names, present)
+		err := pass.Prune(pass.Owned, "rssFeeds", names, present, func(path string) error {
+			return qb.RemoveRSSItem(ctx, path)
 		})
 		if err != nil {
 			return []string{fmt.Sprintf("rssFeeds(prune): %v", err)}
+		}
+		for _, path := range planned {
+			delete(current, path)
 		}
 	}
 	var errs []string
@@ -51,18 +52,16 @@ func reconcileQBRSSFeed(
 		if other := qbRSSFeedAt(current, feed.URL); other != "" {
 			return fmt.Errorf("qBittorrent already reads %s as %q", feed.URL, other)
 		}
-		return pass.Apply("rssFeeds", feed.Name, func() error {
-			if err := qb.SetRSSFeedURL(ctx, feed.Name, feed.URL); err != nil {
-				return err
-			}
+		err := pass.Apply("rssFeeds", feed.Name, func() error { return qb.SetRSSFeedURL(ctx, feed.Name, feed.URL) })
+		if err == nil {
 			current[feed.Name] = feed.URL
-			return nil
-		})
+		}
+		return err
 	}
 	if other := qbRSSFeedAt(current, feed.URL); other != "" {
 		return fmt.Errorf("qBittorrent already reads %s as %q; rename or remove that feed", feed.URL, other)
 	}
-	return pass.Apply("rssFeeds", feed.Name, func() error {
+	err := pass.Apply("rssFeeds", feed.Name, func() error {
 		parts := strings.Split(feed.Name, `\`)
 		for i := 1; i < len(parts); i++ {
 			folder := strings.Join(parts[:i], `\`)
@@ -77,10 +76,13 @@ func reconcileQBRSSFeed(
 		if err := qb.AddRSSFeed(ctx, feed.URL, feed.Name); err != nil {
 			return err
 		}
-		current[feed.Name] = feed.URL
 		pass.Owned.Created("rssFeeds", feed.Name)
 		return nil
 	})
+	if err == nil {
+		current[feed.Name] = feed.URL
+	}
+	return err
 }
 
 // qbRSSFeedAt returns the path of the feed with url, or "".

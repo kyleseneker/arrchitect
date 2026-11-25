@@ -43,6 +43,7 @@ func (r *SabnzbdReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	integration := ctrlcommon.Integration[*downloadsv1alpha1.Sabnzbd, *sabnzbdclient.Client]{
 		App:     "sabnzbd",
 		Connect: r.connect,
+		Check:   r.check,
 		Sync:    r.sync,
 		Cleanup: cleanupSabnzbd,
 		Prune:   true,
@@ -51,11 +52,6 @@ func (r *SabnzbdReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 }
 
 func (r *SabnzbdReconciler) connect(ctx context.Context, config *downloadsv1alpha1.Sabnzbd) (*sabnzbdclient.Client, error) {
-	if config.Spec.General != nil {
-		if err := sabnzbdHostAllowed(config.Spec.Connection.URL, config.Spec.General.HostWhitelist); err != nil {
-			return nil, engine.InvalidConfig(err)
-		}
-	}
 	apiKey, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, config.Spec.Connection.APIKeySecretRef)
 	if err != nil {
 		return nil, err
@@ -68,8 +64,18 @@ func (r *SabnzbdReconciler) connect(ctx context.Context, config *downloadsv1alph
 	if err != nil {
 		return nil, err
 	}
-	sc := sabnzbdclient.NewClient(hc, apiKey)
-	return sc, sc.Ping(ctx)
+	return sabnzbdclient.NewClient(hc, apiKey), nil
+}
+
+// check refuses a host whitelist that would lock the operator out, then checks
+// SABnzbd answers. Cleanup skips it, so a bad whitelist never blocks deletion.
+func (r *SabnzbdReconciler) check(ctx context.Context, sc *sabnzbdclient.Client, config *downloadsv1alpha1.Sabnzbd) error {
+	if config.Spec.General != nil {
+		if err := sabnzbdHostAllowed(config.Spec.Connection.URL, config.Spec.General.HostWhitelist); err != nil {
+			return engine.InvalidConfig(err)
+		}
+	}
+	return sc.Ping(ctx)
 }
 
 func (r *SabnzbdReconciler) sync(ctx context.Context, sc *sabnzbdclient.Client, config *downloadsv1alpha1.Sabnzbd, pass *engine.Pass) []string {

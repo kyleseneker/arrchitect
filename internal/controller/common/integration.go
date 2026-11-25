@@ -19,9 +19,14 @@ import (
 type Integration[T ConfigResource, C any] struct {
 	// App is the app's label, such as "sonarr".
 	App string
-	// Connect builds the app's client and checks the app answers. Its error
-	// sets the status reason and when to retry, through Classify.
+	// Connect builds the app's client and signs in where the app needs it.
+	// Cleanup uses it too. Its error sets the status reason and when to retry,
+	// through Classify.
 	Connect func(ctx context.Context, obj T) (C, error)
+	// Check runs after Connect before a sync, never before cleanup: a health
+	// probe, and spec checks that mustn't block deleting what the operator
+	// created. Its error is classified like Connect's.
+	Check func(ctx context.Context, conn C, obj T) error
 	// Sync brings the app in line with obj, through pass, and returns what
 	// failed. Each failure leaves the rest of the pass to run.
 	Sync func(ctx context.Context, conn C, obj T, pass *engine.Pass) []string
@@ -58,6 +63,9 @@ func (in Integration[T, C]) Reconcile(
 	}
 
 	conn, err := in.Connect(ctx, obj)
+	if err == nil && in.Check != nil {
+		err = in.Check(ctx, conn, obj)
+	}
 	if err != nil {
 		reason, after := Classify(err)
 		log.FromContext(ctx).Error(err, "connecting to "+engine.AppName(in.App), "reason", reason)

@@ -93,10 +93,11 @@ Copy these when you add something similar:
 
 - A controller: `TdarrReconciler` in
   `internal/controller/transcode/tdarr_controller.go`. It declares a
-  `ctrlcommon.Integration`, whose `Connect` builds the client and checks the
-  app answers, and whose `Sync` writes through the `engine.Pass` it's given.
-  `Integration.Reconcile` does the lifecycle, status, events and requeue, with
-  the reasons in `internal/engine/controller.go`.
+  `ctrlcommon.Integration`. `Connect` builds the client and signs in, and
+  cleanup reuses it. `Check` probes the app before a sync, and holds any spec
+  check that mustn't block cleanup. `Sync` writes through the `engine.Pass`
+  it's given. `Integration.Reconcile` does the lifecycle, status, events and
+  requeue, with the reasons in `internal/engine/controller.go`.
 - appRef resolution: `internal/controller/common/appref.go`. A failure goes
   through `AppRefFailure`, which picks the reason and the requeue.
 - A compat case: `compatCase` in `test/compat/main_test.go`. A case has a

@@ -95,6 +95,9 @@ func reconcilePVRObject(ctx context.Context, c client.Client, recorder events.Ev
 	}
 
 	hc, err := connectPVR(ctx, c, obj, instance.connection, o.app)
+	if err == nil {
+		err = pingPVR(ctx, hc, o.app)
+	}
 	if err != nil {
 		reason, after := ctrlcommon.Classify(err)
 		log.FromContext(ctx).Error(err, "connecting to "+o.instanceKind, "reason", reason)

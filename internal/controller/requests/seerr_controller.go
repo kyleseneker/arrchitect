@@ -94,13 +94,15 @@ func (r *SeerrReconciler) sync(ctx context.Context, conn *seerrConn, config *req
 	sc := conn.sc
 	if !conn.initialized {
 		config.Status.Initialized = &conn.initialized
-		if pass.Observe {
-			pass.RecordDrift("settings", "initialization")
-			return nil
-		}
-		if err := r.setup(ctx, sc, &pass.Writes, pass.Owned, config, conn.media); err != nil {
+		err := pass.Apply("settings", "initialization", func() error {
+			return r.setup(ctx, sc, &pass.Writes, pass.Owned, config, conn.media)
+		})
+		if err != nil {
 			pass.Retry = time.Minute
 			return []string{err.Error()}
+		}
+		if pass.Observe {
+			return nil
 		}
 	}
 	initialized := true
@@ -357,9 +359,17 @@ func reconcileSeerrLibraries(ctx context.Context, sc *seerrclient.Client, w *eng
 	if err != nil {
 		return fmt.Errorf("listing libraries: %w", err)
 	}
-	if len(missingLibraries(libraries, declared)) > 0 && !w.Observe {
-		if libraries, err = sc.PostList(ctx, path+"/sync", map[string]any{}); err != nil {
+	if len(missingLibraries(libraries, declared)) > 0 {
+		// Seerr's list is a cache, so a missing library may only need a sync.
+		err := w.Apply("libraries", server+" sync", func() error {
+			libraries, err = sc.PostList(ctx, path+"/sync", map[string]any{})
+			return err
+		})
+		if err != nil {
 			return fmt.Errorf("syncing libraries: %w", err)
+		}
+		if w.Observe {
+			return nil
 		}
 	}
 	if missing := missingLibraries(libraries, declared); len(missing) > 0 {

@@ -498,7 +498,7 @@ func TestProwlarrClientSaysWhyItCantConnect(t *testing.T) {
 	}{
 		{"missing API key Secret", "http://prowlarr:9696", false, engine.ReasonSecretNotFound},
 		{"unusable URL", "ftp://prowlarr", true, engine.ReasonInvalidConfig},
-		{"builds the client and tries the app", "http://prowlarr.invalid:9696", true, engine.ReasonAppUnreachable},
+		{"connects", "http://prowlarr:9696", true, ""},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			b := fake.NewClientBuilder().WithScheme(scheme)
@@ -507,6 +507,11 @@ func TestProwlarrClientSaysWhyItCantConnect(t *testing.T) {
 			}
 			r := &ProwlarrReconciler{Client: b.Build()}
 			_, err := r.connect(context.Background(), prowlarrConfig(tc.url))
+			if tc.reason == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.Error(t, err)
 			reason, _ := ctrlcommon.Classify(err)
 			assert.Equal(t, tc.reason, reason)
 		})

@@ -35,6 +35,9 @@ func (r *FlareSolverrReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	integration := ctrlcommon.Integration[*indexersv1alpha1.FlareSolverr, *flaresolverrclient.Client]{
 		App:     "flaresolverr",
 		Connect: r.connect,
+		Check: func(ctx context.Context, fc *flaresolverrclient.Client, _ *indexersv1alpha1.FlareSolverr) error {
+			return fc.Ping(ctx)
+		},
 		Sync:    syncFlareSolverr,
 		Cleanup: cleanupFlareSolverr,
 		Prune:   true,
@@ -51,8 +54,7 @@ func (r *FlareSolverrReconciler) connect(ctx context.Context, config *indexersv1
 	if err != nil {
 		return nil, err
 	}
-	fc := flaresolverrclient.NewClient(hc)
-	return fc, fc.Ping(ctx)
+	return flaresolverrclient.NewClient(hc), nil
 }
 
 func syncFlareSolverr(ctx context.Context, fc *flaresolverrclient.Client, config *indexersv1alpha1.FlareSolverr, pass *engine.Pass) []string {

@@ -46,6 +46,9 @@ func (r *MaintainerrReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	integration := ctrlcommon.Integration[*curationv1alpha1.Maintainerr, *maintainerrclient.Client]{
 		App:     maintainerrApp,
 		Connect: r.connect,
+		Check: func(ctx context.Context, mc *maintainerrclient.Client, _ *curationv1alpha1.Maintainerr) error {
+			return mc.Ping(ctx)
+		},
 		Sync: func(ctx context.Context, mc *maintainerrclient.Client, config *curationv1alpha1.Maintainerr, pass *engine.Pass) []string {
 			sync := &maintainerrSync{Pass: pass, c: r.Client, apps: r.Apps, mc: mc, namespace: config.Namespace}
 			return sync.run(ctx, &config.Spec)
@@ -69,8 +72,7 @@ func (r *MaintainerrReconciler) connect(ctx context.Context, config *curationv1a
 	if err != nil {
 		return nil, err
 	}
-	mc := maintainerrclient.NewClient(hc)
-	return mc, mc.Ping(ctx)
+	return maintainerrclient.NewClient(hc), nil
 }
 
 // maintainerrSync applies one Maintainerr in dependency order: the media

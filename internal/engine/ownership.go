@@ -95,7 +95,11 @@ func (o *Ownership) delete(kind string, names []string, remove func(name string)
 				kept.Kept = append(kept.Kept, KeptResource{Type: kind, Name: name, Reason: reason})
 				continue
 			}
-			return fmt.Errorf("deleting %s %q: %w", kind, name, err)
+			failure := fmt.Errorf("deleting %s %q: %w", kind, name, err)
+			if len(kept.Kept) > 0 {
+				return errors.Join(kept, failure)
+			}
+			return failure
 		}
 		o.managed[kind] = slices.DeleteFunc(o.managed[kind], func(n string) bool { return n == name })
 		if len(o.managed[kind]) == 0 {

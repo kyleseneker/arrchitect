@@ -42,6 +42,9 @@ func (r *QBittorrentReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	integration := ctrlcommon.Integration[*downloadsv1alpha1.QBittorrent, *qbclient.Client]{
 		App:     "qbittorrent",
 		Connect: r.connect,
+		Check: func(ctx context.Context, qb *qbclient.Client, _ *downloadsv1alpha1.QBittorrent) error {
+			return qb.Ping(ctx)
+		},
 		Sync:    r.sync,
 		Cleanup: cleanupQBittorrent,
 		Prune:   true,
@@ -276,10 +279,7 @@ func (r *QBittorrentReconciler) connect(ctx context.Context, config *downloadsv1
 		return nil, err
 	}
 	qb := qbclient.NewClient(hc, username, password)
-	if err := qb.Login(ctx); err != nil {
-		return nil, err
-	}
-	return qb, qb.Ping(ctx)
+	return qb, qb.Login(ctx)
 }
 
 func reconcileQBCategories(ctx context.Context, qb *qbclient.Client, pass *engine.Pass, categories []downloadsv1alpha1.QBittorrentCategory) []string {
