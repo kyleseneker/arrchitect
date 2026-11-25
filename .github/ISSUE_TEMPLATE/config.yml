@@ -5,4 +5,4 @@ contact_links:
     about: Report it privately instead of opening a public issue.
   - name: User guide
     url: https://github.com/kyleseneker/arrchitect/blob/main/docs/guide.md
-    about: How to install Arrchitect and write each resource.
+    about: How Arrchitect reconciles, connects apps, reports status and handles deletion and upgrades.

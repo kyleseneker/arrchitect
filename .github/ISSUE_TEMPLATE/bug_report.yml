@@ -24,7 +24,7 @@ body:
         - SABnzbd
         - Jellyfin
         - Plex
-        - Seerr / Jellyseerr
+        - Seerr
         - Maintainerr
         - Tdarr
         - Autobrr
@@ -47,9 +47,9 @@ body:
   - type: input
     id: operator-version
     attributes:
-      label: Operator version
+      label: Arrchitect version
       description: Chart version, image tag, or commit.
-      placeholder: "0.7.0"
+      placeholder: "0.8.0"
     validations:
       required: true
 
@@ -70,7 +70,7 @@ body:
   - type: textarea
     id: manifest
     attributes:
-      label: The CR you applied
+      label: The resource you applied
       description: Secrets redacted. This is autoformatted as YAML, no backticks needed.
       render: yaml
     validations:

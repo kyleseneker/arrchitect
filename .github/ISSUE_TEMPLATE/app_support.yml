@@ -7,7 +7,7 @@ body:
     attributes:
       label: App
       description: Name and a link to it.
-      placeholder: "Huntarr — https://github.com/plexguide/Huntarr.io"
+      placeholder: "Example: https://github.com/example/app"
     validations:
       required: true
 
@@ -16,18 +16,16 @@ body:
     attributes:
       label: API docs
       description: >
-        A link to its API reference, OpenAPI/Swagger spec, or — failing that —
-        whatever endpoint you found by watching its web UI in devtools. Without
-        some form of this it's very hard to add support.
+        A link to its API reference or OpenAPI spec. Without one, the endpoints
+        you found in the web UI's network requests.
 
   - type: textarea
     id: settings
     attributes:
       label: What should be manageable
       description: >
-        Which settings do you actually want in git? Being specific here helps a
-        lot more than "full support" — most of these apps have hundreds of
-        settings and only a dozen matter.
+        Which settings do you want in git? Name them. Most of these apps have
+        hundreds of settings and only a dozen matter.
     validations:
       required: true
 
@@ -35,4 +33,4 @@ body:
     id: auth
     attributes:
       label: How does it authenticate?
-      description: API key header, bearer token, session cookie, something stranger?
+      description: API key header, bearer token, session cookie or something else?
