@@ -17,7 +17,27 @@ spec:
     replaceIllegalCharacters: true
     standardBookFormat: "{Author Name} - {Book Title}"
     authorFolderFormat: "{Author Name}"
+  downloadClientConfig:
+    enableCompletedDownloadHandling: true
+    autoRedownloadFailed: true
+    autoRedownloadFailedFromInteractiveSearch: true
   rootFolders:
     - path: /data/media/books
       defaultQualityProfileName: eBook
       defaultMetadataProfileName: Standard
+  tags:
+    - label: audiobook
+  notifications:
+    - name: Discord
+      implementation: Discord
+      onGrab: true
+      onReleaseImport: true
+      onUpgrade: true
+      onHealthIssue: true
+      includeHealthWarnings: true
+      fields:
+        - name: webHookUrl
+          valueFrom:
+            secretKeyRef:
+              name: discord-credentials
+              key: webhook-url

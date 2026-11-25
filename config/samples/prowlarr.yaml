@@ -23,18 +23,13 @@ spec:
       syncCategories: [5000, 5010, 5020, 5030, 5040, 5045, 5050, 5090]
     - name: Radarr
       syncLevel: fullSync
-      implementation: Radarr
-      configContract: RadarrSettings
-      prowlarrUrl: http://prowlarr.media.svc.cluster.local:9696
-      baseUrl: http://radarr.media.svc.cluster.local:7878
-      apiKeySecretRef:
-        name: radarr-credentials
-        key: api-key
+      appRef:
+        kind: Radarr
+        name: radarr
       syncCategories: [2000, 2010, 2020, 2030, 2040, 2045, 2050, 2060, 2070, 2080, 2090]
   indexers:
     - name: Internet Archive
       implementation: Cardigann
-      configContract: CardigannSettings
       enable: true
       appProfileName: Standard
       priority: 25
@@ -45,7 +40,6 @@ spec:
           value: "https://archive.org/"
     - name: Usenet Indexer
       implementation: Newznab
-      configContract: NewznabSettings
       enable: true
       appProfileName: Standard
       priority: 25

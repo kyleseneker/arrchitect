@@ -13,7 +13,7 @@ spec:
     deleteEmptyFolders: true
     importExtraFiles: true
     extraFileExtensions: srt
-    downloadPropersAndRepacks: doNotPrefer
+    downloadPropersAndRepacks: preferAndUpgrade
     enableMediaInfo: true
     rescanAfterRefresh: always
     autoRenameFolders: true
@@ -22,18 +22,19 @@ spec:
     renameMovies: true
     replaceIllegalCharacters: true
     colonReplacementFormat: smart
-    standardMovieFormat: "{Movie CleanTitle} {(Release Year)} [tmdbid-{TmdbId}] - {Edition Tags }{[Custom Formats]}{[Quality Full]}{[MediaInfo 3D]}{[MediaInfo VideoDynamicRangeType]}{[Mediainfo AudioCodec}{ Mediainfo AudioChannels]}{[Mediainfo VideoCodec]}{-Release Group}"
+    standardMovieFormat: "{Movie CleanTitle} {(Release Year)} [tmdbid-{TmdbId}] - {Edition Tags }{[Custom Formats]}{[Quality Full]}{[MediaInfo 3D]}{[MediaInfo VideoDynamicRangeType]}{[MediaInfo AudioCodec}{ MediaInfo AudioChannels]}{[MediaInfo VideoCodec]}{-Release Group}"
     movieFolderFormat: "{Movie CleanTitle} ({Release Year}) [tmdbid-{TmdbId}]"
   indexerConfig:
     minimumAge: 0
-    maximumSize: 0
     retention: 0
+    maximumSize: 0
     rssSyncInterval: 15
     availabilityDelay: 0
     allowHardcodedSubs: true
   downloadClientConfig:
     enableCompletedDownloadHandling: true
     autoRedownloadFailed: true
+    autoRedownloadFailedFromInteractiveSearch: true
     checkForFinishedDownloadInterval: 1
   ui:
     firstDayOfWeek: 0
@@ -103,6 +104,7 @@ spec:
       onUpgrade: true
       onMovieAdded: true
       onHealthIssue: true
+      includeHealthWarnings: true
       fields:
         - name: webHookUrl
           valueFrom:
