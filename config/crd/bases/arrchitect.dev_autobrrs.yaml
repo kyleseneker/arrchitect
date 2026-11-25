@@ -179,9 +179,9 @@ spec:
                           Sonarr, Radarr, Lidarr or Readarr
                         rule: self.kind in ['QBittorrent', 'Sabnzbd', 'Sonarr', 'Radarr',
                           'Lidarr', 'Readarr']
-                    enable:
+                    enabled:
                       description: |-
-                        enable controls whether this download client is active. A new download
+                        enabled controls whether this download client is active. A new download
                         client is enabled unless this is false.
                       type: boolean
                     externalDownloadClient:
@@ -278,8 +278,8 @@ spec:
                           format: int32
                           minimum: 0
                           type: integer
-                        enable:
-                          description: enable controls whether the rules apply. They
+                        enabled:
+                          description: enabled controls whether the rules apply. They
                             apply unless this is false.
                           type: boolean
                         ignoreSlowTorrents:
@@ -430,9 +430,9 @@ spec:
                       - Torrent
                       - Magnet
                       type: string
-                    enable:
+                    enabled:
                       description: |-
-                        enable controls whether this feed is active. A new feed is enabled unless
+                        enabled controls whether this feed is active. A new feed is enabled unless
                         this is false.
                       type: boolean
                     indexerName:
@@ -524,9 +524,9 @@ spec:
                               keeps the torrent while it downloads.
                             minLength: 1
                             type: string
-                          enable:
+                          enabled:
                             description: |-
-                              enable controls whether this action is active. A new action is enabled
+                              enabled controls whether this action is active. A new action is enabled
                               unless this is false.
                             type: boolean
                           execArgs:
@@ -736,9 +736,9 @@ spec:
                         matched release.
                       format: int32
                       type: integer
-                    enable:
+                    enabled:
                       description: |-
-                        enable controls whether this filter is active. A new filter is enabled
+                        enabled controls whether this filter is active. A new filter is enabled
                         unless this is false.
                       type: boolean
                     episodes:
@@ -1068,9 +1068,9 @@ spec:
                         to the definition's first URL.
                       minLength: 1
                       type: string
-                    enable:
+                    enabled:
                       description: |-
-                        enable controls whether this indexer is active. A new indexer is enabled
+                        enabled controls whether this indexer is active. A new indexer is enabled
                         unless this is false.
                       type: boolean
                     identifier:
@@ -1234,9 +1234,9 @@ spec:
                       x-kubernetes-list-map-keys:
                       - name
                       x-kubernetes-list-type: map
-                    enable:
+                    enabled:
                       description: |-
-                        enable controls whether this IRC network connection is active. A new
+                        enabled controls whether this IRC network connection is active. A new
                         network is enabled unless this is false.
                       type: boolean
                     inviteCommand:
@@ -1329,8 +1329,8 @@ spec:
                         Readarr or Whisparr list reads from. Those types need it.
                       minLength: 1
                       type: string
-                    enable:
-                      description: enable turns the list on. A new list is enabled
+                    enabled:
+                      description: enabled turns the list on. A new list is enabled
                         unless this is false.
                       type: boolean
                     filters:
@@ -1427,9 +1427,9 @@ spec:
                   description: AutobrrNotification sends Autobrr's events to a service
                     such as Discord.
                   properties:
-                    enable:
+                    enabled:
                       description: |-
-                        enable turns the notification on. A new notification is enabled unless
+                        enabled turns the notification on. A new notification is enabled unless
                         this is false.
                       type: boolean
                     events:
@@ -1540,8 +1540,8 @@ spec:
                       description: addr is the proxy's address, such as socks5://proxy:1080.
                       minLength: 1
                       type: string
-                    enable:
-                      description: enable turns the proxy on. A new proxy is enabled
+                    enabled:
+                      description: enabled turns the proxy on. A new proxy is enabled
                         unless this is false.
                       type: boolean
                     name:

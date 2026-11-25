@@ -35,7 +35,7 @@ func TestAutobrr(t *testing.T) {
 	proxy := newRecordingProxy(t, ab.url())
 
 	update := []string{
-		`{"op": "replace", "path": "/spec/downloadClients/1/enable", "value": false}`,
+		`{"op": "replace", "path": "/spec/downloadClients/1/enabled", "value": false}`,
 		`{"op": "replace", "path": "/spec/feeds/0/interval", "value": 45}`,
 		`{"op": "replace", "path": "/spec/ircNetworks/0/nick", "value": "compat-bot2"}`,
 		`{"op": "replace", "path": "/spec/filters/0/priority", "value": 2}`,

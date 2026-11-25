@@ -178,7 +178,7 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `name` _string_ | name is the display name of the download client. |  | MinLength: 1 <br />Required: \{\} <br /> |
 | `appRef` _[AppRef](#appref)_ | appRef names the download client's resource, a QBittorrent, Sabnzbd,<br />Sonarr, Radarr, Lidarr or Readarr, whose kind and connection are used in<br />place of type, host, port, tls and the credentials. |  | Optional: \{\} <br /> |
-| `enable` _boolean_ | enable controls whether this download client is active. A new download<br />client is enabled unless this is false. |  | Optional: \{\} <br /> |
+| `enabled` _boolean_ | enabled controls whether this download client is active. A new download<br />client is enabled unless this is false. |  | Optional: \{\} <br /> |
 | `type` _string_ | type is the download client type. Deluge means Deluge 2 (Autobrr's DELUGE_V2). |  | Enum: [qBittorrent Deluge Transmission rTorrent SABnzbd Sonarr Radarr Lidarr Readarr Whisparr] <br />Optional: \{\} <br /> |
 | `host` _string_ | host is the hostname or URL of the download client. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `port` _integer_ | port is the port of the download client. |  | Optional: \{\} <br /> |
@@ -204,7 +204,7 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `enable` _boolean_ | enable controls whether the rules apply. They apply unless this is false. |  | Optional: \{\} <br /> |
+| `enabled` _boolean_ | enabled controls whether the rules apply. They apply unless this is false. |  | Optional: \{\} <br /> |
 | `maxActiveDownloads` _integer_ | maxActiveDownloads is how many torrents may download at once before<br />Autobrr skips new releases. 0 means no limit. |  | Minimum: 0 <br />Optional: \{\} <br /> |
 | `ignoreSlowTorrents` _boolean_ | ignoreSlowTorrents checks the client's transfer speeds against the<br />thresholds, sending a release only while they are below them. |  | Optional: \{\} <br /> |
 | `ignoreSlowTorrentsCondition` _string_ | ignoreSlowTorrentsCondition is when the speeds are checked: Always, for<br />every release, or MaxDownloadsReached, once maxActiveDownloads torrents<br />are downloading. |  | Enum: [Always MaxDownloadsReached] <br />Optional: \{\} <br /> |
@@ -226,7 +226,7 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `name` _string_ | name is the display name of the feed. |  | MinLength: 1 <br />Required: \{\} <br /> |
-| `enable` _boolean_ | enable controls whether this feed is active. A new feed is enabled unless<br />this is false. |  | Optional: \{\} <br /> |
+| `enabled` _boolean_ | enabled controls whether this feed is active. A new feed is enabled unless<br />this is false. |  | Optional: \{\} <br /> |
 | `type` _string_ | type is the feed type. |  | Enum: [RSS Torznab Newznab] <br />Required: \{\} <br /> |
 | `url` _string_ | url is the feed URL. |  | MinLength: 1 <br />Required: \{\} <br /> |
 | `apiKeySecretRef` _[SecretKeyRef](#secretkeyref)_ | apiKeySecretRef references a Secret containing the feed API key (for Torznab/Newznab). |  | Optional: \{\} <br /> |
@@ -252,7 +252,7 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `name` _string_ | name is the display name of the filter. |  | MinLength: 1 <br />Required: \{\} <br /> |
-| `enable` _boolean_ | enable controls whether this filter is active. A new filter is enabled<br />unless this is false. |  | Optional: \{\} <br /> |
+| `enabled` _boolean_ | enabled controls whether this filter is active. A new filter is enabled<br />unless this is false. |  | Optional: \{\} <br /> |
 | `priority` _integer_ | priority controls filter evaluation order. Lower values are evaluated first. |  | Optional: \{\} <br /> |
 | `matchReleases` _string_ | matchReleases is a comma-separated list of release name patterns to match (supports wildcards). |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `exceptReleases` _string_ | exceptReleases is a comma-separated list of release name patterns to exclude. |  | MinLength: 1 <br />Optional: \{\} <br /> |
@@ -333,7 +333,7 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `name` _string_ | name is the display name of the action. |  | MinLength: 1 <br />Required: \{\} <br /> |
-| `enable` _boolean_ | enable controls whether this action is active. A new action is enabled<br />unless this is false. |  | Optional: \{\} <br /> |
+| `enabled` _boolean_ | enabled controls whether this action is active. A new action is enabled<br />unless this is false. |  | Optional: \{\} <br /> |
 | `type` _string_ | type is the action type. Deluge means Deluge 2 (Autobrr's DELUGE_V2). |  | Enum: [qBittorrent Deluge Transmission rTorrent SABnzbd Sonarr Radarr Lidarr Readarr Whisparr Webhook Exec WatchFolder] <br />Required: \{\} <br /> |
 | `downloadClientName` _string_ | downloadClientName names the download client to use, one declared under<br />downloadClients. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `category` _string_ | category overrides the download client's default category. |  | MinLength: 1 <br />Optional: \{\} <br /> |
@@ -415,7 +415,7 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `name` _string_ | name is the display name of the IRC network. |  | MinLength: 1 <br />Required: \{\} <br /> |
-| `enable` _boolean_ | enable controls whether this IRC network connection is active. A new<br />network is enabled unless this is false. |  | Optional: \{\} <br /> |
+| `enabled` _boolean_ | enabled controls whether this IRC network connection is active. A new<br />network is enabled unless this is false. |  | Optional: \{\} <br /> |
 | `server` _string_ | server is the IRC server address (e.g., "irc.example.com"). |  | MinLength: 1 <br />Required: \{\} <br /> |
 | `port` _integer_ | port is the IRC server port. |  | Maximum: 65535 <br />Minimum: 1 <br />Required: \{\} <br /> |
 | `tls` _boolean_ | tls enables TLS for the IRC connection. |  | Optional: \{\} <br /> |
@@ -445,7 +445,7 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `name` _string_ | name is the display name of the indexer. |  | MinLength: 1 <br />Required: \{\} <br /> |
-| `enable` _boolean_ | enable controls whether this indexer is active. A new indexer is enabled<br />unless this is false. |  | Optional: \{\} <br /> |
+| `enabled` _boolean_ | enabled controls whether this indexer is active. A new indexer is enabled<br />unless this is false. |  | Optional: \{\} <br /> |
 | `identifier` _string_ | identifier is the Autobrr indexer definition, such as "ipt" or "btn", or<br />"torznab", "newznab" or "rss" for an indexer that a feed reads from. |  | MinLength: 1 <br />Required: \{\} <br /> |
 | `baseUrl` _string_ | baseUrl is the tracker's site URL. It defaults to the definition's first URL. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `proxyName` _string_ | proxyName names the proxy the indexer, and a feed on it, connects<br />through. |  | MinLength: 1 <br />Optional: \{\} <br /> |
@@ -467,7 +467,7 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `name` _string_ | name identifies the notification. |  | MinLength: 1 <br />Required: \{\} <br /> |
 | `type` _string_ | type is the service. Webhook needs Autobrr 1.72.0 or later, and Bark<br />1.89.0 or later. |  | Enum: [Discord Notifiarr Pushover Slack Telegram Gotify Ntfy LunaSea Shoutrrr Webhook Bark] <br />Required: \{\} <br /> |
-| `enable` _boolean_ | enable turns the notification on. A new notification is enabled unless<br />this is false. |  | Optional: \{\} <br /> |
+| `enabled` _boolean_ | enabled turns the notification on. A new notification is enabled unless<br />this is false. |  | Optional: \{\} <br /> |
 | `events` _string array_ | events are the events it sends. |  | items:Enum: [pushApproved pushRejected pushError ircDisconnected ircReconnected ircUnhealthy ircHealthy listRefreshSuccess listRefreshError feedRefreshSuccess feedRefreshError releaseNew appUpdateAvailable] <br />Optional: \{\} <br /> |
 | `options` _[ConfigField](#configfield) array_ | options are the service's settings under Autobrr's names: webhook,<br />token, api_key, channel, host, username, password, title, icon, rooms,<br />targets, devices, priority, topic, sound, method and headers; method and<br />headers need Autobrr 1.72.0 or later. Take secrets from a Secret with<br />valueFrom. |  | MaxProperties: 2 <br />Optional: \{\} <br /> |
 
@@ -488,7 +488,7 @@ _Appears in:_
 | `name` _string_ | name identifies the proxy. |  | MinLength: 1 <br />Required: \{\} <br /> |
 | `type` _string_ | type is the proxy protocol. HTTP needs Autobrr 1.70.0 or later. |  | Enum: [Socks5 HTTP] <br />Required: \{\} <br /> |
 | `addr` _string_ | addr is the proxy's address, such as socks5://proxy:1080. |  | MinLength: 1 <br />Required: \{\} <br /> |
-| `enable` _boolean_ | enable turns the proxy on. A new proxy is enabled unless this is false. |  | Optional: \{\} <br /> |
+| `enabled` _boolean_ | enabled turns the proxy on. A new proxy is enabled unless this is false. |  | Optional: \{\} <br /> |
 | `usernameSecretRef` _[SecretKeyRef](#secretkeyref)_ | usernameSecretRef references a Secret containing the proxy's username. |  | Optional: \{\} <br /> |
 | `passwordSecretRef` _[SecretKeyRef](#secretkeyref)_ | passwordSecretRef references a Secret containing the proxy's password. |  | Optional: \{\} <br /> |
 | `timeout` _integer_ | timeout is how long a connection through the proxy may take, in seconds. |  | Minimum: 1 <br />Optional: \{\} <br /> |

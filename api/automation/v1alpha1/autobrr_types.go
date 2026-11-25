@@ -102,10 +102,10 @@ type AutobrrDownloadClient struct {
 	// +kubebuilder:validation:XValidation:rule="self.kind in ['QBittorrent', 'Sabnzbd', 'Sonarr', 'Radarr', 'Lidarr', 'Readarr']",message="a download client refers to a QBittorrent, Sabnzbd, Sonarr, Radarr, Lidarr or Readarr"
 	AppRef *commonv1alpha1.AppRef `json:"appRef,omitempty"`
 
-	// enable controls whether this download client is active. A new download
+	// enabled controls whether this download client is active. A new download
 	// client is enabled unless this is false.
 	// +optional
-	Enable *bool `json:"enable,omitempty"`
+	Enabled *bool `json:"enabled,omitempty"`
 
 	// type is the download client type. Deluge means Deluge 2 (Autobrr's DELUGE_V2).
 	// +optional
@@ -174,9 +174,9 @@ type AutobrrHTTPAuth struct {
 // AutobrrDownloadClientRules limit what Autobrr sends a download client.
 // +kubebuilder:validation:XValidation:rule="!has(self.ignoreSlowTorrents) || !self.ignoreSlowTorrents || has(self.ignoreSlowTorrentsCondition)",message="ignoreSlowTorrents needs ignoreSlowTorrentsCondition"
 type AutobrrDownloadClientRules struct {
-	// enable controls whether the rules apply. They apply unless this is false.
+	// enabled controls whether the rules apply. They apply unless this is false.
 	// +optional
-	Enable *bool `json:"enable,omitempty"`
+	Enabled *bool `json:"enabled,omitempty"`
 
 	// maxActiveDownloads is how many torrents may download at once before
 	// Autobrr skips new releases. 0 means no limit.
@@ -216,10 +216,10 @@ type AutobrrIndexer struct {
 	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name,omitempty"`
 
-	// enable controls whether this indexer is active. A new indexer is enabled
+	// enabled controls whether this indexer is active. A new indexer is enabled
 	// unless this is false.
 	// +optional
-	Enable *bool `json:"enable,omitempty"`
+	Enabled *bool `json:"enabled,omitempty"`
 
 	// identifier is the Autobrr indexer definition, such as "ipt" or "btn", or
 	// "torznab", "newznab" or "rss" for an indexer that a feed reads from.
@@ -252,10 +252,10 @@ type AutobrrIRCNetwork struct {
 	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name,omitempty"`
 
-	// enable controls whether this IRC network connection is active. A new
+	// enabled controls whether this IRC network connection is active. A new
 	// network is enabled unless this is false.
 	// +optional
-	Enable *bool `json:"enable,omitempty"`
+	Enabled *bool `json:"enabled,omitempty"`
 
 	// server is the IRC server address (e.g., "irc.example.com").
 	// +required
@@ -350,9 +350,9 @@ type AutobrrTitleList struct {
 	// +kubebuilder:validation:Enum=Sonarr;Radarr;Lidarr;Readarr;Whisparr;MDBList;Metacritic;Plaintext;Trakt;Steam;AniList
 	Type string `json:"type,omitempty"`
 
-	// enable turns the list on. A new list is enabled unless this is false.
+	// enabled turns the list on. A new list is enabled unless this is false.
 	// +optional
-	Enable *bool `json:"enable,omitempty"`
+	Enabled *bool `json:"enabled,omitempty"`
 
 	// downloadClientName names the download client a Sonarr, Radarr, Lidarr,
 	// Readarr or Whisparr list reads from. Those types need it.
@@ -430,9 +430,9 @@ type AutobrrProxy struct {
 	// +kubebuilder:validation:MinLength=1
 	Addr string `json:"addr,omitempty"`
 
-	// enable turns the proxy on. A new proxy is enabled unless this is false.
+	// enabled turns the proxy on. A new proxy is enabled unless this is false.
 	// +optional
-	Enable *bool `json:"enable,omitempty"`
+	Enabled *bool `json:"enabled,omitempty"`
 
 	// usernameSecretRef references a Secret containing the proxy's username.
 	// +optional
@@ -461,10 +461,10 @@ type AutobrrNotification struct {
 	// +kubebuilder:validation:Enum=Discord;Notifiarr;Pushover;Slack;Telegram;Gotify;Ntfy;LunaSea;Shoutrrr;Webhook;Bark
 	Type string `json:"type,omitempty"`
 
-	// enable turns the notification on. A new notification is enabled unless
+	// enabled turns the notification on. A new notification is enabled unless
 	// this is false.
 	// +optional
-	Enable *bool `json:"enable,omitempty"`
+	Enabled *bool `json:"enabled,omitempty"`
 
 	// events are the events it sends.
 	// +optional
@@ -490,10 +490,10 @@ type AutobrrFeed struct {
 	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name,omitempty"`
 
-	// enable controls whether this feed is active. A new feed is enabled unless
+	// enabled controls whether this feed is active. A new feed is enabled unless
 	// this is false.
 	// +optional
-	Enable *bool `json:"enable,omitempty"`
+	Enabled *bool `json:"enabled,omitempty"`
 
 	// type is the feed type.
 	// +required
@@ -551,10 +551,10 @@ type AutobrrFilter struct {
 	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name,omitempty"`
 
-	// enable controls whether this filter is active. A new filter is enabled
+	// enabled controls whether this filter is active. A new filter is enabled
 	// unless this is false.
 	// +optional
-	Enable *bool `json:"enable,omitempty"`
+	Enabled *bool `json:"enabled,omitempty"`
 
 	// priority controls filter evaluation order. Lower values are evaluated first.
 	// +optional
@@ -877,10 +877,10 @@ type AutobrrFilterAction struct {
 	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name,omitempty"`
 
-	// enable controls whether this action is active. A new action is enabled
+	// enabled controls whether this action is active. A new action is enabled
 	// unless this is false.
 	// +optional
-	Enable *bool `json:"enable,omitempty"`
+	Enabled *bool `json:"enabled,omitempty"`
 
 	// type is the action type. Deluge means Deluge 2 (Autobrr's DELUGE_V2).
 	// +required
