@@ -86,12 +86,12 @@ connection that supports `appRef`.
 
 ## Getting started
 
-Install the chart. It runs a controller for every supported app unless you
-turn some off under `apps`:
+Install the chart in a namespace of its own. It runs a controller for every
+supported app unless you turn some off under `apps`:
 
 ```bash
 helm install arrchitect oci://ghcr.io/kyleseneker/charts/arrchitect \
-  --namespace media --create-namespace \
+  --namespace arrchitect --create-namespace \
   --set apps.plex=false --set apps.autobrr=false
 ```
 
