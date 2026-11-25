@@ -65,12 +65,12 @@ type SabnzbdLogin struct {
 
 // SabnzbdQuota limits how much SABnzbd downloads in a period.
 // +kubebuilder:validation:MinProperties=1
-// +kubebuilder:validation:XValidation:rule="has(self.size) || (has(self.enabled) && !self.enabled)",message="size is required unless enabled is false"
+// +kubebuilder:validation:XValidation:rule="has(self.size) || (has(self.enable) && !self.enable)",message="size is required unless enable is false"
 // +kubebuilder:validation:XValidation:rule="!has(self.resetDay) || !has(self.period) || self.period != 'week' || self.resetDay <= 7",message="a weekly quota resets on day 1 (Monday) to 7"
 type SabnzbdQuota struct {
-	// enabled turns the quota on. It is on unless this is false.
+	// enable turns the quota on. It is on unless this is false.
 	// +optional
-	Enabled *bool `json:"enabled,omitempty"`
+	Enable *bool `json:"enable,omitempty"`
 
 	// size is how much SABnzbd downloads in a period before it pauses, such as 500G.
 	// +optional
@@ -384,9 +384,9 @@ type SabnzbdCategory struct {
 // SabnzbdApprise configures SABnzbd's Apprise notifications.
 // +kubebuilder:validation:MinProperties=1
 type SabnzbdApprise struct {
-	// enabled turns Apprise notifications on.
+	// enable turns Apprise notifications on.
 	// +optional
-	Enabled *bool `json:"enabled,omitempty"`
+	Enable *bool `json:"enable,omitempty"`
 
 	// urlsSecretRef references a Secret containing the Apprise URLs to notify,
 	// separated by commas, such as discord://webhook_id/webhook_token.
