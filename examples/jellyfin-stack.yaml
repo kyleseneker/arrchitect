@@ -1,11 +1,12 @@
-# Common homelab stack: Sonarr + Radarr + Prowlarr + qBittorrent + Jellyfin
-# This is the Jellyfin-based variant (vs Plex). Adjust URLs to match your cluster.
+# Sonarr, Radarr, Prowlarr, qBittorrent and Jellyfin, wired together.
+# plex-stack.yaml is the same stack with Plex and Seerr.
+# Adjust the URLs to match your cluster.
 #
 # Prerequisites:
 #   - Apps deployed and accessible at the URLs below (see docs/example-stack.md)
 #   - Secrets created (see secrets.yaml)
 #   - Arrchitect installed:
-#     helm install arrchitect oci://ghcr.io/kyleseneker/charts/arrchitect
+#     helm install arrchitect oci://ghcr.io/kyleseneker/charts/arrchitect --namespace media --create-namespace
 ---
 apiVersion: arrchitect.dev/v1alpha1
 kind: Sonarr
@@ -22,13 +23,13 @@ spec:
     copyUsingHardlinks: true
     deleteEmptyFolders: true
     importExtraFiles: true
-    extraFileExtensions: "srt,nfo"
+    extraFileExtensions: srt,nfo
   naming:
     renameEpisodes: true
     replaceIllegalCharacters: true
-    standardEpisodeFormat: "{Series TitleYear} - S{season:00}E{episode:00} - {Episode CleanTitle} [{Quality Full}]{[MediaInfo VideoDynamicRangeType]}{[Mediainfo AudioCodec}{ Mediainfo AudioChannels]}{MediaInfo AudioLanguages}{-Release Group}"
+    standardEpisodeFormat: "{Series TitleYear} - S{season:00}E{episode:00} - {Episode CleanTitle} [{Quality Full}]{[MediaInfo VideoDynamicRangeType]}{[MediaInfo AudioCodec}{ MediaInfo AudioChannels]}{[MediaInfo AudioLanguages]}{-Release Group}"
     seriesFolderFormat: "{Series TitleYear}"
-    seasonFolderFormat: "Season {season:00}"
+    seasonFolderFormat: Season {season:00}
   downloadClientConfig:
     enableCompletedDownloadHandling: true
     autoRedownloadFailed: true
@@ -58,7 +59,7 @@ spec:
   appRef:
     kind: QBittorrent
     name: qbittorrent
-  category: tv-sonarr
+  category: tv
 ---
 apiVersion: arrchitect.dev/v1alpha1
 kind: Radarr
@@ -75,12 +76,15 @@ spec:
     copyUsingHardlinks: true
     deleteEmptyFolders: true
     importExtraFiles: true
-    extraFileExtensions: "srt,nfo"
+    extraFileExtensions: srt,nfo
   naming:
     renameMovies: true
     replaceIllegalCharacters: true
-    standardMovieFormat: "{Movie CleanTitle} {(Release Year)} {imdb-{ImdbId}} [{Quality Full}]{[MediaInfo VideoDynamicRangeType]}{[MediaInfo AudioCodec}{ MediaInfo AudioChannels]}{[MediaInfo AudioLanguages]}{-Release Group}"
+    standardMovieFormat: "{Movie CleanTitle} {(Release Year)} [imdbid-{ImdbId}] [{Quality Full}]{[MediaInfo VideoDynamicRangeType]}{[MediaInfo AudioCodec}{ MediaInfo AudioChannels]}{[MediaInfo AudioLanguages]}{-Release Group}"
     movieFolderFormat: "{Movie CleanTitle} ({Release Year})"
+  downloadClientConfig:
+    enableCompletedDownloadHandling: true
+    autoRedownloadFailed: true
   rootFolders:
     - path: /data/media/movies
   notifications:
@@ -107,7 +111,7 @@ spec:
   appRef:
     kind: QBittorrent
     name: qbittorrent
-  category: radarr
+  category: movies
 ---
 apiVersion: arrchitect.dev/v1alpha1
 kind: Prowlarr
@@ -126,13 +130,13 @@ spec:
         kind: Sonarr
         name: sonarr
       syncLevel: fullSync
-      syncCategories: [5000, 5010, 5020, 5030, 5040, 5045, 5050]
+      syncCategories: [5000, 5010, 5020, 5030, 5040, 5045, 5050, 5090]
     - name: Radarr
       appRef:
         kind: Radarr
         name: radarr
       syncLevel: fullSync
-      syncCategories: [2000, 2010, 2020, 2030, 2040, 2045, 2050, 2060, 2070, 2080]
+      syncCategories: [2000, 2010, 2020, 2030, 2040, 2045, 2050, 2060, 2070, 2080, 2090]
 ---
 apiVersion: arrchitect.dev/v1alpha1
 kind: QBittorrent
@@ -155,9 +159,9 @@ spec:
     maxSeedingTimeEnabled: true
     maxSeedingTime: 10080  # 7 days
   categories:
-    - name: tv-sonarr
+    - name: tv
       savePath: /data/torrents/tv
-    - name: radarr
+    - name: movies
       savePath: /data/torrents/movies
 ---
 apiVersion: arrchitect.dev/v1alpha1
@@ -179,12 +183,12 @@ spec:
       name: jellyfin-credentials
       key: password
   server:
-    serverName: "Homelab Media"
-    preferredMetadataLanguage: "en"
-    metadataCountryCode: "US"
+    serverName: Homelab Media
+    preferredMetadataLanguage: en
+    metadataCountryCode: US
   encoding:
     hardwareAccelerationType: vaapi
-    vaapiDevice: "/dev/dri/renderD128"
+    vaapiDevice: /dev/dri/renderD128
     enableHardwareEncoding: true
     allowHevcEncoding: true
     enableTonemapping: true
