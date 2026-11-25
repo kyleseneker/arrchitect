@@ -19,8 +19,9 @@ The latest release only. There are no backport branches.
   client password, is read from a Secret and sent to that app. Its
   ServiceAccount can read Secrets in whatever namespaces it watches. Set
   `watchNamespace` to one or more namespaces, comma-separated, to narrow that
-  down. It reads a Secret only when a resource uses it and doesn't keep Secret
-  contents in memory.
+  down. It reads a Secret only when a resource uses it and doesn't cache
+  Secrets. It does hold the current value of each key it has read, so it can
+  strip them from status messages, events and logs.
 - **It can delete things in those apps.** Only items the operator created, and
   only when you ask: `prune`, `deletionPolicy: delete` on an app's resource, or
   deleting an indexer or download client resource, whose `deletionPolicy`
