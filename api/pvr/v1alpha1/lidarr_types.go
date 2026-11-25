@@ -190,7 +190,7 @@ type LidarrMediaManagement struct {
 	// +optional
 	RecycleBinCleanupDays *int32 `json:"recycleBinCleanupDays,omitempty"`
 
-	// minimumFreeSpaceWhenImporting is the minimum free space in MB required.
+	// minimumFreeSpaceWhenImporting is the minimum free space in MB required to import.
 	// +optional
 	MinimumFreeSpaceWhenImporting *int32 `json:"minimumFreeSpaceWhenImporting,omitempty"`
 
@@ -297,15 +297,15 @@ type LidarrIndexerConfig struct {
 	// +optional
 	MinimumAge *int32 `json:"minimumAge,omitempty"`
 
-	// retention is the usenet retention in days.
+	// retention is the usenet retention in days. 0 means unlimited.
 	// +optional
 	Retention *int32 `json:"retention,omitempty"`
 
-	// maximumSize is the maximum release size in MB.
+	// maximumSize is the maximum release size in MB. 0 means unlimited.
 	// +optional
 	MaximumSize *int32 `json:"maximumSize,omitempty"`
 
-	// rssSyncInterval is the RSS sync interval in minutes.
+	// rssSyncInterval is the RSS sync interval in minutes. 0 disables RSS.
 	// +optional
 	RssSyncInterval *int32 `json:"rssSyncInterval,omitempty"`
 }
@@ -358,7 +358,7 @@ type LidarrUI struct {
 	// +kubebuilder:validation:Enum=auto;dark;light
 	Theme string `json:"theme,omitempty"`
 
-	// uiLanguage is the UI language ID.
+	// uiLanguage is the UI language ID. 1=English.
 	// +optional
 	UILanguage *int32 `json:"uiLanguage,omitempty"`
 }

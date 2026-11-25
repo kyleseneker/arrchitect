@@ -427,8 +427,8 @@ type BazarrNotification struct {
 	// +optional
 	Enabled *bool `json:"enabled,omitempty"`
 
-	// urlSecretRef is the Secret key holding the provider's Apprise URL, such
-	// as discord://webhook_id/webhook_token.
+	// urlSecretRef references a Secret containing the provider's Apprise URL,
+	// such as discord://webhook_id/webhook_token.
 	// +optional
 	URLSecretRef *commonv1alpha1.SecretKeyRef `json:"urlSecretRef,omitempty"`
 }

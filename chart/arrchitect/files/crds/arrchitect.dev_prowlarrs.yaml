@@ -165,7 +165,7 @@ spec:
                         rule: self.kind in ['Sonarr', 'Radarr', 'Lidarr', 'Readarr']
                     authPasswordSecretRef:
                       description: |-
-                        authPasswordSecretRef references a Secret key holding the password for
+                        authPasswordSecretRef references a Secret containing the password for
                         HTTP basic auth in front of the application. Needs Prowlarr 2.4.0 or
                         later.
                       properties:
@@ -183,7 +183,7 @@ spec:
                       type: object
                     authUsernameSecretRef:
                       description: |-
-                        authUsernameSecretRef references a Secret key holding the username for
+                        authUsernameSecretRef references a Secret containing the username for
                         HTTP basic auth in front of the application, such as at a reverse proxy.
                         Needs Prowlarr 2.4.0 or later.
                       properties:
@@ -472,14 +472,16 @@ spec:
                     Prowlarr.
                   properties:
                     appProfileId:
-                      description: appProfileId is the application profile ID for
-                        this indexer.
+                      description: |-
+                        appProfileId is the sync profile's ID, used when appProfileName is not
+                        set.
                       format: int32
                       type: integer
                     appProfileName:
                       description: |-
-                        appProfileName resolves the current sync profile ID by name on each reconciliation.
-                        Takes precedence over appProfileId. Missing or ambiguous names block indexer writes.
+                        appProfileName is the sync profile's name, resolved against Prowlarr on
+                        each reconciliation. It takes precedence over appProfileId. A missing or
+                        ambiguous name blocks writes.
                       minLength: 1
                       type: string
                     configContract:
@@ -618,7 +620,8 @@ spec:
                     configContract:
                       description: |-
                         configContract is the configuration contract name for the implementation.
-                        Defaults to "<implementation>Settings" if not set.
+                        Defaults to the contract the app's schema lists for the implementation.
+                        Prowlarr defaults to "<implementation>Settings".
                       minLength: 1
                       type: string
                     fields:
@@ -842,8 +845,8 @@ spec:
                       type: string
                     passwordSecretRef:
                       description: |-
-                        passwordSecretRef is the Secret key holding an Http, Socks4 or Socks5
-                        proxy's password.
+                        passwordSecretRef references a Secret containing an Http, Socks4 or
+                        Socks5 proxy's password.
                       properties:
                         key:
                           description: key is the key within the Secret.
@@ -879,8 +882,8 @@ spec:
                       x-kubernetes-list-type: set
                     usernameSecretRef:
                       description: |-
-                        usernameSecretRef is the Secret key holding an Http, Socks4 or Socks5
-                        proxy's user name.
+                        usernameSecretRef references a Secret containing an Http, Socks4 or
+                        Socks5 proxy's username.
                       properties:
                         key:
                           description: key is the key within the Secret.

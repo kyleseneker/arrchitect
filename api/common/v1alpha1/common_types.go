@@ -168,15 +168,15 @@ type RootFolder struct {
 	Name string `json:"name,omitempty"`
 
 	// defaultQualityProfileName is the quality profile for content added to
-	// this folder (Lidarr, Readarr; required there). Resolved to an ID at
-	// reconciliation time, after declared quality profiles are applied.
+	// this folder (Lidarr, Readarr; required there), resolved against the app
+	// on each reconciliation after declared quality profiles are applied.
 	// +optional
 	// +kubebuilder:validation:MinLength=1
 	DefaultQualityProfileName string `json:"defaultQualityProfileName,omitempty"`
 
 	// defaultMetadataProfileName is the metadata profile for content added to
-	// this folder (Lidarr, Readarr; required there). Resolved to an ID at
-	// reconciliation time.
+	// this folder (Lidarr, Readarr; required there), resolved against the app
+	// on each reconciliation.
 	// +optional
 	// +kubebuilder:validation:MinLength=1
 	DefaultMetadataProfileName string `json:"defaultMetadataProfileName,omitempty"`
@@ -231,8 +231,8 @@ type DownloadClient struct {
 	// +kubebuilder:validation:MinLength=1
 	Implementation string `json:"implementation,omitempty"`
 
-	// configContract overrides the default config contract name.
-	// Defaults to "<implementation>Settings" if not set.
+	// configContract is the configuration contract name for the implementation.
+	// Defaults to the contract the app's schema lists for the implementation.
 	// +optional
 	// +kubebuilder:validation:MinLength=1
 	ConfigContract string `json:"configContract,omitempty"`
@@ -734,7 +734,7 @@ type Indexer struct {
 	Implementation string `json:"implementation,omitempty"`
 
 	// configContract is the configuration contract name for the implementation.
-	// Defaults to "<implementation>Settings" if not set.
+	// Defaults to the contract the app's schema lists for the implementation.
 	// +optional
 	// +kubebuilder:validation:MinLength=1
 	ConfigContract string `json:"configContract,omitempty"`
@@ -846,7 +846,8 @@ type Notification struct {
 	Implementation string `json:"implementation,omitempty"`
 
 	// configContract is the configuration contract name for the implementation.
-	// Defaults to "<implementation>Settings" if not set.
+	// Defaults to the contract the app's schema lists for the implementation.
+	// Prowlarr defaults to "<implementation>Settings".
 	// +optional
 	// +kubebuilder:validation:MinLength=1
 	ConfigContract string `json:"configContract,omitempty"`
@@ -864,8 +865,8 @@ type Notification struct {
 	// +listMapKey=name
 	Fields []ConfigField `json:"fields,omitempty"`
 
-	// Trigger conditions — set to true to fire on these events.
-	// Available triggers vary by app; unknown triggers are ignored.
+	// Trigger conditions. Set one to true to fire on its event. Available
+	// triggers vary by app, and one the app lacks is reported and not sent.
 
 	// onGrab fires when a release is grabbed (sent to download client).
 	// +optional
@@ -1023,7 +1024,7 @@ type ImportList struct {
 	Implementation string `json:"implementation,omitempty"`
 
 	// configContract is the configuration contract name for the implementation.
-	// Defaults to "<implementation>Settings" if not set.
+	// Defaults to the contract the app's schema lists for the implementation.
 	// +optional
 	// +kubebuilder:validation:MinLength=1
 	ConfigContract string `json:"configContract,omitempty"`
@@ -1036,14 +1037,15 @@ type ImportList struct {
 	// +kubebuilder:validation:MinLength=1
 	Monitor string `json:"monitor,omitempty"`
 
-	// qualityProfileName is the name of the quality profile to assign to imported items.
-	// Must match an existing quality profile. Resolved to an ID at reconciliation time.
+	// qualityProfileName is the quality profile for imported items, resolved
+	// against the app on each reconciliation. It must match an existing quality
+	// profile.
 	// +optional
 	// +kubebuilder:validation:MinLength=1
 	QualityProfileName string `json:"qualityProfileName,omitempty"`
 
 	// metadataProfileName is the metadata profile for imported items (Lidarr,
-	// Readarr). Resolved to an ID at reconciliation time.
+	// Readarr), resolved against the app on each reconciliation.
 	// +optional
 	// +kubebuilder:validation:MinLength=1
 	MetadataProfileName string `json:"metadataProfileName,omitempty"`

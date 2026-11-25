@@ -633,8 +633,8 @@ spec:
                       type: string
                     urlSecretRef:
                       description: |-
-                        urlSecretRef is the Secret key holding the provider's Apprise URL, such
-                        as discord://webhook_id/webhook_token.
+                        urlSecretRef references a Secret containing the provider's Apprise URL,
+                        such as discord://webhook_id/webhook_token.
                       properties:
                         key:
                           description: key is the key within the Secret.

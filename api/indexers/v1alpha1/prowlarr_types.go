@@ -148,13 +148,13 @@ type ProwlarrApplication struct {
 	// +optional
 	APIKeySecretRef *commonv1alpha1.SecretKeyRef `json:"apiKeySecretRef,omitempty"`
 
-	// authUsernameSecretRef references a Secret key holding the username for
+	// authUsernameSecretRef references a Secret containing the username for
 	// HTTP basic auth in front of the application, such as at a reverse proxy.
 	// Needs Prowlarr 2.4.0 or later.
 	// +optional
 	AuthUsernameSecretRef *commonv1alpha1.SecretKeyRef `json:"authUsernameSecretRef,omitempty"`
 
-	// authPasswordSecretRef references a Secret key holding the password for
+	// authPasswordSecretRef references a Secret containing the password for
 	// HTTP basic auth in front of the application. Needs Prowlarr 2.4.0 or
 	// later.
 	// +optional
@@ -213,12 +213,14 @@ type ProwlarrIndexer struct {
 	// +optional
 	Enable *bool `json:"enable,omitempty"`
 
-	// appProfileId is the application profile ID for this indexer.
+	// appProfileId is the sync profile's ID, used when appProfileName is not
+	// set.
 	// +optional
 	AppProfileId *int32 `json:"appProfileId,omitempty"`
 
-	// appProfileName resolves the current sync profile ID by name on each reconciliation.
-	// Takes precedence over appProfileId. Missing or ambiguous names block indexer writes.
+	// appProfileName is the sync profile's name, resolved against Prowlarr on
+	// each reconciliation. It takes precedence over appProfileId. A missing or
+	// ambiguous name blocks writes.
 	// +optional
 	// +kubebuilder:validation:MinLength=1
 	AppProfileName string `json:"appProfileName,omitempty"`
@@ -269,13 +271,13 @@ type ProwlarrProxy struct {
 	// +kubebuilder:validation:Maximum=65535
 	Port int32 `json:"port,omitempty"`
 
-	// usernameSecretRef is the Secret key holding an Http, Socks4 or Socks5
-	// proxy's user name.
+	// usernameSecretRef references a Secret containing an Http, Socks4 or
+	// Socks5 proxy's username.
 	// +optional
 	UsernameSecretRef *commonv1alpha1.SecretKeyRef `json:"usernameSecretRef,omitempty"`
 
-	// passwordSecretRef is the Secret key holding an Http, Socks4 or Socks5
-	// proxy's password.
+	// passwordSecretRef references a Secret containing an Http, Socks4 or
+	// Socks5 proxy's password.
 	// +optional
 	PasswordSecretRef *commonv1alpha1.SecretKeyRef `json:"passwordSecretRef,omitempty"`
 

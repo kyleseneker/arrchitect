@@ -47,7 +47,7 @@ type PlexConnection struct {
 	// +kubebuilder:validation:MinLength=1
 	URL string `json:"url,omitempty"`
 
-	// tokenSecretRef references a Secret containing the X-Plex-Token.
+	// tokenSecretRef references a Secret containing a Plex token.
 	// +required
 	TokenSecretRef commonv1alpha1.SecretKeyRef `json:"tokenSecretRef,omitempty"`
 

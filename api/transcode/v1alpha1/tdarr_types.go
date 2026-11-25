@@ -135,8 +135,8 @@ type TdarrSettings struct {
 	// +optional
 	VerboseLogs *bool `json:"verboseLogs,omitempty"`
 
-	// notificationsDiscordWebhookSecretRef references the Discord webhook URL
-	// notifications go to.
+	// notificationsDiscordWebhookSecretRef references a Secret containing the
+	// Discord webhook URL notifications go to.
 	// +optional
 	NotificationsDiscordWebhookSecretRef *commonv1alpha1.SecretKeyRef `json:"notificationsDiscordWebhookSecretRef,omitempty"`
 

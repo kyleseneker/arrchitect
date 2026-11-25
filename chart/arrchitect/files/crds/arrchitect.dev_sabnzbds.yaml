@@ -97,7 +97,7 @@ spec:
                     x-kubernetes-list-type: set
                   urlsSecretRef:
                     description: |-
-                      urlsSecretRef is the Secret key holding the Apprise URLs to notify,
+                      urlsSecretRef references a Secret containing the Apprise URLs to notify,
                       separated by commas, such as discord://webhook_id/webhook_token.
                     properties:
                       key:
@@ -441,11 +441,12 @@ spec:
                 type: object
               login:
                 description: |-
-                  login is the user name and password SABnzbd's web interface asks for.
+                  login is the username and password SABnzbd's web interface asks for.
                   The operator connects with the API key, so the login doesn't affect it.
                 properties:
                   passwordSecretRef:
-                    description: passwordSecretRef is the Secret key holding the password.
+                    description: passwordSecretRef references a Secret containing
+                      the password.
                     properties:
                       key:
                         description: key is the key within the Secret.
@@ -460,8 +461,8 @@ spec:
                     - name
                     type: object
                   usernameSecretRef:
-                    description: usernameSecretRef is the Secret key holding the user
-                      name.
+                    description: usernameSecretRef references a Secret containing
+                      the username.
                     properties:
                       key:
                         description: key is the key within the Secret.
