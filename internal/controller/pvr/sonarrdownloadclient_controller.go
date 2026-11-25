@@ -72,7 +72,7 @@ func (r *SonarrDownloadClientReconciler) SetupWithManager(mgr ctrl.Manager) erro
 		For(&pvrv1alpha1.SonarrDownloadClient{}, builder.WithPredicates(ctrlcommon.ConfigChangedPredicate())).
 		Watches(&pvrv1alpha1.Sonarr{}, handler.EnqueueRequestsFromMapFunc(objectsOf(r.Client, &pvrv1alpha1.SonarrDownloadClientList{})),
 			builder.WithPredicates(instanceChanged())).
-		WatchesMetadata(&corev1.Secret{}, ctrlcommon.EnqueueForSecretThroughRefs(r.Client, &pvrv1alpha1.SonarrDownloadClientList{}, downloadClientAppRefs))
+		WatchesMetadata(&corev1.Secret{}, ctrlcommon.EnqueueForSecretThroughRefs(r.Client, r.Apps, &pvrv1alpha1.SonarrDownloadClientList{}, downloadClientAppRefs))
 	b, err = ctrlcommon.WatchAppRefs(mgr, b, r.Apps, &pvrv1alpha1.SonarrDownloadClient{}, &pvrv1alpha1.SonarrDownloadClientList{},
 		downloadClientAppRefs, "QBittorrent", "Sabnzbd")
 	if err != nil {

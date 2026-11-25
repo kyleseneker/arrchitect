@@ -226,7 +226,7 @@ func EnqueueForSecret(c client.Client, list client.ObjectList) handler.EventHand
 }
 
 func configsForSecret(c client.Client, list client.ObjectList) handler.MapFunc {
-	return secretReferrers(c, list, func(client.Object) []commonv1alpha1.AppRef { return nil })
+	return secretReferrers(c, nil, list, func(client.Object) []commonv1alpha1.AppRef { return nil })
 }
 
 // ResolveDownloadClientSecrets resolves all secret references for a list of download clients.

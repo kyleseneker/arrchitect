@@ -58,7 +58,7 @@ func (r *RadarrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 func (r *RadarrReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	b := ctrl.NewControllerManagedBy(mgr).
 		For(&pvrv1alpha1.Radarr{}, builder.WithPredicates(ctrlcommon.ConfigChangedPredicate())).
-		WatchesMetadata(&corev1.Secret{}, ctrlcommon.EnqueueForSecretThroughRefs(r.Client, &pvrv1alpha1.RadarrList{}, radarrAppRefs))
+		WatchesMetadata(&corev1.Secret{}, ctrlcommon.EnqueueForSecretThroughRefs(r.Client, r.Apps, &pvrv1alpha1.RadarrList{}, radarrAppRefs))
 	b, err := ctrlcommon.WatchAppRefs(mgr, b, r.Apps, &pvrv1alpha1.Radarr{}, &pvrv1alpha1.RadarrList{}, radarrAppRefs, "Jellyfin", "Plex")
 	if err != nil {
 		return err

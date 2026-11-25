@@ -72,7 +72,7 @@ func (r *ReadarrDownloadClientReconciler) SetupWithManager(mgr ctrl.Manager) err
 		For(&pvrv1alpha1.ReadarrDownloadClient{}, builder.WithPredicates(ctrlcommon.ConfigChangedPredicate())).
 		Watches(&pvrv1alpha1.Readarr{}, handler.EnqueueRequestsFromMapFunc(objectsOf(r.Client, &pvrv1alpha1.ReadarrDownloadClientList{})),
 			builder.WithPredicates(instanceChanged())).
-		WatchesMetadata(&corev1.Secret{}, ctrlcommon.EnqueueForSecretThroughRefs(r.Client, &pvrv1alpha1.ReadarrDownloadClientList{}, downloadClientAppRefs))
+		WatchesMetadata(&corev1.Secret{}, ctrlcommon.EnqueueForSecretThroughRefs(r.Client, r.Apps, &pvrv1alpha1.ReadarrDownloadClientList{}, downloadClientAppRefs))
 	b, err = ctrlcommon.WatchAppRefs(mgr, b, r.Apps, &pvrv1alpha1.ReadarrDownloadClient{}, &pvrv1alpha1.ReadarrDownloadClientList{},
 		downloadClientAppRefs, "QBittorrent", "Sabnzbd")
 	if err != nil {

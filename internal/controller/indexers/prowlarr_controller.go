@@ -270,7 +270,7 @@ func prowlarrAppRefs(o client.Object) []commonv1alpha1.AppRef {
 func (r *ProwlarrReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	b := ctrl.NewControllerManagedBy(mgr).
 		For(&indexersv1alpha1.Prowlarr{}, builder.WithPredicates(ctrlcommon.ConfigChangedPredicate())).
-		WatchesMetadata(&corev1.Secret{}, ctrlcommon.EnqueueForSecretThroughRefs(r.Client, &indexersv1alpha1.ProwlarrList{}, prowlarrAppRefs))
+		WatchesMetadata(&corev1.Secret{}, ctrlcommon.EnqueueForSecretThroughRefs(r.Client, r.Apps, &indexersv1alpha1.ProwlarrList{}, prowlarrAppRefs))
 	b, err := ctrlcommon.WatchAppRefs(mgr, b, r.Apps, &indexersv1alpha1.Prowlarr{}, &indexersv1alpha1.ProwlarrList{}, prowlarrAppRefs, "Sonarr", "Radarr", "Lidarr", "Readarr")
 	if err != nil {
 		return err

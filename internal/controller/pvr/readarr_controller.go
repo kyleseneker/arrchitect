@@ -56,7 +56,7 @@ func (r *ReadarrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 func (r *ReadarrReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	b := ctrl.NewControllerManagedBy(mgr).
 		For(&pvrv1alpha1.Readarr{}, builder.WithPredicates(ctrlcommon.ConfigChangedPredicate())).
-		WatchesMetadata(&corev1.Secret{}, ctrlcommon.EnqueueForSecretThroughRefs(r.Client, &pvrv1alpha1.ReadarrList{}, readarrAppRefs))
+		WatchesMetadata(&corev1.Secret{}, ctrlcommon.EnqueueForSecretThroughRefs(r.Client, r.Apps, &pvrv1alpha1.ReadarrList{}, readarrAppRefs))
 	b, err := ctrlcommon.WatchAppRefs(mgr, b, r.Apps, &pvrv1alpha1.Readarr{}, &pvrv1alpha1.ReadarrList{}, readarrAppRefs, "Plex")
 	if err != nil {
 		return err

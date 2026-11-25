@@ -341,12 +341,13 @@ func referrersOf(c client.Client, list client.ObjectList, kind string) handler.M
 }
 
 // EnqueueForSecretThroughRefs is EnqueueForSecret for resources that can also
-// use a Secret through an AppRef.
-func EnqueueForSecretThroughRefs(c client.Client, list client.ObjectList, refsOf func(client.Object) []commonv1alpha1.AppRef) handler.EventHandler {
-	return handler.EnqueueRequestsFromMapFunc(secretReferrers(c, list, refsOf))
+// use a Secret through an AppRef. It skips references to apps the operator
+// doesn't run: its cache can't read their kinds, and a read would wait forever.
+func EnqueueForSecretThroughRefs(c client.Client, apps Apps, list client.ObjectList, refsOf func(client.Object) []commonv1alpha1.AppRef) handler.EventHandler {
+	return handler.EnqueueRequestsFromMapFunc(secretReferrers(c, apps, list, refsOf))
 }
 
-func secretReferrers(c client.Client, list client.ObjectList, refsOf func(client.Object) []commonv1alpha1.AppRef) handler.MapFunc {
+func secretReferrers(c client.Client, apps Apps, list client.ObjectList, refsOf func(client.Object) []commonv1alpha1.AppRef) handler.MapFunc {
 	return func(ctx context.Context, secret client.Object) []reconcile.Request {
 		return listMatching(ctx, c, list, secret.GetNamespace(), func(o client.Object) bool {
 			if ReferencesSecret(o, secret.GetName()) {
@@ -354,7 +355,7 @@ func secretReferrers(c client.Client, list client.ObjectList, refsOf func(client
 			}
 			for _, ref := range refsOf(o) {
 				kind, ok := appKinds[ref.Kind]
-				if !ok {
+				if !ok || !apps.Runs(ref.Kind) {
 					continue
 				}
 				target := kind.newObj()
