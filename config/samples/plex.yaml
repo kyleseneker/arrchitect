@@ -26,6 +26,7 @@ spec:
   network:
     manualPortMappingMode: true
     manualPortMappingPort: 32400
+    secureConnections: preferred
   libraries:
     - name: Movies
       type: movie
@@ -46,5 +47,3 @@ spec:
       paths:
         - /data/music
       language: en
-  network:
-    secureConnections: preferred

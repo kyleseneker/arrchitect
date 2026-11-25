@@ -22,4 +22,4 @@ spec:
           name: usenet-indexer-credentials
           key: api-key
     - name: categories
-      value: "7000,7020"
+      value: [7000, 7020]
