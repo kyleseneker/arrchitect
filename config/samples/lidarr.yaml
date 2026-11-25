@@ -18,6 +18,6 @@ spec:
     standardTrackFormat: "{Artist Name} - {Album Title} - {track:00} - {Track Title}"
     artistFolderFormat: "{Artist Name}"
   rootFolders:
-    - path: /music
+    - path: /data/media/music
       defaultQualityProfileName: Any
       defaultMetadataProfileName: Standard

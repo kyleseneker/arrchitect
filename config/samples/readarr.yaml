@@ -18,6 +18,6 @@ spec:
     standardBookFormat: "{Author Name} - {Book Title}"
     authorFolderFormat: "{Author Name}"
   rootFolders:
-    - path: /books
+    - path: /data/media/books
       defaultQualityProfileName: eBook
       defaultMetadataProfileName: Standard

@@ -12,7 +12,7 @@ spec:
       name: qbittorrent-credentials
       key: password
   preferences:
-    savePath: /data/torrents/
+    savePath: /data/torrents
     dht: true
     pex: true
     lsd: true
@@ -31,7 +31,6 @@ spec:
       - "*.exe"
     queueingEnabled: false
     upnp: false
-    networkInterface: tun0
   categories:
     - name: tv
       savePath: /data/torrents/tv

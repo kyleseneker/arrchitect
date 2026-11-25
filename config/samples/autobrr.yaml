@@ -2,9 +2,6 @@ apiVersion: arrchitect.dev/v1alpha1
 kind: Autobrr
 metadata:
   name: autobrr
-  labels:
-    app.kubernetes.io/name: arrchitect
-    app.kubernetes.io/managed-by: kustomize
 spec:
   connection:
     url: http://autobrr.media.svc.cluster.local:7474

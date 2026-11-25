@@ -144,10 +144,13 @@ spec:
       includeHealthWarnings: true
       fields:
         - name: webHookUrl
-          value: "https://discord.com/api/webhooks/your-webhook-url"
+          valueFrom:
+            secretKeyRef:
+              name: discord-credentials
+              key: webhook-url
   importLists:
-    - name: Trakt Popular
-      implementation: TraktPopularImport
+    - name: Custom List
+      implementation: CustomImport
       enableAutomaticAdd: true
       monitor: all
       qualityProfileName: HD-1080p
@@ -155,7 +158,5 @@ spec:
       seriesType: standard
       seasonFolder: true
       fields:
-        - name: accessToken
-          value: "your-trakt-token"
-        - name: limit
-          value: 100
+        - name: baseUrl
+          value: https://lists.example.com/tv.json

@@ -2,9 +2,6 @@ apiVersion: arrchitect.dev/v1alpha1
 kind: Maintainerr
 metadata:
   name: maintainerr
-  labels:
-    app.kubernetes.io/name: arrchitect
-    app.kubernetes.io/managed-by: kustomize
 spec:
   # Maintainerr has no API authentication; keep it off untrusted networks.
   connection:
