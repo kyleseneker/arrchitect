@@ -50,32 +50,15 @@ func (r *JellyfinReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{RequeueAfter: after}, nil
 	}
 
-	username, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, config.Spec.AdminUser.UsernameSecretRef)
+	jf, admin, reason, err := r.jellyfinClient(ctx, &config)
 	if err != nil {
-		logger.Error(err, "failed to resolve admin username secret")
-		ctrlcommon.UpdateStatusUnreachable(ctx, r.Client, &config, engine.ReasonSecretNotFound, err.Error())
+		logger.Error(err, "failed to build the Jellyfin client")
+		ctrlcommon.UpdateStatusUnreachable(ctx, r.Client, &config, reason, err.Error())
+		if reason == engine.ReasonInvalidConfig {
+			return ctrl.Result{}, nil
+		}
 		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
 	}
-
-	password, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, config.Spec.AdminUser.PasswordSecretRef)
-	if err != nil {
-		logger.Error(err, "failed to resolve admin password secret")
-		ctrlcommon.UpdateStatusUnreachable(ctx, r.Client, &config, engine.ReasonSecretNotFound, err.Error())
-		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
-	}
-
-	tlsCfg, err := engine.ResolveTLSConfig(ctx, r.Client, config.Namespace, config.Spec.Connection.TLS)
-	if err != nil {
-		ctrlcommon.UpdateStatusUnreachable(ctx, r.Client, &config, engine.ReasonSecretNotFound, err.Error())
-		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
-	}
-
-	hc, err := engine.NewHTTPClient(config.Spec.Connection.URL, engine.AuthMediaBrowser, engine.WithTLSConfig(tlsCfg), engine.WithAppLabel("jellyfin"))
-	if err != nil {
-		ctrlcommon.UpdateStatusUnreachable(ctx, r.Client, &config, engine.ReasonInvalidConfig, err.Error())
-		return ctrl.Result{}, nil
-	}
-	jf := jellyfinclient.NewClient(hc)
 
 	setupComplete, err := jf.IsSetupComplete(ctx)
 	if err != nil {
@@ -108,7 +91,7 @@ func (r *JellyfinReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 			}
 		}
 
-		if err := jf.RunSetupWizard(ctx, username, password, serverName, metadataLang, countryCode); err != nil {
+		if err := jf.RunSetupWizard(ctx, admin.username, admin.password, serverName, metadataLang, countryCode); err != nil {
 			logger.Error(err, "failed to run setup wizard")
 			ctrlcommon.UpdateStatus(ctx, r.Client, &config, false, engine.ReasonSyncFailed, fmt.Sprintf("setup wizard: %v", err))
 			return ctrl.Result{RequeueAfter: 60 * time.Second}, nil
@@ -119,7 +102,7 @@ func (r *JellyfinReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	initialized := true
 	config.Status.Initialized = &initialized
 
-	if err := r.signIn(ctx, jf, &config, username, password); err != nil {
+	if err := r.signIn(ctx, jf, &config, admin); err != nil {
 		logger.Error(err, "Jellyfin authentication failed")
 		reason := engine.ReasonAppUnreachable
 		if reconciler.IsSecretError(err) {
@@ -160,14 +143,42 @@ func (r *JellyfinReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	return ctrl.Result{RequeueAfter: ctrlcommon.ReconcileInterval(config.Spec.Reconcile)}, nil
 }
 
+// jellyfinAdmin is the admin user the setup wizard creates and the operator
+// signs in as.
+type jellyfinAdmin struct{ username, password string }
+
+// jellyfinClient builds the client for a config and reads its admin user, or
+// returns the status reason it can't.
+func (r *JellyfinReconciler) jellyfinClient(
+	ctx context.Context, config *mediaserversv1alpha1.Jellyfin,
+) (*jellyfinclient.Client, jellyfinAdmin, string, error) {
+	username, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, config.Spec.AdminUser.UsernameSecretRef)
+	if err != nil {
+		return nil, jellyfinAdmin{}, engine.ReasonSecretNotFound, err
+	}
+	password, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, config.Spec.AdminUser.PasswordSecretRef)
+	if err != nil {
+		return nil, jellyfinAdmin{}, engine.ReasonSecretNotFound, err
+	}
+	tlsCfg, err := engine.ResolveTLSConfig(ctx, r.Client, config.Namespace, config.Spec.Connection.TLS)
+	if err != nil {
+		return nil, jellyfinAdmin{}, engine.ReasonSecretNotFound, err
+	}
+	hc, err := engine.NewHTTPClient(config.Spec.Connection.URL, engine.AuthMediaBrowser, engine.WithTLSConfig(tlsCfg), engine.WithAppLabel("jellyfin"))
+	if err != nil {
+		return nil, jellyfinAdmin{}, engine.ReasonInvalidConfig, err
+	}
+	return jellyfinclient.NewClient(hc), jellyfinAdmin{username: username, password: password}, "", nil
+}
+
 // signIn authenticates with the connection's API key when it sets one, or as
 // the admin user.
 func (r *JellyfinReconciler) signIn(
-	ctx context.Context, jf *jellyfinclient.Client, config *mediaserversv1alpha1.Jellyfin, username, password string,
+	ctx context.Context, jf *jellyfinclient.Client, config *mediaserversv1alpha1.Jellyfin, admin jellyfinAdmin,
 ) error {
 	ref := config.Spec.Connection.APIKeySecretRef
 	if ref == nil {
-		return jf.Authenticate(ctx, username, password)
+		return jf.Authenticate(ctx, admin.username, admin.password)
 	}
 	key, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, *ref)
 	if err != nil {

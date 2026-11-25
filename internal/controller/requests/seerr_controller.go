@@ -56,6 +56,7 @@ func (r *SeerrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 
 	sc, reason, err := r.seerrClient(ctx, &config)
 	if err != nil {
+		logger.Error(err, "failed to build the Seerr client")
 		ctrlcommon.UpdateStatusUnreachable(ctx, r.Client, &config, reason, err.Error())
 		if reason == engine.ReasonInvalidConfig {
 			return ctrl.Result{}, nil

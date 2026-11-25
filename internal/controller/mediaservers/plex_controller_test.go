@@ -26,6 +26,7 @@ import (
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
 	mediaserversv1alpha1 "github.com/kyleseneker/arrchitect/api/mediaservers/v1alpha1"
 	"github.com/kyleseneker/arrchitect/internal/controller/internal/contract"
+	"github.com/kyleseneker/arrchitect/internal/engine"
 	"github.com/kyleseneker/arrchitect/internal/testnet"
 )
 
@@ -301,4 +302,34 @@ func TestPlexNetworkFieldsAllMapToPreferences(t *testing.T) {
 // overwrites settings the CR does not manage.
 func TestPlexEmptySpecSendsNoPreferences(t *testing.T) {
 	assert.Empty(t, buildPlexPreferences(mediaserversv1alpha1.PlexSpec{}), "empty spec produced preferences")
+}
+
+func TestPlexClientSaysWhyItCantConnect(t *testing.T) {
+	scheme := runtime.NewScheme()
+	require.NoError(t, clientgoscheme.AddToScheme(scheme))
+	for _, tc := range []struct {
+		name, url string
+		secret    bool
+		reason    string
+	}{
+		{"missing token Secret", "http://plex:32400", false, engine.ReasonSecretNotFound},
+		{"unusable URL", "ftp://plex", true, engine.ReasonInvalidConfig},
+		{"connects", "http://plex:32400", true, ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			b := fake.NewClientBuilder().WithScheme(scheme)
+			if tc.secret {
+				b = b.WithObjects(plexSecret())
+			}
+			r := &PlexReconciler{Client: b.Build()}
+			pc, reason, err := r.plexClient(context.Background(), plexConfig(tc.url))
+			assert.Equal(t, tc.reason, reason)
+			if tc.reason != "" {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			assert.NotNil(t, pc)
+		})
+	}
 }

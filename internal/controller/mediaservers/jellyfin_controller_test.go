@@ -27,6 +27,7 @@ import (
 
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
 	mediaserversv1alpha1 "github.com/kyleseneker/arrchitect/api/mediaservers/v1alpha1"
+	"github.com/kyleseneker/arrchitect/internal/engine"
 	"github.com/kyleseneker/arrchitect/internal/testnet"
 )
 
@@ -627,4 +628,25 @@ func TestReconcileCreatesALibraryWithItsFetchers(t *testing.T) {
 		"MetadataFetcherOrder": []any{"The Open Movie Database", "TheMovieDb"},
 		"ImageFetchers":        []any{"TheMovieDb"}, "ImageFetcherOrder": []any{"TheMovieDb", "Embedded Image Extractor"},
 	}}, options["TypeOptions"])
+}
+
+func TestJellyfinClientSaysWhyItCantConnect(t *testing.T) {
+	scheme := runtime.NewScheme()
+	require.NoError(t, clientgoscheme.AddToScheme(scheme))
+	reconcilerWith := func(objs ...client.Object) *JellyfinReconciler {
+		return &JellyfinReconciler{Client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(objs...).Build()}
+	}
+
+	_, _, reason, err := reconcilerWith().jellyfinClient(context.Background(), jellyfinConfig("http://jellyfin:8096"))
+	require.Error(t, err)
+	assert.Equal(t, engine.ReasonSecretNotFound, reason)
+
+	_, _, reason, err = reconcilerWith(adminSecret()).jellyfinClient(context.Background(), jellyfinConfig("ftp://jellyfin"))
+	require.Error(t, err)
+	assert.Equal(t, engine.ReasonInvalidConfig, reason)
+
+	jf, admin, _, err := reconcilerWith(adminSecret()).jellyfinClient(context.Background(), jellyfinConfig("http://jellyfin:8096"))
+	require.NoError(t, err)
+	assert.NotNil(t, jf)
+	assert.Equal(t, jellyfinAdmin{username: "admin", password: "hunter2"}, admin)
 }

@@ -40,23 +40,20 @@ func (r *FlareSolverrReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{}, ctrlcommon.IgnoreDeleted(&config, req.NamespacedName, err)
 	}
 
-	cleanup := func(ctx context.Context) error { return cleanupFlareSolverrSessions(ctx, r.Client, &config) }
+	cleanup := func(ctx context.Context) error { return r.cleanup(ctx, &config) }
 	if done, after := ctrlcommon.HandleLifecycle(ctx, r.Client, r.Recorder, &config, ctrlcommon.Lifecycle{Remove: cleanup, Prune: true}); done {
 		return ctrl.Result{RequeueAfter: after}, nil
 	}
 
-	tlsCfg, err := engine.ResolveTLSConfig(ctx, r.Client, config.Namespace, config.Spec.Connection.TLS)
+	fc, reason, err := r.flaresolverrClient(ctx, &config)
 	if err != nil {
-		ctrlcommon.UpdateStatusUnreachable(ctx, r.Client, &config, engine.ReasonSecretNotFound, err.Error())
+		logger.Error(err, "failed to build the FlareSolverr client")
+		ctrlcommon.UpdateStatusUnreachable(ctx, r.Client, &config, reason, err.Error())
+		if reason == engine.ReasonInvalidConfig {
+			return ctrl.Result{}, nil
+		}
 		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
 	}
-
-	hc, err := engine.NewHTTPClient(config.Spec.Connection.URL, engine.AuthNone, engine.WithTLSConfig(tlsCfg), engine.WithAppLabel("flaresolverr"))
-	if err != nil {
-		ctrlcommon.UpdateStatusUnreachable(ctx, r.Client, &config, engine.ReasonInvalidConfig, err.Error())
-		return ctrl.Result{}, nil
-	}
-	fc := flaresolverrclient.NewClient(hc)
 
 	if err := fc.Ping(ctx); err != nil {
 		logger.Error(err, "FlareSolverr unreachable")
@@ -92,6 +89,22 @@ func (r *FlareSolverrReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	ctrlcommon.UpdateSyncStatus(ctx, r.Client, &config, false, nil, syncErrors)
 
 	return ctrl.Result{RequeueAfter: ctrlcommon.ReconcileInterval(config.Spec.Reconcile)}, nil
+}
+
+// flaresolverrClient builds the client for a config, or returns the status
+// reason it can't.
+func (r *FlareSolverrReconciler) flaresolverrClient(
+	ctx context.Context, config *indexersv1alpha1.FlareSolverr,
+) (*flaresolverrclient.Client, string, error) {
+	tlsCfg, err := engine.ResolveTLSConfig(ctx, r.Client, config.Namespace, config.Spec.Connection.TLS)
+	if err != nil {
+		return nil, engine.ReasonSecretNotFound, err
+	}
+	hc, err := engine.NewHTTPClient(config.Spec.Connection.URL, engine.AuthNone, engine.WithTLSConfig(tlsCfg), engine.WithAppLabel("flaresolverr"))
+	if err != nil {
+		return nil, engine.ReasonInvalidConfig, err
+	}
+	return flaresolverrclient.NewClient(hc), "", nil
 }
 
 // reconcileFlareSolverrSessions creates the declared sessions and, under prune,
@@ -159,19 +172,15 @@ func observeFlareSolverrSessions(
 	return len(existing), nil
 }
 
-func cleanupFlareSolverrSessions(ctx context.Context, c client.Reader, config *indexersv1alpha1.FlareSolverr) error {
+// cleanup destroys the sessions the operator created, for deletionPolicy delete.
+func (r *FlareSolverrReconciler) cleanup(ctx context.Context, config *indexersv1alpha1.FlareSolverr) error {
 	if len(config.GetManagedResources()["sessions"]) == 0 {
 		return nil
 	}
-	tlsConfig, err := engine.ResolveTLSConfig(ctx, c, config.Namespace, config.Spec.Connection.TLS)
+	fc, _, err := r.flaresolverrClient(ctx, config)
 	if err != nil {
 		return err
 	}
-	hc, err := engine.NewHTTPClient(config.Spec.Connection.URL, engine.AuthNone, engine.WithTLSConfig(tlsConfig), engine.WithAppLabel("flaresolverr"))
-	if err != nil {
-		return err
-	}
-	fc := flaresolverrclient.NewClient(hc)
 	existing, err := fc.ListSessions(ctx)
 	if err != nil {
 		return fmt.Errorf("listing sessions: %w", err)

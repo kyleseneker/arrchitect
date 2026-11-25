@@ -303,11 +303,11 @@ func reconcileQBPreferences(
 func (r *QBittorrentReconciler) qbClient(ctx context.Context, config *downloadsv1alpha1.QBittorrent) (*qbclient.Client, string, error) {
 	username, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, config.Spec.Connection.UsernameSecretRef)
 	if err != nil {
-		return nil, engine.ReasonSecretNotFound, fmt.Errorf("resolving username: %w", err)
+		return nil, engine.ReasonSecretNotFound, err
 	}
 	password, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, config.Spec.Connection.PasswordSecretRef)
 	if err != nil {
-		return nil, engine.ReasonSecretNotFound, fmt.Errorf("resolving password: %w", err)
+		return nil, engine.ReasonSecretNotFound, err
 	}
 	tlsCfg, err := engine.ResolveTLSConfig(ctx, r.Client, config.Namespace, config.Spec.Connection.TLS)
 	if err != nil {

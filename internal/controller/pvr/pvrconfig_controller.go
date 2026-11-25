@@ -8,6 +8,7 @@ import (
 	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
 	pvrclient "github.com/kyleseneker/arrchitect/internal/client/pvr"
@@ -94,29 +95,43 @@ func withApp(opts pvrclient.Options, app pvrclient.App) pvrclient.Options {
 func connectPVR(
 	ctx context.Context, c client.Client, obj ctrlcommon.ConfigResource, conn commonv1alpha1.AppConnection, app pvrclient.App,
 ) (*engine.HTTPClient, *ctrl.Result) {
-	namespace := obj.GetNamespace()
-	missingSecret := func(err error) (*engine.HTTPClient, *ctrl.Result) {
-		ctrlcommon.UpdateStatusUnreachable(ctx, c, obj, engine.ReasonSecretNotFound, err.Error())
+	logger := log.FromContext(ctx)
+	hc, reason, err := pvrClient(ctx, c, obj, conn, app)
+	if err != nil {
+		logger.Error(err, "failed to build the "+app.Kind+" client")
+		ctrlcommon.UpdateStatusUnreachable(ctx, c, obj, reason, err.Error())
+		if reason == engine.ReasonInvalidConfig {
+			return nil, &ctrl.Result{}
+		}
 		return nil, &ctrl.Result{RequeueAfter: 30 * time.Second}
 	}
+	if err := hc.Ping(ctx, "/api/"+app.APIVersion+"/system/status"); err != nil {
+		logger.Error(err, app.Kind+" unreachable")
+		ctrlcommon.UpdateStatusUnreachable(ctx, c, obj, engine.ReasonAppUnreachable, err.Error())
+		return nil, &ctrl.Result{RequeueAfter: 60 * time.Second}
+	}
+	return hc, nil
+}
+
+// pvrClient builds the client for an app's connection, or returns the status
+// reason it can't.
+func pvrClient(
+	ctx context.Context, c client.Reader, obj ctrlcommon.ConfigResource, conn commonv1alpha1.AppConnection, app pvrclient.App,
+) (*engine.HTTPClient, string, error) {
+	namespace := obj.GetNamespace()
 	apiKey, err := reconciler.ResolveSecretKeyRef(ctx, c, namespace, conn.APIKeySecretRef)
 	if err != nil {
-		return missingSecret(err)
+		return nil, engine.ReasonSecretNotFound, err
 	}
 	tlsCfg, err := engine.ResolveTLSConfig(ctx, c, namespace, conn.TLS)
 	if err != nil {
-		return missingSecret(err)
+		return nil, engine.ReasonSecretNotFound, err
 	}
 	hc, err := engine.NewHTTPClient(conn.URL, engine.AuthAPIKey,
 		engine.WithOwner(namespace+"/"+obj.GetName()+"/"+string(obj.GetUID())),
 		engine.WithAPIKey(apiKey), engine.WithTLSConfig(tlsCfg), engine.WithAppLabel(app.Name))
 	if err != nil {
-		ctrlcommon.UpdateStatusUnreachable(ctx, c, obj, engine.ReasonInvalidConfig, err.Error())
-		return nil, &ctrl.Result{}
+		return nil, engine.ReasonInvalidConfig, err
 	}
-	if err := hc.Ping(ctx, "/api/"+app.APIVersion+"/system/status"); err != nil {
-		ctrlcommon.UpdateStatusUnreachable(ctx, c, obj, engine.ReasonAppUnreachable, err.Error())
-		return nil, &ctrl.Result{RequeueAfter: 60 * time.Second}
-	}
-	return hc, nil
+	return hc, "", nil
 }
