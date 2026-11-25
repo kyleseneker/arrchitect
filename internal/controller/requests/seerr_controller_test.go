@@ -144,6 +144,12 @@ type fakeSeerr struct {
 	// network is the stored network settings. Like Seerr, a POST merges the
 	// body into it.
 	network map[string]any
+	// metadata is the stored metadata providers. Like Seerr, a PUT saves tv and
+	// anime from the body, unless unreachableProviders fails its check.
+	metadata             map[string]any
+	unreachableProviders bool
+	// jobs maps each registered job to its schedule.
+	jobs map[string]string
 }
 
 func (f *fakeSeerr) jellyfinServer() map[string]any {
@@ -282,6 +288,7 @@ func (f *fakeSeerr) serve(t *testing.T) string {
 			_ = json.NewEncoder(w).Encode(f.network)
 		case r.URL.Path == "/api/v1/settings/main":
 			_ = json.NewEncoder(w).Encode(map[string]any{"apiKey": "seerr-generated-key"})
+		case f.metadataAndJobRoutes(w, r, body):
 		case r.URL.Path == "/api/v1/settings/sonarr" || r.URL.Path == "/api/v1/settings/radarr":
 			kind := strings.TrimPrefix(r.URL.Path, "/api/v1/settings/")
 			if r.Method == http.MethodPost {
@@ -314,6 +321,43 @@ func (f *fakeSeerr) serve(t *testing.T) string {
 	srv.Start()
 	t.Cleanup(srv.Close)
 	return srv.URL
+}
+
+// metadataAndJobRoutes serves the metadata providers, the job list and a job's
+// reschedule. The caller holds f.mu.
+func (f *fakeSeerr) metadataAndJobRoutes(w http.ResponseWriter, r *http.Request, body map[string]any) bool {
+	switch {
+	case r.URL.Path == "/api/v1/settings/metadatas":
+		if f.metadata == nil {
+			f.metadata = map[string]any{"tv": "tmdb", "anime": "tmdb"}
+		}
+		if r.Method == http.MethodPut {
+			if f.unreachableProviders {
+				w.WriteHeader(http.StatusInternalServerError)
+				_ = json.NewEncoder(w).Encode(map[string]any{"success": false, "tests": map[string]any{"tvdb": "failed"}})
+				return true
+			}
+			f.metadata = map[string]any{"tv": body["tv"], "anime": body["anime"]}
+		}
+		_ = json.NewEncoder(w).Encode(f.metadata)
+	case r.URL.Path == "/api/v1/settings/jobs":
+		jobs := []map[string]any{}
+		for _, id := range slices.Sorted(maps.Keys(f.jobs)) {
+			jobs = append(jobs, map[string]any{"id": id, "cronSchedule": f.jobs[id]})
+		}
+		_ = json.NewEncoder(w).Encode(jobs)
+	case strings.HasPrefix(r.URL.Path, "/api/v1/settings/jobs/") && strings.HasSuffix(r.URL.Path, "/schedule"):
+		id := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/api/v1/settings/jobs/"), "/schedule")
+		if _, ok := f.jobs[id]; !ok {
+			w.WriteHeader(http.StatusNotFound)
+			return true
+		}
+		f.jobs[id], _ = body["schedule"].(string)
+		_ = json.NewEncoder(w).Encode(map[string]any{"id": id, "cronSchedule": f.jobs[id]})
+	default:
+		return false
+	}
+	return true
 }
 
 // reject answers what Seerr refuses: a query parameter it doesn't know, and,
@@ -1153,4 +1197,62 @@ func TestSeerrLeavesMatchingNetworkSettingsAlone(t *testing.T) {
 
 	require.True(t, app.saw("GET", "/api/v1/settings/network"), "never read the network settings")
 	assert.False(t, app.saw("POST", "/api/v1/settings/network"), "rewrote network settings that already matched")
+}
+
+func TestSeerrSendsBothMetadataProviders(t *testing.T) {
+	app := &fakeSeerr{initialized: true}
+	cfg := seerrWithAPIKey(app.serve(t))
+	cfg.Spec.MetadataProviders = requestsv1alpha1.SeerrMetadataProviders{Anime: "tvdb"}
+
+	runSeerr(t, cfg)
+
+	app.mu.Lock()
+	assert.Equal(t, map[string]any{"tv": "tmdb", "anime": "tvdb"}, app.metadata, "Seerr saves the pair from what it is sent")
+	app.mu.Unlock()
+
+	runSeerr(t, cfg)
+	puts := 0
+	for _, r := range app.writes() {
+		if r == "PUT /api/v1/settings/metadatas" {
+			puts++
+		}
+	}
+	assert.Equal(t, 1, puts, "rewrote metadata providers that already matched")
+}
+
+func TestSeerrReportsUnreachableMetadataProviders(t *testing.T) {
+	app := &fakeSeerr{initialized: true, unreachableProviders: true}
+	cfg := seerrWithAPIKey(app.serve(t))
+	cfg.Spec.MetadataProviders = requestsv1alpha1.SeerrMetadataProviders{TV: "tvdb"}
+
+	got := runSeerr(t, cfg)
+
+	synced := meta.FindStatusCondition(got.Status.Conditions, "Synced")
+	require.NotNil(t, synced)
+	assert.Contains(t, synced.Message, "metadataProviders: the providers chosen weren't reachable from Seerr, which kept its own")
+}
+
+func TestSeerrReschedulesOnlyTheJobsThatDiffer(t *testing.T) {
+	app := &fakeSeerr{initialized: true, jobs: map[string]string{
+		"sonarr-scan": "0 30 4 * * *", "radarr-scan": "0 0 4 * * *", "jellyfin-full-scan": "0 0 3 * * *",
+	}}
+	cfg := seerrWithAPIKey(app.serve(t))
+	cfg.Spec.JobSchedules = []requestsv1alpha1.SeerrJobSchedule{
+		{ID: "sonarr-scan", Schedule: "0 0 */6 * * *"},
+		{ID: "radarr-scan", Schedule: "0 0 4 * * *"},
+		{ID: "plex-full-scan", Schedule: "0 0 2 * * *"},
+	}
+
+	got := runSeerr(t, cfg)
+
+	assert.True(t, app.saw("POST", "/api/v1/settings/jobs/sonarr-scan/schedule"))
+	assert.False(t, app.saw("POST", "/api/v1/settings/jobs/radarr-scan/schedule"), "rescheduled a job that already matched")
+	assert.False(t, app.saw("POST", "/api/v1/settings/jobs/plex-full-scan/schedule"))
+	app.mu.Lock()
+	assert.Equal(t, "0 0 */6 * * *", app.jobs["sonarr-scan"])
+	app.mu.Unlock()
+	synced := meta.FindStatusCondition(got.Status.Conditions, "Synced")
+	require.NotNil(t, synced)
+	assert.Contains(t, synced.Message,
+		"jobSchedule(plex-full-scan): Seerr runs no such job; it runs jellyfin-full-scan, radarr-scan, sonarr-scan")
 }

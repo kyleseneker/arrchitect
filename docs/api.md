@@ -4374,6 +4374,23 @@ _Appears in:_
 | `passwordSecretRef` _[SecretKeyRef](#secretkeyref)_ | passwordSecretRef references a Secret containing the Jellyfin password. |  | Optional: \{\} <br /> |
 
 
+#### SeerrJobSchedule
+
+
+
+SeerrJobSchedule sets when Seerr runs one of its jobs.
+
+
+
+_Appears in:_
+- [SeerrSpec](#seerrspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `id` _string_ | id is the job. Seerr runs the plex- jobs only with Plex, and the<br />jellyfin- jobs only with Jellyfin or Emby. |  | Enum: [plex-recently-added-scan plex-full-scan plex-watchlist-sync plex-refresh-token radarr-scan sonarr-scan download-sync download-sync-reset jellyfin-recently-added-scan jellyfin-full-scan image-cache-cleanup availability-sync process-blocklisted-tags] <br />Required: \{\} <br /> |
+| `schedule` _string_ | schedule is a cron expression with a leading seconds field, such as<br />"0 */5 * * * *" for every five minutes. |  | MinLength: 1 <br />Required: \{\} <br /> |
+
+
 #### SeerrMain
 
 
@@ -4410,6 +4427,24 @@ _Appears in:_
 | `blocklistedTagsLimit` _integer_ | blocklistedTagsLimit is how many pages of results the job blocklists<br />per tag and sort order. A new Seerr takes 50. |  | Maximum: 250 <br />Minimum: 1 <br />Optional: \{\} <br /> |
 | `blocklistRegion` _string_ | blocklistRegion is the ISO 3166-1 region the job searches, apart from<br />discoverRegion. |  | MaxLength: 2 <br />MinLength: 2 <br />Pattern: `^[A-Z]\{2\}$` <br />Optional: \{\} <br /> |
 | `blocklistLanguages` _string array_ | blocklistLanguages limits the job to media originally in these ISO<br />639-1 languages, apart from originalLanguages. |  | MinItems: 1 <br />items:Pattern: `^[a-z]\{2\}$` <br />Optional: \{\} <br /> |
+
+
+#### SeerrMetadataProviders
+
+
+
+SeerrMetadataProviders chooses Seerr's metadata providers.
+
+_Validation:_
+- MinProperties: 1
+
+_Appears in:_
+- [SeerrSpec](#seerrspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `tv` _string_ | tv is the provider for series: tmdb or tvdb. |  | Enum: [tmdb tvdb] <br />Optional: \{\} <br /> |
+| `anime` _string_ | anime is the provider for anime series: tmdb or tvdb. |  | Enum: [tmdb tvdb] <br />Optional: \{\} <br /> |
 
 
 #### SeerrNetwork
@@ -4547,6 +4582,8 @@ _Appears in:_
 | `libraries` _string array_ | libraries names the media server's libraries Seerr shows and takes<br />requests for. Those are enabled and the rest disabled, on every pass.<br />Left out, first-time setup enables every library and later passes leave<br />them as they are. |  | MinItems: 1 <br />items:MinLength: 1 <br />Optional: \{\} <br /> |
 | `main` _[SeerrMain](#seerrmain)_ | main configures general application settings. |  | Optional: \{\} <br /> |
 | `network` _[SeerrNetwork](#seerrnetwork)_ | network configures how Seerr treats the network in front of it. |  | MinProperties: 1 <br />Optional: \{\} <br /> |
+| `metadataProviders` _[SeerrMetadataProviders](#seerrmetadataproviders)_ | metadataProviders chooses where Seerr gets series and anime metadata.<br />Seerr checks it can reach the providers chosen before it saves them. |  | MinProperties: 1 <br />Optional: \{\} <br /> |
+| `jobSchedules` _[SeerrJobSchedule](#seerrjobschedule) array_ | jobSchedules sets when Seerr runs its scheduled jobs. Jobs left out keep<br />their schedules. |  | Optional: \{\} <br /> |
 | `sonarr` _[SeerrServiceConnection](#seerrserviceconnection) array_ | sonarr lists the Sonarr servers Seerr sends TV requests to, matched by<br />name. Seerr uses the default server, and the default 4K server for 4K<br />requests. |  | Optional: \{\} <br /> |
 | `radarr` _[SeerrServiceConnection](#seerrserviceconnection) array_ | radarr lists the Radarr servers Seerr sends movie requests to, matched by<br />name. Seerr uses the default server, and the default 4K server for 4K<br />requests. |  | Optional: \{\} <br /> |
 | `notifications` _[SeerrNotificationAgent](#seerrnotificationagent) array_ | notifications configures notification agents (Discord, Slack, Telegram, etc.).<br />Each agent is a singleton — only one configuration per agent type. |  | Optional: \{\} <br /> |

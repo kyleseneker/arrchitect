@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 	"strconv"
 	"strings"
@@ -134,6 +135,10 @@ func (r *SeerrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	if err := reconcileSeerrNetwork(ctx, sc, writes, config.Spec.Network); err != nil {
 		syncErrors = append(syncErrors, fmt.Sprintf("network: %v", err))
 	}
+	if err := reconcileSeerrMetadataProviders(ctx, sc, writes, config.Spec.MetadataProviders); err != nil {
+		syncErrors = append(syncErrors, fmt.Sprintf("metadataProviders: %v", err))
+	}
+	syncErrors = append(syncErrors, reconcileSeerrJobSchedules(ctx, sc, writes, config.Spec.JobSchedules)...)
 
 	// Reconcile notification agents
 	for _, agent := range config.Spec.Notifications {
@@ -680,6 +685,78 @@ func reconcileSeerrNetwork(ctx context.Context, sc *seerrclient.Client, w *engin
 		_, err := sc.Post(ctx, "/api/v1/settings/network", payload)
 		return err
 	})
+}
+
+// reconcileSeerrMetadataProviders sends both providers, as Seerr saves the pair
+// from what it is sent.
+func reconcileSeerrMetadataProviders(
+	ctx context.Context, sc *seerrclient.Client, w *engine.Writes, providers requestsv1alpha1.SeerrMetadataProviders,
+) error {
+	payload := map[string]any{}
+	for key, value := range map[string]string{"tv": providers.TV, "anime": providers.Anime} {
+		if value != "" {
+			payload[key] = value
+		}
+	}
+	if len(payload) == 0 {
+		return nil
+	}
+	current, err := sc.Get(ctx, "/api/v1/settings/metadatas")
+	if err != nil {
+		return fmt.Errorf("reading metadata settings: %w", err)
+	}
+	if !seerrDiffers(current, payload) {
+		return nil
+	}
+	body, _, err := reconciler.MergeDesiredOverCurrent(current, payload)
+	if err != nil {
+		return err
+	}
+	return w.Apply("settings", "metadataProviders", func() error {
+		if err := sc.Put(ctx, "/api/v1/settings/metadatas", body); err != nil {
+			return fmt.Errorf("the providers chosen weren't reachable from Seerr, which kept its own: %w", err)
+		}
+		return nil
+	})
+}
+
+// reconcileSeerrJobSchedules reschedules the declared jobs whose schedules
+// differ. Seerr has only the jobs it registered when it started: the Plex or
+// the Jellyfin ones, for its media server.
+func reconcileSeerrJobSchedules(
+	ctx context.Context, sc *seerrclient.Client, w *engine.Writes, schedules []requestsv1alpha1.SeerrJobSchedule,
+) []string {
+	if len(schedules) == 0 {
+		return nil
+	}
+	jobs, err := sc.GetList(ctx, "/api/v1/settings/jobs")
+	if err != nil {
+		return []string{fmt.Sprintf("jobSchedules: reading jobs: %v", err)}
+	}
+	current := map[string]any{}
+	for _, job := range jobs {
+		if id, ok := job["id"].(string); ok {
+			current[id] = job["cronSchedule"]
+		}
+	}
+	var errs []string
+	for _, js := range schedules {
+		schedule, ok := current[js.ID]
+		switch {
+		case !ok:
+			errs = append(errs, fmt.Sprintf("jobSchedule(%s): Seerr runs no such job; it runs %s",
+				js.ID, strings.Join(slices.Sorted(maps.Keys(current)), ", ")))
+		case schedule != js.Schedule:
+			err := w.Apply("jobs", js.ID, func() error {
+				_, err := sc.Post(ctx, "/api/v1/settings/jobs/"+js.ID+"/schedule", map[string]any{"schedule": js.Schedule})
+				return err
+			})
+			if err != nil {
+				errs = append(errs, fmt.Sprintf("jobSchedule(%s): %v", js.ID, err))
+			}
+		}
+	}
+	return errs
 }
 
 func reconcileSeerrNotificationAgent(

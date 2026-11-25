@@ -19,6 +19,11 @@ spec:
     - Movies
   network:
     trustProxy: true
+  jobSchedules:
+    - id: sonarr-scan
+      schedule: "0 0 */6 * * *"
+    - id: image-cache-cleanup
+      schedule: "0 0 6 * * *"
   main:
     applicationTitle: Compat Requests
     applicationUrl: https://requests.example.com
