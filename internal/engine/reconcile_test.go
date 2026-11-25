@@ -1051,7 +1051,7 @@ func TestReconcileAppListsEachEndpointOncePerPass(t *testing.T) {
 	result := run(context.Background(), hc, def, nil, map[string][]map[string]any{"tags": declared}, SyncPolicy{}, nil)
 
 	assert.Empty(t, result.Errors)
-	assert.Equal(t, 1, lists, "the endpoint is listed once, not once per item")
+	assert.Equal(t, 2, lists, "one list for the pass and one check before the create, not one per item")
 	assert.Equal(t, 1, creates, "an item created earlier in the pass is found by a later one")
 	assert.Equal(t, []string{"new"}, result.Managed["tags"])
 }
@@ -1147,4 +1147,28 @@ func TestCleanupKeepsANameTheAppHasTwiceAndCarriesOn(t *testing.T) {
 	assert.Equal(t, []string{"/profiles/3", "/formats/3"}, deleted)
 	require.Len(t, refused, 1)
 	assert.Equal(t, `test-app has 2 profiles named "dup"`, refused[0].Kept[0].Reason)
+}
+
+func TestACreateChecksTheItemIsStillMissing(t *testing.T) {
+	lists, creates := 0, 0
+	hc := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			lists++
+			items := []map[string]any{}
+			if lists > 1 {
+				items = append(items, map[string]any{"id": float64(4), "name": "tv"}) // created by someone else mid-pass
+			}
+			_ = json.NewEncoder(w).Encode(items)
+		case http.MethodPost:
+			creates++
+		}
+	})
+	def := AppDefinition{Resources: []ResourceEndpoint{{Name: "tags", Path: "/tag", MatchField: "name", Policy: CreateOrUpdate}}}
+
+	result := run(context.Background(), hc, def, nil, map[string][]map[string]any{"tags": {{"name": "tv"}}}, SyncPolicy{}, nil)
+
+	require.Empty(t, result.Errors)
+	assert.Zero(t, creates, "a second item with the same name must not be created")
+	assert.Empty(t, result.Managed["tags"], "an item someone else created isn't the operator's")
 }

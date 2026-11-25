@@ -17,28 +17,53 @@ type Kind struct {
 	Remove    func(ctx context.Context, id int) error
 }
 
-// Listed returns the names of the kind's items and the id of each.
-func (k Kind) Listed(ctx context.Context) ([]string, map[string]int, error) {
+// Listed returns what the app holds of the kind.
+func (k Kind) Listed(ctx context.Context, app string) (Items, error) {
 	items, err := k.List(ctx)
 	if err != nil {
-		return nil, nil, err
+		return Items{}, err
 	}
 	field := k.NameField
 	if field == "" {
 		field = "name"
 	}
-	names := make([]string, 0, len(items))
-	ids := make(map[string]int, len(items))
-	for _, item := range items {
+	return listItems(app, k.Name, items, func(item map[string]any) string {
 		name, _ := item[field].(string)
+		return name
+	}), nil
+}
+
+// Items is what an app holds of one kind: each name once, with the ids of the
+// items holding it.
+type Items struct {
+	Names     []string
+	app, kind string
+	ids       map[string][]int
+}
+
+func listItems(app, kind string, items []map[string]any, key func(map[string]any) string) Items {
+	out := Items{Names: make([]string, 0, len(items)), app: app, kind: kind, ids: make(map[string][]int, len(items))}
+	for _, item := range items {
+		name := key(item)
 		id, ok := item["id"].(float64)
 		if name == "" || !ok {
 			continue
 		}
-		names = append(names, name)
-		ids[name] = int(id)
+		if _, seen := out.ids[name]; !seen {
+			out.Names = append(out.Names, name)
+		}
+		out.ids[name] = append(out.ids[name], int(id))
 	}
-	return names, ids, nil
+	return out
+}
+
+// ID is the id of the one item named name. Two items with one name can't be
+// told apart, so neither is deleted.
+func (i Items) ID(name string) (int, error) {
+	if n := len(i.ids[name]); n != 1 {
+		return 0, &ambiguousError{msg: fmt.Sprintf("%s has %d %s named %q", AppName(i.app), n, i.kind, name)}
+	}
+	return i.ids[name][0], nil
 }
 
 // PruneKinds prunes each kind in order against what declared names for it. It
@@ -53,9 +78,9 @@ func (p *Pass) PruneKinds(ctx context.Context, kinds []Kind, declared map[string
 		if failed[k.Name] || len(declared[k.Name]) == 0 || !p.Owned.Owns(k.Name) {
 			continue
 		}
-		names, ids, err := k.Listed(ctx)
+		items, err := k.Listed(ctx, p.App)
 		if err == nil {
-			err = p.Prune(p.Owned, k.Name, declared[k.Name], names, func(name string) error { return k.Remove(ctx, ids[name]) })
+			err = p.Prune(p.Owned, k.Name, declared[k.Name], items.Names, removeByID(ctx, k, items))
 		}
 		if err != nil {
 			problems = append(problems, fmt.Sprintf("%s(prune): %v", k.Name, err))
@@ -72,11 +97,21 @@ func (o *Ownership) CleanupKinds(ctx context.Context, kinds []Kind) error {
 		if !o.Owns(k.Name) {
 			continue
 		}
-		names, ids, err := k.Listed(ctx)
+		items, err := k.Listed(ctx, o.app)
 		if err == nil {
-			err = o.Cleanup(k.Name, names, func(name string) error { return k.Remove(ctx, ids[name]) })
+			err = o.Cleanup(k.Name, items.Names, removeByID(ctx, k, items))
 		}
 		errs = append(errs, err)
 	}
 	return errors.Join(errs...)
+}
+
+func removeByID(ctx context.Context, k Kind, items Items) func(string) error {
+	return func(name string) error {
+		id, err := items.ID(name)
+		if err != nil {
+			return err
+		}
+		return k.Remove(ctx, id)
+	}
 }

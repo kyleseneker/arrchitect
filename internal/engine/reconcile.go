@@ -127,15 +127,15 @@ func ReconcileApp(ctx context.Context, client *HTTPClient, def AppDefinition, se
 // longer declares. It reads the endpoint again before deleting, so an item
 // renamed in the app since the pass listed it is never deleted under its old
 // name.
-func pruneEndpoint(ctx context.Context, client *HTTPClient, pass *Pass, r ResourceEndpoint, items, existing []map[string]any) error {
-	declared := make([]string, 0, len(items))
-	for _, item := range items {
+func pruneEndpoint(ctx context.Context, client *HTTPClient, pass *Pass, r ResourceEndpoint, declaredItems, existing []map[string]any) error {
+	declared := make([]string, 0, len(declaredItems))
+	for _, item := range declaredItems {
 		if key := r.resourceKey(item); key != "" {
 			declared = append(declared, key)
 		}
 	}
-	keys, ids := identities(r, existing)
-	if len(pass.Owned.Candidates(r.Name, declared, keys)) == 0 {
+	items := listItems(client.AppLabel(), r.Name, existing, r.resourceKey)
+	if len(pass.Owned.Candidates(r.Name, declared, items.Names)) == 0 {
 		return nil
 	}
 	if !pass.Observe {
@@ -143,44 +143,16 @@ func pruneEndpoint(ctx context.Context, client *HTTPClient, pass *Pass, r Resour
 		if err != nil {
 			return fmt.Errorf("listing: %w", err)
 		}
-		keys, ids = identities(r, latest)
+		items = listItems(client.AppLabel(), r.Name, latest, r.resourceKey)
 	}
-	return pass.Prune(pass.Owned, r.Name, declared, keys, func(name string) error {
-		id, err := soleID(client, r, ids, name)
+	return pass.Prune(pass.Owned, r.Name, declared, items.Names, func(name string) error {
+		id, err := items.ID(name)
 		if err != nil {
 			return err
 		}
 		log.FromContext(ctx).Info("pruning unmanaged resource", "type", r.Name, "match", name, "id", id)
 		return client.DeleteJSON(ctx, fmt.Sprintf("%s/%d", r.Path, id))
 	})
-}
-
-// identities lists the keys of the items that carry an id, each once, with the
-// ids of the items holding it.
-func identities(r ResourceEndpoint, items []map[string]any) ([]string, map[string][]int) {
-	keys := make([]string, 0, len(items))
-	ids := make(map[string][]int, len(items))
-	for _, item := range items {
-		key := r.resourceKey(item)
-		id, ok := item["id"].(float64)
-		if key == "" || !ok {
-			continue
-		}
-		if _, seen := ids[key]; !seen {
-			keys = append(keys, key)
-		}
-		ids[key] = append(ids[key], int(id))
-	}
-	return keys, ids
-}
-
-// soleID is the id of the one item holding key. Two items with the same key
-// can't be told apart, so neither is deleted.
-func soleID(client *HTTPClient, r ResourceEndpoint, ids map[string][]int, key string) (int, error) {
-	if n := len(ids[key]); n != 1 {
-		return 0, &ambiguousError{msg: fmt.Sprintf("%s has %d %s named %q", AppName(client.AppLabel()), n, r.Name, key)}
-	}
-	return ids[key][0], nil
 }
 
 // reconcileSetting brings a singleton config endpoint in line: GET, merge, PUT.
@@ -219,7 +191,18 @@ func reconcileItem(ctx context.Context, client *HTTPClient, pass *Pass, endpoint
 		return fmt.Errorf("resource has no identity")
 	}
 	key := client.secretKey(endpoint.Name, desiredMatch)
-	if current := find(*existing, endpoint, desiredMatch); current != nil {
+	current, fresh := find(*existing, endpoint, desiredMatch), false
+	if current == nil && !pass.Observe && endpoint.Policy != UpdateOnly {
+		// Another writer may have created the item since the pass listed the
+		// endpoint, and some apps accept a second item with the same name.
+		latest, err := client.GetJSONList(ctx, endpoint.Path)
+		if err != nil {
+			return fmt.Errorf("re-reading: %w", err)
+		}
+		*existing, fresh = latest, true
+		current = find(latest, endpoint, desiredMatch)
+	}
+	if current != nil {
 		if endpoint.Policy == CreateOnly {
 			return nil
 		}
@@ -227,7 +210,7 @@ func reconcileItem(ctx context.Context, client *HTTPClient, pass *Pass, endpoint
 		if err != nil || update == nil {
 			return err
 		}
-		if !pass.Observe {
+		if !pass.Observe && !fresh {
 			// The list is from the start of the pass. Merge over the item as it
 			// is now, so a change made in the app since isn't written back.
 			latest, err := client.GetJSONList(ctx, endpoint.Path)
@@ -394,9 +377,9 @@ func DeleteManagedResources(ctx context.Context, client *HTTPClient, def AppDefi
 		if err != nil {
 			return errors.Join(append(kept, fmt.Errorf("cleaning up %s: listing: %w", endpoint.Name, err))...)
 		}
-		keys, ids := identities(endpoint, existing)
-		err = owned.Cleanup(endpoint.Name, keys, func(name string) error {
-			id, err := soleID(client, endpoint, ids, name)
+		items := listItems(client.AppLabel(), endpoint.Name, existing, endpoint.resourceKey)
+		err = owned.Cleanup(endpoint.Name, items.Names, func(name string) error {
+			id, err := items.ID(name)
 			if err != nil {
 				return err
 			}

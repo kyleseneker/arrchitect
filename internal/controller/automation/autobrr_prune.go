@@ -72,11 +72,15 @@ func (s *autobrrSync) pruneUndeclared(ctx context.Context, spec *automationv1alp
 }
 
 func (s *autobrrSync) pruneActions(ctx context.Context, filter automationv1alpha1.AutobrrFilter) error {
-	filters, ids, err := engine.Kind{List: s.ac.ListFilters}.Listed(ctx)
-	if err != nil || !slices.Contains(filters, filter.Name) {
+	filters, err := engine.Kind{Name: "filters", List: s.ac.ListFilters}.Listed(ctx, "autobrr")
+	if err != nil || !slices.Contains(filters.Names, filter.Name) {
 		return err
 	}
-	existing, actionIDs, err := s.filterActions(ctx, filter.Name, ids[filter.Name])
+	filterID, err := filters.ID(filter.Name)
+	if err != nil {
+		return err
+	}
+	existing, err := s.filterActions(ctx, filter.Name, filterID)
 	if err != nil {
 		return err
 	}
@@ -84,23 +88,26 @@ func (s *autobrrSync) pruneActions(ctx context.Context, filter automationv1alpha
 	for _, a := range filter.Actions {
 		declared = append(declared, filter.Name+"/"+a.Name)
 	}
-	return s.Prune(s.Owned, actionsKind, declared, existing, func(name string) error {
-		return s.ac.DeleteAction(ctx, actionIDs[name])
-	})
+	return s.Prune(s.Owned, actionsKind, declared, existing.Names, s.deleteAction(ctx, existing))
 }
 
 // cleanup deletes everything the operator created, for deletionPolicy delete.
 func (s *autobrrSync) cleanup(ctx context.Context) error {
 	var errs []error
 	if s.Owned.Owns(actionsKind) {
-		filters, ids, err := engine.Kind{List: s.ac.ListFilters}.Listed(ctx)
+		filters, err := engine.Kind{Name: "filters", List: s.ac.ListFilters}.Listed(ctx, "autobrr")
 		if err != nil {
 			return err
 		}
-		for _, name := range filters {
-			existing, actionIDs, err := s.filterActions(ctx, name, ids[name])
+		for _, name := range filters.Names {
+			filterID, err := filters.ID(name)
+			if err != nil {
+				errs = append(errs, err)
+				continue
+			}
+			existing, err := s.filterActions(ctx, name, filterID)
 			if err == nil {
-				err = s.Owned.Cleanup(actionsKind, existing, func(n string) error { return s.ac.DeleteAction(ctx, actionIDs[n]) })
+				err = s.Owned.Cleanup(actionsKind, existing.Names, s.deleteAction(ctx, existing))
 			}
 			errs = append(errs, err)
 		}
@@ -109,8 +116,8 @@ func (s *autobrrSync) cleanup(ctx context.Context) error {
 }
 
 // filterActions lists a filter's actions as <filter>/<action>.
-func (s *autobrrSync) filterActions(ctx context.Context, filter string, filterID int) ([]string, map[string]int, error) {
-	return engine.Kind{List: func(ctx context.Context) ([]map[string]any, error) {
+func (s *autobrrSync) filterActions(ctx context.Context, filter string, filterID int) (engine.Items, error) {
+	return engine.Kind{Name: actionsKind, List: func(ctx context.Context) ([]map[string]any, error) {
 		actions, err := s.ac.ListActions(ctx, filterID)
 		for _, a := range actions {
 			if name, ok := a["name"].(string); ok {
@@ -118,5 +125,15 @@ func (s *autobrrSync) filterActions(ctx context.Context, filter string, filterID
 			}
 		}
 		return actions, err
-	}}.Listed(ctx)
+	}}.Listed(ctx, "autobrr")
+}
+
+func (s *autobrrSync) deleteAction(ctx context.Context, actions engine.Items) func(string) error {
+	return func(name string) error {
+		id, err := actions.ID(name)
+		if err != nil {
+			return err
+		}
+		return s.ac.DeleteAction(ctx, id)
+	}
 }

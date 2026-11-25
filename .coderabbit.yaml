@@ -5,3 +5,8 @@ reviews:
     - "!config/crd/bases/**"
     - "!chart/arrchitect/files/crds/**"
     - "!docs/api.md"
+  tools:
+    # CI runs golangci-lint with the repo's kube-api-linter plugin, which
+    # CodeRabbit can't load.
+    golangci-lint:
+      enabled: false

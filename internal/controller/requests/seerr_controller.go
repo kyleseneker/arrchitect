@@ -45,17 +45,19 @@ func (r *SeerrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	integration := ctrlcommon.Integration[*requestsv1alpha1.Seerr, *seerrConn]{
 		App:     "seerr",
 		Connect: r.connect,
+		Check:   r.check,
 		Sync:    r.sync,
-		Cleanup: cleanupSeerr,
+		Cleanup: r.cleanup,
 		Prune:   true,
 	}
 	return integration.Reconcile(ctx, r.Client, r.Recorder, req, &requestsv1alpha1.Seerr{})
 }
 
-// seerrConn is a Seerr the operator has reached and, unless observe mode found
-// it not yet set up, signed in to.
+// seerrConn is a Seerr client for one resource, and what check found before a
+// sync: whether Seerr is set up, and its media server.
 type seerrConn struct {
 	sc          *seerrclient.Client
+	config      *requestsv1alpha1.Seerr
 	initialized bool
 	media       seerrMediaServer
 	mediaErr    error
@@ -70,23 +72,25 @@ func (r *SeerrReconciler) connect(ctx context.Context, config *requestsv1alpha1.
 	if err != nil {
 		return nil, err
 	}
-	conn := &seerrConn{sc: seerrclient.NewClient(hc)}
+	return &seerrConn{sc: seerrclient.NewClient(hc), config: config}, nil
+}
+
+// check reads whether Seerr is set up and signs in for a sync.
+func (r *SeerrReconciler) check(ctx context.Context, conn *seerrConn, config *requestsv1alpha1.Seerr) error {
+	var err error
 	if conn.initialized, err = conn.sc.IsInitialized(ctx); err != nil {
-		return nil, err
+		return err
 	}
 	if !conn.initialized && ctrlcommon.ObserveOnly(config.Spec.Reconcile) {
 		// Signing in to a Seerr that has not been set up configures its media
 		// server, so observe mode goes no further.
-		return conn, nil
+		return nil
 	}
 	conn.media, conn.mediaErr = r.mediaServer(ctx, config)
 	if conn.mediaErr != nil && (config.Spec.Connection.APIKeySecretRef == nil || !conn.initialized) {
-		return nil, conn.mediaErr
+		return conn.mediaErr
 	}
-	if err := r.establishSession(ctx, conn.sc, config, conn.media); err != nil {
-		return nil, err
-	}
-	return conn, nil
+	return r.establishSession(ctx, conn.sc, config, conn.media)
 }
 
 func (r *SeerrReconciler) sync(ctx context.Context, conn *seerrConn, config *requestsv1alpha1.Seerr, pass *engine.Pass) []string {
@@ -178,9 +182,18 @@ func seerrServiceKind(sc *seerrclient.Client, kind string) engine.Kind {
 	}
 }
 
-// cleanupSeerr deletes the Sonarr and Radarr connections the operator created,
-// for deletionPolicy delete.
-func cleanupSeerr(ctx context.Context, conn *seerrConn, owned *engine.Ownership) error {
+// cleanup signs in with only what deletion needs and deletes the Sonarr and
+// Radarr connections the operator created, for deletionPolicy delete. An API
+// key is enough: the media server need not be reachable.
+func (r *SeerrReconciler) cleanup(ctx context.Context, conn *seerrConn, owned *engine.Ownership) error {
+	config := conn.config
+	media, err := r.mediaServer(ctx, config)
+	if err != nil && config.Spec.Connection.APIKeySecretRef == nil {
+		return err
+	}
+	if err := r.establishSession(ctx, conn.sc, config, media); err != nil {
+		return err
+	}
 	return owned.CleanupKinds(ctx, []engine.Kind{seerrServiceKind(conn.sc, "sonarr"), seerrServiceKind(conn.sc, "radarr")})
 }
 

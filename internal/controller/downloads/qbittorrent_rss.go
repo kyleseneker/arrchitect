@@ -19,9 +19,11 @@ func reconcileQBRSSFeeds(ctx context.Context, qb *qbclient.Client, pass *engine.
 	if err != nil {
 		return []string{fmt.Sprintf("listing RSS feeds: %v", err)}
 	}
-	if pass.PruneEnabled {
-		names, present := qbRSSFeedNames(feeds), slices.Collect(maps.Keys(current))
-		planned := pass.Owned.Candidates("rssFeeds", names, present)
+	names, present := qbRSSFeedNames(feeds), slices.Collect(maps.Keys(current))
+	planned := pass.Owned.Candidates("rssFeeds", names, present)
+	// A declared URL held by a feed this pass won't prune fails the pass, and
+	// a failed pass prunes nothing.
+	if pass.PruneEnabled && !qbRSSURLConflict(current, feeds, planned) {
 		err := pass.Prune(pass.Owned, "rssFeeds", names, present, func(path string) error {
 			return qb.RemoveRSSItem(ctx, path)
 		})
@@ -83,6 +85,18 @@ func reconcileQBRSSFeed(
 		current[feed.Name] = feed.URL
 	}
 	return err
+}
+
+// qbRSSURLConflict reports whether a declared feed's URL is held by a feed
+// other than itself that the planned prune leaves in place.
+func qbRSSURLConflict(current map[string]string, feeds []downloadsv1alpha1.QBittorrentRSSFeed, planned []string) bool {
+	for _, feed := range feeds {
+		holder := qbRSSFeedAt(current, feed.URL)
+		if holder != "" && holder != feed.Name && !slices.Contains(planned, holder) {
+			return true
+		}
+	}
+	return false
 }
 
 // qbRSSFeedAt returns the path of the feed with url, or "".
