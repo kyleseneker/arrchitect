@@ -44,7 +44,7 @@ type FlareSolverrSpec struct {
 // FlareSolverrConnection defines how the operator connects to a FlareSolverr instance.
 // FlareSolverr typically has no authentication; it is expected to be network-isolated.
 type FlareSolverrConnection struct {
-	// url is the base URL of the FlareSolverr instance (e.g., http://flaresolverr:8191).
+	// url is the base URL of the FlareSolverr instance (e.g., http://flaresolverr.media.svc.cluster.local:8191).
 	// +required
 	// +kubebuilder:validation:Pattern=`^https?://`
 	// +kubebuilder:validation:MinLength=1

@@ -124,7 +124,7 @@ type MaintainerrNotification struct {
 // has no API authentication; restrict access to it at the network level.
 type MaintainerrConnection struct {
 	// url is the base URL of Maintainerr, including any BASE_PATH
-	// (e.g., http://maintainerr:6246).
+	// (e.g., http://maintainerr.media.svc.cluster.local:6246).
 	// +required
 	// +kubebuilder:validation:Pattern=`^https?://`
 	// +kubebuilder:validation:MinLength=1
@@ -194,7 +194,7 @@ type MaintainerrJellyfin struct {
 	// +kubebuilder:validation:XValidation:rule="self.kind == 'Jellyfin'",message="jellyfin refers to a Jellyfin"
 	AppRef *commonv1alpha1.AppRef `json:"appRef,omitempty"`
 
-	// url is the Jellyfin URL as Maintainerr reaches it (e.g., http://jellyfin:8096).
+	// url is the Jellyfin URL as Maintainerr reaches it (e.g., http://jellyfin.media.svc.cluster.local:8096).
 	// +optional
 	// +kubebuilder:validation:Pattern=`^https?://`
 	// +kubebuilder:validation:MinLength=1
@@ -225,7 +225,7 @@ type MaintainerrArrServer struct {
 	// +optional
 	AppRef *commonv1alpha1.AppRef `json:"appRef,omitempty"`
 
-	// url is the server URL as Maintainerr reaches it (e.g., http://radarr:7878).
+	// url is the server URL as Maintainerr reaches it (e.g., http://radarr.media.svc.cluster.local:7878).
 	// +optional
 	// +kubebuilder:validation:Pattern=`^https?://`
 	// +kubebuilder:validation:MinLength=1

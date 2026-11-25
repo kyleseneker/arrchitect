@@ -96,7 +96,7 @@ spec:
                     type: object
                   url:
                     description: url is the base URL of the FlareSolverr instance
-                      (e.g., http://flaresolverr:8191).
+                      (e.g., http://flaresolverr.media.svc.cluster.local:8191).
                     minLength: 1
                     pattern: ^https?://
                     type: string

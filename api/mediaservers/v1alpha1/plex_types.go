@@ -41,7 +41,7 @@ type PlexSpec struct {
 
 // PlexConnection defines how the operator connects to Plex.
 type PlexConnection struct {
-	// url is the base URL of the Plex server (e.g., http://plex:32400).
+	// url is the base URL of the Plex server (e.g., http://plex.media.svc.cluster.local:32400).
 	// +required
 	// +kubebuilder:validation:Pattern=`^https?://`
 	// +kubebuilder:validation:MinLength=1

@@ -93,7 +93,7 @@ spec:
                   url:
                     description: |-
                       url is the base URL of Maintainerr, including any BASE_PATH
-                      (e.g., http://maintainerr:6246).
+                      (e.g., http://maintainerr.media.svc.cluster.local:6246).
                     minLength: 1
                     pattern: ^https?://
                     type: string
@@ -186,7 +186,7 @@ spec:
                           rule: self.kind == 'Jellyfin'
                       url:
                         description: url is the Jellyfin URL as Maintainerr reaches
-                          it (e.g., http://jellyfin:8096).
+                          it (e.g., http://jellyfin.media.svc.cluster.local:8096).
                         minLength: 1
                         pattern: ^https?://
                         type: string
@@ -476,7 +476,7 @@ spec:
                       type: boolean
                     url:
                       description: url is the server URL as Maintainerr reaches it
-                        (e.g., http://radarr:7878).
+                        (e.g., http://radarr.media.svc.cluster.local:7878).
                       minLength: 1
                       pattern: ^https?://
                       type: string
@@ -958,7 +958,7 @@ spec:
                       type: boolean
                     url:
                       description: url is the server URL as Maintainerr reaches it
-                        (e.g., http://radarr:7878).
+                        (e.g., http://radarr.media.svc.cluster.local:7878).
                       minLength: 1
                       pattern: ^https?://
                       type: string

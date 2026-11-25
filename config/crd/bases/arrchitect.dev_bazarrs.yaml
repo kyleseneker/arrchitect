@@ -105,7 +105,7 @@ spec:
                         type: boolean
                     type: object
                   url:
-                    description: url is the base URL of the app (e.g., http://arr-sonarr.arr.svc.cluster.local:8989).
+                    description: url is the base URL of the app (e.g., http://sonarr.media.svc.cluster.local:8989).
                     minLength: 1
                     pattern: ^https?://
                     type: string
@@ -493,7 +493,7 @@ spec:
                     x-kubernetes-list-type: set
                   url:
                     description: url is the Jellyfin URL as Bazarr reaches it (e.g.,
-                      http://jellyfin:8096).
+                      http://jellyfin.media.svc.cluster.local:8096).
                     minLength: 1
                     pattern: ^https?://
                     type: string

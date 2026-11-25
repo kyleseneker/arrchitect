@@ -59,7 +59,7 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `url` _string_ | url is the base URL of the app (e.g., http://arr-sonarr.arr.svc.cluster.local:8989). |  | MinLength: 1 <br />Pattern: `^https?://` <br />Required: \{\} <br /> |
+| `url` _string_ | url is the base URL of the app (e.g., http://sonarr.media.svc.cluster.local:8989). |  | MinLength: 1 <br />Pattern: `^https?://` <br />Required: \{\} <br /> |
 | `apiKeySecretRef` _[SecretKeyRef](#secretkeyref)_ | apiKeySecretRef references a Secret containing the API key. |  | Required: \{\} <br /> |
 | `tls` _[TLSConfig](#tlsconfig)_ | tls configures TLS settings for the connection.<br />Only needed when the app uses HTTPS with self-signed or private CA certificates. |  | Optional: \{\} <br /> |
 
@@ -655,7 +655,7 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `appRef` _[AppRef](#appref)_ | appRef names the Jellyfin resource whose connection URL and API key are<br />used in place of url and apiKeySecretRef. That resource must set its<br />connection's apiKeySecretRef. |  | Optional: \{\} <br /> |
-| `url` _string_ | url is the Jellyfin URL as Bazarr reaches it (e.g., http://jellyfin:8096). |  | MinLength: 1 <br />Pattern: `^https?://` <br />Optional: \{\} <br /> |
+| `url` _string_ | url is the Jellyfin URL as Bazarr reaches it (e.g., http://jellyfin.media.svc.cluster.local:8096). |  | MinLength: 1 <br />Pattern: `^https?://` <br />Optional: \{\} <br /> |
 | `apiKeySecretRef` _[SecretKeyRef](#secretkeyref)_ | apiKeySecretRef references a Secret containing a Jellyfin API key. |  | Optional: \{\} <br /> |
 | `movieLibraries` _string array_ | movieLibraries names the Jellyfin movie libraries Bazarr finds a movie<br />in, and turns on refreshing a movie whose subtitles change. Left out,<br />Bazarr keeps its movie library settings. |  | MinItems: 1 <br />items:MinLength: 1 <br />Optional: \{\} <br /> |
 | `seriesLibraries` _string array_ | seriesLibraries names the Jellyfin TV libraries Bazarr finds a series in,<br />and turns on refreshing an episode whose subtitles change. Left out,<br />Bazarr keeps its series library settings. |  | MinItems: 1 <br />items:MinLength: 1 <br />Optional: \{\} <br /> |
@@ -1055,7 +1055,7 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `url` _string_ | url is the base URL of the FlareSolverr instance (e.g., http://flaresolverr:8191). |  | MinLength: 1 <br />Pattern: `^https?://` <br />Required: \{\} <br /> |
+| `url` _string_ | url is the base URL of the FlareSolverr instance (e.g., http://flaresolverr.media.svc.cluster.local:8191). |  | MinLength: 1 <br />Pattern: `^https?://` <br />Required: \{\} <br /> |
 | `tls` _[TLSConfig](#tlsconfig)_ | tls configures TLS settings for the connection.<br />Only needed when FlareSolverr uses HTTPS with self-signed or private CA certificates. |  | Optional: \{\} <br /> |
 
 
@@ -1958,7 +1958,7 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `name` _string_ | name identifies the server here and in ruleGroups[].sonarrServer and<br />ruleGroups[].radarrServer. It is the server name Maintainerr shows. |  | MinLength: 1 <br />Required: \{\} <br /> |
 | `appRef` _[AppRef](#appref)_ | appRef names the server's resource, a Sonarr in sonarr or a Radarr in<br />radarr, whose connection is used in place of url and apiKeySecretRef. |  | Optional: \{\} <br /> |
-| `url` _string_ | url is the server URL as Maintainerr reaches it (e.g., http://radarr:7878). |  | MinLength: 1 <br />Pattern: `^https?://` <br />Optional: \{\} <br /> |
+| `url` _string_ | url is the server URL as Maintainerr reaches it (e.g., http://radarr.media.svc.cluster.local:7878). |  | MinLength: 1 <br />Pattern: `^https?://` <br />Optional: \{\} <br /> |
 | `apiKeySecretRef` _[SecretKeyRef](#secretkeyref)_ | apiKeySecretRef references a Secret containing the server's API key. |  | Optional: \{\} <br /> |
 | `tagExclusions` _boolean_ | tagExclusions excludes media carrying exclusionTag in this server from<br />every rule group. |  | Optional: \{\} <br /> |
 | `exclusionTag` _string_ | exclusionTag is the tag tagExclusions looks for. Maintainerr uses "dnd"<br />when it is unset. |  | MinLength: 1 <br />Pattern: `^[a-z0-9-]+$` <br />Optional: \{\} <br /> |
@@ -1979,7 +1979,7 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `url` _string_ | url is the base URL of Maintainerr, including any BASE_PATH<br />(e.g., http://maintainerr:6246). |  | MinLength: 1 <br />Pattern: `^https?://` <br />Required: \{\} <br /> |
+| `url` _string_ | url is the base URL of Maintainerr, including any BASE_PATH<br />(e.g., http://maintainerr.media.svc.cluster.local:6246). |  | MinLength: 1 <br />Pattern: `^https?://` <br />Required: \{\} <br /> |
 | `tls` _[TLSConfig](#tlsconfig)_ | tls configures TLS settings for the connection.<br />Only needed when Maintainerr uses HTTPS with self-signed or private CA certificates. |  | Optional: \{\} <br /> |
 
 
@@ -2015,7 +2015,7 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `appRef` _[AppRef](#appref)_ | appRef names the Jellyfin resource whose connection URL and API key are<br />used in place of url and apiKeySecretRef. That resource must set its<br />connection's apiKeySecretRef. |  | Optional: \{\} <br /> |
-| `url` _string_ | url is the Jellyfin URL as Maintainerr reaches it (e.g., http://jellyfin:8096). |  | MinLength: 1 <br />Pattern: `^https?://` <br />Optional: \{\} <br /> |
+| `url` _string_ | url is the Jellyfin URL as Maintainerr reaches it (e.g., http://jellyfin.media.svc.cluster.local:8096). |  | MinLength: 1 <br />Pattern: `^https?://` <br />Optional: \{\} <br /> |
 | `apiKeySecretRef` _[SecretKeyRef](#secretkeyref)_ | apiKeySecretRef references a Secret containing a Jellyfin API key. |  | Optional: \{\} <br /> |
 | `userId` _string_ | userId is the Jellyfin administrator Maintainerr acts as. Maintainerr<br />picks the first administrator when it is unset. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 
@@ -2422,7 +2422,7 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `url` _string_ | url is the base URL of the Plex server (e.g., http://plex:32400). |  | MinLength: 1 <br />Pattern: `^https?://` <br />Required: \{\} <br /> |
+| `url` _string_ | url is the base URL of the Plex server (e.g., http://plex.media.svc.cluster.local:32400). |  | MinLength: 1 <br />Pattern: `^https?://` <br />Required: \{\} <br /> |
 | `tokenSecretRef` _[SecretKeyRef](#secretkeyref)_ | tokenSecretRef references a Secret containing the X-Plex-Token. |  | Required: \{\} <br /> |
 | `tls` _[TLSConfig](#tlsconfig)_ | tls configures TLS settings for the connection.<br />Only needed when Plex uses HTTPS with self-signed or private CA certificates. |  | Optional: \{\} <br /> |
 
