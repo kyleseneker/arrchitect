@@ -272,9 +272,8 @@ the items it created, the same kinds prune covers, and keeps everything else.
 Indexers and download clients default to `delete`; see
 [Indexers and download clients](#indexers-and-download-clients).
 
-Only resources set to `delete` carry the operator's finalizer. Removing the
-operator never leaves the other resources stuck. Delete the ones with the
-finalizer before uninstalling it.
+Only resources set to `delete` carry the operator's finalizer, so deleting one
+waits for the operator. See [Uninstalling](#uninstalling) before you remove it.
 
 `delete` is supported for the apps in the prune table. The API server rejects
 it on Jellyfin and Plex, and alongside `driftPolicy: observe`. An item the app
@@ -386,6 +385,26 @@ that changed. Breaking changes are listed at the top of the release notes; see
 A CRD that a release removes stays installed, along with any resources of that
 kind, and the operator no longer reconciles them. Delete it once you've moved
 them to their replacement.
+
+## Uninstalling
+
+Uninstalling the chart leaves the CRDs and your resources in place. Resources
+set to `deletionPolicy: delete` carry the operator's finalizer, which only a
+running operator removes. Indexers and download clients default to `delete`.
+Without the operator, deleting one of them hangs, and so does deleting its
+namespace.
+
+To remove the operator's items from your apps too, delete those resources
+before uninstalling. To leave your apps as they are, remove the finalizers by
+hand, before or after uninstalling:
+
+```bash
+kubectl get arrchitect -n media -o name \
+  | xargs -I{} kubectl patch {} -n media --type merge -p '{"metadata":{"finalizers":null}}'
+```
+
+Keep the operator out of your apps' namespace. Deleting a namespace that holds
+both can remove the operator before the resources that wait on it.
 
 ## Verifying a release
 
