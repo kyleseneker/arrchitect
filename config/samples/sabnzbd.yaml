@@ -42,3 +42,5 @@ spec:
       dir: movies
     - name: music
       dir: music
+    - name: books
+      dir: books

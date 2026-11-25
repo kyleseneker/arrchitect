@@ -68,13 +68,23 @@ spec:
       implementation: QBittorrent
       fields:
         - name: host
-          value: "qbittorrent.media.svc.cluster.local"
+          value: qbittorrent.media.svc.cluster.local
         - name: port
           value: 8080
+        - name: username
+          valueFrom:
+            secretKeyRef:
+              name: qbittorrent-credentials
+              key: username
+        - name: password
+          valueFrom:
+            secretKeyRef:
+              name: qbittorrent-credentials
+              key: password
       categories:
-        - clientCategory: tv-sonarr
+        - clientCategory: tv
           categories: [5000, 5010, 5020, 5030, 5040, 5045, 5050]
-        - clientCategory: radarr
+        - clientCategory: movies
           categories: [2000, 2010, 2020, 2030, 2040, 2045, 2050, 2060]
   notifications:
     - name: Discord
