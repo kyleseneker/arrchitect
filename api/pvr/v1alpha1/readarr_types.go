@@ -327,6 +327,8 @@ type ReadarrDownloadClientConfig struct {
 type ReadarrUI struct {
 	// firstDayOfWeek is the first day of the week. 0=Sunday, 1=Monday.
 	// +optional
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=1
 	FirstDayOfWeek *int32 `json:"firstDayOfWeek,omitempty"`
 
 	// shortDateFormat is the short date display format.

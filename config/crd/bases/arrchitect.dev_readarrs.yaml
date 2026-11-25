@@ -1379,6 +1379,8 @@ spec:
                     description: firstDayOfWeek is the first day of the week. 0=Sunday,
                       1=Monday.
                     format: int32
+                    maximum: 1
+                    minimum: 0
                     type: integer
                   longDateFormat:
                     description: longDateFormat is the long date display format.
