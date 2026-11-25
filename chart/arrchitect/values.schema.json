@@ -9,7 +9,7 @@
     "replicaCount": {
       "type": "integer",
       "minimum": 0,
-      "description": "Operator replicas. One leads and the rest stand by."
+      "description": "Operator replicas. Only the leader does work, and the others wait to take over."
     },
     "image": {
       "type": "object",
