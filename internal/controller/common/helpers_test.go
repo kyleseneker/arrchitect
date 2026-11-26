@@ -4,10 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
 	"testing"
 	"time"
-	"unicode/utf8"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/testutil"
@@ -546,9 +544,9 @@ func TestReadyChangesAreRecordedAsEvents(t *testing.T) {
 		got = append(got, e)
 	}
 	assert.Equal(t, []string{
-		"Warning AppUnreachable message",
-		"Warning SyncFailed message",
-		"Normal Synced message",
+		"Warning AppUnreachable The app didn't respond.",
+		"Warning SyncFailed The app refused some settings. The Ready condition says which.",
+		"Normal Synced The app matches the resource again.",
 	}, got, "one event per change of Ready, none for the first success or a repeat")
 }
 
@@ -598,16 +596,17 @@ func managedSeries(t *testing.T, name string) int {
 	return n
 }
 
-func TestEventNotesFitTheAPIsByteLimit(t *testing.T) {
+func TestEventNotesKeepTheAppsWordsOut(t *testing.T) {
 	obj, c := statusSonarr(t)
 	recorder := events.NewFakeRecorder(1)
 
-	UpdateStatus(context.Background(), c, recorder, obj, false, engine.ReasonSyncFailed, strings.Repeat("界", 400))
+	UpdateStatus(context.Background(), c, recorder, obj, false, engine.ReasonSyncFailed, "indexers(Private): the tracker said key abc123 is banned")
 
-	note := strings.TrimPrefix(<-recorder.Events, "Warning SyncFailed ")
-	assert.LessOrEqual(t, len(note), maxEventNote, "the API counts a note in bytes")
-	assert.True(t, utf8.ValidString(note), "a character is never cut in half")
-	assert.True(t, strings.HasSuffix(note, "..."))
+	assert.Equal(t, "Warning SyncFailed The app refused some settings. The Ready condition says which.", <-recorder.Events,
+		"an event can reach readers who can't read the resource")
+	ready := meta.FindStatusCondition(obj.Status.Conditions, engine.ConditionReady)
+	require.NotNil(t, ready)
+	assert.Contains(t, ready.Message, "the tracker said", "the details stay in the condition")
 }
 
 func TestManagedResourcesGaugeSurvivesARestartWhileTheAppIsDown(t *testing.T) {

@@ -2,6 +2,7 @@ package common
 
 import (
 	"reflect"
+	"strings"
 	"sync"
 	"time"
 
@@ -50,11 +51,30 @@ func Reached(obj client.Object) {
 	failures.Unlock()
 }
 
+// forget drops the failures of every resource that had obj's kind, namespace
+// and name, once it is gone.
+func forget(obj client.Object) {
+	prefix := retryPrefix(obj)
+	failures.Lock()
+	for key := range failures.count {
+		if strings.HasPrefix(key, prefix) {
+			delete(failures.count, key)
+		}
+	}
+	failures.Unlock()
+}
+
 // NextSync is when a resource that reached its app next reconciles.
 func NextSync(rc *commonv1alpha1.ReconcileConfig) time.Duration {
 	return wait.Jitter(ReconcileInterval(rc), jitter)
 }
 
+// retryKey includes the UID, so a resource deleted and created again under the
+// same name starts without the old one's failures.
 func retryKey(obj client.Object) string {
-	return reflect.TypeOf(obj).Elem().Name() + "/" + obj.GetNamespace() + "/" + obj.GetName()
+	return retryPrefix(obj) + string(obj.GetUID())
+}
+
+func retryPrefix(obj client.Object) string {
+	return reflect.TypeOf(obj).Elem().Name() + "/" + obj.GetNamespace() + "/" + obj.GetName() + "/"
 }

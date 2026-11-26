@@ -8,7 +8,6 @@ import (
 	"slices"
 	"strings"
 	"time"
-	"unicode/utf8"
 
 	"github.com/prometheus/client_golang/prometheus"
 	corev1 "k8s.io/api/core/v1"
@@ -178,30 +177,40 @@ func UpdateStatus(ctx context.Context, c client.Client, recorder events.EventRec
 	recordSynced(obj, synced)
 	recordManaged(obj)
 	writeStatus(ctx, c, obj)
-	emitTransition(recorder, obj, before, synced, reason, message)
+	emitTransition(recorder, obj, before, synced, reason)
 }
 
-// maxEventNote is the longest note, in bytes, the events API accepts.
-const maxEventNote = 1024
+// transitionNotes say in a fixed sentence what each reason means. An event
+// can reach readers who can't read the resource, such as an event exporter,
+// so the app's own words stay in the Ready condition.
+var transitionNotes = map[string]string{
+	engine.ReasonSynced:            "The app matches the resource again.",
+	engine.ReasonObserved:          "The app matches the resource again.",
+	engine.ReasonSyncFailed:        "The app refused some settings. The Ready condition says which.",
+	engine.ReasonDriftDetected:     "The app differs from the resource. The Ready condition says where.",
+	engine.ReasonAppUnreachable:    "The app didn't respond.",
+	engine.ReasonUnauthorized:      "The app refused the credentials.",
+	engine.ReasonSecretNotFound:    "A Secret the resource uses is missing. The Ready condition names it.",
+	engine.ReasonReferenceNotFound: "A resource this one refers to is missing. The Ready condition names it.",
+	engine.ReasonInvalidConfig:     "The resource asks for something the operator can't do. The Ready condition says what.",
+	engine.ReasonNameConflict:      "Another resource already configures this item.",
+}
 
 // emitTransition records a Warning when Ready turns False or its reason
 // changes, and a Normal event when it turns True again.
-func emitTransition(recorder events.EventRecorder, obj ConfigResource, before *metav1.Condition, synced bool, reason, message string) {
+func emitTransition(recorder events.EventRecorder, obj ConfigResource, before *metav1.Condition, synced bool, reason string) {
 	if recorder == nil {
 		return
 	}
-	if len(message) > maxEventNote {
-		cut := maxEventNote - len("...")
-		for cut > 0 && !utf8.RuneStart(message[cut]) {
-			cut--
-		}
-		message = message[:cut] + "..."
+	note, ok := transitionNotes[reason]
+	if !ok {
+		note = "Ready is now " + reason + "."
 	}
 	switch {
 	case !synced && (before == nil || before.Status != metav1.ConditionFalse || before.Reason != reason):
-		recorder.Eventf(obj, nil, corev1.EventTypeWarning, reason, "Reconcile", "%s", message)
+		recorder.Eventf(obj, nil, corev1.EventTypeWarning, reason, "Reconcile", "%s", note)
 	case synced && before != nil && before.Status == metav1.ConditionFalse:
-		recorder.Eventf(obj, nil, corev1.EventTypeNormal, reason, "Reconcile", "%s", message)
+		recorder.Eventf(obj, nil, corev1.EventTypeNormal, reason, "Reconcile", "%s", note)
 	}
 }
 
@@ -214,7 +223,7 @@ func IgnoreDeleted(obj ConfigResource, key types.NamespacedName, err error) erro
 		metrics.ManagedResources.DeletePartialMatch(resourceLabels(key.Namespace, key.Name, obj))
 		obj.SetNamespace(key.Namespace)
 		obj.SetName(key.Name)
-		Reached(obj)
+		forget(obj)
 	}
 	return client.IgnoreNotFound(err)
 }

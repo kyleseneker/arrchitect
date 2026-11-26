@@ -34,9 +34,9 @@ data:
           if c.type == "Ready" then ready = c end
           if c.type == "Stalled" and c.status == "True" then stalled = c end
         end
-        if stalled ~= nil then return {status = "Degraded", message = stalled.reason .. ": " .. stalled.message} end
         if ready == nil then return hs end
         if ready.status == "True" then return {status = "Healthy", message = ready.message} end
+        if stalled ~= nil then return {status = "Degraded", message = stalled.reason .. ": " .. stalled.message} end
         local passing = {AppUnreachable = true, SecretNotFound = true, ReferenceNotFound = true}
         if passing[ready.reason] then return {status = "Progressing", message = ready.reason .. ": " .. ready.message} end
         return {status = "Degraded", message = ready.reason .. ": " .. ready.message}
@@ -76,7 +76,9 @@ the resource.
 
 `kubectl describe` shows a resource's conditions and its events. A Warning
 event is recorded each time `Ready` turns `False` or its reason changes, and a
-Normal event when it turns `True` again.
+Normal event when it turns `True` again. An event says what changed in a fixed
+sentence, since events can reach people who can't read the resource. The
+`Ready` condition holds the details.
 
 | Reason | What to check |
 | --- | --- |

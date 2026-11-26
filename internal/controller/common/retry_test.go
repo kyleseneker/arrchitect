@@ -47,3 +47,15 @@ func TestNextSyncStretchesTheIntervalALittle(t *testing.T) {
 		assert.LessOrEqual(t, got, DefaultReconcileInterval+time.Duration(float64(DefaultReconcileInterval)*jitter))
 	}
 }
+
+func TestARecreatedResourceStartsWithoutTheOldOnesFailures(t *testing.T) {
+	old := &pvrv1alpha1.Sonarr{Name: t.Name(), Namespace: "media", UID: "first"}
+	RetryAfter(old, time.Minute)
+	RetryAfter(old, time.Minute)
+
+	recreated := &pvrv1alpha1.Sonarr{Name: t.Name(), Namespace: "media", UID: "second"}
+	assert.Less(t, RetryAfter(recreated, time.Minute), 2*time.Minute, "a new UID starts at the base delay")
+
+	forget(&pvrv1alpha1.Sonarr{Name: t.Name(), Namespace: "media"})
+	assert.Less(t, RetryAfter(old, time.Minute), 2*time.Minute, "a deleted resource's failures are dropped")
+}

@@ -402,7 +402,10 @@ them to their replacement.
 
 Each chart release passes flags its own image understands, so roll back the
 chart with `helm rollback` rather than pinning an older `image.tag` under a
-newer chart.
+newer chart. Releases before 0.10 don't know the `Stalled` condition, so rolling
+back to one leaves it on any resource that had it, and Flux keeps reporting that
+resource as failed. Remove it with `kubectl edit <kind>/<name>
+--subresource=status`.
 
 ## Uninstalling
 
