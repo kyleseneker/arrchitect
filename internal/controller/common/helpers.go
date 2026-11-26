@@ -8,6 +8,7 @@ import (
 	"slices"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/prometheus/client_golang/prometheus"
 	corev1 "k8s.io/api/core/v1"
@@ -120,9 +121,15 @@ func UpdateStatusManaged(obj ConfigResource, managed map[string][]string) {
 		return
 	}
 	obj.SetManagedResources(managed)
+}
+
+// recordManaged sets the managed_resources series from the ownership obj's
+// status records, on every status write, so they survive an operator restart
+// while the app is out of reach.
+func recordManaged(obj ConfigResource) {
 	labels := resourceLabels(obj.GetNamespace(), obj.GetName(), obj)
 	metrics.ManagedResources.DeletePartialMatch(labels)
-	for resourceType, names := range managed {
+	for resourceType, names := range obj.GetManagedResources() {
 		if len(names) > 0 {
 			metrics.ManagedResources.WithLabelValues(labels["kind"], labels["namespace"], labels["name"], resourceType).Set(float64(len(names)))
 		}
@@ -169,11 +176,12 @@ func UpdateStatus(ctx context.Context, c client.Client, recorder events.EventRec
 	}
 	*obj.GetObservedGeneration() = generation
 	recordSynced(obj, synced)
-	emitTransition(recorder, obj, before, synced, reason, message)
+	recordManaged(obj)
 	writeStatus(ctx, c, obj)
+	emitTransition(recorder, obj, before, synced, reason, message)
 }
 
-// maxEventNote is the longest note the events API accepts.
+// maxEventNote is the longest note, in bytes, the events API accepts.
 const maxEventNote = 1024
 
 // emitTransition records a Warning when Ready turns False or its reason
@@ -182,8 +190,12 @@ func emitTransition(recorder events.EventRecorder, obj ConfigResource, before *m
 	if recorder == nil {
 		return
 	}
-	if runes := []rune(message); len(runes) > maxEventNote {
-		message = string(runes[:maxEventNote-3]) + "..."
+	if len(message) > maxEventNote {
+		cut := maxEventNote - len("...")
+		for cut > 0 && !utf8.RuneStart(message[cut]) {
+			cut--
+		}
+		message = message[:cut] + "..."
 	}
 	switch {
 	case !synced && (before == nil || before.Status != metav1.ConditionFalse || before.Reason != reason):

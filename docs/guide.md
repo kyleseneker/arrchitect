@@ -400,6 +400,10 @@ A CRD that a release removes stays installed, along with any resources of that
 kind, and the operator no longer reconciles them. Delete it once you've moved
 them to their replacement.
 
+Each chart release passes flags its own image understands, so roll back the
+chart with `helm rollback` rather than pinning an older `image.tag` under a
+newer chart.
+
 ## Uninstalling
 
 Uninstalling the chart leaves the CRDs and your resources in place. Resources

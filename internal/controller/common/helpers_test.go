@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/testutil"
@@ -553,16 +555,20 @@ func TestReadyChangesAreRecordedAsEvents(t *testing.T) {
 func TestManagedResourcesGaugeFollowsEachResource(t *testing.T) {
 	sonarr := &pvrv1alpha1.Sonarr{Name: "tv", Namespace: "media"}
 	sonarr4k := &pvrv1alpha1.Sonarr{Name: "tv-4k", Namespace: "media"}
+	own := func(obj ConfigResource, managed map[string][]string) {
+		UpdateStatusManaged(obj, managed)
+		recordManaged(obj)
+	}
 	gauge := func(name, resourceType string) float64 {
 		return testutil.ToFloat64(metrics.ManagedResources.WithLabelValues("Sonarr", "media", name, resourceType))
 	}
 
-	UpdateStatusManaged(sonarr, map[string][]string{"tags": {"a", "b"}, "indexers": {"x"}})
-	UpdateStatusManaged(sonarr4k, map[string][]string{"tags": {"c"}})
+	own(sonarr, map[string][]string{"tags": {"a", "b"}, "indexers": {"x"}})
+	own(sonarr4k, map[string][]string{"tags": {"c"}})
 	assert.Equal(t, 2.0, gauge("tv", "tags"), "each resource has its own series")
 	assert.Equal(t, 1.0, gauge("tv-4k", "tags"))
 
-	UpdateStatusManaged(sonarr, map[string][]string{"tags": {"a"}})
+	own(sonarr, map[string][]string{"tags": {"a"}})
 	assert.Equal(t, 1, managedSeries(t, "tv"), "a type the resource no longer owns loses its series")
 
 	require.NoError(t, IgnoreDeleted(&pvrv1alpha1.Sonarr{}, types.NamespacedName{Namespace: "media", Name: "tv"},
@@ -590,4 +596,27 @@ func managedSeries(t *testing.T, name string) int {
 		}
 	}
 	return n
+}
+
+func TestEventNotesFitTheAPIsByteLimit(t *testing.T) {
+	obj, c := statusSonarr(t)
+	recorder := events.NewFakeRecorder(1)
+
+	UpdateStatus(context.Background(), c, recorder, obj, false, engine.ReasonSyncFailed, strings.Repeat("界", 400))
+
+	note := strings.TrimPrefix(<-recorder.Events, "Warning SyncFailed ")
+	assert.LessOrEqual(t, len(note), maxEventNote, "the API counts a note in bytes")
+	assert.True(t, utf8.ValidString(note), "a character is never cut in half")
+	assert.True(t, strings.HasSuffix(note, "..."))
+}
+
+func TestManagedResourcesGaugeSurvivesARestartWhileTheAppIsDown(t *testing.T) {
+	obj, c := statusSonarr(t)
+	obj.Name = "restarted"
+	obj.SetManagedResources(map[string][]string{"tags": {"a", "b"}})
+
+	UpdateStatus(context.Background(), c, nil, obj, false, engine.ReasonAppUnreachable, "connection refused")
+
+	assert.Equal(t, 2.0, testutil.ToFloat64(metrics.ManagedResources.WithLabelValues("Sonarr", "media", "restarted", "tags")),
+		"the series comes from the ownership status records, not only from a successful sync")
 }

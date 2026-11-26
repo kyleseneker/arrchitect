@@ -95,8 +95,12 @@ func HandleDeletion(ctx context.Context, c client.Client, recorder events.EventR
 		}
 	}
 
+	// Cleanup may have used up the reconcile's deadline, and the release must
+	// still land, or deletion outlasts DeletionGiveUpAfter.
+	releaseCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), statusWriteTimeout)
+	defer cancel()
 	controllerutil.RemoveFinalizer(obj, Finalizer)
-	if err := c.Update(ctx, obj); err != nil && !errors.IsNotFound(err) {
+	if err := c.Update(releaseCtx, obj); err != nil && !errors.IsNotFound(err) {
 		return true, err
 	}
 	return true, nil

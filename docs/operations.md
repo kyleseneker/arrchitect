@@ -17,25 +17,29 @@ reasons.
 Argo CD has no built-in health check for `arrchitect.dev`, so it shows every
 resource as Healthy. Add this to `argocd-cm`. It marks a resource Progressing
 while the operator hasn't caught up or its app is briefly out of reach, and
-Degraded when it's stalled or a sync failed.
+Degraded when it's stalled or a sync failed. The wildcard works only in the
+`resource.customizations` key, not in the per-kind
+`resource.customizations.health.*` keys.
 
 ```yaml
 data:
-  resource.customizations.health.arrchitect.dev_*: |
-    local hs = {status = "Progressing", message = "Waiting for the operator"}
-    if obj.status == nil or obj.status.conditions == nil then return hs end
-    if obj.status.observedGeneration ~= obj.metadata.generation then return hs end
-    local ready, stalled
-    for _, c in ipairs(obj.status.conditions) do
-      if c.type == "Ready" then ready = c end
-      if c.type == "Stalled" and c.status == "True" then stalled = c end
-    end
-    if stalled ~= nil then return {status = "Degraded", message = stalled.reason .. ": " .. stalled.message} end
-    if ready == nil then return hs end
-    if ready.status == "True" then return {status = "Healthy", message = ready.message} end
-    local passing = {AppUnreachable = true, SecretNotFound = true, ReferenceNotFound = true}
-    if passing[ready.reason] then return {status = "Progressing", message = ready.reason .. ": " .. ready.message} end
-    return {status = "Degraded", message = ready.reason .. ": " .. ready.message}
+  resource.customizations: |
+    arrchitect.dev/*:
+      health.lua: |
+        local hs = {status = "Progressing", message = "Waiting for the operator"}
+        if obj.status == nil or obj.status.conditions == nil then return hs end
+        if obj.status.observedGeneration ~= obj.metadata.generation then return hs end
+        local ready, stalled
+        for _, c in ipairs(obj.status.conditions) do
+          if c.type == "Ready" then ready = c end
+          if c.type == "Stalled" and c.status == "True" then stalled = c end
+        end
+        if stalled ~= nil then return {status = "Degraded", message = stalled.reason .. ": " .. stalled.message} end
+        if ready == nil then return hs end
+        if ready.status == "True" then return {status = "Healthy", message = ready.message} end
+        local passing = {AppUnreachable = true, SecretNotFound = true, ReferenceNotFound = true}
+        if passing[ready.reason] then return {status = "Progressing", message = ready.reason .. ": " .. ready.message} end
+        return {status = "Degraded", message = ready.reason .. ": " .. ready.message}
 ```
 
 A resource in observe mode that finds differences reports `DriftDetected`, so
@@ -47,7 +51,8 @@ rather see it as Progressing.
 Flux's health checks read `Ready`, `Stalled` and `observedGeneration`, so they
 work without configuration. A `Stalled` resource fails the Kustomization at
 once. Any other failure keeps it waiting until its `timeout`. To fail at once on
-a sync the app refused as well, add a check for each kind you use:
+a sync the app refused as well, add a check for each kind you use. A custom
+check replaces Flux's own for that kind, so it covers `Stalled` too:
 
 ```yaml
 spec:
@@ -56,7 +61,9 @@ spec:
     - apiVersion: arrchitect.dev/v1alpha1
       kind: Sonarr
       inProgress: status.observedGeneration != metadata.generation
-      failed: status.conditions.exists(e, e.type == 'Ready' && e.status == 'False' && e.reason == 'SyncFailed')
+      failed: >-
+        status.conditions.exists(e, (e.type == 'Stalled' && e.status == 'True') ||
+        (e.type == 'Ready' && e.status == 'False' && e.reason == 'SyncFailed'))
       current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
 ```
 

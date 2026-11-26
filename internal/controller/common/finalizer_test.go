@@ -9,10 +9,12 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/events"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
@@ -247,4 +249,22 @@ func TestCleanupAppWithoutOwnedPrunableResourcesNeedsNoCredentials(t *testing.T)
 	obj.SetManagedResources(map[string][]string{"tags": {"shared"}})
 	def := engine.AppDefinition{Resources: []engine.ResourceEndpoint{{Name: "tags"}, {Name: "indexers", Prunable: true}}}
 	require.NoError(t, CleanupApp(context.Background(), nil, nil, obj, commonv1alpha1.AppConnection{}, def, "sonarr"))
+}
+
+// Cleanup that runs out the reconcile's deadline must not keep the finalizer
+// past DeletionGiveUpAfter.
+func TestFinalizerIsReleasedAfterCleanupUsesUpTheDeadline(t *testing.T) {
+	c := newConfig(DeletionPolicyDelete, DeletionGiveUpAfter+time.Minute)
+	cl := testClient(c).Build()
+	ctx, cancel := context.WithCancel(context.Background())
+
+	handled, err := HandleDeletion(ctx, cl, nil, c, func(context.Context) error {
+		cancel()
+		return context.Canceled
+	})
+
+	require.NoError(t, err)
+	require.True(t, handled)
+	err = cl.Get(context.Background(), client.ObjectKeyFromObject(c), &pvrv1alpha1.Sonarr{})
+	assert.True(t, apierrors.IsNotFound(err), "the finalizer was released, so the resource is gone")
 }
