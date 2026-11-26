@@ -47,6 +47,16 @@ resources:
 # Namespaces to watch, comma-separated. Empty watches every namespace.
 watchNamespace: ""
 
+# How many resources of one kind reconcile at once.
+maxConcurrentReconciles: 2
+
+# How long one reconcile may run before it's cancelled, so a stalled app can't
+# hold a worker.
+reconcileTimeout: 10m
+
+# debug, info or error. debug logs the full error each app sends back.
+logLevel: info
+
 extraArgs: []
 
 podAnnotations: {}

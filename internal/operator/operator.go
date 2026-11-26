@@ -8,8 +8,10 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	// Lets a kubeconfig sign in with the OIDC auth provider.
+	"go.uber.org/zap/zapcore"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
 	corev1 "k8s.io/api/core/v1"
@@ -92,6 +94,7 @@ func Run(addToSchemes []func(*runtime.Scheme) error, controllers ...Controller) 
 	var watchNamespace string
 	var disableControllers string
 	var maxConcurrentReconciles int
+	var reconcileTimeout time.Duration
 	var tlsOpts []func(*tls.Config)
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8443", "The address the metrics endpoint binds to. "+
 		"Use :8443 for HTTPS or :8080 for HTTP, or set to 0 to disable the metrics service.")
@@ -116,9 +119,13 @@ func Run(addToSchemes []func(*runtime.Scheme) error, controllers ...Controller) 
 		"Comma-separated list of controllers to disable (applied after --enable-controllers).")
 	flag.StringVar(&watchNamespace, "watch-namespace", "",
 		"Comma-separated namespaces to watch for custom resources. Empty means all namespaces.")
-	flag.IntVar(&maxConcurrentReconciles, "max-concurrent-reconciles", 1,
+	flag.IntVar(&maxConcurrentReconciles, "max-concurrent-reconciles", 2,
 		"How many resources of one kind reconcile at once. Raise it when one slow app holds up the others.")
-	opts := zap.Options{}
+	flag.DurationVar(&reconcileTimeout, "reconcile-timeout", 10*time.Minute,
+		"How long one reconcile may run before it's cancelled, so a stalled app can't hold a worker. Zero means no limit.")
+	// An app that is down is expected, not a fault in the operator, so errors
+	// carry no stack trace unless asked for.
+	opts := zap.Options{StacktraceLevel: zapcore.PanicLevel}
 	opts.BindFlags(flag.CommandLine)
 	flag.Parse()
 
@@ -189,7 +196,10 @@ func Run(addToSchemes []func(*runtime.Scheme) error, controllers ...Controller) 
 		LeaderElectionID:       "arrchitect.arrchitect.dev",
 		Cache:                  cacheOptions,
 		Client:                 ClientOptions(),
-		Controller:             config.Controller{MaxConcurrentReconciles: maxConcurrentReconciles},
+		Controller: config.Controller{
+			MaxConcurrentReconciles: maxConcurrentReconciles,
+			ReconciliationTimeout:   reconcileTimeout,
+		},
 	})
 	if err != nil {
 		setupLog.Error(err, "Failed to start manager")

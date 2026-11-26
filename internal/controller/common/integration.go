@@ -76,7 +76,7 @@ func (in Integration[T, C]) Reconcile(
 	if err != nil {
 		reason, base := Classify(err)
 		after := RetryAfter(obj, base)
-		log.FromContext(ctx).Error(err, "connecting to "+engine.AppName(in.App), "reason", reason, "retryAfter", after)
+		log.FromContext(ctx).Info("Couldn't reach "+engine.AppName(in.App), "reason", reason, "error", err.Error(), "retryAfter", after)
 		UpdateStatus(ctx, c, recorder, obj, false, reason, err.Error())
 		return ctrl.Result{RequeueAfter: after}, nil
 	}

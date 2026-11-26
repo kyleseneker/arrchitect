@@ -101,7 +101,7 @@ func reconcilePVRObject(ctx context.Context, c client.Client, recorder events.Ev
 	if err != nil {
 		reason, base := ctrlcommon.Classify(err)
 		after := ctrlcommon.RetryAfter(obj, base)
-		log.FromContext(ctx).Error(err, "connecting to "+o.instanceKind, "reason", reason, "retryAfter", after)
+		log.FromContext(ctx).Info("Couldn't reach "+o.instanceKind, "reason", reason, "error", err.Error(), "retryAfter", after)
 		ctrlcommon.UpdateStatus(ctx, c, recorder, obj, false, reason, err.Error())
 		return ctrl.Result{RequeueAfter: after}, nil
 	}

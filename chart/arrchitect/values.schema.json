@@ -103,6 +103,21 @@
       "type": "string",
       "description": "Namespaces to watch, comma-separated. Empty watches every namespace."
     },
+    "maxConcurrentReconciles": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "How many resources of one kind reconcile at once."
+    },
+    "reconcileTimeout": {
+      "type": "string",
+      "pattern": "^([0-9]+(\\.[0-9]+)?(ns|us|ms|s|m|h))+$",
+      "description": "How long one reconcile may run before it's cancelled, as a Go duration such as 10m."
+    },
+    "logLevel": {
+      "type": "string",
+      "enum": ["debug", "info", "error"],
+      "description": "debug, info or error. debug logs the full error each app sends back."
+    },
     "extraArgs": {
       "type": "array",
       "items": {
