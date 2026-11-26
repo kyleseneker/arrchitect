@@ -11,7 +11,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
 	indexersv1alpha1 "github.com/kyleseneker/arrchitect/api/indexers/v1alpha1"
@@ -36,37 +35,42 @@ type ProwlarrReconciler struct {
 // +kubebuilder:rbac:groups=arrchitect.dev,resources=sonarrs;radarrs;lidarrs;readarrs,verbs=get;list;watch
 
 func (r *ProwlarrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	logger := log.FromContext(ctx)
-
-	var config indexersv1alpha1.Prowlarr
-	if err := r.Get(ctx, req.NamespacedName, &config); err != nil {
-		return ctrl.Result{}, ctrlcommon.IgnoreDeleted(&config, req.NamespacedName, err)
+	integration := ctrlcommon.Integration[*indexersv1alpha1.Prowlarr, *engine.HTTPClient]{
+		App:     "prowlarr",
+		Connect: r.connect,
+		Check: func(ctx context.Context, hc *engine.HTTPClient, _ *indexersv1alpha1.Prowlarr) error {
+			return hc.Ping(ctx, prowlarrclient.ProwlarrDefinition().HealthPath)
+		},
+		Sync: r.sync,
+		Cleanup: func(ctx context.Context, hc *engine.HTTPClient, owned *engine.Ownership) error {
+			return engine.DeleteManagedResources(ctx, hc, prowlarrclient.ProwlarrDefinition(), owned)
+		},
+		Deletable: prowlarrclient.ProwlarrDefinition().Deletable,
+		Prune:     true,
 	}
+	return integration.Reconcile(ctx, r.Client, r.Recorder, req, &indexersv1alpha1.Prowlarr{})
+}
 
-	cleanup := func(ctx context.Context) error {
-		return ctrlcommon.CleanupApp(ctx, r.Client, r.Recorder, &config, config.Spec.Connection, prowlarrclient.ProwlarrDefinition(), "prowlarr")
-	}
-	if done, after := ctrlcommon.HandleLifecycle(ctx, r.Client, r.Recorder, &config, ctrlcommon.Lifecycle{Remove: cleanup, Prune: true}); done {
-		return ctrl.Result{RequeueAfter: after}, nil
-	}
-
-	hc, reason, err := r.prowlarrClient(ctx, &config)
+func (r *ProwlarrReconciler) connect(ctx context.Context, config *indexersv1alpha1.Prowlarr) (*engine.HTTPClient, error) {
+	apiKey, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, config.Spec.Connection.APIKeySecretRef)
 	if err != nil {
-		logger.Error(err, "failed to build the Prowlarr client")
-		ctrlcommon.UpdateStatusUnreachable(ctx, r.Client, &config, reason, err.Error())
-		if reason == engine.ReasonInvalidConfig {
-			return ctrl.Result{}, nil
-		}
-		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
+		return nil, err
 	}
+	tlsCfg, err := engine.ResolveTLSConfig(ctx, r.Client, config.Namespace, config.Spec.Connection.TLS)
+	if err != nil {
+		return nil, err
+	}
+	hc, err := engine.NewHTTPClient(config.Spec.Connection.URL, engine.AuthAPIKey,
+		engine.WithOwner(config.Namespace+"/"+config.Name+"/"+string(config.UID)), engine.WithAPIKey(apiKey),
+		engine.WithTLSConfig(tlsCfg), engine.WithAppLabel("prowlarr"))
+	if err != nil {
+		return nil, err
+	}
+	return hc, nil
+}
 
+func (r *ProwlarrReconciler) sync(ctx context.Context, hc *engine.HTTPClient, config *indexersv1alpha1.Prowlarr, pass *engine.Pass) []string {
 	def := prowlarrclient.ProwlarrDefinition()
-	if err := hc.Ping(ctx, def.HealthPath); err != nil {
-		logger.Error(err, "Prowlarr unreachable")
-		ctrlcommon.UpdateStatusUnreachable(ctx, r.Client, &config, engine.ReasonAppUnreachable, err.Error())
-		return ctrl.Result{RequeueAfter: 60 * time.Second}, nil
-	}
-
 	// A kind whose items name a Secret that can't be read is left out of the
 	// pass, neither written nor pruned, and reported; the rest still syncs.
 	var unresolved []string
@@ -94,13 +98,10 @@ func (r *ProwlarrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}
 
 	// Tags and sync profiles must exist before their IDs can be referenced.
-	policy := ctrlcommon.Policy(config.Spec.Reconcile)
 	prerequisites := prowlarrclient.ProwlarrResources(prowlarrclient.ProwlarrOptions{Tags: config.Spec.Tags, AppProfiles: config.Spec.AppProfiles}, nil)
-	result := engine.ReconcileApp(ctx, hc, def, nil, prerequisites, policy, config.GetManagedResources())
+	problems := engine.ReconcileApp(ctx, hc, def, nil, prerequisites, pass)
 
-	// Persist prerequisite ownership even if a subsequent lookup or secret fails.
-	ctrlcommon.UpdateStatusManaged(&config, result.Managed)
-	resolved, tagIDs, terr := prowlarrclient.ResolveReferences(ctx, hc, config.Spec, policy.Observe)
+	resolved, tagIDs, terr := prowlarrclient.ResolveReferences(ctx, hc, config.Spec, pass.Observe)
 	if indexers != nil {
 		indexersWithSecrets := indexers
 		indexers = resolved.Indexers
@@ -109,20 +110,19 @@ func (r *ProwlarrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		}
 	}
 	if terr != nil {
-		ctrlcommon.UpdateStatus(ctx, r.Client, &config, false, engine.ReasonSyncFailed, terr.Error())
-		return ctrl.Result{RequeueAfter: 60 * time.Second}, nil
+		pass.Retry = time.Minute
+		return append(problems, terr.Error())
 	}
 
 	notifications, nerr := ctrlcommon.ResolveNotificationSecrets(ctx, r.Client, config.Namespace, resolved.Notifications)
 	if nerr != nil {
 		unresolved = append(unresolved, fmt.Sprintf("notifications: %v", nerr))
 	}
-
-	appPayloads, aerr := r.buildApplicationPayloads(ctx, hc, &config, tagIDs)
+	appPayloads, aerr := r.buildApplicationPayloads(ctx, hc, config, tagIDs)
 	if aerr != nil {
 		unresolved = append(unresolved, fmt.Sprintf("applications: %v", aerr))
 	}
-	proxyPayloads, perr := r.buildProxyPayloads(ctx, &config, tagIDs)
+	proxyPayloads, perr := r.buildProxyPayloads(ctx, config, tagIDs)
 	if perr != nil {
 		unresolved = append(unresolved, fmt.Sprintf("proxies: %v", perr))
 	}
@@ -134,38 +134,8 @@ func (r *ProwlarrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		DownloadClients: downloadClients,
 		Notifications:   notifications,
 	}, tagIDs)
-
-	rest := engine.ReconcileApp(ctx, hc, def, nil, resources, policy, result.Managed)
-	result.Synced = append(result.Synced, rest.Synced...)
-	result.Errors = append(append(result.Errors, unresolved...), rest.Errors...)
-	result.Drift = append(result.Drift, rest.Drift...)
-	result.Pruned = append(result.Pruned, rest.Pruned...)
-	result.Managed = rest.Managed
-	ctrlcommon.UpdateStatusManaged(&config, result.Managed)
-	ctrlcommon.EmitPruneEvents(r.Recorder, &config, result.Pruned)
-	ctrlcommon.UpdateResultStatus(ctx, r.Client, &config, result)
-
-	return ctrl.Result{RequeueAfter: ctrlcommon.ReconcileInterval(config.Spec.Reconcile)}, nil
-}
-
-// prowlarrClient builds the client for a config, or returns the status reason
-// it can't.
-func (r *ProwlarrReconciler) prowlarrClient(ctx context.Context, config *indexersv1alpha1.Prowlarr) (*engine.HTTPClient, string, error) {
-	apiKey, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, config.Spec.Connection.APIKeySecretRef)
-	if err != nil {
-		return nil, engine.ReasonSecretNotFound, err
-	}
-	tlsCfg, err := engine.ResolveTLSConfig(ctx, r.Client, config.Namespace, config.Spec.Connection.TLS)
-	if err != nil {
-		return nil, engine.ReasonSecretNotFound, err
-	}
-	hc, err := engine.NewHTTPClient(config.Spec.Connection.URL, engine.AuthAPIKey,
-		engine.WithOwner(config.Namespace+"/"+config.Name+"/"+string(config.UID)), engine.WithAPIKey(apiKey),
-		engine.WithTLSConfig(tlsCfg), engine.WithAppLabel("prowlarr"))
-	if err != nil {
-		return nil, engine.ReasonInvalidConfig, err
-	}
-	return hc, "", nil
+	problems = append(problems, unresolved...)
+	return append(problems, engine.ReconcileApp(ctx, hc, def, nil, resources, pass)...)
 }
 
 // buildApplicationPayloads resolves each application's reference and API key

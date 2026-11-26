@@ -104,3 +104,15 @@ func (c *LidarrIndexer) SetManagedResources(m map[string][]string) {
 func (c *LidarrIndexer) GetReconcileConfig() *commonv1alpha1.ReconcileConfig {
 	return &commonv1alpha1.ReconcileConfig{DeletionPolicy: c.Spec.DeletionPolicy}
 }
+
+// InstanceName names the Lidarr the indexer belongs to.
+func (c *LidarrIndexer) InstanceName() string { return c.Spec.LidarrRef.Name }
+
+// ItemName is the indexer's name in Lidarr.
+func (c *LidarrIndexer) ItemName() string { return c.Spec.Name }
+
+// SetItemID records the indexer's ID in Lidarr.
+func (c *LidarrIndexer) SetItemID(id int32) { c.Status.ID = id }
+
+// Item is the indexer as Lidarr stores it.
+func (c *LidarrIndexer) Item() commonv1alpha1.Indexer { return c.Spec.Indexer }

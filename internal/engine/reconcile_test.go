@@ -102,7 +102,7 @@ func TestFailedUpdateDoesNotPruneOrForgetOwnership(t *testing.T) {
 		}
 	})
 	previous := map[string][]string{"indexers": {"desired", "removed"}, "tags": {"retained"}}
-	result := ReconcileApp(context.Background(), hc, ownershipDefinition(), nil,
+	result := run(context.Background(), hc, ownershipDefinition(), nil,
 		map[string][]map[string]any{"indexers": {{"name": "desired", "enabled": true}}}, SyncPolicy{Prune: true}, previous)
 	require.False(t, result.Success())
 	assert.Zero(t, deletes, "a failed apply must block pruning for the resource type")
@@ -125,7 +125,7 @@ func TestExistingResourcesAreNotAdoptedForPruning(t *testing.T) {
 					}
 					_ = json.NewEncoder(w).Encode(items)
 				})
-				result := ReconcileApp(context.Background(), hc, ownershipDefinition(), nil,
+				result := run(context.Background(), hc, ownershipDefinition(), nil,
 					map[string][]map[string]any{"indexers": {{"name": "manual"}}}, SyncPolicy{Observe: observe}, nil)
 				require.True(t, result.Success())
 				if !observe && !existing {
@@ -151,7 +151,7 @@ func TestPruneRetainsFailedDeletesForRetry(t *testing.T) {
 		_ = json.NewEncoder(w).Encode([]map[string]any{{"id": 1, "name": "desired"}, {"id": 2, "name": "deleted"}, {"id": 3, "name": "retry"}})
 	})
 	previous := map[string][]string{"indexers": {"desired", "deleted", "retry"}}
-	result := ReconcileApp(context.Background(), hc, ownershipDefinition(), nil,
+	result := run(context.Background(), hc, ownershipDefinition(), nil,
 		map[string][]map[string]any{"indexers": {{"name": "desired"}}}, SyncPolicy{Prune: true}, previous)
 	require.False(t, result.Success())
 	assert.Equal(t, []string{"desired", "retry"}, result.Managed["indexers"])
@@ -170,7 +170,7 @@ func TestObserveReportsWhatPruneWouldDelete(t *testing.T) {
 		_ = json.NewEncoder(w).Encode([]map[string]any{{"id": 1, "name": "desired"}, {"id": 2, "name": "old"}, {"id": 3, "name": "hand-made"}})
 	})
 	previous := map[string][]string{"indexers": {"desired", "old"}}
-	result := ReconcileApp(context.Background(), hc, ownershipDefinition(), nil,
+	result := run(context.Background(), hc, ownershipDefinition(), nil,
 		map[string][]map[string]any{"indexers": {{"name": "desired"}}}, SyncPolicy{Prune: true, Observe: true}, previous)
 
 	require.True(t, result.Success(), result.Message())
@@ -215,28 +215,6 @@ func TestMaskedSecretCacheIncludesOwner(t *testing.T) {
 	assert.Len(t, writes, 2, "a recreated CR must seed its secret independently")
 }
 
-func TestObserveDifference(t *testing.T) {
-	for _, tt := range []struct {
-		name    string
-		current map[string]any
-		desired any
-		drift   bool
-		fails   bool
-	}{
-		{"missing", nil, map[string]any{}, true, false},
-		{"matching", map[string]any{"enabled": false, "other": "preserved"}, map[string]any{"enabled": false}, false, false},
-		{"changed", map[string]any{"enabled": false}, map[string]any{"enabled": true}, true, false},
-		{"masked", map[string]any{"password": "********"}, map[string]any{"password": "secret"}, false, false},
-		{"invalid", map[string]any{}, make(chan int), false, true},
-	} {
-		t.Run(tt.name, func(t *testing.T) {
-			drift, err := ObserveDifference("test-observe", "settings", tt.name, tt.current, tt.desired)
-			assert.Equal(t, tt.drift, drift)
-			assert.Equal(t, tt.fails, err != nil)
-		})
-	}
-}
-
 func TestDeleteManagedResourcesRespectsOwnershipAndDependencyOrder(t *testing.T) {
 	for _, fail := range []bool{false, true} {
 		t.Run(strconv.FormatBool(fail), func(t *testing.T) {
@@ -257,7 +235,9 @@ func TestDeleteManagedResourcesRespectsOwnershipAndDependencyOrder(t *testing.T)
 				{Name: "profiles", Path: "/profiles", MatchField: "name", Prunable: true},
 			}}
 			managed := map[string][]string{"tags": {"owned"}, "formats": {"owned"}, "profiles": {"owned"}}
-			pruned, _, err := DeleteManagedResources(context.Background(), hc, def, managed)
+			owned := NewOwnership("test", managed)
+			err := DeleteManagedResources(context.Background(), hc, def, owned)
+			pruned := owned.Pruned()
 			if fail {
 				require.Error(t, err)
 				assert.Equal(t, []string{"/profiles/1"}, deleted)
@@ -289,15 +269,16 @@ func TestDeleteManagedResourcesKeepsWhatTheAppRefusesAndCarriesOn(t *testing.T) 
 		{Name: "formats", Path: "/formats", MatchField: "name", Prunable: true},
 		{Name: "profiles", Path: "/profiles", MatchField: "name", Prunable: true},
 	}}
-	pruned, kept, err := DeleteManagedResources(context.Background(), hc, def,
-		map[string][]string{"formats": {"owned"}, "profiles": {"owned"}})
+	owned := NewOwnership("test", map[string][]string{"formats": {"owned"}, "profiles": {"owned"}})
+	refused, err := SplitKept(DeleteManagedResources(context.Background(), hc, def, owned))
 
 	require.NoError(t, err)
 	assert.Equal(t, []string{"/formats/1"}, deleted)
-	require.Len(t, pruned, 1)
-	require.Len(t, kept, 1)
-	assert.Equal(t, "profiles", kept[0].Type)
-	assert.Equal(t, "Profile [Music] is in use.", kept[0].Reason)
+	require.Len(t, owned.Pruned(), 1)
+	require.Len(t, refused, 1)
+	require.Len(t, refused[0].Kept, 1)
+	assert.Equal(t, "profiles", refused[0].Kept[0].Type)
+	assert.Equal(t, "test refused to delete it: Profile [Music] is in use.", refused[0].Kept[0].Reason)
 }
 
 func TestRefusalLeavesRetryableFailuresOut(t *testing.T) {
@@ -322,11 +303,11 @@ func TestReconcileAppReportsObservedDrift(t *testing.T) {
 	}}}
 	observe := SyncPolicy{Observe: true}
 
-	matching := ReconcileApp(context.Background(), hc, def, nil,
+	matching := run(context.Background(), hc, def, nil,
 		map[string][]map[string]any{"downloadClients": {desiredWithPassword("qbit", "never-written")}}, observe, nil)
 	assert.Empty(t, matching.Drift, "a masked password observe never wrote is not drift")
 
-	missing := ReconcileApp(context.Background(), hc, def, nil,
+	missing := run(context.Background(), hc, def, nil,
 		map[string][]map[string]any{"downloadClients": {desiredWithPassword("sab", "pw")}}, observe, nil)
 	assert.Equal(t, []string{"downloadClients(sab)"}, missing.Drift)
 	assert.Empty(t, missing.Synced, "a difference is not reported as synced")
@@ -346,9 +327,9 @@ func TestReconcileSetting_NoChange(t *testing.T) {
 	}
 
 	hc := newTestServer(t, handler)
-	_, err := reconcileSetting(context.Background(), hc, "/api/v3/config/naming", map[string]any{
+	err := reconcileSetting(context.Background(), hc, NewPass("test", SyncPolicy{}, nil), namingSetting, map[string]any{
 		"rename": true, "createEmpty": false,
-	}, false)
+	})
 	assert.NoError(t, err)
 }
 
@@ -371,9 +352,9 @@ func TestReconcileSetting_WithChange(t *testing.T) {
 	}
 
 	hc := newTestServer(t, handler)
-	_, err := reconcileSetting(context.Background(), hc, "/api/v3/config/naming", map[string]any{
+	err := reconcileSetting(context.Background(), hc, NewPass("test", SyncPolicy{}, nil), namingSetting, map[string]any{
 		"rename": true,
-	}, false)
+	})
 	require.NoError(t, err)
 	assert.True(t, putCalled)
 	assert.Equal(t, true, putBody["rename"])
@@ -384,7 +365,7 @@ func TestReconcileSetting_NoID(t *testing.T) {
 	hc := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]any{"rename": true})
 	})
-	_, err := reconcileSetting(context.Background(), hc, "/api/v3/config/naming", map[string]any{"rename": true}, false)
+	err := reconcileSetting(context.Background(), hc, NewPass("test", SyncPolicy{}, nil), namingSetting, map[string]any{"rename": true})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "no id")
 }
@@ -515,10 +496,10 @@ func TestObserveReportsAnEntryAnExactListWouldRemove(t *testing.T) {
 		Name: "customFormats", Path: "/api/v3/customformat", MatchField: "name", Policy: CreateOrUpdate,
 		ExactLists: []string{"specifications"},
 	}
-	_, drift, err := reconcileResourceTracked(context.Background(), hc, endpoint,
-		map[string]any{"name": "x265", "specifications": []map[string]any{{"name": "HEVC"}}}, true)
-	require.NoError(t, err)
-	assert.True(t, drift)
+	pass := NewPass("test", SyncPolicy{Observe: true}, nil)
+	require.NoError(t, reconcileWith(context.Background(), hc, pass, endpoint,
+		map[string]any{"name": "x265", "specifications": []map[string]any{{"name": "HEVC"}}}))
+	assert.Equal(t, []string{"customFormats(x265)"}, pass.Drift())
 }
 
 func TestReconcileResource_CreateOnly(t *testing.T) {
@@ -615,7 +596,7 @@ func TestPruneResources_SafetyThreshold(t *testing.T) {
 
 	hc := newTestServer(t, handler)
 	endpoint := ResourceEndpoint{Name: "indexers", Path: "/api/v3/indexer", MatchField: "name", Prunable: true}
-	desired := []map[string]any{} // No desired items, all 30 would be pruned
+	desired := []map[string]any{{"name": "kept"}} // all 30 would be pruned
 
 	before := testutil.ToFloat64(metrics.ResourcesPrunedTotal.WithLabelValues(testAppLabel, "indexers"))
 	allManaged := make([]string, len(existing))
@@ -624,7 +605,7 @@ func TestPruneResources_SafetyThreshold(t *testing.T) {
 	}
 	_, err := pruneResources(context.Background(), hc, endpoint, desired, allManaged)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "refusing to prune")
+	assert.Contains(t, err.Error(), "refusing to delete")
 	assert.Contains(t, err.Error(), "30")
 
 	after := testutil.ToFloat64(metrics.ResourcesPrunedTotal.WithLabelValues(testAppLabel, "indexers"))
@@ -673,7 +654,7 @@ func TestReconcileApp(t *testing.T) {
 		"tags": {{"label": "test"}},
 	}
 
-	result := ReconcileApp(context.Background(), hc, def, sections, resources, SyncPolicy{}, nil)
+	result := run(context.Background(), hc, def, sections, resources, SyncPolicy{}, nil)
 	assert.True(t, result.Success())
 	assert.Contains(t, result.Synced, "naming")
 	assert.Contains(t, result.Synced, "tags(test)")
@@ -687,7 +668,7 @@ func TestReconcileApp_SkipsNilSections(t *testing.T) {
 	def := AppDefinition{
 		Settings: []SettingEndpoint{{Name: "naming", Path: "/api/v3/config/naming"}},
 	}
-	result := ReconcileApp(context.Background(), hc, def, map[string]any{}, nil, SyncPolicy{}, nil)
+	result := run(context.Background(), hc, def, map[string]any{}, nil, SyncPolicy{}, nil)
 	assert.True(t, result.Success())
 	assert.Empty(t, result.Synced)
 }
@@ -712,7 +693,7 @@ func TestPruneSkipsResourcesTheOperatorNeverCreated(t *testing.T) {
 	// The CR no longer declares either one, but the operator only ever created
 	// "operator-made". The hand-built indexer must survive.
 	pruned, err := pruneResources(context.Background(), hc, endpoint,
-		[]map[string]any{}, []string{"operator-made"})
+		[]map[string]any{{"name": "declared"}}, []string{"operator-made"})
 	require.NoError(t, err)
 
 	assert.Len(t, pruned, 1)
@@ -736,7 +717,7 @@ func TestPruneIsNoOpOnFirstReconcile(t *testing.T) {
 	hc := newTestServer(t, handler)
 	endpoint := ResourceEndpoint{Name: "indexers", Path: "/api/v3/indexer", MatchField: "name", Prunable: true}
 
-	pruned, err := pruneResources(context.Background(), hc, endpoint, []map[string]any{}, nil)
+	pruned, err := pruneResources(context.Background(), hc, endpoint, []map[string]any{{"name": "declared"}}, nil)
 	require.NoError(t, err)
 	assert.Empty(t, pruned)
 }
@@ -994,4 +975,200 @@ func TestCreatedSecretIsNotRewrittenOnTheNextPass(t *testing.T) {
 		require.NoError(t, reconcileResource(context.Background(), hc, ep, desiredWithPassword("created", "pw"), false), "reconcile %d", i)
 	}
 	assert.Equal(t, []string{http.MethodPost}, writes, "want only the create")
+}
+
+var namingSetting = SettingEndpoint{Name: "naming", Path: "/api/v3/config/naming"}
+
+// run is ReconcileApp with a pass built from policy and managed, its outcome
+// gathered for assertions.
+func run(
+	ctx context.Context, hc *HTTPClient, def AppDefinition, sections map[string]any, resources map[string][]map[string]any,
+	policy SyncPolicy, managed map[string][]string,
+) outcome {
+	pass := NewPass(hc.AppLabel(), policy, managed)
+	errs := ReconcileApp(ctx, hc, def, sections, resources, pass)
+	return outcome{
+		Synced: pass.SyncedItems(), Errors: errs, Drift: pass.Drift(), Pruned: pass.Owned.Pruned(), Managed: pass.Owned.Managed(),
+	}
+}
+
+// reconcileWith reconciles one declared item through pass, listing the
+// endpoint first as ReconcileApp does.
+func reconcileWith(ctx context.Context, hc *HTTPClient, pass *Pass, endpoint ResourceEndpoint, desired map[string]any) error {
+	existing, err := hc.GetJSONList(ctx, endpoint.Path)
+	if err != nil {
+		return err
+	}
+	return reconcileItem(ctx, hc, pass, endpoint, &existing, desired)
+}
+
+// reconcileResource reconciles one declared item in a pass of its own.
+func reconcileResource(ctx context.Context, hc *HTTPClient, endpoint ResourceEndpoint, desired map[string]any, observe bool) error {
+	return reconcileWith(ctx, hc, NewPass(hc.AppLabel(), SyncPolicy{Observe: observe}, nil), endpoint, desired)
+}
+
+// pruneResources prunes endpoint against desired, with managed as what the
+// operator created, and returns what it deleted.
+func pruneResources(
+	ctx context.Context, hc *HTTPClient, endpoint ResourceEndpoint, desired []map[string]any, managed []string,
+) ([]PrunedResource, error) {
+	pass := NewPass(hc.AppLabel(), SyncPolicy{Prune: true}, map[string][]string{endpoint.Name: managed})
+	existing, err := hc.GetJSONList(ctx, endpoint.Path)
+	if err != nil {
+		return nil, err
+	}
+	err = pruneEndpoint(ctx, hc, pass, endpoint, desired, existing)
+	return pass.Owned.Pruned(), err
+}
+
+// outcome is a pass's result, with what it deleted and the ownership it ended
+// with.
+type outcome struct {
+	ReconcileResult
+	Pruned  []PrunedResource
+	Managed map[string][]string
+}
+
+func TestReconcileAppListsEachEndpointOncePerPass(t *testing.T) {
+	var lists, creates int
+	stored := []map[string]any{{"id": float64(1), "name": "existing"}}
+	hc := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			lists++
+			_ = json.NewEncoder(w).Encode(stored)
+		case http.MethodPost:
+			creates++
+			var item map[string]any
+			_ = json.NewDecoder(r.Body).Decode(&item)
+			item["id"] = float64(10 + creates)
+			_ = json.NewEncoder(w).Encode(item)
+		}
+	})
+	def := AppDefinition{Resources: []ResourceEndpoint{{Name: "tags", Path: "/tag", MatchField: "name", Policy: CreateOrUpdate}}}
+	declared := []map[string]any{{"name": "existing"}, {"name": "new"}, {"name": "new"}}
+
+	result := run(context.Background(), hc, def, nil, map[string][]map[string]any{"tags": declared}, SyncPolicy{}, nil)
+
+	assert.Empty(t, result.Errors)
+	assert.Equal(t, 2, lists, "one list for the pass and one check before the create, not one per item")
+	assert.Equal(t, 1, creates, "an item created earlier in the pass is found by a later one")
+	assert.Equal(t, []string{"new"}, result.Managed["tags"])
+}
+
+func TestAnUpdateMergesOverTheItemAsItIsNow(t *testing.T) {
+	lists := 0
+	var put map[string]any
+	hc := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			lists++
+			seeders := 1.0
+			if lists > 1 {
+				seeders = 3 // changed in the app after the pass listed the endpoint
+			}
+			_ = json.NewEncoder(w).Encode([]map[string]any{{"id": float64(7), "name": "B", "rss": false, "minimumSeeders": seeders}})
+		case http.MethodPut:
+			_ = json.NewDecoder(r.Body).Decode(&put)
+		}
+	})
+	def := AppDefinition{Resources: []ResourceEndpoint{{Name: "indexers", Path: "/indexer", MatchField: "name", Policy: CreateOrUpdate}}}
+
+	result := run(context.Background(), hc, def, nil, map[string][]map[string]any{"indexers": {{"name": "B", "rss": true}}}, SyncPolicy{}, nil)
+
+	require.Empty(t, result.Errors)
+	assert.Equal(t, true, put["rss"])
+	assert.InDelta(t, 3, put["minimumSeeders"], 0, "an undeclared field keeps the value the app has now")
+}
+
+func TestPruneSparesAnItemRenamedInTheAppDuringThePass(t *testing.T) {
+	lists, deleted := 0, false
+	hc := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			lists++
+			old := "old"
+			if lists > 1 {
+				old = "renamed by hand" // renamed in the app after the pass listed the endpoint
+			}
+			_ = json.NewEncoder(w).Encode([]map[string]any{{"id": float64(1), "name": "kept"}, {"id": float64(5), "name": old}})
+		case http.MethodDelete:
+			deleted = true
+		}
+	})
+	def := AppDefinition{Resources: []ResourceEndpoint{{Name: "indexers", Path: "/indexer", MatchField: "name", Policy: CreateOrUpdate, Prunable: true}}}
+
+	result := run(context.Background(), hc, def, nil, map[string][]map[string]any{"indexers": {{"name": "kept"}}},
+		SyncPolicy{Prune: true}, map[string][]string{"indexers": {"kept", "old"}})
+
+	require.Empty(t, result.Errors)
+	assert.False(t, deleted, "the item no longer has the name the operator owns")
+}
+
+func TestPruneRefusesANameTheAppHasTwice(t *testing.T) {
+	deleted := false
+	hc := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodDelete {
+			deleted = true
+			return
+		}
+		_ = json.NewEncoder(w).Encode([]map[string]any{
+			{"id": float64(1), "name": "kept"}, {"id": float64(5), "name": "old"}, {"id": float64(6), "name": "old"},
+		})
+	})
+	endpoint := ResourceEndpoint{Name: "indexers", Path: "/indexer", MatchField: "name", Prunable: true}
+
+	_, err := pruneResources(context.Background(), hc, endpoint, []map[string]any{{"name": "kept"}}, []string{"old"})
+
+	require.ErrorContains(t, err, `has 2 indexers named "old"`)
+	assert.False(t, deleted)
+}
+
+func TestCleanupKeepsANameTheAppHasTwiceAndCarriesOn(t *testing.T) {
+	var deleted []string
+	hc := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodDelete {
+			deleted = append(deleted, r.URL.Path)
+			return
+		}
+		_ = json.NewEncoder(w).Encode([]map[string]any{
+			{"id": float64(1), "name": "dup"}, {"id": float64(2), "name": "dup"}, {"id": float64(3), "name": "single"},
+		})
+	})
+	def := AppDefinition{Resources: []ResourceEndpoint{
+		{Name: "formats", Path: "/formats", MatchField: "name", Prunable: true},
+		{Name: "profiles", Path: "/profiles", MatchField: "name", Prunable: true},
+	}}
+	owned := NewOwnership("sonarr", map[string][]string{"formats": {"single"}, "profiles": {"dup", "single"}})
+
+	refused, err := SplitKept(DeleteManagedResources(context.Background(), hc, def, owned))
+
+	require.NoError(t, err, "no retry fixes a duplicate, so it must not block the rest")
+	assert.Equal(t, []string{"/profiles/3", "/formats/3"}, deleted)
+	require.Len(t, refused, 1)
+	assert.Equal(t, `test-app has 2 profiles named "dup"`, refused[0].Kept[0].Reason)
+}
+
+func TestACreateChecksTheItemIsStillMissing(t *testing.T) {
+	lists, creates := 0, 0
+	hc := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			lists++
+			items := []map[string]any{}
+			if lists > 1 {
+				items = append(items, map[string]any{"id": float64(4), "name": "tv"}) // created by someone else mid-pass
+			}
+			_ = json.NewEncoder(w).Encode(items)
+		case http.MethodPost:
+			creates++
+		}
+	})
+	def := AppDefinition{Resources: []ResourceEndpoint{{Name: "tags", Path: "/tag", MatchField: "name", Policy: CreateOrUpdate}}}
+
+	result := run(context.Background(), hc, def, nil, map[string][]map[string]any{"tags": {{"name": "tv"}}}, SyncPolicy{}, nil)
+
+	require.Empty(t, result.Errors)
+	assert.Zero(t, creates, "a second item with the same name must not be created")
+	assert.Empty(t, result.Managed["tags"], "an item someone else created isn't the operator's")
 }

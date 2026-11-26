@@ -104,3 +104,15 @@ func (c *ReadarrIndexer) SetManagedResources(m map[string][]string) {
 func (c *ReadarrIndexer) GetReconcileConfig() *commonv1alpha1.ReconcileConfig {
 	return &commonv1alpha1.ReconcileConfig{DeletionPolicy: c.Spec.DeletionPolicy}
 }
+
+// InstanceName names the Readarr the indexer belongs to.
+func (c *ReadarrIndexer) InstanceName() string { return c.Spec.ReadarrRef.Name }
+
+// ItemName is the indexer's name in Readarr.
+func (c *ReadarrIndexer) ItemName() string { return c.Spec.Name }
+
+// SetItemID records the indexer's ID in Readarr.
+func (c *ReadarrIndexer) SetItemID(id int32) { c.Status.ID = id }
+
+// Item is the indexer as Readarr stores it.
+func (c *ReadarrIndexer) Item() commonv1alpha1.Indexer { return c.Spec.Indexer }

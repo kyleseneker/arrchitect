@@ -75,7 +75,7 @@ func TestOwnershipCleanupKeepsWhatTheAppRefusesAndCarriesOn(t *testing.T) {
 	var kept *KeptError
 	require.ErrorAs(t, err, &kept)
 	assert.Equal(t, "ownership-test", kept.App)
-	assert.Equal(t, []KeptResource{{Type: "profiles", Name: "b", Reason: "in use by a root folder"}}, kept.Kept)
+	assert.Equal(t, []KeptResource{{Type: "profiles", Name: "b", Reason: "ownership-test refused to delete it: in use by a root folder"}}, kept.Kept)
 	assert.Equal(t, []string{"a", "c"}, removed)
 
 	err = o.Prune("profiles", []string{"x"}, []string{"b"}, func(string) error {
@@ -131,4 +131,19 @@ func TestOwnershipOwnsOnlyKindsWithCreatedItems(t *testing.T) {
 	assert.True(t, o.Owns("proxies"))
 	require.NoError(t, o.Cleanup("proxies", []string{"vpn"}, func(string) error { return nil }))
 	assert.False(t, o.Owns("proxies"))
+}
+
+func TestCleanupKeepsARefusalWhenALaterDeleteFails(t *testing.T) {
+	owned := NewOwnership("ownership-kept", map[string][]string{"profiles": {"a-in-use", "b-flaky"}})
+	err := owned.Cleanup("profiles", []string{"a-in-use", "b-flaky"}, func(name string) error {
+		if name == "a-in-use" {
+			return &APIError{StatusCode: 400, Body: []byte(`{"message":"Profile is in use"}`)}
+		}
+		return errors.New("connection reset")
+	})
+
+	kept, failure := SplitKept(err)
+	require.Len(t, kept, 1, "the refusal must reach the ResourceKept event")
+	assert.Equal(t, "a-in-use", kept[0].Kept[0].Name)
+	require.ErrorContains(t, failure, "connection reset", "the failure must still be retried")
 }

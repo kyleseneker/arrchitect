@@ -92,3 +92,14 @@ func (r ResourceEndpoint) resourceKey(item map[string]any) string {
 	key, _ := item[r.MatchField].(string)
 	return key
 }
+
+// Deletable reports whether owned holds an item of a prunable resource, which
+// deletionPolicy delete removes.
+func (d AppDefinition) Deletable(owned *Ownership) bool {
+	for _, r := range d.Resources {
+		if r.Prunable && owned.Owns(r.Name) {
+			return true
+		}
+	}
+	return false
+}

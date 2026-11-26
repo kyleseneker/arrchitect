@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"slices"
 	"strings"
-	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -44,68 +43,36 @@ type MaintainerrReconciler struct {
 // +kubebuilder:rbac:groups=arrchitect.dev,resources=sonarrs;radarrs;seerrs;plexes;jellyfins,verbs=get;list;watch
 
 func (r *MaintainerrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	logger := log.FromContext(ctx)
-
-	var config curationv1alpha1.Maintainerr
-	if err := r.Get(ctx, req.NamespacedName, &config); err != nil {
-		return ctrl.Result{}, ctrlcommon.IgnoreDeleted(&config, req.NamespacedName, err)
+	integration := ctrlcommon.Integration[*curationv1alpha1.Maintainerr, *maintainerrclient.Client]{
+		App:     maintainerrApp,
+		Connect: r.connect,
+		Check: func(ctx context.Context, mc *maintainerrclient.Client, _ *curationv1alpha1.Maintainerr) error {
+			return mc.Ping(ctx)
+		},
+		Sync: func(ctx context.Context, mc *maintainerrclient.Client, config *curationv1alpha1.Maintainerr, pass *engine.Pass) []string {
+			sync := &maintainerrSync{Pass: pass, c: r.Client, apps: r.Apps, mc: mc, namespace: config.Namespace}
+			return sync.run(ctx, &config.Spec)
+		},
+		Cleanup: func(ctx context.Context, mc *maintainerrclient.Client, owned *engine.Ownership) error {
+			return (&maintainerrSync{Pass: &engine.Pass{Owned: owned}, mc: mc}).cleanup(ctx)
+		},
+		Prune: true,
 	}
-
-	cleanup := func(ctx context.Context) error {
-		mc, _, err := r.maintainerrClient(ctx, &config)
-		if err != nil {
-			return err
-		}
-		return (&maintainerrSync{mc: mc, owned: engine.NewOwnership(maintainerrApp, config.GetManagedResources())}).cleanup(ctx)
-	}
-	lifecycle := ctrlcommon.Lifecycle{Remove: cleanup, Prune: true}
-	if done, after := ctrlcommon.HandleLifecycle(ctx, r.Client, r.Recorder, &config, lifecycle); done {
-		return ctrl.Result{RequeueAfter: after}, nil
-	}
-
-	mc, reason, err := r.maintainerrClient(ctx, &config)
-	if err != nil {
-		logger.Error(err, "failed to build the Maintainerr client")
-		ctrlcommon.UpdateStatusUnreachable(ctx, r.Client, &config, reason, err.Error())
-		if reason == engine.ReasonInvalidConfig {
-			return ctrl.Result{}, nil
-		}
-		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
-	}
-
-	if err := mc.Ping(ctx); err != nil {
-		logger.Error(err, "Maintainerr unreachable")
-		ctrlcommon.UpdateStatusUnreachable(ctx, r.Client, &config, engine.ReasonAppUnreachable, err.Error())
-		return ctrl.Result{RequeueAfter: 60 * time.Second}, nil
-	}
-
-	sync := &maintainerrSync{
-		App: maintainerrApp, Observe: ctrlcommon.ObserveOnly(config.Spec.Reconcile),
-		c: r.Client, apps: r.Apps, mc: mc, namespace: config.Namespace,
-		prune: ctrlcommon.PruneEnabled(config.Spec.Reconcile), owned: engine.NewOwnership(maintainerrApp, config.GetManagedResources()),
-	}
-	syncErrors := sync.run(ctx, &config.Spec)
-	ctrlcommon.UpdateStatusManaged(&config, sync.owned.Managed())
-	ctrlcommon.EmitPruneEvents(r.Recorder, &config, sync.owned.Pruned())
-	ctrlcommon.UpdateSyncStatus(ctx, r.Client, &config, sync.Observe, sync.Drift(), syncErrors)
-
-	return ctrl.Result{RequeueAfter: ctrlcommon.ReconcileInterval(config.Spec.Reconcile)}, nil
+	return integration.Reconcile(ctx, r.Client, r.Recorder, req, &curationv1alpha1.Maintainerr{})
 }
 
-func (r *MaintainerrReconciler) maintainerrClient(
-	ctx context.Context, config *curationv1alpha1.Maintainerr,
-) (*maintainerrclient.Client, string, error) {
+func (r *MaintainerrReconciler) connect(ctx context.Context, config *curationv1alpha1.Maintainerr) (*maintainerrclient.Client, error) {
 	tlsCfg, err := engine.ResolveTLSConfig(ctx, r.Client, config.Namespace, config.Spec.Connection.TLS)
 	if err != nil {
-		return nil, engine.ReasonSecretNotFound, err
+		return nil, err
 	}
 	// Maintainerr has no API authentication.
 	hc, err := engine.NewHTTPClient(config.Spec.Connection.URL, engine.AuthNone,
 		engine.WithTLSConfig(tlsCfg), engine.WithAppLabel(maintainerrApp))
 	if err != nil {
-		return nil, engine.ReasonInvalidConfig, err
+		return nil, err
 	}
-	return maintainerrclient.NewClient(hc), "", nil
+	return maintainerrclient.NewClient(hc), nil
 }
 
 // maintainerrSync applies one Maintainerr in dependency order: the media
@@ -113,13 +80,11 @@ func (r *MaintainerrReconciler) maintainerrClient(
 // them, since Maintainerr resolves rule properties only for configured apps.
 // With observe set it only reads, and records what it would have written.
 type maintainerrSync struct {
-	engine.Writes
+	*engine.Pass
 	c         client.Reader
 	apps      ctrlcommon.Apps
 	mc        *maintainerrclient.Client
 	namespace string
-	prune     bool
-	owned     *engine.Ownership
 }
 
 func (s *maintainerrSync) created(kind, name string, create func() error) func() error {
@@ -127,7 +92,7 @@ func (s *maintainerrSync) created(kind, name string, create func() error) func()
 		if err := create(); err != nil {
 			return err
 		}
-		s.owned.Created(kind, name)
+		s.Owned.Created(kind, name)
 		return nil
 	}
 }
@@ -202,7 +167,7 @@ func (s *maintainerrSync) run(ctx context.Context, spec *curationv1alpha1.Mainta
 		syncErrors = append(syncErrors, errs...)
 		failed[ruleGroupsKind] = len(errs) > 0
 	}
-	if s.prune {
+	if s.PruneEnabled {
 		syncErrors = append(syncErrors, s.pruneUndeclared(ctx, spec, failed)...)
 	}
 	return syncErrors

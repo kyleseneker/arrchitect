@@ -104,3 +104,15 @@ func (c *ReadarrDownloadClient) SetManagedResources(m map[string][]string) {
 func (c *ReadarrDownloadClient) GetReconcileConfig() *commonv1alpha1.ReconcileConfig {
 	return &commonv1alpha1.ReconcileConfig{DeletionPolicy: c.Spec.DeletionPolicy}
 }
+
+// InstanceName names the Readarr the download client belongs to.
+func (c *ReadarrDownloadClient) InstanceName() string { return c.Spec.ReadarrRef.Name }
+
+// ItemName is the download client's name in Readarr.
+func (c *ReadarrDownloadClient) ItemName() string { return c.Spec.Name }
+
+// SetItemID records the download client's ID in Readarr.
+func (c *ReadarrDownloadClient) SetItemID(id int32) { c.Status.ID = id }
+
+// Item is the download client as Readarr stores it.
+func (c *ReadarrDownloadClient) Item() commonv1alpha1.DownloadClient { return c.Spec.DownloadClient }

@@ -30,6 +30,7 @@ import (
 	downloadsv1alpha1 "github.com/kyleseneker/arrchitect/api/downloads/v1alpha1"
 	pvrv1alpha1 "github.com/kyleseneker/arrchitect/api/pvr/v1alpha1"
 	autobrrclient "github.com/kyleseneker/arrchitect/internal/client/autobrr"
+	"github.com/kyleseneker/arrchitect/internal/engine"
 	"github.com/kyleseneker/arrchitect/internal/testnet"
 )
 
@@ -286,7 +287,7 @@ func TestUpsertAutobrrComparesRedactedSecretsByWhatWasWritten(t *testing.T) {
 	}}
 	obj := map[string]any{"name": "qBittorrent", "type": "QBITTORRENT", "password": "s3cret"}
 	writes := 0
-	ab := &autobrrSync{owner: "media/" + t.Name()}
+	ab := &autobrrSync{Pass: &engine.Pass{}, owner: "media/" + t.Name()}
 	upsert := func() {
 		t.Helper()
 		require.NoError(t, ab.upsert(context.Background(), "download client", "qBittorrent", existing, obj,
@@ -305,8 +306,7 @@ func TestUpsertAutobrrComparesRedactedSecretsByWhatWasWritten(t *testing.T) {
 	upsert()
 	assert.Equal(t, 3, writes, "a real change must be written")
 
-	observer := &autobrrSync{owner: "media/" + t.Name() + "-observe"}
-	observer.Observe = true
+	observer := &autobrrSync{Pass: &engine.Pass{Observe: true}, owner: "media/" + t.Name() + "-observe"}
 	require.NoError(t, observer.upsert(context.Background(), "download client", "qBittorrent", existing,
 		map[string]any{"name": "qBittorrent", "type": "QBITTORRENT", "password": "s3cret"}, nil, nil, nil))
 	assert.Empty(t, observer.Drift(), "observe mode can't know a secret it never wrote")
@@ -315,7 +315,7 @@ func TestUpsertAutobrrComparesRedactedSecretsByWhatWasWritten(t *testing.T) {
 func TestUpsertAutobrrRemembersTheSecretsItCreatedWith(t *testing.T) {
 	stored := []map[string]any{}
 	obj := map[string]any{"name": "qBittorrent", "type": "QBITTORRENT", "password": "s3cret"}
-	ab := &autobrrSync{owner: "media/" + t.Name()}
+	ab := &autobrrSync{Pass: &engine.Pass{}, owner: "media/" + t.Name()}
 	list := func(context.Context) ([]map[string]any, error) { return stored, nil }
 	require.NoError(t, ab.upsert(context.Background(), "download client", "qBittorrent", stored, obj,
 		func() error {

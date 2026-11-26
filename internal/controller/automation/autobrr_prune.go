@@ -5,32 +5,27 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 
 	automationv1alpha1 "github.com/kyleseneker/arrchitect/api/automation/v1alpha1"
+	"github.com/kyleseneker/arrchitect/internal/engine"
 )
 
 const actionsKind = "actions"
 
-// autobrrList is one kind the operator creates in Autobrr.
-type autobrrList struct {
-	kind   string
-	list   func(ctx context.Context) ([]map[string]any, error)
-	remove func(ctx context.Context, id int) error
-}
-
-// lists returns the kinds in the order they are deleted, each before what it
+// kinds returns the kinds in the order they are deleted, each before what it
 // refers to: lists before the filters and download clients they name, and
 // filters before the download clients their actions use.
-func (s *autobrrSync) lists() []autobrrList {
-	return []autobrrList{
-		{"lists", s.ac.ListLists, s.ac.DeleteList},
-		{"filters", s.ac.ListFilters, s.ac.DeleteFilter},
-		{"notifications", s.ac.ListNotifications, s.ac.DeleteNotification},
-		{"feeds", s.ac.ListFeeds, s.ac.DeleteFeed},
-		{"ircNetworks", s.ac.ListIRCNetworks, s.ac.DeleteIRCNetwork},
-		{"indexers", s.ac.ListIndexers, s.ac.DeleteIndexer},
-		{"downloadClients", s.ac.ListDownloadClients, s.ac.DeleteDownloadClient},
-		{"proxies", s.ac.ListProxies, s.ac.DeleteProxy},
+func (s *autobrrSync) kinds() []engine.Kind {
+	return []engine.Kind{
+		{Name: "lists", List: s.ac.ListLists, Remove: s.ac.DeleteList},
+		{Name: "filters", List: s.ac.ListFilters, Remove: s.ac.DeleteFilter},
+		{Name: "notifications", List: s.ac.ListNotifications, Remove: s.ac.DeleteNotification},
+		{Name: "feeds", List: s.ac.ListFeeds, Remove: s.ac.DeleteFeed},
+		{Name: "ircNetworks", List: s.ac.ListIRCNetworks, Remove: s.ac.DeleteIRCNetwork},
+		{Name: "indexers", List: s.ac.ListIndexers, Remove: s.ac.DeleteIndexer},
+		{Name: "downloadClients", List: s.ac.ListDownloadClients, Remove: s.ac.DeleteDownloadClient},
+		{Name: "proxies", List: s.ac.ListProxies, Remove: s.ac.DeleteProxy},
 	}
 }
 
@@ -74,28 +69,19 @@ func (s *autobrrSync) pruneUndeclared(ctx context.Context, spec *automationv1alp
 			}
 		}
 	}
-	declared := declaredNames(spec)
-	for _, l := range s.lists() {
-		if failed[l.kind] || !s.owned.Owns(l.kind) {
-			continue
-		}
-		names, ids, err := listed(ctx, l.list)
-		if err == nil {
-			err = s.Prune(s.owned, l.kind, declared[l.kind], names, func(name string) error { return l.remove(ctx, ids[name]) })
-		}
-		if err != nil {
-			errs = append(errs, fmt.Sprintf("%s(prune): %v", l.kind, err))
-		}
-	}
-	return errs
+	return append(errs, s.PruneKinds(ctx, s.kinds(), declaredNames(spec), failed)...)
 }
 
 func (s *autobrrSync) pruneActions(ctx context.Context, filter automationv1alpha1.AutobrrFilter) error {
-	filters, ids, err := listed(ctx, s.ac.ListFilters)
-	if err != nil || !slices.Contains(filters, filter.Name) {
+	filters, err := engine.Kind{Name: "filters", List: s.ac.ListFilters}.Listed(ctx, "autobrr")
+	if err != nil || !slices.Contains(filters.Names, filter.Name) {
 		return err
 	}
-	existing, actionIDs, err := s.filterActions(ctx, filter.Name, ids[filter.Name])
+	filterID, err := filters.ID(filter.Name)
+	if err != nil {
+		return err
+	}
+	existing, err := s.filterActions(ctx, filter.Name, filterID)
 	if err != nil {
 		return err
 	}
@@ -103,45 +89,36 @@ func (s *autobrrSync) pruneActions(ctx context.Context, filter automationv1alpha
 	for _, a := range filter.Actions {
 		declared = append(declared, filter.Name+"/"+a.Name)
 	}
-	return s.Prune(s.owned, actionsKind, declared, existing, func(name string) error {
-		return s.ac.DeleteAction(ctx, actionIDs[name])
-	})
+	return s.PruneItems(actionsKind, declared, existing, func(id int) error { return s.ac.DeleteAction(ctx, id) })
 }
 
 // cleanup deletes everything the operator created, for deletionPolicy delete.
-// Like prune, it never lists a kind the operator owns nothing of: an Autobrr
-// 1.91 API key may have no scope for it.
 func (s *autobrrSync) cleanup(ctx context.Context) error {
 	var errs []error
-	if s.owned.Owns(actionsKind) {
-		filters, ids, err := listed(ctx, s.ac.ListFilters)
+	if s.Owned.Owns(actionsKind) {
+		filters, err := engine.Kind{Name: "filters", List: s.ac.ListFilters}.Listed(ctx, "autobrr")
 		if err != nil {
 			return err
 		}
-		for _, name := range filters {
-			existing, actionIDs, err := s.filterActions(ctx, name, ids[name])
+		for _, name := range filters.Names {
+			filterID, err := filters.ID(name)
+			if err != nil {
+				errs = append(errs, s.keptUnder(name, err))
+				continue
+			}
+			existing, err := s.filterActions(ctx, name, filterID)
 			if err == nil {
-				err = s.owned.Cleanup(actionsKind, existing, func(n string) error { return s.ac.DeleteAction(ctx, actionIDs[n]) })
+				err = s.Owned.Cleanup(actionsKind, existing.Names, s.deleteAction(ctx, existing))
 			}
 			errs = append(errs, err)
 		}
 	}
-	for _, l := range s.lists() {
-		if !s.owned.Owns(l.kind) {
-			continue
-		}
-		names, ids, err := listed(ctx, l.list)
-		if err == nil {
-			err = s.owned.Cleanup(l.kind, names, func(name string) error { return l.remove(ctx, ids[name]) })
-		}
-		errs = append(errs, err)
-	}
-	return errors.Join(errs...)
+	return errors.Join(append(errs, s.Owned.CleanupKinds(ctx, s.kinds()))...)
 }
 
 // filterActions lists a filter's actions as <filter>/<action>.
-func (s *autobrrSync) filterActions(ctx context.Context, filter string, filterID int) ([]string, map[string]int, error) {
-	return listed(ctx, func(ctx context.Context) ([]map[string]any, error) {
+func (s *autobrrSync) filterActions(ctx context.Context, filter string, filterID int) (engine.Items, error) {
+	return engine.Kind{Name: actionsKind, List: func(ctx context.Context) ([]map[string]any, error) {
 		actions, err := s.ac.ListActions(ctx, filterID)
 		for _, a := range actions {
 			if name, ok := a["name"].(string); ok {
@@ -149,25 +126,30 @@ func (s *autobrrSync) filterActions(ctx context.Context, filter string, filterID
 			}
 		}
 		return actions, err
-	})
+	}}.Listed(ctx, "autobrr")
 }
 
-// listed returns the names of the items a list call returns and their ids.
-func listed(ctx context.Context, list func(context.Context) ([]map[string]any, error)) ([]string, map[string]int, error) {
-	items, err := list(ctx)
-	if err != nil {
-		return nil, nil, err
-	}
-	names := make([]string, 0, len(items))
-	ids := map[string]int{}
-	for _, item := range items {
-		name, _ := item["name"].(string)
-		id, ok := item["id"].(float64)
-		if name == "" || !ok {
-			continue
+func (s *autobrrSync) deleteAction(ctx context.Context, actions engine.Items) func(string) error {
+	return func(name string) error {
+		id, err := actions.ID(name)
+		if err != nil {
+			return err
 		}
-		names = append(names, name)
-		ids[name] = int(id)
+		return s.ac.DeleteAction(ctx, id)
 	}
-	return names, ids, nil
+}
+
+// keptUnder reports the owned actions of a filter whose name Autobrr holds more
+// than once as kept: neither filter's actions can be told apart.
+func (s *autobrrSync) keptUnder(filter string, reason error) error {
+	kept := &engine.KeptError{App: "autobrr"}
+	for _, name := range s.Owned.Managed()[actionsKind] {
+		if strings.HasPrefix(name, filter+"/") {
+			kept.Kept = append(kept.Kept, engine.KeptResource{Type: actionsKind, Name: name, Reason: reason.Error()})
+		}
+	}
+	if len(kept.Kept) == 0 {
+		return nil
+	}
+	return kept
 }

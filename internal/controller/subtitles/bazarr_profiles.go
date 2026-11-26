@@ -9,7 +9,6 @@ import (
 	"slices"
 	"strconv"
 
-	subtitlesv1alpha1 "github.com/kyleseneker/arrchitect/api/subtitles/v1alpha1"
 	bazarrclient "github.com/kyleseneker/arrchitect/internal/client/bazarr"
 	"github.com/kyleseneker/arrchitect/internal/engine"
 )
@@ -98,13 +97,9 @@ func (p *bazarrProfiles) saved(owned *engine.Ownership) {
 	}
 }
 
-// cleanup deletes the language profiles the operator created, for
+// cleanupBazarr deletes the language profiles the operator created, for
 // deletionPolicy delete.
-func (r *BazarrReconciler) cleanup(ctx context.Context, config *subtitlesv1alpha1.Bazarr) error {
-	bc, _, err := r.bazarrClient(ctx, config)
-	if err != nil {
-		return err
-	}
+func cleanupBazarr(ctx context.Context, bc *bazarrclient.Client, owned *engine.Ownership) error {
 	existing, err := bc.GetLanguageProfiles(ctx)
 	if err != nil {
 		return err
@@ -114,7 +109,6 @@ func (r *BazarrReconciler) cleanup(ctx context.Context, config *subtitlesv1alpha
 		present = append(present, profileKey(e))
 	}
 	var drop []string
-	owned := engine.NewOwnership("bazarr", config.GetManagedResources())
 	if err := owned.Cleanup(profilesKind, present, func(key string) error {
 		drop = append(drop, key)
 		return nil

@@ -81,13 +81,13 @@ func TestSonarr(t *testing.T) {
 			"SonarrIndexer": {
 				newObj: func() ctrlcommon.ConfigResource { return &pvrv1alpha1.SonarrIndexer{} },
 				reconciler: func(c client.Client) reconcile.Reconciler {
-					return &pvr.SonarrIndexerReconciler{Client: c, Scheme: c.Scheme(), Recorder: events.NewFakeRecorder(100)}
+					return pvr.NewObjectReconciler(pvr.SonarrIndexers, c, events.NewFakeRecorder(100), nil)
 				},
 			},
 			"SonarrDownloadClient": {
 				newObj: func() ctrlcommon.ConfigResource { return &pvrv1alpha1.SonarrDownloadClient{} },
 				reconciler: func(c client.Client) reconcile.Reconciler {
-					return &pvr.SonarrDownloadClientReconciler{Client: c, Scheme: c.Scheme(), Recorder: events.NewFakeRecorder(100)}
+					return pvr.NewObjectReconciler(pvr.SonarrDownloadClients, c, events.NewFakeRecorder(100), nil)
 				},
 			},
 		},
@@ -182,13 +182,13 @@ func TestRadarr(t *testing.T) {
 			"RadarrIndexer": {
 				newObj: func() ctrlcommon.ConfigResource { return &pvrv1alpha1.RadarrIndexer{} },
 				reconciler: func(c client.Client) reconcile.Reconciler {
-					return &pvr.RadarrIndexerReconciler{Client: c, Scheme: c.Scheme(), Recorder: events.NewFakeRecorder(100)}
+					return pvr.NewObjectReconciler(pvr.RadarrIndexers, c, events.NewFakeRecorder(100), nil)
 				},
 			},
 			"RadarrDownloadClient": {
 				newObj: func() ctrlcommon.ConfigResource { return &pvrv1alpha1.RadarrDownloadClient{} },
 				reconciler: func(c client.Client) reconcile.Reconciler {
-					return &pvr.RadarrDownloadClientReconciler{Client: c, Scheme: c.Scheme(), Recorder: events.NewFakeRecorder(100)}
+					return pvr.NewObjectReconciler(pvr.RadarrDownloadClients, c, events.NewFakeRecorder(100), nil)
 				},
 			},
 		},
@@ -272,13 +272,13 @@ func TestLidarr(t *testing.T) {
 			"LidarrIndexer": {
 				newObj: func() ctrlcommon.ConfigResource { return &pvrv1alpha1.LidarrIndexer{} },
 				reconciler: func(c client.Client) reconcile.Reconciler {
-					return &pvr.LidarrIndexerReconciler{Client: c, Scheme: c.Scheme(), Recorder: events.NewFakeRecorder(100)}
+					return pvr.NewObjectReconciler(pvr.LidarrIndexers, c, events.NewFakeRecorder(100), nil)
 				},
 			},
 			"LidarrDownloadClient": {
 				newObj: func() ctrlcommon.ConfigResource { return &pvrv1alpha1.LidarrDownloadClient{} },
 				reconciler: func(c client.Client) reconcile.Reconciler {
-					return &pvr.LidarrDownloadClientReconciler{Client: c, Scheme: c.Scheme(), Recorder: events.NewFakeRecorder(100)}
+					return pvr.NewObjectReconciler(pvr.LidarrDownloadClients, c, events.NewFakeRecorder(100), nil)
 				},
 			},
 		},
@@ -364,13 +364,13 @@ func TestReadarr(t *testing.T) {
 			"ReadarrIndexer": {
 				newObj: func() ctrlcommon.ConfigResource { return &pvrv1alpha1.ReadarrIndexer{} },
 				reconciler: func(c client.Client) reconcile.Reconciler {
-					return &pvr.ReadarrIndexerReconciler{Client: c, Scheme: c.Scheme(), Recorder: events.NewFakeRecorder(100)}
+					return pvr.NewObjectReconciler(pvr.ReadarrIndexers, c, events.NewFakeRecorder(100), nil)
 				},
 			},
 			"ReadarrDownloadClient": {
 				newObj: func() ctrlcommon.ConfigResource { return &pvrv1alpha1.ReadarrDownloadClient{} },
 				reconciler: func(c client.Client) reconcile.Reconciler {
-					return &pvr.ReadarrDownloadClientReconciler{Client: c, Scheme: c.Scheme(), Recorder: events.NewFakeRecorder(100)}
+					return pvr.NewObjectReconciler(pvr.ReadarrDownloadClients, c, events.NewFakeRecorder(100), nil)
 				},
 			},
 		},

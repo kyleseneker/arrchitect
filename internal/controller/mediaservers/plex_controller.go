@@ -8,7 +8,6 @@ import (
 	"slices"
 	"strconv"
 	"strings"
-	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -37,58 +36,37 @@ type PlexReconciler struct {
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
 
 func (r *PlexReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	logger := log.FromContext(ctx)
-
-	var config mediaserversv1alpha1.Plex
-	if err := r.Get(ctx, req.NamespacedName, &config); err != nil {
-		return ctrl.Result{}, ctrlcommon.IgnoreDeleted(&config, req.NamespacedName, err)
+	integration := ctrlcommon.Integration[*mediaserversv1alpha1.Plex, *plexclient.Client]{
+		App:     "plex",
+		Connect: r.connect,
+		Check: func(ctx context.Context, pc *plexclient.Client, _ *mediaserversv1alpha1.Plex) error {
+			return pc.Ping(ctx)
+		},
+		Sync: func(ctx context.Context, pc *plexclient.Client, config *mediaserversv1alpha1.Plex, pass *engine.Pass) []string {
+			problems := reconcilePlexPreferences(ctx, pc, &pass.Writes, string(config.UID), buildPlexPreferences(config.Spec))
+			return append(problems, reconcilePlexLibraries(ctx, pc, &pass.Writes, config.Spec.Libraries)...)
+		},
 	}
-
-	if done, after := ctrlcommon.HandleLifecycle(ctx, r.Client, r.Recorder, &config, ctrlcommon.Lifecycle{}); done {
-		return ctrl.Result{RequeueAfter: after}, nil
-	}
-
-	pc, reason, err := r.plexClient(ctx, &config)
-	if err != nil {
-		logger.Error(err, "failed to build the Plex client")
-		ctrlcommon.UpdateStatusUnreachable(ctx, r.Client, &config, reason, err.Error())
-		if reason == engine.ReasonInvalidConfig {
-			return ctrl.Result{}, nil
-		}
-		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
-	}
-
-	if err := pc.Ping(ctx); err != nil {
-		logger.Error(err, "Plex unreachable")
-		ctrlcommon.UpdateStatusUnreachable(ctx, r.Client, &config, engine.ReasonAppUnreachable, err.Error())
-		return ctrl.Result{RequeueAfter: 60 * time.Second}, nil
-	}
-
-	writes := &engine.Writes{App: "plex", Observe: ctrlcommon.ObserveOnly(config.Spec.Reconcile)}
-	syncErrors := reconcilePlexPreferences(ctx, pc, writes, string(config.UID), buildPlexPreferences(config.Spec))
-	syncErrors = append(syncErrors, reconcilePlexLibraries(ctx, pc, writes, config.Spec.Libraries)...)
-
-	ctrlcommon.UpdateSyncStatus(ctx, r.Client, &config, writes.Observe, writes.Drift(), syncErrors)
-	return ctrl.Result{RequeueAfter: ctrlcommon.ReconcileInterval(config.Spec.Reconcile)}, nil
+	return integration.Reconcile(ctx, r.Client, r.Recorder, req, &mediaserversv1alpha1.Plex{})
 }
 
 // plexClient builds the client for a config, or returns the status reason it
 // can't.
-func (r *PlexReconciler) plexClient(ctx context.Context, config *mediaserversv1alpha1.Plex) (*plexclient.Client, string, error) {
+func (r *PlexReconciler) connect(ctx context.Context, config *mediaserversv1alpha1.Plex) (*plexclient.Client, error) {
 	token, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, config.Spec.Connection.TokenSecretRef)
 	if err != nil {
-		return nil, engine.ReasonSecretNotFound, err
+		return nil, err
 	}
 	tlsCfg, err := engine.ResolveTLSConfig(ctx, r.Client, config.Namespace, config.Spec.Connection.TLS)
 	if err != nil {
-		return nil, engine.ReasonSecretNotFound, err
+		return nil, err
 	}
 	hc, err := engine.NewHTTPClient(config.Spec.Connection.URL, engine.AuthPlexToken, engine.WithPlexToken(token),
 		engine.WithTLSConfig(tlsCfg), engine.WithAppLabel("plex"))
 	if err != nil {
-		return nil, engine.ReasonInvalidConfig, err
+		return nil, err
 	}
-	return plexclient.NewClient(hc), "", nil
+	return plexclient.NewClient(hc), nil
 }
 
 // reconcilePlexLibraries creates the declared libraries Plex does not have.
@@ -252,8 +230,9 @@ func plexPreferenceChanges(desired, current map[string]string) (map[string]strin
 }
 
 // reconcilePlexPreferences writes the declared preferences that differ, one
-// per request, and returns what could not be read or written. Observe mode
-// compares only the preferences Plex lists: the others cannot be read back.
+// per request, and returns what could not be read or written. A preference
+// Plex doesn't list is compared with what the operator last wrote, so observe
+// mode reports one only after it has been written once.
 func reconcilePlexPreferences(
 	ctx context.Context, pc *plexclient.Client, w *engine.Writes, owner string, desiredPrefs map[string]string,
 ) []string {
@@ -269,7 +248,7 @@ func reconcilePlexPreferences(
 			// but never listed, so what was last written is remembered instead.
 			remember := func(key string) string { return fmt.Sprintf("plex/%s/pref/%s", owner, key) }
 			for _, key := range unlisted {
-				if !w.Observe && reconciler.SecretsChangedSince(remember(key), desiredPrefs[key]) {
+				if reconciler.SecretsDiffer(remember(key), desiredPrefs[key], w.Observe) {
 					changes[key] = desiredPrefs[key]
 				}
 			}

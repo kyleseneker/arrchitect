@@ -13,12 +13,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
-	indexersv1alpha1 "github.com/kyleseneker/arrchitect/api/indexers/v1alpha1"
-	pvrv1alpha1 "github.com/kyleseneker/arrchitect/api/pvr/v1alpha1"
-	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
-	"github.com/kyleseneker/arrchitect/internal/engine"
-	"github.com/kyleseneker/arrchitect/internal/testnet"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -30,6 +24,13 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+
+	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
+	indexersv1alpha1 "github.com/kyleseneker/arrchitect/api/indexers/v1alpha1"
+	pvrv1alpha1 "github.com/kyleseneker/arrchitect/api/pvr/v1alpha1"
+	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
+	"github.com/kyleseneker/arrchitect/internal/engine"
+	"github.com/kyleseneker/arrchitect/internal/testnet"
 )
 
 // fakeProwlarr records request bodies so payload shaping — notably tag label to
@@ -505,14 +506,14 @@ func TestProwlarrClientSaysWhyItCantConnect(t *testing.T) {
 				b = b.WithObjects(prowlarrSecret())
 			}
 			r := &ProwlarrReconciler{Client: b.Build()}
-			hc, reason, err := r.prowlarrClient(context.Background(), prowlarrConfig(tc.url))
-			assert.Equal(t, tc.reason, reason)
-			if tc.reason != "" {
-				require.Error(t, err)
+			_, err := r.connect(context.Background(), prowlarrConfig(tc.url))
+			if tc.reason == "" {
+				require.NoError(t, err)
 				return
 			}
-			require.NoError(t, err)
-			assert.Equal(t, "prowlarr", hc.AppLabel())
+			require.Error(t, err)
+			reason, _ := ctrlcommon.Classify(err)
+			assert.Equal(t, tc.reason, reason)
 		})
 	}
 }

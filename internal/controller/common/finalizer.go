@@ -74,7 +74,7 @@ func HandleDeletion(ctx context.Context, c client.Client, recorder events.EventR
 			var kept []*engine.KeptError
 			kept, cleanupErr = engine.SplitKept(remove(ctx))
 			for _, k := range kept {
-				EmitKeptEvents(recorder, obj, k.App, k.Kept)
+				EmitKeptEvents(recorder, obj, k.Kept)
 			}
 		}
 		if err := cleanupErr; err != nil {
@@ -173,18 +173,13 @@ func HandleLifecycle(ctx context.Context, c client.Client, recorder events.Event
 	return false, 0
 }
 
-// CleanupApp resolves only the credentials needed for deletion. Unrelated spec
-// Secrets must not prevent cleanup, and empty ownership needs no app connection.
+// CleanupApp deletes what obj owns in the app behind connection, for
+// deletionPolicy delete. It reads only the credentials deletion needs, so an
+// unrelated Secret in the spec can't block it, and with nothing to delete it
+// doesn't connect at all.
 func CleanupApp(ctx context.Context, c client.Reader, recorder events.EventRecorder, obj ConfigResource, connection commonv1alpha1.AppConnection, def engine.AppDefinition, app string) error {
-	managed := obj.GetManagedResources()
-	hasResources := false
-	for _, endpoint := range def.Resources {
-		if endpoint.Prunable && len(managed[endpoint.Name]) > 0 {
-			hasResources = true
-			break
-		}
-	}
-	if !hasResources {
+	owned := engine.NewOwnership(app, obj.GetManagedResources())
+	if !def.Deletable(owned) {
 		return nil
 	}
 	apiKey, err := reconciler.ResolveSecretKeyRef(ctx, c, obj.GetNamespace(), connection.APIKeySecretRef)
@@ -199,21 +194,20 @@ func CleanupApp(ctx context.Context, c client.Reader, recorder events.EventRecor
 	if err != nil {
 		return err
 	}
-	deleted, kept, err := engine.DeleteManagedResources(ctx, hc, def, managed)
-	EmitPruneEvents(recorder, obj, deleted)
-	EmitKeptEvents(recorder, obj, app, kept)
+	err = engine.DeleteManagedResources(ctx, hc, def, owned)
+	EmitPruneEvents(recorder, obj, owned.Pruned())
 	return err
 }
 
 // EmitKeptEvents emits a ResourceKept warning for each item the app refused to
 // delete during cleanup.
-func EmitKeptEvents(recorder events.EventRecorder, obj ConfigResource, app string, kept []engine.KeptResource) {
+func EmitKeptEvents(recorder events.EventRecorder, obj ConfigResource, kept []engine.KeptResource) {
 	if recorder == nil {
 		return
 	}
 	for _, k := range kept {
 		recorder.Eventf(obj, nil, corev1.EventTypeWarning, engine.ReasonResourceKept, "Cleanup",
-			"Kept %s %q, which the operator created: %s refused to delete it: %s", k.Type, k.Name, engine.AppName(app), k.Reason)
+			"Kept %s %q, which the operator created: %s", k.Type, k.Name, k.Reason)
 	}
 }
 

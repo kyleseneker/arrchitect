@@ -942,7 +942,7 @@ func FindCutoffID(items []commonv1alpha1.QualityProfileItem, cutoffName string) 
 }
 
 // Reconcile runs the full reconciliation for Sonarr, Radarr, Lidarr or Readarr.
-func Reconcile(ctx context.Context, client *engine.HTTPClient, apiVersion string, spec any, opts Options, policy engine.SyncPolicy, managed map[string][]string) (engine.ReconcileResult, error) {
+func Reconcile(ctx context.Context, client *engine.HTTPClient, apiVersion string, spec any, opts Options, pass *engine.Pass) []string {
 	def := Definition(apiVersion, opts.Sections...)
 	if opts.MetadataProfiles {
 		for i := range def.Resources {
@@ -960,7 +960,7 @@ func Reconcile(ctx context.Context, client *engine.HTTPClient, apiVersion string
 	}
 	sections, err := Sections(spec, opts.Choices)
 	if err != nil {
-		return engine.ReconcileResult{}, fmt.Errorf("building sections: %w", err)
+		return []string{fmt.Sprintf("building sections: %v", err)}
 	}
 	// Quality profiles reference custom formats by ID, and import lists reference
 	// quality profiles by ID. Those IDs only exist once the referenced resources
@@ -968,14 +968,14 @@ func Reconcile(ctx context.Context, client *engine.HTTPClient, apiVersion string
 	// rather than all at once up front.
 	opts = withSchemas(ctx, client, apiVersion, opts)
 	fieldProblems := ValidateOptionFields(ctx, client, apiVersion, opts)
-	if policy.Observe {
+	if pass.Observe {
 		opts.planned = plannedNames(opts)
 	}
 
-	result := engine.ReconcileResult{Managed: managed}
+	var problems []string
 	if len(opts.Tags) > 0 {
 		tags, _ := Resources(ctx, client, apiVersion, Options{Tags: opts.Tags})
-		result = engine.ReconcileApp(ctx, client, def, nil, tags, policy, result.Managed)
+		problems = engine.ReconcileApp(ctx, client, def, nil, tags, pass)
 	}
 
 	base := opts
@@ -987,26 +987,26 @@ func Reconcile(ctx context.Context, client *engine.HTTPClient, apiVersion string
 	base.AutoTags = nil
 	resources, err := Resources(ctx, client, apiVersion, base)
 	if err != nil {
-		result.Errors = append(result.Errors, err.Error())
+		problems = append(problems, err.Error())
 	}
 	if err := resolveListSyncTag(ctx, client, apiVersion, sections, opts.planned["tags"]); err != nil {
 		delete(sections, "importListConfig")
-		result.Errors = append(result.Errors, fmt.Sprintf("importListConfig: %v", err))
+		problems = append(problems, fmt.Sprintf("importListConfig: %v", err))
 	}
-	mergeResult(&result, engine.ReconcileApp(ctx, client, def, sections, resources, policy, result.Managed))
-	result.Errors = append(result.Errors, fieldProblems...)
+	problems = append(problems, engine.ReconcileApp(ctx, client, def, sections, resources, pass)...)
+	problems = append(problems, fieldProblems...)
 
 	if len(opts.DelayProfiles) > 0 {
-		mergeResult(&result, reconcileDelayProfiles(ctx, client, apiVersion, opts.DelayProfiles, policy, result.Managed, opts.planned["tags"]))
+		problems = append(problems, reconcileDelayProfiles(ctx, client, apiVersion, opts.DelayProfiles, pass, opts.planned["tags"])...)
 	}
 
 	if len(opts.QualityProfiles) > 0 {
 		stage := Options{QualityProfiles: opts.QualityProfiles, planned: opts.planned}
 		qpRes, qerr := Resources(ctx, client, apiVersion, stage)
 		if qerr != nil {
-			result.Errors = append(result.Errors, fmt.Sprintf("qualityProfiles: %v", qerr))
+			problems = append(problems, fmt.Sprintf("qualityProfiles: %v", qerr))
 		} else {
-			mergeResult(&result, engine.ReconcileApp(ctx, client, def, nil, qpRes, policy, result.Managed))
+			problems = append(problems, engine.ReconcileApp(ctx, client, def, nil, qpRes, pass)...)
 		}
 	}
 
@@ -1015,9 +1015,9 @@ func Reconcile(ctx context.Context, client *engine.HTTPClient, apiVersion string
 		stage := Options{AutoTags: opts.AutoTags, planned: opts.planned}
 		atRes, aerr := Resources(ctx, client, apiVersion, stage)
 		if aerr != nil {
-			result.Errors = append(result.Errors, fmt.Sprintf("autoTags: %v", aerr))
+			problems = append(problems, fmt.Sprintf("autoTags: %v", aerr))
 		} else {
-			mergeResult(&result, engine.ReconcileApp(ctx, client, def, nil, atRes, policy, result.Managed))
+			problems = append(problems, engine.ReconcileApp(ctx, client, def, nil, atRes, pass)...)
 		}
 	}
 
@@ -1027,9 +1027,9 @@ func Reconcile(ctx context.Context, client *engine.HTTPClient, apiVersion string
 		stage := Options{RootFolders: opts.RootFolders, MetadataProfiles: opts.MetadataProfiles, planned: opts.planned}
 		rfRes, rerr := Resources(ctx, client, apiVersion, stage)
 		if rerr != nil {
-			result.Errors = append(result.Errors, fmt.Sprintf("rootFolders: %v", rerr))
+			problems = append(problems, fmt.Sprintf("rootFolders: %v", rerr))
 		} else {
-			mergeResult(&result, engine.ReconcileApp(ctx, client, def, nil, rfRes, policy, result.Managed))
+			problems = append(problems, engine.ReconcileApp(ctx, client, def, nil, rfRes, pass)...)
 		}
 	}
 
@@ -1040,13 +1040,13 @@ func Reconcile(ctx context.Context, client *engine.HTTPClient, apiVersion string
 		}
 		ilRes, ierr := Resources(ctx, client, apiVersion, stage)
 		if ierr != nil {
-			result.Errors = append(result.Errors, fmt.Sprintf("importLists: %v", ierr))
+			problems = append(problems, fmt.Sprintf("importLists: %v", ierr))
 		} else {
-			mergeResult(&result, engine.ReconcileApp(ctx, client, def, nil, ilRes, policy, result.Managed))
+			problems = append(problems, engine.ReconcileApp(ctx, client, def, nil, ilRes, pass)...)
 		}
 	}
 
-	return result, nil
+	return problems
 }
 
 // resolveListSyncTag puts the ID of the tag Sonarr's listSyncTagLabel names in
@@ -1091,16 +1091,6 @@ func plannedNames(opts Options) map[string][]string {
 		planned["metadataProfiles"] = append(planned["metadataProfiles"], mp.Name)
 	}
 	return planned
-}
-
-func mergeResult(dst *engine.ReconcileResult, src engine.ReconcileResult) {
-	dst.Synced = append(dst.Synced, src.Synced...)
-	dst.Errors = append(dst.Errors, src.Errors...)
-	dst.Drift = append(dst.Drift, src.Drift...)
-	dst.Pruned = append(dst.Pruned, src.Pruned...)
-	// Each stage receives the preceding snapshot, including successful deletions.
-	// Appending snapshots duplicates ownership and resurrects pruned entries.
-	dst.Managed = src.Managed
 }
 
 // These apps store directory paths with a trailing separator. Use the same form
@@ -1658,13 +1648,10 @@ type delayPlan struct {
 }
 
 type delayProfileStage struct {
+	*engine.Pass
 	client *engine.HTTPClient
 	path   string
 	labels map[int]string
-	owned  *engine.Ownership
-	writes *engine.Writes
-	prune  bool
-	synced []string
 }
 
 // reconcileDelayProfiles matches each declared profile to the app's profile
@@ -1672,24 +1659,10 @@ type delayProfileStage struct {
 // allows a tag in only one profile, so pruned profiles go first and tags leave
 // a profile before any joins another.
 func reconcileDelayProfiles(
-	ctx context.Context, client *engine.HTTPClient, apiVersion string, declared []commonv1alpha1.DelayProfile,
-	policy engine.SyncPolicy, managed map[string][]string, plannedTags []string,
-) engine.ReconcileResult {
-	s := &delayProfileStage{
-		client: client,
-		path:   fmt.Sprintf("/api/%s/delayprofile", apiVersion),
-		owned:  engine.NewOwnership(client.AppLabel(), managed),
-		writes: &engine.Writes{App: client.AppLabel(), Observe: policy.Observe},
-		prune:  policy.Prune,
-	}
-	errs := s.run(ctx, fmt.Sprintf("/api/%s/tag", apiVersion), declared, plannedTags)
-	return engine.ReconcileResult{
-		Synced:  s.synced,
-		Errors:  errs,
-		Drift:   s.writes.Drift(),
-		Pruned:  s.owned.Pruned(),
-		Managed: s.owned.Managed(),
-	}
+	ctx context.Context, client *engine.HTTPClient, apiVersion string, declared []commonv1alpha1.DelayProfile, pass *engine.Pass, plannedTags []string,
+) []string {
+	s := &delayProfileStage{Pass: pass, client: client, path: fmt.Sprintf("/api/%s/delayprofile", apiVersion)}
+	return s.run(ctx, fmt.Sprintf("/api/%s/tag", apiVersion), declared, plannedTags)
 }
 
 func (s *delayProfileStage) run(ctx context.Context, tagPath string, declared []commonv1alpha1.DelayProfile, plannedTags []string) []string {
@@ -1717,7 +1690,7 @@ func (s *delayProfileStage) run(ctx context.Context, tagPath string, declared []
 		return []string{fmt.Sprintf("%s(prune): %v", delayProfilesKind, err)}
 	}
 	var errs []string
-	if !s.writes.Observe {
+	if !s.Observe {
 		for _, p := range plans {
 			if err := s.releaseTags(ctx, p); err != nil {
 				return []string{fmt.Sprintf("%s(%s): %v", delayProfilesKind, p.name, err)}
@@ -1814,7 +1787,7 @@ func planDelayProfiles(declared []commonv1alpha1.DelayProfile, tags engine.Named
 // pruneUnmatched deletes owned profiles no declared profile matched, before
 // any write that could need their tags.
 func (s *delayProfileStage) pruneUnmatched(ctx context.Context, plans []*delayPlan, existing []map[string]any) error {
-	if !s.prune {
+	if !s.PruneEnabled {
 		return nil
 	}
 	matched := map[string]bool{}
@@ -1831,15 +1804,15 @@ func (s *delayProfileStage) pruneUnmatched(ctx context.Context, plans []*delayPl
 			names[id] = s.describe(e)
 		}
 	}
-	if s.writes.Observe {
+	if s.Observe {
 		for _, id := range unmatched {
-			if slices.Contains(s.owned.Managed()[delayProfilesKind], id) {
-				s.writes.RecordDrift(delayProfilesKind, names[id])
+			if slices.Contains(s.Owned.Managed()[delayProfilesKind], id) {
+				s.RecordDrift(delayProfilesKind, names[id])
 			}
 		}
 		return nil
 	}
-	return s.owned.Cleanup(delayProfilesKind, unmatched, func(id string) error {
+	return s.Owned.Cleanup(delayProfilesKind, unmatched, func(id string) error {
 		err := s.client.DeleteJSON(ctx, s.path+"/"+id)
 		if reason, refused := engine.Refusal(err); refused {
 			return fmt.Errorf("the app refused: %s", reason)
@@ -1865,7 +1838,7 @@ func (s *delayProfileStage) releaseTags(ctx context.Context, p *delayPlan) error
 	}
 	body := maps.Clone(p.current)
 	body["tags"] = tags
-	return s.writes.Apply(delayProfilesKind, p.name, func() error {
+	return s.Apply(delayProfilesKind, p.name, func() error {
 		if err := s.client.PutJSON(ctx, s.path+"/"+delayProfileID(p.current), body); err != nil {
 			return err
 		}
@@ -1884,7 +1857,7 @@ func (s *delayProfileStage) apply(ctx context.Context, p *delayPlan, template ma
 		if err != nil {
 			return err
 		}
-		return s.writes.Apply(delayProfilesKind, p.name, func() error {
+		return s.Apply(delayProfilesKind, p.name, func() error {
 			created, err := s.client.Do(ctx, http.MethodPost, s.path, desired)
 			if err != nil {
 				return err
@@ -1894,8 +1867,8 @@ func (s *delayProfileStage) apply(ctx context.Context, p *delayPlan, template ma
 				return fmt.Errorf("the app did not return the created profile")
 			}
 			p.current = stored
-			s.owned.Created(delayProfilesKind, delayProfileID(stored))
-			s.synced = append(s.synced, delayProfilesKind+"("+p.name+")")
+			s.Owned.Created(delayProfilesKind, delayProfileID(stored))
+			s.Synced(delayProfilesKind + "(" + p.name + ")")
 			return nil
 		})
 	}
@@ -1905,14 +1878,14 @@ func (s *delayProfileStage) apply(ctx context.Context, p *delayPlan, template ma
 		return err
 	}
 	if same(p.current, desired) {
-		s.synced = append(s.synced, delayProfilesKind+"("+p.name+")")
+		s.Synced(delayProfilesKind + "(" + p.name + ")")
 		return nil
 	}
-	return s.writes.Apply(delayProfilesKind, p.name, func() error {
+	return s.Apply(delayProfilesKind, p.name, func() error {
 		if err := s.client.PutJSON(ctx, s.path+"/"+delayProfileID(p.current), desired); err != nil {
 			return err
 		}
-		s.synced = append(s.synced, delayProfilesKind+"("+p.name+")")
+		s.Synced(delayProfilesKind + "(" + p.name + ")")
 		return nil
 	})
 }
@@ -2049,7 +2022,7 @@ func (s *delayProfileStage) order(ctx context.Context, plans []*delayPlan) error
 		if positions[ids[i]] > positions[ids[i-1]] {
 			continue
 		}
-		err := s.writes.Apply(delayProfilesKind, "order", func() error {
+		err := s.Apply(delayProfilesKind, "order", func() error {
 			body, err := s.client.Do(ctx, http.MethodPut, fmt.Sprintf("%s/reorder/%s?after=%s&afterId=%s", s.path, ids[i], ids[i-1], ids[i-1]), nil)
 			if err != nil {
 				return err
@@ -2057,7 +2030,7 @@ func (s *delayProfileStage) order(ctx context.Context, plans []*delayPlan) error
 			profiles = nil
 			return json.Unmarshal(body, &profiles)
 		})
-		if err != nil || s.writes.Observe {
+		if err != nil || s.Observe {
 			return err
 		}
 	}
