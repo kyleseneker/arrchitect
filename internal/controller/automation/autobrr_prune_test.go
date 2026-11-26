@@ -2,6 +2,7 @@ package automation
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"testing"
 	"time"
@@ -16,6 +17,7 @@ import (
 	automationv1alpha1 "github.com/kyleseneker/arrchitect/api/automation/v1alpha1"
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
 	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
+	"github.com/kyleseneker/arrchitect/internal/engine"
 	"github.com/kyleseneker/arrchitect/internal/metrics"
 )
 
@@ -163,4 +165,18 @@ func TestAutobrrCleanupListsOnlyKindsItOwns(t *testing.T) {
 	for _, kind := range append([]string{"filters"}, unscopedKinds...) {
 		assert.False(t, app.saw(http.MethodGet, "/api/"+kind), "listed %s, which the operator owns nothing of", kind)
 	}
+}
+
+func TestActionsUnderAnAmbiguousFilterAreKept(t *testing.T) {
+	s := &autobrrSync{Pass: engine.NewPass("autobrr", engine.SyncPolicy{}, map[string][]string{
+		actionsKind: {"TV/send", "TV/notify", "Movies/send"},
+	})}
+
+	err := s.keptUnder("TV", errors.New(`Autobrr has 2 filters named "TV"`))
+
+	kept, failure := engine.SplitKept(err)
+	require.NoError(t, failure, "no retry tells two filters apart, so deletion must not wait on it")
+	require.Len(t, kept, 1)
+	assert.ElementsMatch(t, []string{"TV/send", "TV/notify"}, []string{kept[0].Kept[0].Name, kept[0].Kept[1].Name})
+	assert.NoError(t, s.keptUnder("Shows", errors.New("ambiguous")), "a filter with none of the operator's actions keeps nothing")
 }

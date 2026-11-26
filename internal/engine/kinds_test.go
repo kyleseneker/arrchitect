@@ -76,3 +76,30 @@ func TestCleanupKindsDeletesOwnedItemsInOrder(t *testing.T) {
 	assert.Equal(t, []string{"lists/5", "filters/8"}, log, "each kind goes before the kinds after it, which it may refer to")
 	assert.Zero(t, clients.listed)
 }
+
+func TestPruneItemsSetsAnAmbiguousNameAsideInBothModes(t *testing.T) {
+	items := listItems("sonarr", "indexers", []map[string]any{
+		{"id": float64(1), "name": "kept"}, {"id": float64(2), "name": "stale"},
+		{"id": float64(3), "name": "dup"}, {"id": float64(4), "name": "dup"},
+	}, func(item map[string]any) string { name, _ := item["name"].(string); return name })
+	managed := map[string][]string{"indexers": {"kept", "stale", "dup"}}
+
+	for _, observe := range []bool{false, true} {
+		t.Run(fmt.Sprintf("observe=%t", observe), func(t *testing.T) {
+			pass := NewPass("sonarr", SyncPolicy{Prune: true, Observe: observe}, managed)
+			var removed []int
+			err := pass.PruneItems("indexers", []string{"kept"}, items, func(id int) error {
+				removed = append(removed, id)
+				return nil
+			})
+
+			require.ErrorContains(t, err, `Sonarr has 2 indexers named "dup"`)
+			if observe {
+				assert.Empty(t, removed)
+				assert.Equal(t, []string{"indexers(stale)"}, pass.Drift(), "observe reports only what enforce deletes")
+			} else {
+				assert.Equal(t, []int{2}, removed, "the stale item is still pruned")
+			}
+		})
+	}
+}

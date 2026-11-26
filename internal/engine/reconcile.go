@@ -145,12 +145,8 @@ func pruneEndpoint(ctx context.Context, client *HTTPClient, pass *Pass, r Resour
 		}
 		items = listItems(client.AppLabel(), r.Name, latest, r.resourceKey)
 	}
-	return pass.Prune(pass.Owned, r.Name, declared, items.Names, func(name string) error {
-		id, err := items.ID(name)
-		if err != nil {
-			return err
-		}
-		log.FromContext(ctx).Info("pruning unmanaged resource", "type", r.Name, "match", name, "id", id)
+	return pass.PruneItems(r.Name, declared, items, func(id int) error {
+		log.FromContext(ctx).Info("pruning unmanaged resource", "type", r.Name, "id", id)
 		return client.DeleteJSON(ctx, fmt.Sprintf("%s/%d", r.Path, id))
 	})
 }

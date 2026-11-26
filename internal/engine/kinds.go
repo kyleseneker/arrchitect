@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 )
 
 // Kind is one kind of item an app lists and deletes by id, for prune and
@@ -80,7 +81,7 @@ func (p *Pass) PruneKinds(ctx context.Context, kinds []Kind, declared map[string
 		}
 		items, err := k.Listed(ctx, p.App)
 		if err == nil {
-			err = p.Prune(p.Owned, k.Name, declared[k.Name], items.Names, removeByID(ctx, k, items))
+			err = p.PruneItems(k.Name, declared[k.Name], items, func(id int) error { return k.Remove(ctx, id) })
 		}
 		if err != nil {
 			problems = append(problems, fmt.Sprintf("%s(prune): %v", k.Name, err))
@@ -114,4 +115,26 @@ func removeByID(ctx context.Context, k Kind, items Items) func(string) error {
 		}
 		return k.Remove(ctx, id)
 	}
+}
+
+// PruneItems prunes the owned items of kind that declared leaves out. A name
+// the app holds more than once is left alone in either mode and reported, and
+// the rest are still pruned.
+func (p *Pass) PruneItems(kind string, declared []string, items Items, remove func(id int) error) error {
+	var ambiguous []error
+	keep := slices.Clone(declared)
+	for _, name := range p.Owned.Candidates(kind, declared, items.Names) {
+		if _, err := items.ID(name); err != nil {
+			ambiguous = append(ambiguous, err)
+			keep = append(keep, name)
+		}
+	}
+	err := p.Prune(p.Owned, kind, keep, items.Names, func(name string) error {
+		id, err := items.ID(name)
+		if err != nil {
+			return err
+		}
+		return remove(id)
+	})
+	return errors.Join(append(ambiguous, err)...)
 }

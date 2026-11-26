@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 
 	automationv1alpha1 "github.com/kyleseneker/arrchitect/api/automation/v1alpha1"
 	"github.com/kyleseneker/arrchitect/internal/engine"
@@ -88,7 +89,7 @@ func (s *autobrrSync) pruneActions(ctx context.Context, filter automationv1alpha
 	for _, a := range filter.Actions {
 		declared = append(declared, filter.Name+"/"+a.Name)
 	}
-	return s.Prune(s.Owned, actionsKind, declared, existing.Names, s.deleteAction(ctx, existing))
+	return s.PruneItems(actionsKind, declared, existing, func(id int) error { return s.ac.DeleteAction(ctx, id) })
 }
 
 // cleanup deletes everything the operator created, for deletionPolicy delete.
@@ -102,7 +103,7 @@ func (s *autobrrSync) cleanup(ctx context.Context) error {
 		for _, name := range filters.Names {
 			filterID, err := filters.ID(name)
 			if err != nil {
-				errs = append(errs, err)
+				errs = append(errs, s.keptUnder(name, err))
 				continue
 			}
 			existing, err := s.filterActions(ctx, name, filterID)
@@ -136,4 +137,19 @@ func (s *autobrrSync) deleteAction(ctx context.Context, actions engine.Items) fu
 		}
 		return s.ac.DeleteAction(ctx, id)
 	}
+}
+
+// keptUnder reports the owned actions of a filter whose name Autobrr holds more
+// than once as kept: neither filter's actions can be told apart.
+func (s *autobrrSync) keptUnder(filter string, reason error) error {
+	kept := &engine.KeptError{App: "autobrr"}
+	for _, name := range s.Owned.Managed()[actionsKind] {
+		if strings.HasPrefix(name, filter+"/") {
+			kept.Kept = append(kept.Kept, engine.KeptResource{Type: actionsKind, Name: name, Reason: reason.Error()})
+		}
+	}
+	if len(kept.Kept) == 0 {
+		return nil
+	}
+	return kept
 }
