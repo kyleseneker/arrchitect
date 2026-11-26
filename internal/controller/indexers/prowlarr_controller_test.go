@@ -370,11 +370,9 @@ func TestProwlarrMissingItemSecretSkipsOnlyItsKind(t *testing.T) {
 	require.NoError(t, c.Get(context.Background(), types.NamespacedName{Name: "prowlarr", Namespace: "media"}, &got))
 	ready := meta.FindStatusCondition(got.Status.Conditions, "Ready")
 	require.NotNil(t, ready)
-	assert.Equal(t, metav1.ConditionTrue, ready.Status)
-	synced := meta.FindStatusCondition(got.Status.Conditions, "Synced")
-	require.NotNil(t, synced)
-	assert.Equal(t, "SyncFailed", synced.Reason)
-	assert.Contains(t, synced.Message, `downloadClients: download client qBittorrent field "password": secret "missing" not found`)
+	assert.Equal(t, metav1.ConditionFalse, ready.Status)
+	assert.Equal(t, "SyncFailed", ready.Reason, "Prowlarr was reached; one kind failed")
+	assert.Contains(t, ready.Message, `downloadClients: download client qBittorrent field "password": secret "missing" not found`)
 }
 
 func TestProwlarrApplicationAppRefUsesTheReferencedConnection(t *testing.T) {

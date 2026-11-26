@@ -129,7 +129,7 @@ func TestObservationStatus(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			obj := newConfig("", 0)
 			c := testClient(obj).WithStatusSubresource(obj).Build()
-			updateObservationStatus(context.Background(), c, obj, tt.drift, tt.err)
+			updateObservationStatus(context.Background(), c, nil, obj, tt.drift, tt.err)
 			require.NoError(t, c.Get(context.Background(), client.ObjectKeyFromObject(obj), obj))
 			condition := meta.FindStatusCondition(obj.Status.Conditions, "Synced")
 			require.NotNil(t, condition)
@@ -159,7 +159,7 @@ func TestReportResultReportsObservedDrift(t *testing.T) {
 			obj := newConfig("", 0)
 			obj.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{DriftPolicy: tc.policy}
 			c := testClient(obj).WithStatusSubresource(obj).Build()
-			ReportResult(context.Background(), c, obj, ObserveOnly(obj.Spec.Reconcile), tc.result)
+			ReportResult(context.Background(), c, nil, obj, ObserveOnly(obj.Spec.Reconcile), tc.result)
 			require.NoError(t, c.Get(context.Background(), client.ObjectKeyFromObject(obj), obj))
 			condition := meta.FindStatusCondition(obj.Status.Conditions, "Synced")
 			require.NotNil(t, condition)
@@ -188,7 +188,7 @@ func TestUpdateStatusSurvivesASpecEditMidPass(t *testing.T) {
 		"precondition: a plain status write from the stale copy conflicts")
 
 	UpdateStatusManaged(stale, map[string][]string{"downloadClients": {"qbit"}})
-	UpdateStatus(ctx, cl, stale, true, engine.ReasonSynced, "ok")
+	UpdateStatus(ctx, cl, nil, stale, true, engine.ReasonSynced, "ok")
 
 	got := &pvrv1alpha1.Sonarr{}
 	require.NoError(t, cl.Get(ctx, key, got))
@@ -227,7 +227,7 @@ func TestUpdateStatusReadsPastALaggingCache(t *testing.T) {
 	cache := lagging{Client: cl, snapshot: stale.DeepCopy()}
 
 	UpdateStatusManaged(stale, map[string][]string{"downloadClients": {"qbit"}})
-	UpdateStatus(ctx, cache, stale, true, engine.ReasonSynced, "ok")
+	UpdateStatus(ctx, cache, nil, stale, true, engine.ReasonSynced, "ok")
 
 	got := &pvrv1alpha1.Sonarr{}
 	require.NoError(t, cl.Get(ctx, key, got))
@@ -242,7 +242,7 @@ func TestUpdateStatusOutlivesACancelledReconcile(t *testing.T) {
 	cancel()
 
 	UpdateStatusManaged(obj, map[string][]string{"downloadClients": {"qbit"}})
-	UpdateStatus(ctx, cl, obj, true, engine.ReasonSynced, "ok")
+	UpdateStatus(ctx, cl, nil, obj, true, engine.ReasonSynced, "ok")
 
 	got := &pvrv1alpha1.Sonarr{}
 	require.NoError(t, cl.Get(context.Background(), client.ObjectKeyFromObject(obj), got))
@@ -269,7 +269,7 @@ func TestReportResultMessages(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			obj := newConfig("", 0)
 			c := testClient(obj).WithStatusSubresource(obj).Build()
-			ReportResult(context.Background(), c, obj, tc.observe, engine.ReconcileResult{Errors: tc.errors, Drift: tc.drift})
+			ReportResult(context.Background(), c, nil, obj, tc.observe, engine.ReconcileResult{Errors: tc.errors, Drift: tc.drift})
 			require.NoError(t, c.Get(context.Background(), client.ObjectKeyFromObject(obj), obj))
 			condition := meta.FindStatusCondition(obj.Status.Conditions, "Synced")
 			require.NotNil(t, condition)
@@ -457,11 +457,11 @@ func TestConfigSyncedGaugeTracksOutcome(t *testing.T) {
 	cl := fake.NewClientBuilder().WithScheme(scheme.Scheme).
 		WithObjects(c).WithStatusSubresource(c).Build()
 
-	UpdateStatus(context.Background(), cl, c, true, "Synced", "ok")
+	UpdateStatus(context.Background(), cl, nil, c, true, "Synced", "ok")
 	assert.Equal(t, 1.0, testutil.ToFloat64(metrics.ConfigSynced.WithLabelValues("Sonarr", "arr", "s")),
 		"expected gauge 1 after a successful sync")
 
-	UpdateStatusUnreachable(context.Background(), cl, c, "AppUnreachable", "boom")
+	UpdateStatus(context.Background(), cl, nil, c, false, "AppUnreachable", "boom")
 	assert.Equal(t, 0.0, testutil.ToFloat64(metrics.ConfigSynced.WithLabelValues("Sonarr", "arr", "s")),
 		"expected gauge 0 after failure")
 }
@@ -487,4 +487,63 @@ func TestIgnoreDeletedDropsTheSyncedSeries(t *testing.T) {
 	metrics.ConfigSynced.WithLabelValues("Sonarr", "media", "gone").Set(0)
 	assert.NoError(t, IgnoreDeleted(obj, key, apierrors.NewNotFound(schema.GroupResource{Resource: "sonarrs"}, "gone")))
 	assert.False(t, metrics.ConfigSynced.DeleteLabelValues("Sonarr", "media", "gone"), "the series outlived the resource")
+}
+
+// statusSonarr is a Sonarr in a fake API server that serves its status.
+func statusSonarr(t *testing.T) (*pvrv1alpha1.Sonarr, client.Client) {
+	t.Helper()
+	obj := &pvrv1alpha1.Sonarr{Name: "sonarr", Namespace: "media"}
+	s := runtime.NewScheme()
+	require.NoError(t, pvrv1alpha1.AddToScheme(s))
+	return obj, fake.NewClientBuilder().WithScheme(s).WithObjects(obj).WithStatusSubresource(obj).Build()
+}
+
+func TestReadySumsUpSyncedAndStalledMarksWhatNoRetryFixes(t *testing.T) {
+	obj, c := statusSonarr(t)
+	for _, step := range []struct {
+		synced  bool
+		reason  string
+		ready   metav1.ConditionStatus
+		stalled bool
+	}{
+		{true, engine.ReasonSynced, metav1.ConditionTrue, false},
+		{false, engine.ReasonSyncFailed, metav1.ConditionFalse, false},
+		{false, engine.ReasonAppUnreachable, metav1.ConditionFalse, false},
+		{false, engine.ReasonInvalidConfig, metav1.ConditionFalse, true},
+		{false, engine.ReasonUnauthorized, metav1.ConditionFalse, true},
+		{true, engine.ReasonObserved, metav1.ConditionTrue, false},
+	} {
+		UpdateStatus(context.Background(), c, nil, obj, step.synced, step.reason, "message")
+		ready := meta.FindStatusCondition(obj.Status.Conditions, engine.ConditionReady)
+		require.NotNil(t, ready, step.reason)
+		assert.Equal(t, step.ready, ready.Status, step.reason)
+		assert.Equal(t, step.reason, ready.Reason, "Ready carries Synced's reason")
+		assert.Equal(t, step.stalled, meta.IsStatusConditionTrue(obj.Status.Conditions, engine.ConditionStalled), step.reason)
+	}
+}
+
+func TestReadyChangesAreRecordedAsEvents(t *testing.T) {
+	obj, c := statusSonarr(t)
+	recorder := events.NewFakeRecorder(10)
+	update := func(synced bool, reason string) {
+		UpdateStatus(context.Background(), c, recorder, obj, synced, reason, "message")
+	}
+
+	update(true, engine.ReasonSynced)
+	update(false, engine.ReasonAppUnreachable)
+	update(false, engine.ReasonAppUnreachable)
+	update(false, engine.ReasonSyncFailed)
+	update(true, engine.ReasonSynced)
+	update(true, engine.ReasonSynced)
+
+	close(recorder.Events)
+	var got []string
+	for e := range recorder.Events {
+		got = append(got, e)
+	}
+	assert.Equal(t, []string{
+		"Warning AppUnreachable message",
+		"Warning SyncFailed message",
+		"Normal Synced message",
+	}, got, "one event per change of Ready, none for the first success or a repeat")
 }

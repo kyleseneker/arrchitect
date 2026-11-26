@@ -156,7 +156,7 @@ func (c *Client) Login(ctx context.Context) error {
 	}
 
 	if resp := strings.TrimSpace(string(body)); resp != "" && !strings.EqualFold(resp, "Ok.") {
-		return fmt.Errorf("login failed: %s", reconciler.Redact(resp))
+		return fmt.Errorf("%w: qBittorrent answered %q", engine.ErrUnauthorized, reconciler.Redact(resp))
 	}
 
 	// The cookie jar captured the session cookie automatically. Register it with

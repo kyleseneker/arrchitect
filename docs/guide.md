@@ -164,16 +164,24 @@ spec:
 
 ## Status
 
-Each resource has a `Ready` condition, for whether the app and its credentials
-are reachable, and a `Synced` condition, for whether the app matches. `kubectl
-get` shows both, and `kubectl get arrchitect` lists every resource across
-apps. The `Synced` reason is one of:
+Each resource has a `Synced` condition, for whether the app matches the
+resource, and a `Ready` condition that repeats it with the same reason. `Ready`
+is the one GitOps tools and `kubectl wait --for=condition=Ready` read. An
+`InvalidConfig`, `NameConflict` or `Unauthorized` failure also sets `Stalled`
+to `True`, because no retry fixes it until you change the resource, a Secret or
+the app. `kubectl get` shows `Synced` and `Ready`, and `kubectl get
+arrchitect` lists every resource across apps. A change of `Ready` is recorded
+as an event: a Warning when it turns `False` or its reason changes, and a
+Normal event when it turns `True` again.
+
+The reason is one of:
 
 | Reason | Meaning |
 | --- | --- |
 | `Synced` | The app matches the resource. |
 | `SyncFailed` | Some settings could not be applied; the message says which, and the reason the app gave. |
-| `AppUnreachable` | The app did not respond, or rejected the credentials. |
+| `AppUnreachable` | The app did not respond. |
+| `Unauthorized` | The app refused the API key, token or password. |
 | `SecretNotFound` | A Secret or key the connection needs does not exist. |
 | `InvalidConfig` | The resource asks for something the operator does not support, or an `appRef` the resource needs can't work, such as one naming an app the operator doesn't run. |
 | `ReferenceNotFound` | An indexer's or download client's app resource doesn't exist, or an `appRef` the resource needs names a missing resource. |

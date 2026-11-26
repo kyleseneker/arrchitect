@@ -11,6 +11,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/events"
@@ -60,24 +61,24 @@ func Policy(rc *commonv1alpha1.ReconcileConfig) engine.SyncPolicy {
 
 // updateObservationStatus reports comparison results without claiming drift was
 // corrected. Read failures take precedence over any differences already found.
-func updateObservationStatus(ctx context.Context, c client.Client, obj ConfigResource, drift []string, err error) {
+func updateObservationStatus(ctx context.Context, c client.Client, recorder events.EventRecorder, obj ConfigResource, drift []string, err error) {
 	if err != nil {
-		UpdateStatus(ctx, c, obj, false, engine.ReasonSyncFailed, "observation failed: "+err.Error())
+		UpdateStatus(ctx, c, recorder, obj, false, engine.ReasonSyncFailed, "observation failed: "+err.Error())
 	} else if len(drift) > 0 {
-		UpdateStatus(ctx, c, obj, false, engine.ReasonDriftDetected, "differs: "+driftSummary(drift)+"; observe policy prevents application writes")
+		UpdateStatus(ctx, c, recorder, obj, false, engine.ReasonDriftDetected, "differs: "+driftSummary(drift)+"; observe policy prevents application writes")
 	} else {
-		UpdateStatus(ctx, c, obj, true, engine.ReasonObserved, "observable configuration matches; no application writes performed")
+		UpdateStatus(ctx, c, recorder, obj, true, engine.ReasonObserved, "observable configuration matches; no application writes performed")
 	}
 }
 
 // ReportResult is UpdateResultStatus for an object whose drift policy is set
 // somewhere other than on the object itself.
-func ReportResult(ctx context.Context, c client.Client, obj ConfigResource, observe bool, result engine.ReconcileResult) {
+func ReportResult(ctx context.Context, c client.Client, recorder events.EventRecorder, obj ConfigResource, observe bool, result engine.ReconcileResult) {
 	if observe {
-		updateObservationStatus(ctx, c, obj, result.Drift, syncError(result.Errors))
+		updateObservationStatus(ctx, c, recorder, obj, result.Drift, syncError(result.Errors))
 		return
 	}
-	UpdateStatus(ctx, c, obj, result.Success(), resultReason(result), result.Message())
+	UpdateStatus(ctx, c, recorder, obj, result.Success(), resultReason(result), result.Message())
 }
 
 // maxDriftListed caps how many differences a status message names.
@@ -120,23 +121,62 @@ func UpdateStatusManaged(obj ConfigResource, managed map[string][]string) {
 	obj.SetManagedResources(managed)
 }
 
-// UpdateStatus sets the Synced and Ready conditions on a config resource and persists the status.
-// Ready=True indicates the app is reachable; Synced reflects whether config was applied.
-func UpdateStatus(ctx context.Context, c client.Client, obj ConfigResource, synced bool, reason, message string) {
-	syncedStatus := string(metav1.ConditionFalse)
+// stalledReasons are failures no retry fixes: the spec, a Secret or the app
+// has to change first.
+var stalledReasons = map[string]bool{
+	engine.ReasonInvalidConfig: true,
+	engine.ReasonNameConflict:  true,
+	engine.ReasonUnauthorized:  true,
+}
+
+// UpdateStatus records the outcome of a pass and persists it. Synced says
+// whether the app matches the resource. Ready repeats it as the summary that
+// GitOps tools read, and Stalled marks a failure no retry fixes. Each change
+// of Ready is recorded as an event.
+func UpdateStatus(ctx context.Context, c client.Client, recorder events.EventRecorder, obj ConfigResource, synced bool, reason, message string) {
+	status := metav1.ConditionFalse
 	if synced {
-		syncedStatus = string(metav1.ConditionTrue)
+		status = metav1.ConditionTrue
 		now := metav1.Now()
 		*obj.GetLastSyncTime() = &now
 	}
 	generation := obj.GetGeneration()
 	conditions := obj.GetConditions()
-	reconciler.SetCondition(conditions, generation, engine.ConditionSynced, syncedStatus, reason, message)
-	// If we got far enough to reconcile, the app is reachable.
-	reconciler.SetCondition(conditions, generation, engine.ConditionReady, string(metav1.ConditionTrue), engine.ReasonSynced, "app is reachable")
+	var before *metav1.Condition
+	if previous := meta.FindStatusCondition(*conditions, engine.ConditionReady); previous != nil {
+		before = previous.DeepCopy()
+	}
+	reconciler.SetCondition(conditions, generation, engine.ConditionSynced, string(status), reason, message)
+	reconciler.SetCondition(conditions, generation, engine.ConditionReady, string(status), reason, message)
+	if !synced && stalledReasons[reason] {
+		reconciler.SetCondition(conditions, generation, engine.ConditionStalled, string(metav1.ConditionTrue), reason, message)
+	} else {
+		meta.RemoveStatusCondition(conditions, engine.ConditionStalled)
+	}
 	*obj.GetObservedGeneration() = generation
 	recordSynced(obj, synced)
+	emitTransition(recorder, obj, before, synced, reason, message)
 	writeStatus(ctx, c, obj)
+}
+
+// maxEventNote is the longest note the events API accepts.
+const maxEventNote = 1024
+
+// emitTransition records a Warning when Ready turns False or its reason
+// changes, and a Normal event when it turns True again.
+func emitTransition(recorder events.EventRecorder, obj ConfigResource, before *metav1.Condition, synced bool, reason, message string) {
+	if recorder == nil {
+		return
+	}
+	if runes := []rune(message); len(runes) > maxEventNote {
+		message = string(runes[:maxEventNote-3]) + "..."
+	}
+	switch {
+	case !synced && (before == nil || before.Status != metav1.ConditionFalse || before.Reason != reason):
+		recorder.Eventf(obj, nil, corev1.EventTypeWarning, reason, "Reconcile", "%s", message)
+	case synced && before != nil && before.Status == metav1.ConditionFalse:
+		recorder.Eventf(obj, nil, corev1.EventTypeNormal, reason, "Reconcile", "%s", message)
+	}
 }
 
 // IgnoreDeleted is client.IgnoreNotFound for a reconcile's first read. A
@@ -158,17 +198,6 @@ func recordSynced(obj ConfigResource, synced bool) {
 	// concrete Go type is the reliable source for the kind label.
 	kind := reflect.TypeOf(obj).Elem().Name()
 	metrics.ConfigSynced.WithLabelValues(kind, obj.GetNamespace(), obj.GetName()).Set(v)
-}
-
-// UpdateStatusUnreachable sets Ready=False and Synced=False when the app cannot be reached.
-func UpdateStatusUnreachable(ctx context.Context, c client.Client, obj ConfigResource, reason, message string) {
-	generation := obj.GetGeneration()
-	conditions := obj.GetConditions()
-	reconciler.SetCondition(conditions, generation, engine.ConditionReady, string(metav1.ConditionFalse), reason, message)
-	reconciler.SetCondition(conditions, generation, engine.ConditionSynced, string(metav1.ConditionFalse), reason, message)
-	*obj.GetObservedGeneration() = generation
-	recordSynced(obj, false)
-	writeStatus(ctx, c, obj)
 }
 
 // writeStatus persists obj's status. Only this controller writes the status, so

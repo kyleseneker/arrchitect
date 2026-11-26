@@ -162,11 +162,11 @@ func HandleLifecycle(ctx context.Context, c client.Client, recorder events.Event
 		if ObserveOnly(rc) {
 			message = "deletionPolicy delete conflicts with driftPolicy observe; use orphan"
 		}
-		UpdateStatusUnreachable(ctx, c, obj, engine.ReasonInvalidConfig, message)
+		UpdateStatus(ctx, c, recorder, obj, false, engine.ReasonInvalidConfig, message)
 		return true, ReconcileInterval(rc)
 	}
 	if PruneEnabled(rc) && !lc.Prune {
-		UpdateStatusUnreachable(ctx, c, obj, engine.ReasonInvalidConfig,
+		UpdateStatus(ctx, c, recorder, obj, false, engine.ReasonInvalidConfig,
 			"prune is not supported by this integration; remove spec.reconcile.prune")
 		return true, ReconcileInterval(rc)
 	}

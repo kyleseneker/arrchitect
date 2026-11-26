@@ -378,7 +378,7 @@ func TestReconcileMissingItemSecretSkipsOnlyItsKind(t *testing.T) {
 			assert.True(t, fa.saw("POST", fa.path("rootfolder")), "the root folder was held back too")
 			assert.True(t, fa.sawPrefix("PUT", fa.path("config/naming/")), "the settings were held back too")
 			assert.False(t, fa.saw("POST", fa.path("notification")), "a notification was written without its URL")
-			assert.Equal(t, conditionTrue, conditionStatus(t, c, app, "Ready"), "the app is reachable")
+			assert.NotEqual(t, conditionTrue, conditionStatus(t, c, app, "Ready"))
 			assert.NotEqual(t, conditionTrue, conditionStatus(t, c, app, "Synced"))
 
 			obj := app.empty()

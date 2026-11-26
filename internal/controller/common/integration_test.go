@@ -36,6 +36,8 @@ func TestClassify(t *testing.T) {
 		{"appRef that can't be followed", InvalidAppRef("Plex %q: unsupported kind", "plex"), engine.ReasonInvalidConfig, 0},
 		{"spec problem", engine.InvalidConfig(errors.New("bad URL")), engine.ReasonInvalidConfig, 0},
 		{"missing Secret", fmt.Errorf("authentication: %w", missingSecret), engine.ReasonSecretNotFound, 30 * time.Second},
+		{"refused credentials", &engine.APIError{StatusCode: 401}, engine.ReasonUnauthorized, 5 * time.Minute},
+		{"refused sign-in", fmt.Errorf("%w: qBittorrent answered %q", engine.ErrUnauthorized, "Fails."), engine.ReasonUnauthorized, 5 * time.Minute},
 		{"anything else", errors.New("connection refused"), engine.ReasonAppUnreachable, 60 * time.Second},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

@@ -561,7 +561,7 @@ func TestBazarrReportsANotificationProviderItLacks(t *testing.T) {
 	c := runBazarr(t, cfg, bazarrSecrets())
 
 	assert.Equal(t, string(metav1.ConditionFalse), bazarrCondition(t, c, "Synced"))
-	assert.Equal(t, conditionTrue, bazarrCondition(t, c, "Ready"), "a missing provider doesn't make Bazarr unreachable")
+	assert.Equal(t, string(metav1.ConditionFalse), bazarrCondition(t, c, "Ready"), "Ready sums up Synced")
 	_, sent := app.formValue("notifications-providers")
 	assert.False(t, sent)
 }
