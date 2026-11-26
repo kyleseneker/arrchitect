@@ -7,7 +7,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/testutil"
+	dto "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
@@ -546,4 +548,46 @@ func TestReadyChangesAreRecordedAsEvents(t *testing.T) {
 		"Warning SyncFailed message",
 		"Normal Synced message",
 	}, got, "one event per change of Ready, none for the first success or a repeat")
+}
+
+func TestManagedResourcesGaugeFollowsEachResource(t *testing.T) {
+	sonarr := &pvrv1alpha1.Sonarr{Name: "tv", Namespace: "media"}
+	sonarr4k := &pvrv1alpha1.Sonarr{Name: "tv-4k", Namespace: "media"}
+	gauge := func(name, resourceType string) float64 {
+		return testutil.ToFloat64(metrics.ManagedResources.WithLabelValues("Sonarr", "media", name, resourceType))
+	}
+
+	UpdateStatusManaged(sonarr, map[string][]string{"tags": {"a", "b"}, "indexers": {"x"}})
+	UpdateStatusManaged(sonarr4k, map[string][]string{"tags": {"c"}})
+	assert.Equal(t, 2.0, gauge("tv", "tags"), "each resource has its own series")
+	assert.Equal(t, 1.0, gauge("tv-4k", "tags"))
+
+	UpdateStatusManaged(sonarr, map[string][]string{"tags": {"a"}})
+	assert.Equal(t, 1, managedSeries(t, "tv"), "a type the resource no longer owns loses its series")
+
+	require.NoError(t, IgnoreDeleted(&pvrv1alpha1.Sonarr{}, types.NamespacedName{Namespace: "media", Name: "tv"},
+		apierrors.NewNotFound(schema.GroupResource{Resource: "sonarrs"}, "tv")))
+	assert.Equal(t, 1.0, gauge("tv-4k", "tags"), "another resource's series stay")
+	assert.Zero(t, managedSeries(t, "tv"), "a deleted resource loses its series")
+}
+
+// managedSeries counts the managed_resources series of the Sonarr name.
+func managedSeries(t *testing.T, name string) int {
+	t.Helper()
+	ch := make(chan prometheus.Metric, 64)
+	metrics.ManagedResources.Collect(ch)
+	close(ch)
+	n := 0
+	for m := range ch {
+		var out dto.Metric
+		require.NoError(t, m.Write(&out))
+		labels := map[string]string{}
+		for _, l := range out.GetLabel() {
+			labels[l.GetName()] = l.GetValue()
+		}
+		if labels["kind"] == "Sonarr" && labels["namespace"] == "media" && labels["name"] == name {
+			n++
+		}
+	}
+	return n
 }

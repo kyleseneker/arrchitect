@@ -376,7 +376,7 @@ ServiceMonitor.
 | `arrchitect_drift_corrected_total` | Items rewritten because the app differed |
 | `arrchitect_drift_observed_total` | Differences found in observe mode |
 | `arrchitect_resources_pruned_total` | Items deleted by prune |
-| `arrchitect_managed_resources` | Items declared per resource type |
+| `arrchitect_managed_resources` | Items the operator created and tracks, per resource and type |
 | `arrchitect_app_api_request_duration_seconds` | Request latency to each app |
 | `arrchitect_app_api_errors_total` | Failed requests to each app |
 

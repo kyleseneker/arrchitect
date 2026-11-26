@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -119,6 +120,19 @@ func UpdateStatusManaged(obj ConfigResource, managed map[string][]string) {
 		return
 	}
 	obj.SetManagedResources(managed)
+	labels := resourceLabels(obj.GetNamespace(), obj.GetName(), obj)
+	metrics.ManagedResources.DeletePartialMatch(labels)
+	for resourceType, names := range managed {
+		if len(names) > 0 {
+			metrics.ManagedResources.WithLabelValues(labels["kind"], labels["namespace"], labels["name"], resourceType).Set(float64(len(names)))
+		}
+	}
+}
+
+// resourceLabels identifies a resource in metrics. TypeMeta is cleared on
+// typed objects after a client round-trip, so the Go type names the kind.
+func resourceLabels(namespace, name string, obj ConfigResource) prometheus.Labels {
+	return prometheus.Labels{"kind": reflect.TypeOf(obj).Elem().Name(), "namespace": namespace, "name": name}
 }
 
 // stalledReasons are failures no retry fixes: the spec, a Secret or the app
@@ -185,6 +199,7 @@ func emitTransition(recorder events.EventRecorder, obj ConfigResource, before *m
 func IgnoreDeleted(obj ConfigResource, key types.NamespacedName, err error) error {
 	if apierrors.IsNotFound(err) {
 		metrics.ConfigSynced.DeleteLabelValues(reflect.TypeOf(obj).Elem().Name(), key.Namespace, key.Name)
+		metrics.ManagedResources.DeletePartialMatch(resourceLabels(key.Namespace, key.Name, obj))
 		obj.SetNamespace(key.Namespace)
 		obj.SetName(key.Name)
 		Reached(obj)

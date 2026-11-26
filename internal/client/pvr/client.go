@@ -16,7 +16,6 @@ import (
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
 	pvrv1alpha1 "github.com/kyleseneker/arrchitect/api/pvr/v1alpha1"
 	"github.com/kyleseneker/arrchitect/internal/engine"
-	"github.com/kyleseneker/arrchitect/internal/metrics"
 	"github.com/kyleseneker/arrchitect/internal/reconciler"
 )
 
@@ -331,11 +330,6 @@ func Resources(ctx context.Context, client *engine.HTTPClient, apiVersion string
 			continue
 		}
 		resources[b.name] = items
-	}
-
-	app := client.AppLabel()
-	for resourceType, items := range resources {
-		metrics.ManagedResources.WithLabelValues(app, resourceType).Set(float64(len(items)))
 	}
 
 	if len(problems) > 0 {
