@@ -13,6 +13,7 @@
 - [Access](#access)
 - [Metrics](#metrics)
 - [Upgrading](#upgrading)
+- [Uninstalling](#uninstalling)
 - [Verifying a release](#verifying-a-release)
 
 ## Reconciling
@@ -172,7 +173,9 @@ to `True`, because no retry fixes it until you change the resource, a Secret or
 the app. `kubectl get` shows `Synced` and `Ready`, and `kubectl get
 arrchitect` lists every resource across apps. A change of `Ready` is recorded
 as an event: a Warning when it turns `False` or its reason changes, and a
-Normal event when it turns `True` again.
+Normal event when it turns `True` again. [Running the
+operator](operations.md#health-in-argo-cd-and-flux) shows how to read these in
+Argo CD and Flux.
 
 The reason is one of:
 
