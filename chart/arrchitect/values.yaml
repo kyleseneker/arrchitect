@@ -86,6 +86,13 @@ metrics:
     interval: 30s
     # Additional labels applied to the ServiceMonitor (e.g., for Prometheus selector matching).
     labels: {}
+  prometheusRule:
+    # Create a PrometheusRule that alerts on a resource out of sync for 15
+    # minutes, drift that never settles and, with the ServiceMonitor, the
+    # operator being down. Needs the Prometheus Operator CRDs.
+    enabled: false
+    # Additional labels applied to the PrometheusRule (e.g., for Prometheus rule selector matching).
+    labels: {}
 
 nodeSelector: {}
 tolerations: []

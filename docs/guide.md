@@ -368,7 +368,9 @@ there through an `appRef`, as naming that resource's Secret already allows.
 
 Metrics are served on `:8443/metrics` over HTTPS and require a token with access
 to them. Set `metrics.serviceMonitor.enabled` in the chart to create a
-ServiceMonitor.
+ServiceMonitor, and `metrics.prometheusRule.enabled` to create alerts for a
+resource out of sync for 15 minutes, drift that never settles and, with the
+ServiceMonitor, the operator being down.
 
 | Metric | Description |
 | --- | --- |
@@ -380,7 +382,8 @@ ServiceMonitor.
 | `arrchitect_app_api_request_duration_seconds` | Request latency to each app |
 | `arrchitect_app_api_errors_total` | Failed requests to each app |
 
-`arrchitect_config_synced == 0` is the condition to alert on.
+`arrchitect_config_synced == 0` is the condition to alert on. Give it 15
+minutes, as the chart's alert does, so an app that restarts doesn't page you.
 
 ## Upgrading
 

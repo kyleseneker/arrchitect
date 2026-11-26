@@ -1,0 +1,52 @@
+suite: prometheusrule
+templates:
+  - templates/prometheusrule.yaml
+tests:
+  - it: is off by default
+    asserts:
+      - hasDocuments:
+          count: 0
+  - it: alerts on resources out of sync and drift that never settles
+    set:
+      metrics.prometheusRule.enabled: true
+      metrics.prometheusRule.labels:
+        release: kube-prometheus-stack
+    asserts:
+      - isKind:
+          of: PrometheusRule
+      - equal:
+          path: metadata.labels.release
+          value: kube-prometheus-stack
+      - equal:
+          path: spec.groups[0].rules[0].alert
+          value: ArrchitectResourceNotReady
+      - equal:
+          path: spec.groups[0].rules[0].annotations.summary
+          value: "{{ $labels.kind }} {{ $labels.namespace }}/{{ $labels.name }} is not in sync"
+      - equal:
+          path: spec.groups[0].rules[1].alert
+          value: ArrchitectDriftNeverSettles
+      - lengthEqual:
+          path: spec.groups[0].rules
+          count: 2
+  - it: alerts on the operator being down when Prometheus scrapes it through the ServiceMonitor
+    release:
+      name: arrchitect
+      namespace: arrchitect
+    set:
+      metrics.prometheusRule.enabled: true
+      metrics.serviceMonitor.enabled: true
+    asserts:
+      - equal:
+          path: spec.groups[0].rules[2].alert
+          value: ArrchitectDown
+      - equal:
+          path: spec.groups[0].rules[2].expr
+          value: absent(up{job="arrchitect-metrics", namespace="arrchitect"} == 1)
+  - it: needs the metrics endpoint
+    set:
+      metrics.enabled: false
+      metrics.prometheusRule.enabled: true
+    asserts:
+      - hasDocuments:
+          count: 0
