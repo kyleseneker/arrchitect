@@ -185,6 +185,9 @@ func emitTransition(recorder events.EventRecorder, obj ConfigResource, before *m
 func IgnoreDeleted(obj ConfigResource, key types.NamespacedName, err error) error {
 	if apierrors.IsNotFound(err) {
 		metrics.ConfigSynced.DeleteLabelValues(reflect.TypeOf(obj).Elem().Name(), key.Namespace, key.Name)
+		obj.SetNamespace(key.Namespace)
+		obj.SetName(key.Name)
+		Reached(obj)
 	}
 	return client.IgnoreNotFound(err)
 }

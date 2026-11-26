@@ -74,11 +74,13 @@ func (in Integration[T, C]) Reconcile(
 		err = in.Check(ctx, conn, obj)
 	}
 	if err != nil {
-		reason, after := Classify(err)
-		log.FromContext(ctx).Error(err, "connecting to "+engine.AppName(in.App), "reason", reason)
+		reason, base := Classify(err)
+		after := RetryAfter(obj, base)
+		log.FromContext(ctx).Error(err, "connecting to "+engine.AppName(in.App), "reason", reason, "retryAfter", after)
 		UpdateStatus(ctx, c, recorder, obj, false, reason, err.Error())
 		return ctrl.Result{RequeueAfter: after}, nil
 	}
+	Reached(obj)
 
 	rc := obj.GetReconcileConfig()
 	pass := engine.NewPass(in.App, Policy(rc), obj.GetManagedResources())
@@ -88,7 +90,7 @@ func (in Integration[T, C]) Reconcile(
 	ReportResult(ctx, c, recorder, obj, pass.Observe, engine.ReconcileResult{
 		Synced: pass.SyncedItems(), Errors: problems, Drift: pass.Drift(),
 	})
-	after := ReconcileInterval(rc)
+	after := NextSync(rc)
 	if pass.Retry > 0 && pass.Retry < after {
 		after = pass.Retry
 	}
