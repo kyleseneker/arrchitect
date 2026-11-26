@@ -619,3 +619,15 @@ func TestManagedResourcesGaugeSurvivesARestartWhileTheAppIsDown(t *testing.T) {
 	assert.Equal(t, 2.0, testutil.ToFloat64(metrics.ManagedResources.WithLabelValues("Sonarr", "media", "restarted", "tags")),
 		"the series comes from the ownership status records, not only from a successful sync")
 }
+
+func TestNoEventWithoutTheStatusItDescribes(t *testing.T) {
+	obj := &pvrv1alpha1.Sonarr{Name: "never-stored", Namespace: "media"}
+	s := runtime.NewScheme()
+	require.NoError(t, pvrv1alpha1.AddToScheme(s))
+	c := fake.NewClientBuilder().WithScheme(s).WithStatusSubresource(obj).Build()
+	recorder := events.NewFakeRecorder(1)
+
+	UpdateStatus(context.Background(), c, recorder, obj, false, engine.ReasonAppUnreachable, "connection refused")
+
+	assert.Empty(t, recorder.Events, "the status write failed, so the event would describe a state nobody can read")
+}

@@ -176,8 +176,9 @@ func UpdateStatus(ctx context.Context, c client.Client, recorder events.EventRec
 	*obj.GetObservedGeneration() = generation
 	recordSynced(obj, synced)
 	recordManaged(obj)
-	writeStatus(ctx, c, obj)
-	emitTransition(recorder, obj, before, synced, reason)
+	if writeStatus(ctx, c, obj) {
+		emitTransition(recorder, obj, before, synced, reason)
+	}
 }
 
 // transitionNotes say in a fixed sentence what each reason means. An event
@@ -239,19 +240,20 @@ func recordSynced(obj ConfigResource, synced bool) {
 	metrics.ConfigSynced.WithLabelValues(kind, obj.GetNamespace(), obj.GetName()).Set(v)
 }
 
-// writeStatus persists obj's status. Only this controller writes the status, so
-// a conflict means only that something else changed the object mid-pass, most
-// often a spec edit. Losing the write would also lose any ownership this pass
-// recorded in status.managedResources, and a resource the operator created but
-// no longer tracks can never be pruned or cleaned up. So retry against the
-// latest resourceVersion; the status subresource ignores everything but status.
-// The latest version is read past the cache, which can still hold the version
-// from before the edit, and the write outlives a reconcile cancelled mid-pass.
 // statusWriteTimeout bounds a status write, which runs on after its reconcile
 // is cancelled.
 const statusWriteTimeout = 10 * time.Second
 
-func writeStatus(ctx context.Context, c client.Client, obj ConfigResource) {
+// writeStatus persists obj's status and reports whether it did. Only this
+// controller writes the status, so a conflict means only that something else
+// changed the object mid-pass, most often a spec edit. Losing the write would
+// also lose any ownership this pass recorded in status.managedResources, and a
+// resource the operator created but no longer tracks can never be pruned or
+// cleaned up. So retry against the latest resourceVersion; the status
+// subresource ignores everything but status. The latest version is read past
+// the cache, which can still hold the version from before the edit, and the
+// write outlives a reconcile cancelled mid-pass.
+func writeStatus(ctx context.Context, c client.Client, obj ConfigResource) bool {
 	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), statusWriteTimeout)
 	defer cancel()
 	var latestReader client.Reader = c
@@ -276,6 +278,7 @@ func writeStatus(ctx context.Context, c client.Client, obj ConfigResource) {
 	if err != nil && !apierrors.IsNotFound(err) {
 		log.FromContext(ctx).Error(err, "failed to update status")
 	}
+	return err == nil
 }
 
 // BoolTo01 converts a bool to "1" or "0" for APIs that use numeric strings (Plex, SABnzbd).

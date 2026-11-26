@@ -1,6 +1,7 @@
 package common
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -58,4 +59,19 @@ func TestARecreatedResourceStartsWithoutTheOldOnesFailures(t *testing.T) {
 
 	forget(&pvrv1alpha1.Sonarr{Name: t.Name(), Namespace: "media"})
 	assert.Less(t, RetryAfter(old, time.Minute), 2*time.Minute, "a deleted resource's failures are dropped")
+}
+
+func TestAReplacedResourceLeavesNoEntryBehind(t *testing.T) {
+	RetryAfter(&pvrv1alpha1.Sonarr{Name: t.Name(), Namespace: "media", UID: "first"}, time.Minute)
+	RetryAfter(&pvrv1alpha1.Sonarr{Name: t.Name(), Namespace: "media", UID: "second"}, time.Minute)
+
+	failures.Lock()
+	defer failures.Unlock()
+	var left []string
+	for key := range failures.count {
+		if strings.HasPrefix(key, "Sonarr/media/"+t.Name()+"/") {
+			left = append(left, key)
+		}
+	}
+	assert.Equal(t, []string{"Sonarr/media/" + t.Name() + "/second"}, left)
 }

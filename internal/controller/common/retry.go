@@ -35,6 +35,7 @@ func RetryAfter(obj client.Object, base time.Duration) time.Duration {
 	key := retryKey(obj)
 	failures.Lock()
 	n := failures.count[key]
+	dropOthers(obj, key)
 	failures.count[key] = n + 1
 	failures.Unlock()
 	delay := maxRetryDelay
@@ -46,22 +47,27 @@ func RetryAfter(obj client.Object, base time.Duration) time.Duration {
 
 // Reached clears obj's failures once its app answers.
 func Reached(obj client.Object) {
-	failures.Lock()
-	delete(failures.count, retryKey(obj))
-	failures.Unlock()
+	forget(obj)
 }
 
 // forget drops the failures of every resource that had obj's kind, namespace
-// and name, once it is gone.
+// and name.
 func forget(obj client.Object) {
-	prefix := retryPrefix(obj)
 	failures.Lock()
+	dropOthers(obj, "")
+	failures.Unlock()
+}
+
+// dropOthers drops the entries for obj's kind, namespace and name other than
+// keep, such as one a resource deleted and created again left behind. The
+// caller holds the lock.
+func dropOthers(obj client.Object, keep string) {
+	prefix := retryPrefix(obj)
 	for key := range failures.count {
-		if strings.HasPrefix(key, prefix) {
+		if key != keep && strings.HasPrefix(key, prefix) {
 			delete(failures.count, key)
 		}
 	}
-	failures.Unlock()
 }
 
 // NextSync is when a resource that reached its app next reconciles.
