@@ -160,6 +160,10 @@
             "interval": {
               "type": "string"
             },
+            "honorLabels": {
+              "type": "boolean",
+              "description": "Keep the namespace label of each resource's metrics instead of renaming it to exported_namespace."
+            },
             "labels": {
               "type": "object",
               "additionalProperties": {

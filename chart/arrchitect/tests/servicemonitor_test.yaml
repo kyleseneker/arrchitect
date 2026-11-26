@@ -6,12 +6,20 @@ tests:
     asserts:
       - hasDocuments:
           count: 0
-  - it: keeps each resource's namespace label
+  - it: leaves Prometheus's own target labels in place by default
     set:
       metrics.serviceMonitor.enabled: true
     asserts:
       - isKind:
           of: ServiceMonitor
+      - equal:
+          path: spec.endpoints[0].honorLabels
+          value: false
+  - it: keeps each resource's namespace label when asked
+    set:
+      metrics.serviceMonitor.enabled: true
+      metrics.serviceMonitor.honorLabels: true
+    asserts:
       - equal:
           path: spec.endpoints[0].honorLabels
           value: true

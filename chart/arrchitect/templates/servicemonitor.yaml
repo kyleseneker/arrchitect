@@ -17,8 +17,7 @@ spec:
     - port: https
       scheme: https
       path: /metrics
-      # Keep each resource's namespace label rather than the operator's.
-      honorLabels: true
+      honorLabels: {{ .Values.metrics.serviceMonitor.honorLabels }}
       interval: {{ .Values.metrics.serviceMonitor.interval | default "30s" }}
       bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
       tlsConfig:

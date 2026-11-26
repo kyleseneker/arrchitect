@@ -22,7 +22,7 @@ tests:
           value: ArrchitectResourceNotReady
       - equal:
           path: spec.groups[0].rules[0].annotations.summary
-          value: "{{ $labels.kind }} {{ $labels.namespace }}/{{ $labels.name }} is not in sync"
+          value: "{{ $labels.kind }} {{ or $labels.exported_namespace $labels.namespace }}/{{ $labels.name }} is not in sync"
       - equal:
           path: spec.groups[0].rules[1].alert
           value: ArrchitectDriftNeverSettles

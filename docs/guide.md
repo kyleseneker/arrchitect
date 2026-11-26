@@ -388,6 +388,11 @@ ServiceMonitor, the operator being down.
 `arrchitect_config_synced == 0` is the condition to alert on. Give it 15
 minutes, as the chart's alert does, so an app that restarts doesn't page you.
 
+Prometheus keeps its own `namespace` label on every series it scrapes, so
+through the chart's ServiceMonitor a resource's namespace is in
+`exported_namespace`. Set `metrics.serviceMonitor.honorLabels` to keep it in
+`namespace` instead, if your Prometheus allows it.
+
 ## Upgrading
 
 The chart installs and upgrades the CRDs of the apps it runs, and uninstalling

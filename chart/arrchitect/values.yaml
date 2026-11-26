@@ -84,6 +84,10 @@ metrics:
     # Create a ServiceMonitor. Needs the Prometheus Operator CRDs.
     enabled: false
     interval: 30s
+    # Keep the namespace label of each resource's metrics instead of renaming
+    # it to exported_namespace. Prometheus advises against it unless you trust
+    # the target, and admins can override it.
+    honorLabels: false
     # Additional labels applied to the ServiceMonitor (e.g., for Prometheus selector matching).
     labels: {}
   prometheusRule:
