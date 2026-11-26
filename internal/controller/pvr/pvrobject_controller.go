@@ -14,8 +14,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	"strings"
+
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
 	pvrv1alpha1 "github.com/kyleseneker/arrchitect/api/pvr/v1alpha1"
@@ -89,9 +94,15 @@ func reconcilePVRObject(ctx context.Context, c client.Client, recorder events.Ev
 		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
 	}
 
-	hc, wait := connectPVR(ctx, c, obj, instance.connection, o.app)
-	if wait != nil {
-		return *wait, nil
+	hc, err := connectPVR(ctx, c, obj, instance.connection, o.app)
+	if err == nil {
+		err = pingPVR(ctx, hc, o.app)
+	}
+	if err != nil {
+		reason, after := ctrlcommon.Classify(err)
+		log.FromContext(ctx).Error(err, "connecting to "+o.instanceKind, "reason", reason)
+		ctrlcommon.UpdateStatusUnreachable(ctx, c, obj, reason, err.Error())
+		return ctrl.Result{RequeueAfter: after}, nil
 	}
 	opts, err := o.options(ctx)
 	if err != nil {
@@ -104,17 +115,16 @@ func reconcilePVRObject(ctx context.Context, c client.Client, recorder events.Ev
 	policy := ctrlcommon.Policy(instance.policy)
 	// The object owns only the item it names, so prune replaces it on a rename.
 	policy.Prune = true
-	result, err := pvrclient.Reconcile(ctx, hc, o.app.APIVersion, nil, withApp(opts, o.app), policy, obj.GetManagedResources())
-	if err != nil {
-		ctrlcommon.UpdateStatus(ctx, c, obj, false, engine.ReasonSyncFailed, err.Error())
-		return ctrl.Result{RequeueAfter: interval}, nil
-	}
+	pass := engine.NewPass(o.app.Name, policy, obj.GetManagedResources())
+	problems := pvrclient.Reconcile(ctx, hc, o.app.APIVersion, nil, withApp(opts, o.app), pass)
 	if id, ok := idOf(ctx, hc, "/api/"+o.app.APIVersion+o.path, o.name); ok {
 		o.setID(id)
 	}
-	ctrlcommon.UpdateStatusManaged(obj, result.Managed)
-	ctrlcommon.EmitPruneEvents(recorder, obj, result.Pruned)
-	ctrlcommon.ReportResult(ctx, c, obj, policy.Observe, result)
+	ctrlcommon.UpdateStatusManaged(obj, pass.Owned.Managed())
+	ctrlcommon.EmitPruneEvents(recorder, obj, pass.Owned.Pruned())
+	ctrlcommon.ReportResult(ctx, c, obj, policy.Observe, engine.ReconcileResult{
+		Synced: pass.SyncedItems(), Errors: problems, Drift: pass.Drift(),
+	})
 	return ctrl.Result{RequeueAfter: interval}, nil
 }
 
@@ -195,25 +205,6 @@ func objectsOf(c client.Client, list client.ObjectList) handler.MapFunc {
 	}
 }
 
-// downloadClientAppRefs returns the reference an <App>DownloadClient holds.
-func downloadClientAppRefs(o client.Object) []commonv1alpha1.AppRef {
-	var ref commonv1alpha1.AppRef
-	switch o := o.(type) {
-	case *pvrv1alpha1.SonarrDownloadClient:
-		ref = o.Spec.AppRef
-	case *pvrv1alpha1.RadarrDownloadClient:
-		ref = o.Spec.AppRef
-	case *pvrv1alpha1.LidarrDownloadClient:
-		ref = o.Spec.AppRef
-	case *pvrv1alpha1.ReadarrDownloadClient:
-		ref = o.Spec.AppRef
-	}
-	if ref == (commonv1alpha1.AppRef{}) {
-		return nil
-	}
-	return []commonv1alpha1.AppRef{ref}
-}
-
 // instanceChanged passes an instance's spec changes and changes to whether it
 // synced. An object can name tags and profiles the instance creates, so it is
 // retried once the instance syncs rather than at its next interval.
@@ -237,4 +228,168 @@ func syncedStatus(obj client.Object) metav1.ConditionStatus {
 		return cond.Status
 	}
 	return ""
+}
+
+// +kubebuilder:rbac:groups=arrchitect.dev,resources=sonarrindexers;radarrindexers;lidarrindexers;readarrindexers,verbs=get;list;watch;update;patch
+// +kubebuilder:rbac:groups=arrchitect.dev,resources=sonarrindexers/status;radarrindexers/status;lidarrindexers/status;readarrindexers/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=arrchitect.dev,resources=sonarrindexers/finalizers;radarrindexers/finalizers;lidarrindexers/finalizers;readarrindexers/finalizers,verbs=update
+// +kubebuilder:rbac:groups=arrchitect.dev,resources=sonarrdownloadclients;radarrdownloadclients;lidarrdownloadclients;readarrdownloadclients,verbs=get;list;watch;update;patch
+// +kubebuilder:rbac:groups=arrchitect.dev,resources=sonarrdownloadclients/status;radarrdownloadclients/status;lidarrdownloadclients/status;readarrdownloadclients/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=arrchitect.dev,resources=sonarrdownloadclients/finalizers;radarrdownloadclients/finalizers;lidarrdownloadclients/finalizers;readarrdownloadclients/finalizers,verbs=update
+// +kubebuilder:rbac:groups=arrchitect.dev,resources=qbittorrents;sabnzbds,verbs=get;list;watch
+
+// objectResource is a resource that configures one item, an indexer or a
+// download client, in one PVR app.
+type objectResource interface {
+	ctrlcommon.ConfigResource
+	InstanceName() string
+	ItemName() string
+	SetItemID(int32)
+}
+
+type indexerResource interface {
+	objectResource
+	Item() commonv1alpha1.Indexer
+}
+
+type downloadClientResource interface {
+	objectResource
+	Item() commonv1alpha1.DownloadClient
+}
+
+type instanceLookup func(ctx context.Context, c client.Client, namespace string, ref commonv1alpha1.LocalObjectReference) (pvrInstance, error)
+
+// ObjectKind is one kind of object resource, such as SonarrIndexer.
+type ObjectKind[O objectResource] struct {
+	app      pvrclient.App
+	path     string
+	newObj   func() O
+	newList  func() client.ObjectList
+	instance client.Object
+	lookup   instanceLookup
+	options  func(ctx context.Context, c client.Client, apps ctrlcommon.Apps, obj O) (pvrclient.Options, error)
+	// appRefKinds are the kinds an object's appRef may name.
+	appRefKinds []string
+}
+
+// The object kinds of each PVR app.
+var (
+	SonarrIndexers         = indexerKind[pvrv1alpha1.SonarrIndexer, pvrv1alpha1.SonarrIndexerList](pvrclient.Sonarr, &pvrv1alpha1.Sonarr{}, sonarrInstance)
+	RadarrIndexers         = indexerKind[pvrv1alpha1.RadarrIndexer, pvrv1alpha1.RadarrIndexerList](pvrclient.Radarr, &pvrv1alpha1.Radarr{}, radarrInstance)
+	LidarrIndexers         = indexerKind[pvrv1alpha1.LidarrIndexer, pvrv1alpha1.LidarrIndexerList](pvrclient.Lidarr, &pvrv1alpha1.Lidarr{}, lidarrInstance)
+	ReadarrIndexers        = indexerKind[pvrv1alpha1.ReadarrIndexer, pvrv1alpha1.ReadarrIndexerList](pvrclient.Readarr, &pvrv1alpha1.Readarr{}, readarrInstance)
+	SonarrDownloadClients  = downloadClientKind[pvrv1alpha1.SonarrDownloadClient, pvrv1alpha1.SonarrDownloadClientList](pvrclient.Sonarr, &pvrv1alpha1.Sonarr{}, sonarrInstance)
+	RadarrDownloadClients  = downloadClientKind[pvrv1alpha1.RadarrDownloadClient, pvrv1alpha1.RadarrDownloadClientList](pvrclient.Radarr, &pvrv1alpha1.Radarr{}, radarrInstance)
+	LidarrDownloadClients  = downloadClientKind[pvrv1alpha1.LidarrDownloadClient, pvrv1alpha1.LidarrDownloadClientList](pvrclient.Lidarr, &pvrv1alpha1.Lidarr{}, lidarrInstance)
+	ReadarrDownloadClients = downloadClientKind[pvrv1alpha1.ReadarrDownloadClient, pvrv1alpha1.ReadarrDownloadClientList](pvrclient.Readarr, &pvrv1alpha1.Readarr{}, readarrInstance)
+)
+
+func indexerKind[T, L any, O interface {
+	*T
+	indexerResource
+}, PL interface {
+	*L
+	client.ObjectList
+}](app pvrclient.App, instance client.Object, lookup instanceLookup) ObjectKind[O] {
+	return ObjectKind[O]{
+		app: app, path: "/indexer", instance: instance, lookup: lookup,
+		newObj:  func() O { return O(new(T)) },
+		newList: func() client.ObjectList { return PL(new(L)) },
+		options: func(ctx context.Context, c client.Client, _ ctrlcommon.Apps, obj O) (pvrclient.Options, error) {
+			indexers, err := ctrlcommon.ResolveIndexerSecrets(ctx, c, obj.GetNamespace(), []commonv1alpha1.Indexer{obj.Item()})
+			return pvrclient.Options{Indexers: indexers}, err
+		},
+	}
+}
+
+func downloadClientKind[T, L any, O interface {
+	*T
+	downloadClientResource
+}, PL interface {
+	*L
+	client.ObjectList
+}](app pvrclient.App, instance client.Object, lookup instanceLookup) ObjectKind[O] {
+	return ObjectKind[O]{
+		app: app, path: "/downloadclient", instance: instance, lookup: lookup,
+		newObj:      func() O { return O(new(T)) },
+		newList:     func() client.ObjectList { return PL(new(L)) },
+		appRefKinds: []string{"QBittorrent", "Sabnzbd"},
+		options: func(ctx context.Context, c client.Client, apps ctrlcommon.Apps, obj O) (pvrclient.Options, error) {
+			dc, err := ctrlcommon.ResolveDownloadClient(ctx, c, apps, obj.GetNamespace(), obj.Item())
+			if err != nil {
+				return pvrclient.Options{}, err
+			}
+			dcs := []commonv1alpha1.DownloadClient{dc}
+			secrets, err := ctrlcommon.ResolveDownloadClientSecrets(ctx, c, obj.GetNamespace(), dcs)
+			return pvrclient.Options{DownloadClients: dcs, DCSecrets: secrets}, err
+		},
+	}
+}
+
+// ObjectReconciler reconciles one object kind.
+type ObjectReconciler[O objectResource] struct {
+	client.Client
+	Recorder events.EventRecorder
+	Apps     ctrlcommon.Apps
+	kind     ObjectKind[O]
+}
+
+// NewObjectReconciler returns the reconciler for an object kind.
+func NewObjectReconciler[O objectResource](kind ObjectKind[O], c client.Client, recorder events.EventRecorder, apps ctrlcommon.Apps) *ObjectReconciler[O] {
+	return &ObjectReconciler[O]{Client: c, Recorder: recorder, Apps: apps, kind: kind}
+}
+
+func (r *ObjectReconciler[O]) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	obj := r.kind.newObj()
+	if err := r.Get(ctx, req.NamespacedName, obj); err != nil {
+		return ctrl.Result{}, ctrlcommon.IgnoreDeleted(obj, req.NamespacedName, err)
+	}
+	ref := commonv1alpha1.LocalObjectReference{Name: obj.InstanceName()}
+	return reconcilePVRObject(ctx, r.Client, r.Recorder, pvrObject{
+		app: r.kind.app, obj: obj,
+		instanceKind: r.kind.app.Kind, instanceName: ref.Name,
+		instance: func(ctx context.Context) (pvrInstance, error) {
+			return r.kind.lookup(ctx, r.Client, obj.GetNamespace(), ref)
+		},
+		path: r.kind.path, name: obj.ItemName(),
+		list: r.kind.newList(),
+		claim: func(o client.Object) (string, string) {
+			other := o.(O)
+			return other.InstanceName(), other.ItemName()
+		},
+		options: func(ctx context.Context) (pvrclient.Options, error) {
+			return r.kind.options(ctx, r.Client, r.Apps, obj)
+		},
+		setID: obj.SetItemID,
+	})
+}
+
+func (r *ObjectReconciler[O]) SetupWithManager(mgr ctrl.Manager) error {
+	k := r.kind
+	err := mgr.GetFieldIndexer().IndexField(context.Background(), k.newObj(), instanceRefIndex,
+		func(o client.Object) []string { return []string{o.(O).InstanceName()} })
+	if err != nil {
+		return err
+	}
+	b := ctrl.NewControllerManagedBy(mgr).
+		For(k.newObj(), builder.WithPredicates(ctrlcommon.ConfigChangedPredicate())).
+		Watches(k.instance, handler.EnqueueRequestsFromMapFunc(objectsOf(r.Client, k.newList())), builder.WithPredicates(instanceChanged()))
+	if len(k.appRefKinds) == 0 {
+		b = b.WatchesMetadata(&corev1.Secret{}, ctrlcommon.EnqueueForSecret(r.Client, k.newList()))
+	} else {
+		b = b.WatchesMetadata(&corev1.Secret{}, ctrlcommon.EnqueueForSecretThroughRefs(r.Client, r.Apps, k.newList(), downloadClientAppRefs))
+		if b, err = ctrlcommon.WatchAppRefs(mgr, b, r.Apps, k.newObj(), k.newList(), downloadClientAppRefs, k.appRefKinds...); err != nil {
+			return err
+		}
+	}
+	return b.Named(strings.ToLower(k.app.Kind) + strings.TrimPrefix(k.path, "/")).Complete(r)
+}
+
+// downloadClientAppRefs returns the app a download client's appRef names.
+func downloadClientAppRefs(o client.Object) []commonv1alpha1.AppRef {
+	dc, ok := o.(downloadClientResource)
+	if !ok || dc.Item().AppRef == (commonv1alpha1.AppRef{}) {
+		return nil
+	}
+	return []commonv1alpha1.AppRef{dc.Item().AppRef}
 }

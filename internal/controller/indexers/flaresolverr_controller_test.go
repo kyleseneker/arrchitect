@@ -14,11 +14,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
-	indexersv1alpha1 "github.com/kyleseneker/arrchitect/api/indexers/v1alpha1"
-	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
-	"github.com/kyleseneker/arrchitect/internal/engine"
-	"github.com/kyleseneker/arrchitect/internal/testnet"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -28,6 +23,12 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+
+	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
+	indexersv1alpha1 "github.com/kyleseneker/arrchitect/api/indexers/v1alpha1"
+	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
+	"github.com/kyleseneker/arrchitect/internal/engine"
+	"github.com/kyleseneker/arrchitect/internal/testnet"
 )
 
 // fakeFlareSolverr speaks the single-endpoint /v1 command protocol and records
@@ -234,15 +235,18 @@ func TestFlareSolverrClientSaysWhyItCantConnect(t *testing.T) {
 
 	withCA := flareConfig("https://flaresolverr:8191", false, nil)
 	withCA.Spec.Connection.TLS = &commonv1alpha1.TLSConfig{CASecretRef: commonv1alpha1.SecretKeyRef{Name: "ca", Key: "ca.crt"}}
-	_, reason, err := r.flaresolverrClient(context.Background(), withCA)
+	_, err := r.connect(context.Background(), withCA)
 	require.Error(t, err)
+	reason, _ := ctrlcommon.Classify(err)
 	assert.Equal(t, engine.ReasonSecretNotFound, reason)
 
-	_, reason, err = r.flaresolverrClient(context.Background(), flareConfig("ftp://flaresolverr", false, nil))
+	_, err = r.connect(context.Background(), flareConfig("ftp://flaresolverr", false, nil))
 	require.Error(t, err)
+	reason, after := ctrlcommon.Classify(err)
 	assert.Equal(t, engine.ReasonInvalidConfig, reason)
+	assert.Zero(t, after, "a spec problem waits for the spec to change")
 
-	fc, _, err := r.flaresolverrClient(context.Background(), flareConfig("http://flaresolverr:8191", false, nil))
+	fc, err := r.connect(context.Background(), flareConfig("http://flaresolverr:8191", false, nil))
 	require.NoError(t, err)
 	assert.NotNil(t, fc)
 }

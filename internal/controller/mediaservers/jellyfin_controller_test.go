@@ -27,6 +27,7 @@ import (
 
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
 	mediaserversv1alpha1 "github.com/kyleseneker/arrchitect/api/mediaservers/v1alpha1"
+	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
 	"github.com/kyleseneker/arrchitect/internal/engine"
 	"github.com/kyleseneker/arrchitect/internal/testnet"
 )
@@ -637,16 +638,18 @@ func TestJellyfinClientSaysWhyItCantConnect(t *testing.T) {
 		return &JellyfinReconciler{Client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(objs...).Build()}
 	}
 
-	_, _, reason, err := reconcilerWith().jellyfinClient(context.Background(), jellyfinConfig("http://jellyfin:8096"))
+	_, err := reconcilerWith().connect(context.Background(), jellyfinConfig("http://jellyfin:8096"))
 	require.Error(t, err)
+	reason, _ := ctrlcommon.Classify(err)
 	assert.Equal(t, engine.ReasonSecretNotFound, reason)
 
-	_, _, reason, err = reconcilerWith(adminSecret()).jellyfinClient(context.Background(), jellyfinConfig("ftp://jellyfin"))
+	_, err = reconcilerWith(adminSecret()).connect(context.Background(), jellyfinConfig("ftp://jellyfin"))
 	require.Error(t, err)
+	reason, _ = ctrlcommon.Classify(err)
 	assert.Equal(t, engine.ReasonInvalidConfig, reason)
 
-	jf, admin, _, err := reconcilerWith(adminSecret()).jellyfinClient(context.Background(), jellyfinConfig("http://jellyfin:8096"))
-	require.NoError(t, err)
-	assert.NotNil(t, jf)
-	assert.Equal(t, jellyfinAdmin{username: "admin", password: "hunter2"}, admin)
+	_, err = reconcilerWith(adminSecret()).connect(context.Background(), jellyfinConfig("http://jellyfin.invalid:8096"))
+	require.Error(t, err, "connect asks Jellyfin whether its setup is complete")
+	reason, _ = ctrlcommon.Classify(err)
+	assert.Equal(t, engine.ReasonAppUnreachable, reason)
 }

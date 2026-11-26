@@ -91,12 +91,13 @@ targets, plus compat and e2e.
 
 Copy these when you add something similar:
 
-- A controller's client setup: `tdarrClient` in
-  `internal/controller/transcode/tdarr_controller.go`. It returns the client, a
-  reason and an error, and cleanup reuses it.
-- Status and events: `UpdateSyncStatus` in
-  `internal/controller/common/helpers.go`, with the reasons in
-  `internal/engine/controller.go`.
+- A controller: `TdarrReconciler` in
+  `internal/controller/transcode/tdarr_controller.go`. It declares a
+  `ctrlcommon.Integration`. `Connect` builds the client and signs in, and
+  cleanup reuses it. `Check` probes the app before a sync, and holds any spec
+  check that mustn't block cleanup. `Sync` writes through the `engine.Pass`
+  it's given. `Integration.Reconcile` does the lifecycle, status, events and
+  requeue, with the reasons in `internal/engine/controller.go`.
 - appRef resolution: `internal/controller/common/appref.go`. A failure goes
   through `AppRefFailure`, which picks the reason and the requeue.
 - A compat case: `compatCase` in `test/compat/main_test.go`. A case has a
@@ -160,7 +161,11 @@ Never edit these by hand. Change the source, then regenerate.
   `Tdarr has more than one node named "T"`. The lint config allows a capital
   first letter in an error string only for an app name.
 - Keep the existing requeue policy: 30 seconds for a missing Secret, 60 when an
-  app is unreachable, none for `InvalidConfig`. The shared helpers apply it.
+  app is unreachable, none for `InvalidConfig`. `ctrlcommon.Classify` applies
+  it to what `Connect` returns; wrap a spec problem in `engine.InvalidConfig`.
+- Send every write to an app through `engine.Writes` (`Apply`, `Sync`,
+  `Prune`), so observe mode reports exactly what enforce mode would write.
+  Don't add a separate observe path.
 
 ## Safety
 
@@ -195,8 +200,9 @@ Never edit these by hand. Change the source, then regenerate.
   resources already stored. Avoid it, or put the one-off fix in the release
   notes.
 - A scoped API key, as Autobrr allows, gets 403 on kinds the operator doesn't
-  own. List only kinds that `engine.Ownership` says the operator owns. Compat
-  can't catch this, because its key has every scope.
+  own. Prune and clean up through an `engine.Kind` list (`Pass.PruneKinds`,
+  `Ownership.CleanupKinds`), which never lists a kind the operator owns nothing
+  of. Compat can't catch this, because its key has every scope.
 - qBittorrent 5.3 answers a bad password and a Host header that doesn't match
   its port with the same bare 401.
 - Seerr's CSRF protection blocks API writes, so the operator leaves that

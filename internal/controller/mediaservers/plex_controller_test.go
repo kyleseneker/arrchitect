@@ -25,6 +25,7 @@ import (
 
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
 	mediaserversv1alpha1 "github.com/kyleseneker/arrchitect/api/mediaservers/v1alpha1"
+	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
 	"github.com/kyleseneker/arrchitect/internal/controller/internal/contract"
 	"github.com/kyleseneker/arrchitect/internal/engine"
 	"github.com/kyleseneker/arrchitect/internal/testnet"
@@ -235,8 +236,8 @@ func TestPlexObserveReportsAMissingLibraryWithoutCreatingIt(t *testing.T) {
 	assert.Equal(t, "DriftDetected", synced.Reason)
 }
 
-// Plex accepts some preferences without ever listing them. Observe mode cannot
-// read those back, so they are not reported as drift.
+// Plex accepts some preferences without ever listing them. Observe mode can't
+// read those back, so one the operator never wrote isn't reported as drift.
 func TestPlexObserveDoesNotCountPreferencesPlexDoesNotList(t *testing.T) {
 	app := &fakePlex{existingLibs: []any{plexMovies()}}
 	cfg := plexConfig(app.serve(t), mediaserversv1alpha1.PlexLibrary{Name: "Movies", Type: "movie"})
@@ -322,14 +323,14 @@ func TestPlexClientSaysWhyItCantConnect(t *testing.T) {
 				b = b.WithObjects(plexSecret())
 			}
 			r := &PlexReconciler{Client: b.Build()}
-			pc, reason, err := r.plexClient(context.Background(), plexConfig(tc.url))
-			assert.Equal(t, tc.reason, reason)
-			if tc.reason != "" {
-				require.Error(t, err)
+			_, err := r.connect(context.Background(), plexConfig(tc.url))
+			if tc.reason == "" {
+				require.NoError(t, err)
 				return
 			}
-			require.NoError(t, err)
-			assert.NotNil(t, pc)
+			require.Error(t, err)
+			reason, _ := ctrlcommon.Classify(err)
+			assert.Equal(t, tc.reason, reason)
 		})
 	}
 }

@@ -39,29 +39,29 @@ func main() {
 		operator.Controller{Name: "sonarr", New: func(d operator.Deps) operator.Reconciler {
 			return operator.Reconcilers{
 				&pvr.SonarrReconciler{Client: d.Client, Scheme: d.Scheme, Recorder: d.Recorder, Apps: d.Apps},
-				&pvr.SonarrIndexerReconciler{Client: d.Client, Scheme: d.Scheme, Recorder: d.Recorder},
-				&pvr.SonarrDownloadClientReconciler{Client: d.Client, Scheme: d.Scheme, Recorder: d.Recorder, Apps: d.Apps},
+				pvr.NewObjectReconciler(pvr.SonarrIndexers, d.Client, d.Recorder, d.Apps),
+				pvr.NewObjectReconciler(pvr.SonarrDownloadClients, d.Client, d.Recorder, d.Apps),
 			}
 		}},
 		operator.Controller{Name: "radarr", New: func(d operator.Deps) operator.Reconciler {
 			return operator.Reconcilers{
 				&pvr.RadarrReconciler{Client: d.Client, Scheme: d.Scheme, Recorder: d.Recorder, Apps: d.Apps},
-				&pvr.RadarrIndexerReconciler{Client: d.Client, Scheme: d.Scheme, Recorder: d.Recorder},
-				&pvr.RadarrDownloadClientReconciler{Client: d.Client, Scheme: d.Scheme, Recorder: d.Recorder, Apps: d.Apps},
+				pvr.NewObjectReconciler(pvr.RadarrIndexers, d.Client, d.Recorder, d.Apps),
+				pvr.NewObjectReconciler(pvr.RadarrDownloadClients, d.Client, d.Recorder, d.Apps),
 			}
 		}},
 		operator.Controller{Name: "lidarr", New: func(d operator.Deps) operator.Reconciler {
 			return operator.Reconcilers{
 				&pvr.LidarrReconciler{Client: d.Client, Scheme: d.Scheme, Recorder: d.Recorder, Apps: d.Apps},
-				&pvr.LidarrIndexerReconciler{Client: d.Client, Scheme: d.Scheme, Recorder: d.Recorder},
-				&pvr.LidarrDownloadClientReconciler{Client: d.Client, Scheme: d.Scheme, Recorder: d.Recorder, Apps: d.Apps},
+				pvr.NewObjectReconciler(pvr.LidarrIndexers, d.Client, d.Recorder, d.Apps),
+				pvr.NewObjectReconciler(pvr.LidarrDownloadClients, d.Client, d.Recorder, d.Apps),
 			}
 		}},
 		operator.Controller{Name: "readarr", New: func(d operator.Deps) operator.Reconciler {
 			return operator.Reconcilers{
 				&pvr.ReadarrReconciler{Client: d.Client, Scheme: d.Scheme, Recorder: d.Recorder, Apps: d.Apps},
-				&pvr.ReadarrIndexerReconciler{Client: d.Client, Scheme: d.Scheme, Recorder: d.Recorder},
-				&pvr.ReadarrDownloadClientReconciler{Client: d.Client, Scheme: d.Scheme, Recorder: d.Recorder, Apps: d.Apps},
+				pvr.NewObjectReconciler(pvr.ReadarrIndexers, d.Client, d.Recorder, d.Apps),
+				pvr.NewObjectReconciler(pvr.ReadarrDownloadClients, d.Client, d.Recorder, d.Apps),
 			}
 		}},
 		operator.Controller{Name: "prowlarr", New: func(d operator.Deps) operator.Reconciler {

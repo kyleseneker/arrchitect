@@ -80,7 +80,7 @@ func TestResultReason(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, ResultReason(tt.result))
+			assert.Equal(t, tt.want, resultReason(tt.result))
 		})
 	}
 }
@@ -129,7 +129,7 @@ func TestObservationStatus(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			obj := newConfig("", 0)
 			c := testClient(obj).WithStatusSubresource(obj).Build()
-			UpdateObservationStatus(context.Background(), c, obj, tt.drift, tt.err)
+			updateObservationStatus(context.Background(), c, obj, tt.drift, tt.err)
 			require.NoError(t, c.Get(context.Background(), client.ObjectKeyFromObject(obj), obj))
 			condition := meta.FindStatusCondition(obj.Status.Conditions, "Synced")
 			require.NotNil(t, condition)
@@ -142,7 +142,7 @@ func TestObservationStatus(t *testing.T) {
 	}
 }
 
-func TestUpdateResultStatusReportsObservedDrift(t *testing.T) {
+func TestReportResultReportsObservedDrift(t *testing.T) {
 	for _, tc := range []struct {
 		name   string
 		policy string
@@ -159,7 +159,7 @@ func TestUpdateResultStatusReportsObservedDrift(t *testing.T) {
 			obj := newConfig("", 0)
 			obj.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{DriftPolicy: tc.policy}
 			c := testClient(obj).WithStatusSubresource(obj).Build()
-			UpdateResultStatus(context.Background(), c, obj, tc.result)
+			ReportResult(context.Background(), c, obj, ObserveOnly(obj.Spec.Reconcile), tc.result)
 			require.NoError(t, c.Get(context.Background(), client.ObjectKeyFromObject(obj), obj))
 			condition := meta.FindStatusCondition(obj.Status.Conditions, "Synced")
 			require.NotNil(t, condition)
@@ -249,7 +249,7 @@ func TestUpdateStatusOutlivesACancelledReconcile(t *testing.T) {
 	assert.Equal(t, map[string][]string{"downloadClients": {"qbit"}}, got.GetManagedResources())
 }
 
-func TestUpdateSyncStatus(t *testing.T) {
+func TestReportResultMessages(t *testing.T) {
 	for _, tc := range []struct {
 		name    string
 		observe bool
@@ -269,7 +269,7 @@ func TestUpdateSyncStatus(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			obj := newConfig("", 0)
 			c := testClient(obj).WithStatusSubresource(obj).Build()
-			UpdateSyncStatus(context.Background(), c, obj, tc.observe, tc.drift, tc.errors)
+			ReportResult(context.Background(), c, obj, tc.observe, engine.ReconcileResult{Errors: tc.errors, Drift: tc.drift})
 			require.NoError(t, c.Get(context.Background(), client.ObjectKeyFromObject(obj), obj))
 			condition := meta.FindStatusCondition(obj.Status.Conditions, "Synced")
 			require.NotNil(t, condition)

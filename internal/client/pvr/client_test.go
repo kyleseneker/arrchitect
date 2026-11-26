@@ -1015,8 +1015,7 @@ func TestRebuildResolvesReferencesAndConverges(t *testing.T) {
 				QualityProfiles: []commonv1alpha1.QualityProfile{{Name: "HD", FormatItems: []commonv1alpha1.QualityProfileFormatItem{{Name: "preferred", Score: new(int32(100))}}}},
 				ImportLists:     []commonv1alpha1.ImportList{{Name: "list", QualityProfileName: "HD", TagLabels: []string{"tv"}}},
 			}
-			result, err := Reconcile(context.Background(), hc, "v3", struct{}{}, opts, engine.SyncPolicy{}, nil)
-			require.NoError(t, err)
+			result := reconcileOnce(context.Background(), hc, opts, engine.SyncPolicy{}, nil)
 			require.Empty(t, result.Errors)
 			tagID := app.items["tag"][0]["id"]
 			for _, kind := range []string{"downloadclient", "indexer", "notification", "importlist"} {
@@ -1025,8 +1024,7 @@ func TestRebuildResolvesReferencesAndConverges(t *testing.T) {
 			require.Equal(t, app.items["qualityprofile"][0]["id"], app.items["importlist"][0]["qualityProfileId"])
 			require.Equal(t, []string{"tv"}, opts.DownloadClients[0].TagLabels, "must not mutate spec")
 			writes := len(app.writes)
-			second, err := Reconcile(context.Background(), hc, "v3", struct{}{}, opts, engine.SyncPolicy{}, result.Managed)
-			require.NoError(t, err)
+			second := reconcileOnce(context.Background(), hc, opts, engine.SyncPolicy{}, result.Managed)
 			require.Empty(t, second.Errors)
 			require.Len(t, app.writes, writes, "second pass must not write")
 			require.Equal(t, result.Managed, second.Managed, "ownership snapshots must not accumulate duplicates")
@@ -1038,8 +1036,7 @@ func TestMissingTagBlocksDependentWritesAndRetainsOwnership(t *testing.T) {
 	app := &rebuildAPI{}
 	hc := app.client(t)
 	opts := Options{Tags: []commonv1alpha1.Tag{{Label: "created"}}, DownloadClients: []commonv1alpha1.DownloadClient{{Name: "downloads", TagLabels: []string{"missing"}}}}
-	result, err := Reconcile(context.Background(), hc, "v3", struct{}{}, opts, engine.SyncPolicy{Prune: true}, map[string][]string{"downloadClients": {"old"}})
-	require.NoError(t, err)
+	result := reconcileOnce(context.Background(), hc, opts, engine.SyncPolicy{Prune: true}, map[string][]string{"downloadClients": {"old"}})
 	require.NotEmpty(t, result.Errors)
 	require.Equal(t, []string{"created"}, result.Managed["tags"])
 	require.Equal(t, []string{"old"}, result.Managed["downloadClients"])
@@ -1060,8 +1057,7 @@ func TestObserveReportsReferencesToDeclaredItemsAsDifferences(t *testing.T) {
 		ImportLists:     []commonv1alpha1.ImportList{{Name: "list", Implementation: "Trakt", QualityProfileName: "HD"}},
 		DelayProfiles:   []commonv1alpha1.DelayProfile{{TagLabels: []string{"tv"}}},
 	}
-	result, err := Reconcile(context.Background(), hc, "v3", struct{}{}, opts, engine.SyncPolicy{Observe: true}, nil)
-	require.NoError(t, err)
+	result := reconcileOnce(context.Background(), hc, opts, engine.SyncPolicy{Observe: true}, nil)
 	assert.Empty(t, result.Errors)
 	assert.Subset(t, result.Drift, []string{
 		"tags(tv)", "downloadClients(downloads)", "customFormats(x265)", "qualityProfiles(HD)", "importLists(list)",
@@ -1074,8 +1070,7 @@ func TestObserveStillFailsAReferenceToAnUndeclaredItem(t *testing.T) {
 	app := &rebuildAPI{}
 	hc := app.client(t)
 	opts := Options{DownloadClients: []commonv1alpha1.DownloadClient{{Name: "downloads", TagLabels: []string{"typo"}}}}
-	result, err := Reconcile(context.Background(), hc, "v3", struct{}{}, opts, engine.SyncPolicy{Observe: true}, nil)
-	require.NoError(t, err)
+	result := reconcileOnce(context.Background(), hc, opts, engine.SyncPolicy{Observe: true}, nil)
 	assert.Equal(t, []string{`downloadClients(downloads): tag: the app has no item named "typo"`}, result.Errors)
 	assert.Empty(t, app.writes)
 }
@@ -1097,8 +1092,7 @@ func TestReferenceFailuresNeverDropAssociations(t *testing.T) {
 				app.fail = "tag"
 			}
 			hc := app.client(t)
-			result, err := Reconcile(context.Background(), hc, "v3", struct{}{}, Options{Indexers: []commonv1alpha1.Indexer{{Name: "indexer", TagLabels: []string{"tv"}}}}, engine.SyncPolicy{}, nil)
-			require.NoError(t, err)
+			result := reconcileOnce(context.Background(), hc, Options{Indexers: []commonv1alpha1.Indexer{{Name: "indexer", TagLabels: []string{"tv"}}}}, engine.SyncPolicy{}, nil)
 			require.NotEmpty(t, result.Errors)
 			require.Empty(t, app.writes)
 		})
@@ -1112,8 +1106,7 @@ func TestMissingQualityReferencesBlockWrites(t *testing.T) {
 	} {
 		app := &rebuildAPI{}
 		hc := app.client(t)
-		result, err := Reconcile(context.Background(), hc, "v3", struct{}{}, opts, engine.SyncPolicy{}, nil)
-		require.NoError(t, err)
+		result := reconcileOnce(context.Background(), hc, opts, engine.SyncPolicy{}, nil)
 		require.NotEmpty(t, result.Errors)
 		require.Empty(t, app.writes)
 	}
@@ -1129,9 +1122,8 @@ func TestABadReferenceBlocksOnlyItsKind(t *testing.T) {
 		Indexers:        []commonv1alpha1.Indexer{{Name: "Geek", Protocol: "usenet", Implementation: "Newznab"}},
 	}
 
-	result, err := Reconcile(context.Background(), hc, "v3", struct{}{}, opts, engine.SyncPolicy{Prune: true},
+	result := reconcileOnce(context.Background(), hc, opts, engine.SyncPolicy{Prune: true},
 		map[string][]string{"downloadClients": {"Old"}})
-	require.NoError(t, err)
 
 	assert.Equal(t, []string{`downloadClients(qBit): tag: the app has no item named "missing"`}, result.Errors)
 	assert.Equal(t, []string{"POST indexer"}, app.writes, "the indexer is still written, and nothing touches download clients")
@@ -1146,23 +1138,19 @@ func TestRemotePathMappingLifecycle(t *testing.T) {
 		{Host: "seedbox-a", RemotePath: "/downloads", LocalPath: "/data/a"},
 		{Host: "seedbox-b", RemotePath: "/downloads", LocalPath: "/data/b"},
 	}}
-	result, err := Reconcile(ctx, hc, "v3", struct{}{}, opts, engine.SyncPolicy{}, nil)
-	require.NoError(t, err)
+	result := reconcileOnce(ctx, hc, opts, engine.SyncPolicy{}, nil)
 	require.Empty(t, result.Errors)
 	require.Len(t, app.items["remotepathmapping"], 2)
 	require.Len(t, result.Managed["remotePathMappings"], 2)
 	writes := len(app.writes)
-	result, err = Reconcile(ctx, hc, "v3", struct{}{}, opts, engine.SyncPolicy{}, result.Managed)
-	require.NoError(t, err)
+	result = reconcileOnce(ctx, hc, opts, engine.SyncPolicy{}, result.Managed)
 	require.Empty(t, result.Errors)
 	require.Len(t, app.writes, writes)
 	opts.RemotePathMappings[0].LocalPath = "/data/new"
-	observed, err := Reconcile(ctx, hc, "v3", struct{}{}, opts, engine.SyncPolicy{Observe: true}, result.Managed)
-	require.NoError(t, err)
+	observed := reconcileOnce(ctx, hc, opts, engine.SyncPolicy{Observe: true}, result.Managed)
 	require.Empty(t, observed.Errors)
 	require.Len(t, app.writes, writes)
-	result, err = Reconcile(ctx, hc, "v3", struct{}{}, opts, engine.SyncPolicy{}, result.Managed)
-	require.NoError(t, err)
+	result = reconcileOnce(ctx, hc, opts, engine.SyncPolicy{}, result.Managed)
 	require.Empty(t, result.Errors)
 	require.Equal(t, "/data/new/", app.items["remotepathmapping"][0]["localPath"])
 	// An unrelated hand-created mapping shares a path with the managed entries.
@@ -1170,13 +1158,11 @@ func TestRemotePathMappingLifecycle(t *testing.T) {
 	opts.RemotePathMappings = opts.RemotePathMappings[:1]
 	// A later quality-profile stage must not resurrect ownership removed by prune.
 	opts.QualityProfiles = []commonv1alpha1.QualityProfile{{Name: "HD"}}
-	result, err = Reconcile(ctx, hc, "v3", struct{}{}, opts, engine.SyncPolicy{Prune: true}, result.Managed)
-	require.NoError(t, err)
+	result = reconcileOnce(ctx, hc, opts, engine.SyncPolicy{Prune: true}, result.Managed)
 	require.Empty(t, result.Errors)
 	require.Len(t, result.Managed["remotePathMappings"], 1)
 	require.Len(t, app.items["remotepathmapping"], 2)
-	_, _, err = engine.DeleteManagedResources(ctx, hc, Definition("v3"), result.Managed)
-	require.NoError(t, err)
+	require.NoError(t, engine.DeleteManagedResources(ctx, hc, Definition("v3"), engine.NewOwnership("sonarr", result.Managed)))
 	require.Len(t, app.items["remotepathmapping"], 1)
 	require.Equal(t, "manual", app.items["remotepathmapping"][0]["host"])
 }
@@ -1212,8 +1198,7 @@ func TestExistingItemsKeepWhatTheResourceLeavesOut(t *testing.T) {
 		Notifications:   []commonv1alpha1.Notification{{Name: "Discord", Implementation: "Discord", OnDownload: new(true)}},
 	}
 
-	result, err := Reconcile(ctx, hc, "v3", struct{}{}, opts, engine.SyncPolicy{}, nil)
-	require.NoError(t, err)
+	result := reconcileOnce(ctx, hc, opts, engine.SyncPolicy{}, nil)
 	require.Empty(t, result.Errors)
 
 	dc := app.items["downloadclient"][0]
@@ -1241,8 +1226,7 @@ func TestExistingItemsKeepWhatTheResourceLeavesOut(t *testing.T) {
 	assert.Equal(t, []any{map[string]any{"name": "webHookUrl", "value": "https://discord.test/hook"}}, notification["fields"])
 
 	writes := len(app.writes)
-	result, err = Reconcile(ctx, hc, "v3", struct{}{}, opts, engine.SyncPolicy{}, result.Managed)
-	require.NoError(t, err)
+	result = reconcileOnce(ctx, hc, opts, engine.SyncPolicy{}, result.Managed)
 	require.Empty(t, result.Errors)
 	assert.Len(t, app.writes, writes)
 }
@@ -1260,8 +1244,7 @@ func TestNewItemsGetTheAppsDefaults(t *testing.T) {
 		},
 	}
 
-	result, err := Reconcile(context.Background(), hc, "v3", struct{}{}, opts, engine.SyncPolicy{}, nil)
-	require.NoError(t, err)
+	result := reconcileOnce(context.Background(), hc, opts, engine.SyncPolicy{}, nil)
 	require.Empty(t, result.Errors)
 
 	dc := app.items["downloadclient"][0]
@@ -1288,16 +1271,14 @@ func TestUppercaseTagLabelsSettle(t *testing.T) {
 		DownloadClients: []commonv1alpha1.DownloadClient{{Name: "qBit", Protocol: "torrent", Implementation: "QBittorrent", Host: "qbit", Port: 8080, TagLabels: []string{"4K"}}},
 	}
 
-	result, err := Reconcile(context.Background(), hc, "v3", struct{}{}, opts, engine.SyncPolicy{}, nil)
-	require.NoError(t, err)
+	result := reconcileOnce(context.Background(), hc, opts, engine.SyncPolicy{}, nil)
 	require.Empty(t, result.Errors)
 	require.Len(t, app.items["tag"], 1)
 	assert.Equal(t, "4k", app.items["tag"][0]["label"])
 	assert.Equal(t, []any{app.items["tag"][0]["id"]}, app.items["downloadclient"][0]["tags"])
 
 	writes := len(app.writes)
-	result, err = Reconcile(context.Background(), hc, "v3", struct{}{}, opts, engine.SyncPolicy{}, result.Managed)
-	require.NoError(t, err)
+	result = reconcileOnce(context.Background(), hc, opts, engine.SyncPolicy{}, result.Managed)
 	require.Empty(t, result.Errors)
 	assert.Len(t, app.writes, writes)
 }
@@ -1318,8 +1299,7 @@ func TestDuplicateNormalizedMappingBlocksWrites(t *testing.T) {
 		{Host: "seedbox", RemotePath: "/downloads", LocalPath: "/data/a"},
 		{Host: "seedbox", RemotePath: "/downloads/", LocalPath: "/data/b"},
 	}}
-	result, err := Reconcile(context.Background(), hc, "v3", struct{}{}, opts, engine.SyncPolicy{}, nil)
-	require.NoError(t, err)
+	result := reconcileOnce(context.Background(), hc, opts, engine.SyncPolicy{}, nil)
 	require.NotEmpty(t, result.Errors)
 	require.Empty(t, app.writes)
 }
@@ -1373,8 +1353,7 @@ func TestQualityProfileResolvesCustomFormatsCreatedInTheSameRun(t *testing.T) {
 		}},
 	}
 
-	res, err := Reconcile(context.Background(), hc, "v3", struct{}{}, opts, engine.SyncPolicy{}, nil)
-	require.NoError(t, err)
+	res := reconcileOnce(context.Background(), hc, opts, engine.SyncPolicy{}, nil)
 	require.Empty(t, res.Errors, "unexpected errors")
 	require.Len(t, customFormats, 1, "expected the custom format to be created")
 	require.NotEmpty(t, qpBodies, "quality profile was never written")
@@ -1500,8 +1479,7 @@ func TestQualityDefinitionsUpdateInPlaceAndConverge(t *testing.T) {
 		{Quality: "FLAC", MaxSize: size("0"), PreferredSize: size("0")},
 	}}
 
-	result, err := Reconcile(context.Background(), hc, "v3", struct{}{}, opts, engine.SyncPolicy{}, nil)
-	require.NoError(t, err)
+	result := reconcileOnce(context.Background(), hc, opts, engine.SyncPolicy{}, nil)
 	require.Empty(t, result.Errors)
 	assert.Equal(t, []string{"PUT qualitydefinition/4"}, app.writes)
 	sdtv := app.items["qualitydefinition"][0]
@@ -1511,14 +1489,12 @@ func TestQualityDefinitionsUpdateInPlaceAndConverge(t *testing.T) {
 	assert.Equal(t, "SDTV", sdtv["title"])
 	assert.Empty(t, result.Managed, "the app's qualities are never the operator's to delete")
 
-	second, err := Reconcile(context.Background(), hc, "v3", struct{}{}, opts, engine.SyncPolicy{}, nil)
-	require.NoError(t, err)
+	second := reconcileOnce(context.Background(), hc, opts, engine.SyncPolicy{}, nil)
 	require.Empty(t, second.Errors)
 	assert.Len(t, app.writes, 1, "second pass must not write")
 
 	opts.QualityDefinitions = []commonv1alpha1.QualityDefinition{{Quality: "Laserdisc", MinSize: size("1")}}
-	missing, err := Reconcile(context.Background(), hc, "v3", struct{}{}, opts, engine.SyncPolicy{}, nil)
-	require.NoError(t, err)
+	missing := reconcileOnce(context.Background(), hc, opts, engine.SyncPolicy{}, nil)
 	require.Len(t, missing.Errors, 1)
 	assert.Contains(t, missing.Errors[0], "qualityDefinitions(Laserdisc): the app has no such quality")
 	assert.Len(t, app.writes, 1)
@@ -1541,8 +1517,7 @@ func TestAutoTagsResolveTheProfilesAndTagsTheyNameAndConverge(t *testing.T) {
 		},
 	}}}
 
-	result, err := Reconcile(context.Background(), hc, "v3", struct{}{}, opts, engine.SyncPolicy{}, nil)
-	require.NoError(t, err)
+	result := reconcileOnce(context.Background(), hc, opts, engine.SyncPolicy{}, nil)
 	require.Empty(t, result.Errors)
 	assert.Equal(t, []string{"POST autotagging"}, app.writes)
 	created := app.items["autotagging"][0]
@@ -1553,14 +1528,12 @@ func TestAutoTagsResolveTheProfilesAndTagsTheyNameAndConverge(t *testing.T) {
 	assert.Equal(t, []any{map[string]any{"name": "value", "value": float64(3)}}, specs[1].(map[string]any)["fields"])
 	assert.Equal(t, map[string][]string{"autoTags": {"Anime HD"}}, result.Managed)
 
-	second, err := Reconcile(context.Background(), hc, "v3", struct{}{}, opts, engine.SyncPolicy{}, result.Managed)
-	require.NoError(t, err)
+	second := reconcileOnce(context.Background(), hc, opts, engine.SyncPolicy{}, result.Managed)
 	require.Empty(t, second.Errors)
 	assert.Len(t, app.writes, 1, "second pass must not write")
 
 	opts.AutoTags[0].Specifications[0].QualityProfileName = "Ultra-HD"
-	missing, err := Reconcile(context.Background(), hc, "v3", struct{}{}, opts, engine.SyncPolicy{}, result.Managed)
-	require.NoError(t, err)
+	missing := reconcileOnce(context.Background(), hc, opts, engine.SyncPolicy{}, result.Managed)
 	require.Len(t, missing.Errors, 1)
 	assert.Contains(t, missing.Errors[0], `autoTags(Anime HD): Profile: the app has no item named "Ultra-HD"`)
 
@@ -1568,8 +1541,7 @@ func TestAutoTagsResolveTheProfilesAndTagsTheyNameAndConverge(t *testing.T) {
 		Name: "Profile", Implementation: "QualityProfileSpecification", QualityProfileName: "HD-1080p",
 		Fields: []commonv1alpha1.ConfigField{{Name: "value", Value: fieldValue("7")}},
 	}
-	both, err := Reconcile(context.Background(), hc, "v3", struct{}{}, opts, engine.SyncPolicy{}, result.Managed)
-	require.NoError(t, err)
+	both := reconcileOnce(context.Background(), hc, opts, engine.SyncPolicy{}, result.Managed)
 	require.Len(t, both.Errors, 1)
 	assert.Contains(t, both.Errors[0], "autoTags(Anime HD): Profile: qualityProfileName fills in value, so leave that field out")
 	assert.Len(t, app.writes, 1)
@@ -1605,8 +1577,7 @@ func TestMetadataConsumersUpdateInPlaceAndConverge(t *testing.T) {
 		Fields: []commonv1alpha1.MetadataConsumerField{{Name: "episodeImages", Value: fieldValue("true")}},
 	}}}
 
-	result, err := Reconcile(context.Background(), hc, "v3", struct{}{}, opts, engine.SyncPolicy{}, nil)
-	require.NoError(t, err)
+	result := reconcileOnce(context.Background(), hc, opts, engine.SyncPolicy{}, nil)
 	require.Empty(t, result.Errors)
 	assert.Equal(t, []string{"PUT metadata/1"}, app.writes)
 	kodi := app.items["metadata"][0]
@@ -1618,14 +1589,12 @@ func TestMetadataConsumersUpdateInPlaceAndConverge(t *testing.T) {
 	}, kodi["fields"], "fields left out keep their values")
 	assert.Empty(t, result.Managed, "the app's consumers are never the operator's to delete")
 
-	second, err := Reconcile(context.Background(), hc, "v3", struct{}{}, opts, engine.SyncPolicy{}, nil)
-	require.NoError(t, err)
+	second := reconcileOnce(context.Background(), hc, opts, engine.SyncPolicy{}, nil)
 	require.Empty(t, second.Errors)
 	assert.Len(t, app.writes, 1, "second pass must not write")
 
 	opts.MetadataConsumers = []commonv1alpha1.MetadataConsumer{{Implementation: "KodiMetadata"}}
-	missing, err := Reconcile(context.Background(), hc, "v3", struct{}{}, opts, engine.SyncPolicy{}, nil)
-	require.NoError(t, err)
+	missing := reconcileOnce(context.Background(), hc, opts, engine.SyncPolicy{}, nil)
 	require.Len(t, missing.Errors, 1)
 	assert.Contains(t, missing.Errors[0], "metadataConsumers(KodiMetadata): the app has no such consumer; it has RoksboxMetadata, XbmcMetadata")
 
@@ -1633,8 +1602,7 @@ func TestMetadataConsumersUpdateInPlaceAndConverge(t *testing.T) {
 		Implementation: "XbmcMetadata",
 		Fields:         []commonv1alpha1.MetadataConsumerField{{Name: "movieImages", Value: fieldValue("true")}},
 	}}
-	unknown, err := Reconcile(context.Background(), hc, "v3", struct{}{}, opts, engine.SyncPolicy{}, nil)
-	require.NoError(t, err)
+	unknown := reconcileOnce(context.Background(), hc, opts, engine.SyncPolicy{}, nil)
 	require.Len(t, unknown.Errors, 1)
 	assert.Contains(t, unknown.Errors[0],
 		"metadataConsumers(XbmcMetadata): XbmcMetadata does not accept field(s) movieImages; it accepts: episodeImages, seriesMetadata")
@@ -1807,9 +1775,13 @@ func (a *delayAPI) client(t *testing.T) *engine.HTTPClient {
 	return hc
 }
 
-func (a *delayAPI) reconcile(t *testing.T, hc *engine.HTTPClient, declared []commonv1alpha1.DelayProfile, policy engine.SyncPolicy, managed map[string][]string) engine.ReconcileResult {
+func (a *delayAPI) reconcile(t *testing.T, hc *engine.HTTPClient, declared []commonv1alpha1.DelayProfile, policy engine.SyncPolicy, managed map[string][]string) outcome {
 	t.Helper()
-	return reconcileDelayProfiles(context.Background(), hc, "v3", declared, policy, managed, nil)
+	pass := engine.NewPass(hc.AppLabel(), policy, managed)
+	errs := reconcileDelayProfiles(context.Background(), hc, "v3", declared, pass, nil)
+	return outcome{
+		Synced: pass.SyncedItems(), Errors: errs, Drift: pass.Drift(), Pruned: pass.Owned.Pruned(), Managed: pass.Owned.Managed(),
+	}
 }
 
 func (a *delayAPI) byTags(tags ...float64) map[string]any {
@@ -2022,10 +1994,9 @@ func TestDelayProfileCleanupDeletesOnlyOwnedProfiles(t *testing.T) {
 	app.add([]any{float64(2)}, nil)
 	hc := app.client(t)
 
-	deleted, kept, err := engine.DeleteManagedResources(context.Background(), hc, Definition("v3"),
-		map[string][]string{delayProfilesKind: {strconv.Itoa(int(owned))}})
-	require.NoError(t, err)
-	assert.Empty(t, kept)
+	ownership := engine.NewOwnership("sonarr", map[string][]string{delayProfilesKind: {strconv.Itoa(int(owned))}})
+	require.NoError(t, engine.DeleteManagedResources(context.Background(), hc, Definition("v3"), ownership))
+	deleted := ownership.Pruned()
 	assert.Equal(t, []string{"DELETE delayprofile/" + strconv.Itoa(int(owned))}, app.writes)
 	require.Len(t, deleted, 1)
 	assert.Len(t, app.profiles, 2)
@@ -2095,4 +2066,22 @@ func TestLidarrRootFoldersKeepTheirNameAndTakeDefaults(t *testing.T) {
 
 	_, err = rootFolderResources(context.Background(), hc, "v1", opts, engine.NamedIDs{})
 	assert.ErrorContains(t, err, "rootFolders(/music): tag")
+}
+
+// reconcileOnce is Reconcile in a pass of its own, its outcome gathered for
+// assertions.
+func reconcileOnce(ctx context.Context, hc *engine.HTTPClient, opts Options, policy engine.SyncPolicy, managed map[string][]string) outcome {
+	pass := engine.NewPass(hc.AppLabel(), policy, managed)
+	errs := Reconcile(ctx, hc, "v3", struct{}{}, opts, pass)
+	return outcome{
+		Synced: pass.SyncedItems(), Errors: errs, Drift: pass.Drift(), Pruned: pass.Owned.Pruned(), Managed: pass.Owned.Managed(),
+	}
+}
+
+// outcome is a pass's result, with what it deleted and the ownership it ended
+// with.
+type outcome struct {
+	engine.ReconcileResult
+	Pruned  []engine.PrunedResource
+	Managed map[string][]string
 }

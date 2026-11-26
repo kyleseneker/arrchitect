@@ -104,3 +104,15 @@ func (c *SonarrDownloadClient) SetManagedResources(m map[string][]string) {
 func (c *SonarrDownloadClient) GetReconcileConfig() *commonv1alpha1.ReconcileConfig {
 	return &commonv1alpha1.ReconcileConfig{DeletionPolicy: c.Spec.DeletionPolicy}
 }
+
+// InstanceName names the Sonarr the download client belongs to.
+func (c *SonarrDownloadClient) InstanceName() string { return c.Spec.SonarrRef.Name }
+
+// ItemName is the download client's name in Sonarr.
+func (c *SonarrDownloadClient) ItemName() string { return c.Spec.Name }
+
+// SetItemID records the download client's ID in Sonarr.
+func (c *SonarrDownloadClient) SetItemID(id int32) { c.Status.ID = id }
+
+// Item is the download client as Sonarr stores it.
+func (c *SonarrDownloadClient) Item() commonv1alpha1.DownloadClient { return c.Spec.DownloadClient }

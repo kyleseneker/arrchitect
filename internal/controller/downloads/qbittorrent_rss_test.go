@@ -195,6 +195,40 @@ func TestQBPrunesARenamedRSSFeedBeforeAddingItsNewName(t *testing.T) {
 	assert.Equal(t, []string{"New name"}, got.GetManagedResources()["rssFeeds"])
 }
 
+// Observe mode plans as enforce mode would act: the rename frees the old
+// feed's URL, so the new name is a planned addition, not a conflict.
+func TestQBObservePlansARenamedRSSFeedLikeEnforce(t *testing.T) {
+	app := &fakeQBRSS{feeds: map[string]string{"Old name": "https://feed.example/rss"}}
+	cfg := qbConfig(app.serve(t))
+	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{Prune: new(true), DriftPolicy: "observe"}
+	cfg.Spec.RSSFeeds = []downloadsv1alpha1.QBittorrentRSSFeed{{Name: "New name", URL: "https://feed.example/rss"}}
+	cfg.SetManagedResources(map[string][]string{"rssFeeds": {"Old name"}})
+
+	got := runQB(t, cfg)
+
+	assert.Empty(t, app.writes)
+	synced := meta.FindStatusCondition(got.Status.Conditions, "Synced")
+	require.NotNil(t, synced)
+	assert.Equal(t, "DriftDetected", synced.Reason, synced.Message)
+	assert.Contains(t, synced.Message, "rssFeeds(Old name)")
+	assert.Contains(t, synced.Message, "rssFeeds(New name)")
+}
+
+func TestQBPrunesNoRSSFeedWhenADeclaredURLIsTaken(t *testing.T) {
+	app := &fakeQBRSS{feeds: map[string]string{"Stale": "https://stale.example/rss", "Theirs": "https://feed.example/rss"}}
+	cfg := qbConfig(app.serve(t))
+	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{Prune: new(true)}
+	cfg.Spec.RSSFeeds = []downloadsv1alpha1.QBittorrentRSSFeed{{Name: "New", URL: "https://feed.example/rss"}}
+	cfg.SetManagedResources(map[string][]string{"rssFeeds": {"Stale"}})
+
+	got := runQB(t, cfg)
+
+	assert.Empty(t, app.writes, "a pass that fails on the taken URL must not prune")
+	synced := meta.FindStatusCondition(got.Status.Conditions, "Synced")
+	require.NotNil(t, synced)
+	assert.Contains(t, synced.Message, `already reads https://feed.example/rss as "Theirs"`)
+}
+
 func TestQBRSSRuleUpdatesKeepItsMatchHistory(t *testing.T) {
 	app := &fakeQBRSS{rules: map[string]map[string]any{"Show": {
 		"enabled": true, "priority": float64(0), "useRegex": false, "mustContain": "Show 1080p", "mustNotContain": "",

@@ -58,9 +58,9 @@ func Policy(rc *commonv1alpha1.ReconcileConfig) engine.SyncPolicy {
 	return engine.SyncPolicy{Prune: PruneEnabled(rc), Observe: ObserveOnly(rc)}
 }
 
-// UpdateObservationStatus reports comparison results without claiming drift was
+// updateObservationStatus reports comparison results without claiming drift was
 // corrected. Read failures take precedence over any differences already found.
-func UpdateObservationStatus(ctx context.Context, c client.Client, obj ConfigResource, drift []string, err error) {
+func updateObservationStatus(ctx context.Context, c client.Client, obj ConfigResource, drift []string, err error) {
 	if err != nil {
 		UpdateStatus(ctx, c, obj, false, engine.ReasonSyncFailed, "observation failed: "+err.Error())
 	} else if len(drift) > 0 {
@@ -70,27 +70,14 @@ func UpdateObservationStatus(ctx context.Context, c client.Client, obj ConfigRes
 	}
 }
 
-// UpdateResultStatus reports an engine reconcile: what was applied or, under
-// the observe policy, whether anything differs.
-func UpdateResultStatus(ctx context.Context, c client.Client, obj ConfigResource, result engine.ReconcileResult) {
-	ReportResult(ctx, c, obj, ObserveOnly(obj.GetReconcileConfig()), result)
-}
-
 // ReportResult is UpdateResultStatus for an object whose drift policy is set
 // somewhere other than on the object itself.
 func ReportResult(ctx context.Context, c client.Client, obj ConfigResource, observe bool, result engine.ReconcileResult) {
 	if observe {
-		UpdateObservationStatus(ctx, c, obj, result.Drift, syncError(result.Errors))
+		updateObservationStatus(ctx, c, obj, result.Drift, syncError(result.Errors))
 		return
 	}
-	UpdateStatus(ctx, c, obj, result.Success(), ResultReason(result), result.Message())
-}
-
-// UpdateSyncStatus reports a pass of an integration that writes through its
-// own client: under the observe policy, whether anything differs; otherwise
-// what failed.
-func UpdateSyncStatus(ctx context.Context, c client.Client, obj ConfigResource, observe bool, drift, syncErrors []string) {
-	ReportResult(ctx, c, obj, observe, engine.ReconcileResult{Errors: syncErrors, Drift: drift})
+	UpdateStatus(ctx, c, obj, result.Success(), resultReason(result), result.Message())
 }
 
 // maxDriftListed caps how many differences a status message names.
@@ -117,7 +104,7 @@ func syncError(syncErrors []string) error {
 }
 
 // ResultReason returns the appropriate status reason for a reconcile result.
-func ResultReason(r engine.ReconcileResult) string {
+func resultReason(r engine.ReconcileResult) string {
 	if r.Success() {
 		return engine.ReasonSynced
 	}

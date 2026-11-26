@@ -104,3 +104,15 @@ func (c *SonarrIndexer) SetManagedResources(m map[string][]string) {
 func (c *SonarrIndexer) GetReconcileConfig() *commonv1alpha1.ReconcileConfig {
 	return &commonv1alpha1.ReconcileConfig{DeletionPolicy: c.Spec.DeletionPolicy}
 }
+
+// InstanceName names the Sonarr the indexer belongs to.
+func (c *SonarrIndexer) InstanceName() string { return c.Spec.SonarrRef.Name }
+
+// ItemName is the indexer's name in Sonarr.
+func (c *SonarrIndexer) ItemName() string { return c.Spec.Name }
+
+// SetItemID records the indexer's ID in Sonarr.
+func (c *SonarrIndexer) SetItemID(id int32) { c.Status.ID = id }
+
+// Item is the indexer as Sonarr stores it.
+func (c *SonarrIndexer) Item() commonv1alpha1.Indexer { return c.Spec.Indexer }

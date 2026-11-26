@@ -39,136 +39,112 @@ type JellyfinReconciler struct {
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
 
 func (r *JellyfinReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	logger := log.FromContext(ctx)
-
-	var config mediaserversv1alpha1.Jellyfin
-	if err := r.Get(ctx, req.NamespacedName, &config); err != nil {
-		return ctrl.Result{}, ctrlcommon.IgnoreDeleted(&config, req.NamespacedName, err)
+	integration := ctrlcommon.Integration[*mediaserversv1alpha1.Jellyfin, *jellyfinConn]{
+		App:     "jellyfin",
+		Connect: r.connect,
+		Sync:    r.sync,
 	}
-
-	if done, after := ctrlcommon.HandleLifecycle(ctx, r.Client, r.Recorder, &config, ctrlcommon.Lifecycle{}); done {
-		return ctrl.Result{RequeueAfter: after}, nil
-	}
-
-	jf, admin, reason, err := r.jellyfinClient(ctx, &config)
-	if err != nil {
-		logger.Error(err, "failed to build the Jellyfin client")
-		ctrlcommon.UpdateStatusUnreachable(ctx, r.Client, &config, reason, err.Error())
-		if reason == engine.ReasonInvalidConfig {
-			return ctrl.Result{}, nil
-		}
-		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
-	}
-
-	setupComplete, err := jf.IsSetupComplete(ctx)
-	if err != nil {
-		logger.Error(err, "Jellyfin unreachable")
-		ctrlcommon.UpdateStatusUnreachable(ctx, r.Client, &config, engine.ReasonAppUnreachable, err.Error())
-		return ctrl.Result{RequeueAfter: 60 * time.Second}, nil
-	}
-
-	if !setupComplete && ctrlcommon.ObserveOnly(config.Spec.Reconcile) {
-		config.Status.Initialized = &setupComplete
-		observed := &engine.Writes{App: "jellyfin", Observe: true}
-		err := observed.Compare("settings", "initialization", nil, map[string]any{"initialized": true})
-		ctrlcommon.UpdateObservationStatus(ctx, r.Client, &config, observed.Drift(), err)
-		return ctrl.Result{RequeueAfter: ctrlcommon.ReconcileInterval(config.Spec.Reconcile)}, nil
-	}
-
-	if !setupComplete {
-		serverName := ""
-		metadataLang := "en"
-		countryCode := "US"
-		if config.Spec.Server != nil {
-			if config.Spec.Server.ServerName != "" {
-				serverName = config.Spec.Server.ServerName
-			}
-			if config.Spec.Server.PreferredMetadataLanguage != "" {
-				metadataLang = config.Spec.Server.PreferredMetadataLanguage
-			}
-			if config.Spec.Server.MetadataCountryCode != "" {
-				countryCode = config.Spec.Server.MetadataCountryCode
-			}
-		}
-
-		if err := jf.RunSetupWizard(ctx, admin.username, admin.password, serverName, metadataLang, countryCode); err != nil {
-			logger.Error(err, "failed to run setup wizard")
-			ctrlcommon.UpdateStatus(ctx, r.Client, &config, false, engine.ReasonSyncFailed, fmt.Sprintf("setup wizard: %v", err))
-			return ctrl.Result{RequeueAfter: 60 * time.Second}, nil
-		}
-		logger.Info("Jellyfin setup wizard completed")
-	}
-
-	initialized := true
-	config.Status.Initialized = &initialized
-
-	if err := r.signIn(ctx, jf, &config, admin); err != nil {
-		logger.Error(err, "Jellyfin authentication failed")
-		reason := engine.ReasonAppUnreachable
-		if reconciler.IsSecretError(err) {
-			reason = engine.ReasonSecretNotFound
-		}
-		ctrlcommon.UpdateStatusUnreachable(ctx, r.Client, &config, reason, fmt.Sprintf("authentication: %v", err))
-		return ctrl.Result{RequeueAfter: 60 * time.Second}, nil
-	}
-
-	if ctrlcommon.ObserveOnly(config.Spec.Reconcile) {
-		observed := &engine.Writes{App: "jellyfin", Observe: true}
-		err := observeJellyfinConfig(ctx, jf, config.Spec, observed)
-		ctrlcommon.UpdateObservationStatus(ctx, r.Client, &config, observed.Drift(), err)
-		return ctrl.Result{RequeueAfter: ctrlcommon.ReconcileInterval(config.Spec.Reconcile)}, nil
-	}
-
-	var syncErrors []string
-
-	version := jellyfinVersion(ctx, jf)
-	for _, section := range jellyfinSections(config.Spec) {
-		if err := reconcileJellyfinSection(ctx, jf, section, version); err != nil {
-			logger.Error(err, "failed to reconcile settings", "section", section.name)
-			syncErrors = append(syncErrors, fmt.Sprintf("%s: %v", section.name, err))
-		}
-	}
-
-	syncErrors = append(syncErrors, reconcileJellyfinTasks(ctx, jf, config.Spec.ScheduledTasks, &engine.Writes{App: "jellyfin"})...)
-
-	for _, lib := range config.Spec.Libraries {
-		if err := reconcileJellyfinLibrary(ctx, jf, lib); err != nil {
-			logger.Error(err, "failed to reconcile library", "name", lib.Name)
-			syncErrors = append(syncErrors, fmt.Sprintf("library(%s): %v", lib.Name, err))
-		}
-	}
-
-	ctrlcommon.UpdateSyncStatus(ctx, r.Client, &config, false, nil, syncErrors)
-
-	return ctrl.Result{RequeueAfter: ctrlcommon.ReconcileInterval(config.Spec.Reconcile)}, nil
+	return integration.Reconcile(ctx, r.Client, r.Recorder, req, &mediaserversv1alpha1.Jellyfin{})
 }
 
 // jellyfinAdmin is the admin user the setup wizard creates and the operator
 // signs in as.
 type jellyfinAdmin struct{ username, password string }
 
-// jellyfinClient builds the client for a config and reads its admin user, or
-// returns the status reason it can't.
-func (r *JellyfinReconciler) jellyfinClient(
-	ctx context.Context, config *mediaserversv1alpha1.Jellyfin,
-) (*jellyfinclient.Client, jellyfinAdmin, string, error) {
+// jellyfinConn is a Jellyfin the operator has reached, signed in to once its
+// setup is complete.
+type jellyfinConn struct {
+	jf            *jellyfinclient.Client
+	admin         jellyfinAdmin
+	setupComplete bool
+}
+
+func (r *JellyfinReconciler) connect(ctx context.Context, config *mediaserversv1alpha1.Jellyfin) (*jellyfinConn, error) {
 	username, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, config.Spec.AdminUser.UsernameSecretRef)
 	if err != nil {
-		return nil, jellyfinAdmin{}, engine.ReasonSecretNotFound, err
+		return nil, err
 	}
 	password, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, config.Spec.AdminUser.PasswordSecretRef)
 	if err != nil {
-		return nil, jellyfinAdmin{}, engine.ReasonSecretNotFound, err
+		return nil, err
 	}
 	tlsCfg, err := engine.ResolveTLSConfig(ctx, r.Client, config.Namespace, config.Spec.Connection.TLS)
 	if err != nil {
-		return nil, jellyfinAdmin{}, engine.ReasonSecretNotFound, err
+		return nil, err
 	}
 	hc, err := engine.NewHTTPClient(config.Spec.Connection.URL, engine.AuthMediaBrowser, engine.WithTLSConfig(tlsCfg), engine.WithAppLabel("jellyfin"))
 	if err != nil {
-		return nil, jellyfinAdmin{}, engine.ReasonInvalidConfig, err
+		return nil, err
 	}
-	return jellyfinclient.NewClient(hc), jellyfinAdmin{username: username, password: password}, "", nil
+	conn := &jellyfinConn{jf: jellyfinclient.NewClient(hc), admin: jellyfinAdmin{username: username, password: password}}
+	if conn.setupComplete, err = conn.jf.IsSetupComplete(ctx); err != nil || !conn.setupComplete {
+		return conn, err
+	}
+	if err := r.signIn(ctx, conn.jf, config, conn.admin); err != nil {
+		return nil, fmt.Errorf("authentication: %w", err)
+	}
+	return conn, nil
+}
+
+func (r *JellyfinReconciler) sync(ctx context.Context, conn *jellyfinConn, config *mediaserversv1alpha1.Jellyfin, pass *engine.Pass) []string {
+	logger := log.FromContext(ctx)
+	jf := conn.jf
+	if !conn.setupComplete {
+		config.Status.Initialized = &conn.setupComplete
+		err := pass.Apply("settings", "initialization", func() error {
+			return runJellyfinSetup(ctx, jf, config.Spec.Server, conn.admin)
+		})
+		if err != nil {
+			logger.Error(err, "failed to run setup wizard")
+			pass.Retry = time.Minute
+			return []string{fmt.Sprintf("setup wizard: %v", err)}
+		}
+		if pass.Observe {
+			return nil
+		}
+		logger.Info("Jellyfin setup wizard completed")
+		if err := r.signIn(ctx, jf, config, conn.admin); err != nil {
+			_, pass.Retry = ctrlcommon.Classify(err)
+			return []string{fmt.Sprintf("authentication: %v", err)}
+		}
+	}
+	initialized := true
+	config.Status.Initialized = &initialized
+
+	var problems []string
+	version := jellyfinVersion(ctx, jf)
+	for _, section := range jellyfinSections(config.Spec) {
+		if err := reconcileJellyfinSection(ctx, jf, &pass.Writes, section, version); err != nil {
+			logger.Error(err, "failed to reconcile settings", "section", section.name)
+			problems = append(problems, fmt.Sprintf("%s: %v", section.name, err))
+		}
+	}
+	problems = append(problems, reconcileJellyfinTasks(ctx, jf, config.Spec.ScheduledTasks, &pass.Writes)...)
+	for _, lib := range config.Spec.Libraries {
+		if err := reconcileJellyfinLibrary(ctx, jf, &pass.Writes, lib); err != nil {
+			logger.Error(err, "failed to reconcile library", "name", lib.Name)
+			problems = append(problems, fmt.Sprintf("library(%s): %v", lib.Name, err))
+		}
+	}
+	return problems
+}
+
+// runJellyfinSetup completes a new Jellyfin's setup wizard, creating the admin
+// user the operator signs in as.
+func runJellyfinSetup(ctx context.Context, jf *jellyfinclient.Client, server *mediaserversv1alpha1.JellyfinServer, admin jellyfinAdmin) error {
+	serverName, metadataLang, countryCode := "", "en", "US"
+	if server != nil {
+		if server.ServerName != "" {
+			serverName = server.ServerName
+		}
+		if server.PreferredMetadataLanguage != "" {
+			metadataLang = server.PreferredMetadataLanguage
+		}
+		if server.MetadataCountryCode != "" {
+			countryCode = server.MetadataCountryCode
+		}
+	}
+	return jf.RunSetupWizard(ctx, admin.username, admin.password, serverName, metadataLang, countryCode)
 }
 
 // signIn authenticates with the connection's API key when it sets one, or as
@@ -236,7 +212,7 @@ func jellyfinSections(spec mediaserversv1alpha1.JellyfinSpec) []jellyfinSection 
 	return sections
 }
 
-func reconcileJellyfinSection(ctx context.Context, jf *jellyfinclient.Client, section jellyfinSection, version string) error {
+func reconcileJellyfinSection(ctx context.Context, jf *jellyfinclient.Client, w *engine.Writes, section jellyfinSection, version string) error {
 	current, err := jf.GetConfig(ctx, section.path)
 	if err != nil {
 		return fmt.Errorf("getting current config: %w", err)
@@ -251,7 +227,7 @@ func reconcileJellyfinSection(ctx context.Context, jf *jellyfinclient.Client, se
 		return fmt.Errorf("merging config: %w", err)
 	}
 	if changed {
-		if err := jf.PostConfig(ctx, section.path, merged); err != nil {
+		if err := w.Apply("settings", section.path, func() error { return jf.PostConfig(ctx, section.path, merged) }); err != nil {
 			return err
 		}
 	}
@@ -314,7 +290,7 @@ func versionBefore(a, b string) bool {
 
 // reconcileJellyfinLibrary creates a library, or keeps an existing one's
 // folders and options as declared. Folders are added before any is removed.
-func reconcileJellyfinLibrary(ctx context.Context, jf *jellyfinclient.Client, lib mediaserversv1alpha1.JellyfinLibrary) error {
+func reconcileJellyfinLibrary(ctx context.Context, jf *jellyfinclient.Client, w *engine.Writes, lib mediaserversv1alpha1.JellyfinLibrary) error {
 	current, err := findJellyfinLibrary(ctx, jf, lib.Name)
 	if err != nil {
 		return err
@@ -325,7 +301,7 @@ func reconcileJellyfinLibrary(ctx context.Context, jf *jellyfinclient.Client, li
 			return err
 		}
 		options["PathInfos"] = buildPathInfos(lib.Paths)
-		return jf.CreateLibrary(ctx, lib.Name, lib.CollectionType, options)
+		return w.Apply("libraries", lib.Name, func() error { return jf.CreateLibrary(ctx, lib.Name, lib.CollectionType, options) })
 	}
 	if have := jellyfinCollectionType(current); have != lib.CollectionType {
 		return fmt.Errorf("the library holds %s in Jellyfin; changing its type means recreating it", have)
@@ -336,18 +312,18 @@ func reconcileJellyfinLibrary(ctx context.Context, jf *jellyfinclient.Client, li
 	changed := false
 	for _, path := range want {
 		if !slices.Contains(have, path) {
-			if err := jf.AddLibraryPath(ctx, lib.Name, path); err != nil {
+			if err := w.Apply("libraries", lib.Name, func() error { return jf.AddLibraryPath(ctx, lib.Name, path) }); err != nil {
 				return fmt.Errorf("adding %s: %w", path, err)
 			}
-			changed = true
+			changed = !w.Observe
 		}
 	}
 	for _, path := range have {
 		if !slices.Contains(want, path) {
-			if err := jf.RemoveLibraryPath(ctx, lib.Name, path); err != nil {
+			if err := w.Apply("libraries", lib.Name, func() error { return jf.RemoveLibraryPath(ctx, lib.Name, path) }); err != nil {
 				return fmt.Errorf("removing %s: %w", path, err)
 			}
-			changed = true
+			changed = !w.Observe
 		}
 	}
 	// The options include the folders, so they are saved from a fresh read.
@@ -369,7 +345,7 @@ func reconcileJellyfinLibrary(ctx context.Context, jf *jellyfinclient.Client, li
 		return err
 	}
 	id, _ := current["ItemId"].(string)
-	return jf.UpdateLibraryOptions(ctx, id, merged)
+	return w.Apply("libraries", lib.Name, func() error { return jf.UpdateLibraryOptions(ctx, id, merged) })
 }
 
 func findJellyfinLibrary(ctx context.Context, jf *jellyfinclient.Client, name string) (map[string]any, error) {
@@ -607,72 +583,4 @@ func (r *JellyfinReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		WatchesMetadata(&corev1.Secret{}, ctrlcommon.EnqueueForSecret(r.Client, &mediaserversv1alpha1.JellyfinList{})).
 		Named("jellyfin").
 		Complete(r)
-}
-
-func observeJellyfinConfig(ctx context.Context, jf *jellyfinclient.Client, spec mediaserversv1alpha1.JellyfinSpec, w *engine.Writes) error {
-	version := jellyfinVersion(ctx, jf)
-	var missing []string
-	for _, section := range jellyfinSections(spec) {
-		desired, err := jellyfinSettings(section.settings)
-		if err != nil {
-			return err
-		}
-		missing = append(missing, withoutNewerSettings(section.name, desired, version)...)
-		current, err := jf.GetConfig(ctx, section.path)
-		if err != nil {
-			return fmt.Errorf("reading %s: %w", section.path, err)
-		}
-		if err := w.Compare("settings", section.path, current, desired); err != nil {
-			return err
-		}
-	}
-	missing = append(missing, reconcileJellyfinTasks(ctx, jf, spec.ScheduledTasks, w)...)
-	var missingErr error
-	if len(missing) > 0 {
-		missingErr = errors.New(strings.Join(missing, "; "))
-	}
-	if len(spec.Libraries) == 0 {
-		return missingErr
-	}
-	libraries, err := jf.ListLibraries(ctx)
-	if err != nil {
-		return fmt.Errorf("listing libraries: %w", err)
-	}
-	for _, library := range spec.Libraries {
-		var current map[string]any
-		existing, err := singleLibrary(libraries, "Jellyfin", "Name", library.Name)
-		if err != nil {
-			return err
-		}
-		if existing != nil {
-			// Compared as decoded JSON, the form the desired side takes.
-			raw, err := json.Marshal(map[string]any{
-				"CollectionType": jellyfinCollectionType(existing),
-				"Locations":      slices.Sorted(slices.Values(jellyfinLocations(existing))),
-				"LibraryOptions": existing["LibraryOptions"],
-			})
-			if err == nil {
-				err = json.Unmarshal(raw, &current)
-			}
-			if err != nil {
-				return err
-			}
-		}
-		desired := map[string]any{
-			"CollectionType": library.CollectionType,
-			"Locations":      slices.Sorted(slices.Values(cleanPaths(library.Paths))),
-		}
-		existingOptions, _ := current["LibraryOptions"].(map[string]any)
-		options, err := jellyfinLibraryDesired(ctx, jf, library, existingOptions)
-		if err != nil {
-			return err
-		}
-		if len(options) > 0 {
-			desired["LibraryOptions"] = options
-		}
-		if err := w.Compare("libraries", library.Name, current, desired); err != nil {
-			return err
-		}
-	}
-	return missingErr
 }

@@ -165,7 +165,7 @@ func controllerCases() []controllerCase {
 				}
 			},
 			newRec: func(c client.Client, s *runtime.Scheme) reconcile.Reconciler {
-				return &pvr.SonarrIndexerReconciler{Client: c, Scheme: s, Recorder: events.NewFakeRecorder(50)}
+				return pvr.NewObjectReconciler(pvr.SonarrIndexers, c, events.NewFakeRecorder(50), nil)
 			},
 		},
 		{
@@ -184,7 +184,7 @@ func controllerCases() []controllerCase {
 				}
 			},
 			newRec: func(c client.Client, s *runtime.Scheme) reconcile.Reconciler {
-				return &pvr.SonarrDownloadClientReconciler{Client: c, Scheme: s, Recorder: events.NewFakeRecorder(50)}
+				return pvr.NewObjectReconciler(pvr.SonarrDownloadClients, c, events.NewFakeRecorder(50), nil)
 			},
 		},
 		{
@@ -291,7 +291,7 @@ func controllerCases() []controllerCase {
 				}
 			},
 			newRec: func(c client.Client, s *runtime.Scheme) reconcile.Reconciler {
-				return &pvr.RadarrIndexerReconciler{Client: c, Scheme: s, Recorder: events.NewFakeRecorder(50)}
+				return pvr.NewObjectReconciler(pvr.RadarrIndexers, c, events.NewFakeRecorder(50), nil)
 			},
 		},
 		{
@@ -310,7 +310,7 @@ func controllerCases() []controllerCase {
 				}
 			},
 			newRec: func(c client.Client, s *runtime.Scheme) reconcile.Reconciler {
-				return &pvr.RadarrDownloadClientReconciler{Client: c, Scheme: s, Recorder: events.NewFakeRecorder(50)}
+				return pvr.NewObjectReconciler(pvr.RadarrDownloadClients, c, events.NewFakeRecorder(50), nil)
 			},
 		},
 		{
@@ -344,7 +344,7 @@ func controllerCases() []controllerCase {
 				}
 			},
 			newRec: func(c client.Client, s *runtime.Scheme) reconcile.Reconciler {
-				return &pvr.LidarrIndexerReconciler{Client: c, Scheme: s, Recorder: events.NewFakeRecorder(50)}
+				return pvr.NewObjectReconciler(pvr.LidarrIndexers, c, events.NewFakeRecorder(50), nil)
 			},
 		},
 		{
@@ -363,7 +363,7 @@ func controllerCases() []controllerCase {
 				}
 			},
 			newRec: func(c client.Client, s *runtime.Scheme) reconcile.Reconciler {
-				return &pvr.LidarrDownloadClientReconciler{Client: c, Scheme: s, Recorder: events.NewFakeRecorder(50)}
+				return pvr.NewObjectReconciler(pvr.LidarrDownloadClients, c, events.NewFakeRecorder(50), nil)
 			},
 		},
 		{
@@ -397,7 +397,7 @@ func controllerCases() []controllerCase {
 				}
 			},
 			newRec: func(c client.Client, s *runtime.Scheme) reconcile.Reconciler {
-				return &pvr.ReadarrIndexerReconciler{Client: c, Scheme: s, Recorder: events.NewFakeRecorder(50)}
+				return pvr.NewObjectReconciler(pvr.ReadarrIndexers, c, events.NewFakeRecorder(50), nil)
 			},
 		},
 		{
@@ -416,7 +416,7 @@ func controllerCases() []controllerCase {
 				}
 			},
 			newRec: func(c client.Client, s *runtime.Scheme) reconcile.Reconciler {
-				return &pvr.ReadarrDownloadClientReconciler{Client: c, Scheme: s, Recorder: events.NewFakeRecorder(50)}
+				return pvr.NewObjectReconciler(pvr.ReadarrDownloadClients, c, events.NewFakeRecorder(50), nil)
 			},
 		},
 		{
@@ -620,9 +620,7 @@ func TestInstanceCreationReconcilesItsObjects(t *testing.T) {
 		Client:     operator.ClientOptions(),
 	})
 	require.NoError(t, err)
-	rec := &pvr.SonarrDownloadClientReconciler{
-		Client: mgr.GetClient(), Scheme: mgr.GetScheme(), Recorder: events.NewFakeRecorder(100),
-	}
+	rec := pvr.NewObjectReconciler(pvr.SonarrDownloadClients, mgr.GetClient(), events.NewFakeRecorder(100), nil)
 	require.NoError(t, rec.SetupWithManager(mgr))
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)

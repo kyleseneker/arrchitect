@@ -104,3 +104,15 @@ func (c *RadarrIndexer) SetManagedResources(m map[string][]string) {
 func (c *RadarrIndexer) GetReconcileConfig() *commonv1alpha1.ReconcileConfig {
 	return &commonv1alpha1.ReconcileConfig{DeletionPolicy: c.Spec.DeletionPolicy}
 }
+
+// InstanceName names the Radarr the indexer belongs to.
+func (c *RadarrIndexer) InstanceName() string { return c.Spec.RadarrRef.Name }
+
+// ItemName is the indexer's name in Radarr.
+func (c *RadarrIndexer) ItemName() string { return c.Spec.Name }
+
+// SetItemID records the indexer's ID in Radarr.
+func (c *RadarrIndexer) SetItemID(id int32) { c.Status.ID = id }
+
+// Item is the indexer as Radarr stores it.
+func (c *RadarrIndexer) Item() commonv1alpha1.Indexer { return c.Spec.Indexer }
