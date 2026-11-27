@@ -30,17 +30,17 @@ func fieldValue(raw string) *commonv1alpha1.FieldValue {
 func TestDefinition(t *testing.T) {
 	tests := []struct {
 		name       string
-		apiVersion string
+		app        App
 		wantPrefix string
 	}{
-		{"v3 for Sonarr/Radarr", "v3", "/api/v3"},
-		{"v1 for Lidarr/Readarr", "v1", "/api/v1"},
+		{"v3 for Sonarr/Radarr", Sonarr, "/api/v3"},
+		{"v1 for Lidarr/Readarr", Lidarr, "/api/v1"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			def := Definition(tt.apiVersion)
+			def := Definition(tt.app)
 			assert.Equal(t, tt.wantPrefix+"/system/status", def.HealthPath)
-			assert.Len(t, def.Settings, 5)
+			assert.Len(t, def.Settings, 5+len(tt.app.Sections))
 			assert.True(t, len(def.Resources) >= 8)
 
 			for _, s := range def.Settings {
@@ -56,7 +56,7 @@ func TestDefinition(t *testing.T) {
 func TestDefinitionAddsTheAppsOwnSections(t *testing.T) {
 	paths := func(app App) map[string]string {
 		out := map[string]string{}
-		for _, s := range Definition(app.APIVersion, app.Sections...).Settings {
+		for _, s := range Definition(app).Settings {
 			out[s.Name] = s.Path
 		}
 		return out
@@ -71,7 +71,7 @@ func TestDefinitionAddsTheAppsOwnSections(t *testing.T) {
 }
 
 func TestDefinition_ResourceOrder(t *testing.T) {
-	def := Definition("v3")
+	def := Definition(Sonarr)
 	names := make([]string, len(def.Resources))
 	for i, r := range def.Resources {
 		names[i] = r.Name
@@ -90,6 +90,24 @@ func TestDefinition_ResourceOrder(t *testing.T) {
 		}
 	}
 	assert.Greater(t, qpIdx, cfIdx)
+}
+
+func TestEveryKindIsBuiltInOneStage(t *testing.T) {
+	builders := Options{App: Sonarr}.builders(context.Background(), nil)
+	staged := map[string]bool{}
+	for _, kinds := range stages {
+		for _, kind := range kinds {
+			assert.Contains(t, builders, kind, "a stage names a kind with no builder")
+			assert.False(t, staged[kind], "%s is in two stages", kind)
+			staged[kind] = true
+		}
+	}
+	for _, r := range Definition(Sonarr).Resources {
+		if r.Name != delayProfilesKind {
+			assert.True(t, staged[r.Name], "%s is in no stage", r.Name)
+		}
+	}
+	assert.Len(t, staged, len(builders))
 }
 
 func TestSections(t *testing.T) {
@@ -413,7 +431,7 @@ func TestRemotePathMappingLifecycle(t *testing.T) {
 	require.Empty(t, result.Errors)
 	require.Len(t, result.Managed["remotePathMappings"], 1)
 	require.Len(t, app.items["remotepathmapping"], 2)
-	require.NoError(t, engine.DeleteManagedResources(ctx, hc, Definition("v3"), engine.NewOwnership("sonarr", result.Managed)))
+	require.NoError(t, engine.DeleteManagedResources(ctx, hc, Definition(Sonarr), engine.NewOwnership("sonarr", result.Managed)))
 	require.Len(t, app.items["remotepathmapping"], 1)
 	require.Equal(t, "manual", app.items["remotepathmapping"][0]["host"])
 }
@@ -443,7 +461,7 @@ func TestExistingItemsKeepWhatTheResourceLeavesOut(t *testing.T) {
 	hc := app.client(t)
 	ctx := context.Background()
 	opts := Options{
-		CategoryField:   "tvCategory",
+		App:             Sonarr,
 		DownloadClients: []commonv1alpha1.DownloadClient{{Name: "qBit", Protocol: "torrent", Implementation: "QBittorrent", Host: "qbit", Port: 8080}},
 		Indexers:        []commonv1alpha1.Indexer{{Name: "Geek", Protocol: "usenet", Implementation: "Newznab", Priority: int32(10)}},
 		Notifications:   []commonv1alpha1.Notification{{Name: "Discord", Implementation: "Discord", OnDownload: new(true)}},
@@ -486,13 +504,10 @@ func TestNewItemsGetTheAppsDefaults(t *testing.T) {
 	app := &rebuildAPI{}
 	hc := app.client(t)
 	opts := Options{
-		CategoryField:   "movieCategory",
+		App:             Radarr,
 		DownloadClients: []commonv1alpha1.DownloadClient{{Name: "qBit", Protocol: "torrent", Implementation: "QBittorrent", Host: "qbit", Port: 8080}},
 		Indexers:        []commonv1alpha1.Indexer{{Name: "Geek", Protocol: "usenet", Implementation: "Newznab"}},
 		ImportLists:     []commonv1alpha1.ImportList{{Name: "Trakt", Implementation: "TraktListImport"}},
-		ImportListFields: ImportListFields{
-			Enable: "enabled", AutomaticAdd: "enableAuto", Monitor: "monitor",
-		},
 	}
 
 	result := reconcileOnce(context.Background(), hc, opts, engine.SyncPolicy{}, nil)
@@ -688,7 +703,7 @@ func TestLidarrRootFoldersKeepTheirNameAndTakeDefaults(t *testing.T) {
 			DefaultMonitorOption: "future", DefaultNewItemMonitorOption: "new", DefaultTagLabels: []string{"flac"},
 		}
 	}
-	opts := Options{MetadataProfiles: true, RootFolders: []commonv1alpha1.RootFolder{folder("/music"), folder("/data/audiobooks")}}
+	opts := Options{App: Lidarr, RootFolders: []commonv1alpha1.RootFolder{folder("/music"), folder("/data/audiobooks")}}
 
 	rfs, err := rootFolderResources(context.Background(), hc, "v1", opts, engine.NamedIDs{"flac": {7}})
 	require.NoError(t, err)
@@ -704,10 +719,13 @@ func TestLidarrRootFoldersKeepTheirNameAndTakeDefaults(t *testing.T) {
 }
 
 // reconcileOnce is Reconcile in a pass of its own, its outcome gathered for
-// assertions.
+// assertions. Options that name no app reconcile as Sonarr.
 func reconcileOnce(ctx context.Context, hc *engine.HTTPClient, opts Options, policy engine.SyncPolicy, managed map[string][]string) outcome {
+	if opts.App.Name == "" {
+		opts.App = Sonarr
+	}
 	pass := engine.NewPass(hc.AppLabel(), policy, managed)
-	errs := Reconcile(ctx, hc, "v3", struct{}{}, opts, pass)
+	errs := Reconcile(ctx, hc, struct{}{}, opts, pass)
 	return outcome{
 		Synced: pass.SyncedItems(), Errors: errs, Drift: pass.Drift(), Pruned: pass.Owned.Pruned(), Managed: pass.Owned.Managed(),
 	}

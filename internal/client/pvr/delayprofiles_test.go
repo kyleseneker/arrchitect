@@ -403,7 +403,7 @@ func TestDelayProfileCleanupDeletesOnlyOwnedProfiles(t *testing.T) {
 	hc := app.client(t)
 
 	ownership := engine.NewOwnership("sonarr", map[string][]string{delayProfilesKind: {strconv.Itoa(int(owned))}})
-	require.NoError(t, engine.DeleteManagedResources(context.Background(), hc, Definition("v3"), ownership))
+	require.NoError(t, engine.DeleteManagedResources(context.Background(), hc, Definition(Sonarr), ownership))
 	deleted := ownership.Pruned()
 	assert.Equal(t, []string{"DELETE delayprofile/" + strconv.Itoa(int(owned))}, app.writes)
 	require.Len(t, deleted, 1)

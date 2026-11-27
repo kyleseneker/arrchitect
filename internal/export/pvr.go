@@ -42,7 +42,7 @@ type pvrExport struct {
 
 func (e *pvrExport) spec() (map[string]any, error) {
 	spec := map[string]any{}
-	for _, s := range pvrclient.Definition(e.app.APIVersion, e.app.Sections...).Settings {
+	for _, s := range pvrclient.Definition(e.app).Settings {
 		section, err := e.hc.GetJSON(e.ctx, s.Path)
 		if err != nil {
 			return nil, err
@@ -131,7 +131,7 @@ func (e *pvrExport) spec() (map[string]any, error) {
 		}
 	}
 	// The app returns each settings section in full; keep what the spec has.
-	for _, s := range pvrclient.Definition(e.app.APIVersion, e.app.Sections...).Settings {
+	for _, s := range pvrclient.Definition(e.app).Settings {
 		if section, ok := spec[s.Name].(map[string]any); ok {
 			spec[s.Name] = crdFields(section, e.specType, s.Name)
 		}

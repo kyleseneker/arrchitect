@@ -74,7 +74,7 @@ func reconcilePVRObject(ctx context.Context, c client.Client, recorder events.Ev
 				"%s %q is gone, so nothing was removed from it", o.instanceKind, o.instanceName)
 			return nil
 		}
-		return ctrlcommon.CleanupApp(ctx, c, recorder, obj, instance.connection, pvrclient.Definition(o.app.APIVersion), o.app.Name)
+		return ctrlcommon.CleanupApp(ctx, c, recorder, obj, instance.connection, pvrclient.Definition(o.app), o.app.Name)
 	}
 	if done, after := ctrlcommon.HandleLifecycle(ctx, c, recorder, obj, ctrlcommon.Lifecycle{Remove: cleanup, Observe: ctrlcommon.Policy(instance.policy).Observe}); done {
 		return ctrl.Result{RequeueAfter: after}, nil
@@ -113,12 +113,13 @@ func reconcilePVRObject(ctx context.Context, c client.Client, recorder events.Ev
 		return ctrl.Result{RequeueAfter: ctrlcommon.RetryAfter(obj, base)}, nil
 	}
 	ctrlcommon.Reached(obj)
+	opts.App = o.app
 
 	policy := ctrlcommon.Policy(instance.policy)
 	// The object owns only the item it names, so prune replaces it on a rename.
 	policy.Prune = true
 	pass := engine.NewPass(o.app.Name, policy, obj.GetManagedResources())
-	problems := pvrclient.Reconcile(ctx, hc, o.app.APIVersion, nil, withApp(opts, o.app), pass)
+	problems := pvrclient.Reconcile(ctx, hc, nil, opts, pass)
 	if id, ok := idOf(ctx, hc, "/api/"+o.app.APIVersion+o.path, o.name); ok {
 		o.setID(id)
 	}

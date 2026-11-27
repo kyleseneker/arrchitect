@@ -81,11 +81,9 @@ var (
 )
 
 // Definition returns the AppDefinition for Sonarr, Radarr, Lidarr or Readarr.
-// apiVersion is "v3" for Sonarr/Radarr, "v1" for Lidarr/Readarr; sections
-// are the app's own settings sections (App.Sections).
-func Definition(apiVersion string, sections ...string) engine.AppDefinition {
-	prefix := fmt.Sprintf("/api/%s", apiVersion)
-	settings := make([]engine.SettingEndpoint, 0, 5+len(sections))
+func Definition(app App) engine.AppDefinition {
+	prefix := "/api/" + app.APIVersion
+	settings := make([]engine.SettingEndpoint, 0, 5+len(app.Sections))
 	settings = append(settings,
 		engine.SettingEndpoint{Name: "mediaManagement", Path: prefix + "/config/mediamanagement"},
 		engine.SettingEndpoint{Name: "naming", Path: prefix + "/config/naming"},
@@ -93,8 +91,17 @@ func Definition(apiVersion string, sections ...string) engine.AppDefinition {
 		engine.SettingEndpoint{Name: "downloadClientConfig", Path: prefix + "/config/downloadclient"},
 		engine.SettingEndpoint{Name: "ui", Path: prefix + "/config/ui"},
 	)
-	for _, name := range sections {
+	for _, name := range app.Sections {
 		settings = append(settings, engine.SettingEndpoint{Name: name, Path: prefix + sectionPaths[name]})
+	}
+	// Only Lidarr's and Readarr's root folders have settings to update.
+	rootFolders := engine.CreateOnly
+	if app.MetadataProfiles {
+		rootFolders = engine.CreateOrUpdate
+	}
+	importListDefaults := map[string]any{"fields": []any{}, "tags": []any{}}
+	if app.ImportListFields.Enable != "" {
+		importListDefaults[app.ImportListFields.Enable] = true
 	}
 	return engine.AppDefinition{
 		HealthPath: prefix + "/system/status",
@@ -105,9 +112,8 @@ func Definition(apiVersion string, sections ...string) engine.AppDefinition {
 			{Name: "tags", Path: prefix + "/tag", MatchField: "label", Policy: engine.CreateOrUpdate},
 			// Metadata profiles before root folders and import lists, which name them.
 			{Name: "metadataProfiles", Path: prefix + "/metadataprofile", MatchField: "name", Policy: engine.CreateOrUpdate, Prunable: true},
-			// Root folders not prunable (destructive to remove); only Lidarr's and
-			// Readarr's have settings to update.
-			{Name: "rootFolders", Path: prefix + "/rootfolder", MatchField: "path", Policy: engine.CreateOnly},
+			// Root folders not prunable (destructive to remove).
+			{Name: "rootFolders", Path: prefix + "/rootfolder", MatchField: "path", Policy: rootFolders},
 			// Delay profiles reconcile in their own stage; this entry drives cleanup.
 			{Name: delayProfilesKind, Path: prefix + "/delayprofile", MatchKey: delayProfileID, Policy: engine.CreateOrUpdate, Prunable: true},
 			{Name: "remotePathMappings", Path: prefix + "/remotepathmapping", MatchKey: remotePathMappingKey, Policy: engine.CreateOrUpdate, Prunable: true},
@@ -150,7 +156,7 @@ func Definition(apiVersion string, sections ...string) engine.AppDefinition {
 			// Import lists last, since they may reference quality profiles by name.
 			{
 				Name: "importLists", Path: prefix + "/importlist", MatchField: "name", Policy: engine.CreateOrUpdate, Prunable: true,
-				CreateDefaults: map[string]any{"fields": []any{}, "tags": []any{}},
+				CreateDefaults: importListDefaults,
 			},
 		},
 	}
@@ -204,25 +210,18 @@ type DownloadClientResolvedSecrets struct {
 
 // Options holds all the inputs needed to reconcile Sonarr, Radarr, Lidarr or Readarr.
 type Options struct {
+	App                App
 	RemotePathMappings []commonv1alpha1.RemotePathMapping
 	RootFolders        []commonv1alpha1.RootFolder
 	DownloadClients    []commonv1alpha1.DownloadClient
 	DCSecrets          map[string]DownloadClientResolvedSecrets
-	CategoryField      string
-	ImportListFields   ImportListFields
-	Choices            map[string]map[string]map[string]int
-	// MetadataProfiles marks apps with metadata profiles (Lidarr, Readarr): their
-	// root folders need a name and default profiles, and import lists a metadata profile.
-	MetadataProfiles bool
-	// Sections are the app's own settings sections (App.Sections).
-	Sections        []string
-	QualityProfiles []commonv1alpha1.QualityProfile
-	CustomFormats   []commonv1alpha1.CustomFormat
-	Tags            []commonv1alpha1.Tag
-	Indexers        []commonv1alpha1.Indexer
-	Notifications   []commonv1alpha1.Notification
-	ImportLists     []commonv1alpha1.ImportList
-	ReleaseProfiles []commonv1alpha1.ReleaseProfile
+	QualityProfiles    []commonv1alpha1.QualityProfile
+	CustomFormats      []commonv1alpha1.CustomFormat
+	Tags               []commonv1alpha1.Tag
+	Indexers           []commonv1alpha1.Indexer
+	Notifications      []commonv1alpha1.Notification
+	ImportLists        []commonv1alpha1.ImportList
+	ReleaseProfiles    []commonv1alpha1.ReleaseProfile
 	// LidarrMetadataProfiles and ReadarrMetadataProfiles are each app's own
 	// metadata profiles.
 	LidarrMetadataProfiles  []pvrv1alpha1.LidarrMetadataProfile
@@ -249,85 +248,137 @@ func (o Options) schema(ctx context.Context, client *engine.HTTPClient, apiVersi
 	return fetchSchema(ctx, client, apiVersion, kind)
 }
 
-// Resources builds the resources map from the options. A kind that can't be
-// built, such as one naming a tag that doesn't exist, is left out of the map,
-// so it is neither written nor pruned, and reported in the error; the other
-// kinds are still built.
-func Resources(ctx context.Context, client *engine.HTTPClient, apiVersion string, opts Options) (map[string][]map[string]any, error) {
-	var tagIDs engine.NamedIDs
-	if hasTagLabels(opts) {
-		var err error
-		tagIDs, err = engine.FetchNamedIDs(ctx, client, fmt.Sprintf("/api/%s/tag", apiVersion), "label")
-		if err != nil {
-			return nil, err
-		}
-		tagIDs.Plan(opts.planned["tags"]...)
-	}
+// stages are the kinds in the order they're written. Items name what earlier
+// stages wrote, whose IDs only exist once it's written: quality profiles name
+// custom formats, auto tags name quality profiles and metadata profiles, root
+// folders in Lidarr and Readarr name quality profiles, and import lists name
+// root folders.
+var stages = [][]string{
+	{"tags"},
+	{
+		"metadataProfiles", "remotePathMappings", "downloadClients", "indexers", "customFormats",
+		"qualityDefinitions", "notifications", "releaseProfiles", "metadataConsumers",
+	},
+	{"qualityProfiles"},
+	{"autoTags"},
+	{"rootFolders"},
+	{"importLists"},
+}
 
-	builders := []struct {
-		name  string
-		count int
-		build func() ([]map[string]any, error)
-	}{
-		{"tags", len(opts.Tags), func() ([]map[string]any, error) { return tagResources(opts.Tags), nil }},
-		{"metadataProfiles", len(opts.LidarrMetadataProfiles) + len(opts.ReadarrMetadataProfiles), func() ([]map[string]any, error) {
-			if len(opts.LidarrMetadataProfiles) > 0 {
-				return lidarrMetadataProfileResources(ctx, client, apiVersion, opts.LidarrMetadataProfiles)
+// builder builds one kind's items. tagged marks a kind with items that name
+// tags, which the builder is then given.
+type builder struct {
+	count  int
+	tagged bool
+	build  func(tags engine.NamedIDs) ([]map[string]any, error)
+}
+
+func (o Options) builders(ctx context.Context, client *engine.HTTPClient) map[string]builder {
+	v := o.App.APIVersion
+	return map[string]builder{
+		"tags": {count: len(o.Tags), build: func(engine.NamedIDs) ([]map[string]any, error) {
+			return tagResources(o.Tags), nil
+		}},
+		"metadataProfiles": {count: len(o.LidarrMetadataProfiles) + len(o.ReadarrMetadataProfiles), build: func(engine.NamedIDs) ([]map[string]any, error) {
+			if len(o.LidarrMetadataProfiles) > 0 {
+				return lidarrMetadataProfileResources(ctx, client, v, o.LidarrMetadataProfiles)
 			}
-			return readarrMetadataProfileResources(ctx, client, apiVersion, opts.ReadarrMetadataProfiles)
+			return readarrMetadataProfileResources(ctx, client, v, o.ReadarrMetadataProfiles)
 		}},
-		{"remotePathMappings", len(opts.RemotePathMappings), func() ([]map[string]any, error) {
-			return remotePathMappingResources(opts.RemotePathMappings)
+		"remotePathMappings": {count: len(o.RemotePathMappings), build: func(engine.NamedIDs) ([]map[string]any, error) {
+			return remotePathMappingResources(o.RemotePathMappings)
 		}},
-		{"rootFolders", len(opts.RootFolders), func() ([]map[string]any, error) {
-			return rootFolderResources(ctx, client, apiVersion, opts, tagIDs)
+		"rootFolders": {
+			count:  len(o.RootFolders),
+			tagged: slices.ContainsFunc(o.RootFolders, func(rf commonv1alpha1.RootFolder) bool { return len(rf.DefaultTagLabels) > 0 }),
+			build: func(tags engine.NamedIDs) ([]map[string]any, error) {
+				return rootFolderResources(ctx, client, v, o, tags)
+			},
+		},
+		"downloadClients": {
+			count:  len(o.DownloadClients),
+			tagged: slices.ContainsFunc(o.DownloadClients, func(dc commonv1alpha1.DownloadClient) bool { return len(dc.TagLabels) > 0 }),
+			build: func(tags engine.NamedIDs) ([]map[string]any, error) {
+				return downloadClientResources(ctx, client, v, o, tags)
+			},
+		},
+		"indexers": {
+			count:  len(o.Indexers),
+			tagged: slices.ContainsFunc(o.Indexers, func(idx commonv1alpha1.Indexer) bool { return len(idx.TagLabels) > 0 }),
+			build: func(tags engine.NamedIDs) ([]map[string]any, error) {
+				return indexerResources(ctx, client, v, o, tags)
+			},
+		},
+		"customFormats": {count: len(o.CustomFormats), build: func(engine.NamedIDs) ([]map[string]any, error) {
+			return customFormatResources(o.CustomFormats), nil
 		}},
-		{"downloadClients", len(opts.DownloadClients), func() ([]map[string]any, error) {
-			return downloadClientResources(ctx, client, apiVersion, opts, tagIDs)
+		"qualityDefinitions": {count: len(o.QualityDefinitions), build: func(engine.NamedIDs) ([]map[string]any, error) {
+			return qualityDefinitionResources(ctx, client, v, o.QualityDefinitions)
 		}},
-		{"indexers", len(opts.Indexers), func() ([]map[string]any, error) {
-			return indexerResources(ctx, client, apiVersion, opts, tagIDs)
+		"qualityProfiles": {count: len(o.QualityProfiles), build: func(engine.NamedIDs) ([]map[string]any, error) {
+			return qualityProfileResources(ctx, client, v, o.QualityProfiles, o.planned["customFormats"])
 		}},
-		{"customFormats", len(opts.CustomFormats), func() ([]map[string]any, error) {
-			return customFormatResources(opts.CustomFormats), nil
+		"notifications": {
+			count:  len(o.Notifications),
+			tagged: slices.ContainsFunc(o.Notifications, func(n commonv1alpha1.Notification) bool { return len(n.TagLabels) > 0 }),
+			build: func(tags engine.NamedIDs) ([]map[string]any, error) {
+				return notificationResources(ctx, client, v, o, tags)
+			},
+		},
+		"importLists": {
+			count:  len(o.ImportLists),
+			tagged: slices.ContainsFunc(o.ImportLists, func(il commonv1alpha1.ImportList) bool { return len(il.TagLabels) > 0 }),
+			build: func(tags engine.NamedIDs) ([]map[string]any, error) {
+				return importListResources(ctx, client, v, o, tags)
+			},
+		},
+		"releaseProfiles": {
+			count:  len(o.ReleaseProfiles),
+			tagged: slices.ContainsFunc(o.ReleaseProfiles, func(rp commonv1alpha1.ReleaseProfile) bool { return len(rp.TagLabels) > 0 }),
+			build: func(tags engine.NamedIDs) ([]map[string]any, error) {
+				return releaseProfileResources(ctx, client, v, o.ReleaseProfiles, tags)
+			},
+		},
+		"autoTags": {count: len(o.AutoTags), tagged: true, build: func(tags engine.NamedIDs) ([]map[string]any, error) {
+			return autoTagResources(ctx, client, v, o, tags)
 		}},
-		{"qualityDefinitions", len(opts.QualityDefinitions), func() ([]map[string]any, error) {
-			return qualityDefinitionResources(ctx, client, apiVersion, opts.QualityDefinitions)
-		}},
-		{"qualityProfiles", len(opts.QualityProfiles), func() ([]map[string]any, error) {
-			return qualityProfileResources(ctx, client, apiVersion, opts.QualityProfiles, opts.planned["customFormats"])
-		}},
-		{"notifications", len(opts.Notifications), func() ([]map[string]any, error) {
-			return notificationResources(ctx, client, apiVersion, opts, tagIDs)
-		}},
-		{"importLists", len(opts.ImportLists), func() ([]map[string]any, error) {
-			return importListResources(ctx, client, apiVersion, opts, tagIDs)
-		}},
-		{"releaseProfiles", len(opts.ReleaseProfiles), func() ([]map[string]any, error) {
-			return releaseProfileResources(ctx, client, apiVersion, opts.ReleaseProfiles, tagIDs)
-		}},
-		{"autoTags", len(opts.AutoTags), func() ([]map[string]any, error) {
-			return autoTagResources(ctx, client, apiVersion, opts, tagIDs)
-		}},
-		{"metadataConsumers", len(opts.MetadataConsumers), func() ([]map[string]any, error) {
-			return metadataConsumerResources(ctx, client, apiVersion, opts.MetadataConsumers)
+		"metadataConsumers": {count: len(o.MetadataConsumers), build: func(engine.NamedIDs) ([]map[string]any, error) {
+			return metadataConsumerResources(ctx, client, v, o.MetadataConsumers)
 		}},
 	}
+}
 
+// buildKinds builds the items of the given kinds. A kind that can't be built,
+// such as one naming a tag that doesn't exist, is left out of the map, so it is
+// neither written nor pruned, and reported in the error; the other kinds are
+// still built.
+func buildKinds(ctx context.Context, client *engine.HTTPClient, opts Options, kinds ...string) (map[string][]map[string]any, error) {
+	builders := opts.builders(ctx, client)
 	resources := make(map[string][]map[string]any)
 	var problems []string
-	for _, b := range builders {
+	var tags engine.NamedIDs
+	var tagsErr error
+	for _, kind := range kinds {
+		b := builders[kind]
 		if b.count == 0 {
 			continue
 		}
-		items, err := b.build()
+		if b.tagged && tags == nil && tagsErr == nil {
+			if tags, tagsErr = engine.FetchNamedIDs(ctx, client, fmt.Sprintf("/api/%s/tag", opts.App.APIVersion), "label"); tagsErr == nil {
+				tags.Plan(opts.planned["tags"]...)
+			}
+		}
+		if b.tagged && tagsErr != nil {
+			problems = append(problems, fmt.Sprintf("%s: %v", kind, tagsErr))
+			continue
+		}
+		items, err := b.build(tags)
 		if err != nil {
 			problems = append(problems, err.Error())
 			continue
 		}
-		resources[b.name] = items
+		resources[kind] = items
 	}
-
 	if len(problems) > 0 {
 		return resources, errors.New(strings.Join(problems, "; "))
 	}
@@ -362,7 +413,7 @@ func downloadClientResources(
 		}
 		dc.ConfigContract = schemaConfigContract(schema, dc.Implementation, dc.ConfigContract)
 		dc.Protocol = schemaProtocol(schema, dc.Implementation, dc.Protocol)
-		dcs = append(dcs, BuildDownloadClientPayload(dc, opts.DCSecrets[dc.Name], opts.CategoryField, tags))
+		dcs = append(dcs, BuildDownloadClientPayload(dc, opts.DCSecrets[dc.Name], opts.App.CategoryField, tags))
 	}
 	return dcs, nil
 }
@@ -469,7 +520,7 @@ func importListResources(
 	}
 	profiles.Plan(opts.planned["qualityProfiles"]...)
 	var metadataProfiles engine.NamedIDs
-	if opts.MetadataProfiles {
+	if opts.App.MetadataProfiles {
 		if metadataProfiles, err = engine.FetchNamedIDs(ctx, client, fmt.Sprintf("/api/%s/metadataprofile", apiVersion), "name"); err != nil {
 			return nil, err
 		}
@@ -491,8 +542,8 @@ func importListResources(
 			}
 			qpIDs[il.QualityProfileName] = id
 		}
-		payload := buildImportListPayload(il, qpIDs, opts.ImportListFields, tags)
-		if opts.MetadataProfiles && il.MetadataProfileName != "" {
+		payload := buildImportListPayload(il, qpIDs, opts.App.ImportListFields, tags)
+		if opts.App.MetadataProfiles && il.MetadataProfileName != "" {
 			id, err := metadataProfiles.Resolve(il.MetadataProfileName)
 			if err != nil {
 				return nil, fmt.Errorf("importLists(%s): %w", il.Name, err)
@@ -505,110 +556,36 @@ func importListResources(
 }
 
 // Reconcile runs the full reconciliation for Sonarr, Radarr, Lidarr or Readarr.
-func Reconcile(ctx context.Context, client *engine.HTTPClient, apiVersion string, spec any, opts Options, pass *engine.Pass) []string {
-	def := Definition(apiVersion, opts.Sections...)
-	if opts.MetadataProfiles {
-		for i := range def.Resources {
-			if def.Resources[i].Name == "rootFolders" {
-				def.Resources[i].Policy = engine.CreateOrUpdate
-			}
-		}
-	}
-	if opts.ImportListFields.Enable != "" {
-		for i := range def.Resources {
-			if def.Resources[i].Name == "importLists" {
-				def.Resources[i].CreateDefaults[opts.ImportListFields.Enable] = true
-			}
-		}
-	}
-	sections, err := Sections(spec, opts.Choices)
+func Reconcile(ctx context.Context, client *engine.HTTPClient, spec any, opts Options, pass *engine.Pass) []string {
+	apiVersion := opts.App.APIVersion
+	def := Definition(opts.App)
+	sections, err := Sections(spec, opts.App.Choices)
 	if err != nil {
 		return []string{fmt.Sprintf("building sections: %v", err)}
 	}
-	// Quality profiles reference custom formats by ID, and import lists reference
-	// quality profiles by ID. Those IDs only exist once the referenced resources
-	// have been written, so each dependent stage resolves after the prior apply
-	// rather than all at once up front.
 	opts = withSchemas(ctx, client, apiVersion, opts)
-	fieldProblems := validateOptionFields(ctx, client, apiVersion, opts)
 	if pass.Observe {
 		opts.planned = plannedNames(opts)
 	}
 
-	var problems []string
-	if len(opts.Tags) > 0 {
-		tags, _ := Resources(ctx, client, apiVersion, Options{Tags: opts.Tags})
-		problems = engine.ReconcileApp(ctx, client, def, nil, tags, pass)
+	problems := validateOptionFields(ctx, client, apiVersion, opts)
+	for _, kinds := range stages {
+		resources, err := buildKinds(ctx, client, opts, kinds...)
+		if err != nil {
+			problems = append(problems, err.Error())
+		}
+		problems = append(problems, engine.ReconcileApp(ctx, client, def, nil, resources, pass)...)
 	}
 
-	base := opts
-	base.Tags = nil
-	base.QualityProfiles = nil
-	base.RootFolders = nil
-	base.ImportLists = nil
-	base.DelayProfiles = nil
-	base.AutoTags = nil
-	resources, err := Resources(ctx, client, apiVersion, base)
-	if err != nil {
-		problems = append(problems, err.Error())
-	}
+	// Settings and delay profiles name tags, which the first stage writes.
 	if err := resolveListSyncTag(ctx, client, apiVersion, sections, opts.planned["tags"]); err != nil {
 		delete(sections, "importListConfig")
 		problems = append(problems, fmt.Sprintf("importListConfig: %v", err))
 	}
-	problems = append(problems, engine.ReconcileApp(ctx, client, def, sections, resources, pass)...)
-	problems = append(problems, fieldProblems...)
-
+	problems = append(problems, engine.ReconcileApp(ctx, client, def, sections, nil, pass)...)
 	if len(opts.DelayProfiles) > 0 {
 		problems = append(problems, reconcileDelayProfiles(ctx, client, apiVersion, opts.DelayProfiles, pass, opts.planned["tags"])...)
 	}
-
-	if len(opts.QualityProfiles) > 0 {
-		stage := Options{QualityProfiles: opts.QualityProfiles, planned: opts.planned}
-		qpRes, qerr := Resources(ctx, client, apiVersion, stage)
-		if qerr != nil {
-			problems = append(problems, fmt.Sprintf("qualityProfiles: %v", qerr))
-		} else {
-			problems = append(problems, engine.ReconcileApp(ctx, client, def, nil, qpRes, pass)...)
-		}
-	}
-
-	// Auto tag conditions name quality profiles and metadata profiles.
-	if len(opts.AutoTags) > 0 {
-		stage := Options{AutoTags: opts.AutoTags, planned: opts.planned}
-		atRes, aerr := Resources(ctx, client, apiVersion, stage)
-		if aerr != nil {
-			problems = append(problems, fmt.Sprintf("autoTags: %v", aerr))
-		} else {
-			problems = append(problems, engine.ReconcileApp(ctx, client, def, nil, atRes, pass)...)
-		}
-	}
-
-	// Root folders in Lidarr and Readarr reference quality profiles, and import
-	// lists reference root folders, so they apply between the two.
-	if len(opts.RootFolders) > 0 {
-		stage := Options{RootFolders: opts.RootFolders, MetadataProfiles: opts.MetadataProfiles, planned: opts.planned}
-		rfRes, rerr := Resources(ctx, client, apiVersion, stage)
-		if rerr != nil {
-			problems = append(problems, fmt.Sprintf("rootFolders: %v", rerr))
-		} else {
-			problems = append(problems, engine.ReconcileApp(ctx, client, def, nil, rfRes, pass)...)
-		}
-	}
-
-	if len(opts.ImportLists) > 0 {
-		stage := Options{
-			ImportLists: opts.ImportLists, ImportListFields: opts.ImportListFields,
-			MetadataProfiles: opts.MetadataProfiles, schemas: opts.schemas, planned: opts.planned,
-		}
-		ilRes, ierr := Resources(ctx, client, apiVersion, stage)
-		if ierr != nil {
-			problems = append(problems, fmt.Sprintf("importLists: %v", ierr))
-		} else {
-			problems = append(problems, engine.ReconcileApp(ctx, client, def, nil, ilRes, pass)...)
-		}
-	}
-
 	return problems
 }
 
@@ -804,7 +781,7 @@ func rootFolderResources(
 ) ([]map[string]any, error) {
 	var qualities, metadata engine.NamedIDs
 	existing := map[string]bool{}
-	if opts.MetadataProfiles {
+	if opts.App.MetadataProfiles {
 		folders, err := client.GetJSONList(ctx, fmt.Sprintf("/api/%s/rootfolder", apiVersion))
 		if err != nil {
 			return nil, err
@@ -826,7 +803,7 @@ func rootFolderResources(
 	rfs := make([]map[string]any, 0, len(opts.RootFolders))
 	for _, rf := range opts.RootFolders {
 		item := map[string]any{"path": rf.Path}
-		if opts.MetadataProfiles {
+		if opts.App.MetadataProfiles {
 			if rf.DefaultQualityProfileName == "" || rf.DefaultMetadataProfileName == "" {
 				return nil, fmt.Errorf("rootFolders(%s): defaultQualityProfileName and defaultMetadataProfileName are required", rf.Path)
 			}

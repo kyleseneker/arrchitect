@@ -143,7 +143,7 @@ func TestSonarr(t *testing.T) {
 			assert.InDelta(t, 30, profiles["default"]["usenetDelay"], 0)
 			assert.InDelta(t, 10, profiles["default"]["torrentDelay"], 0)
 		},
-		cleanup: ownedGone(directClient(t, sonarr.url(), key), pvrclient.Definition("v3")),
+		cleanup: ownedGone(directClient(t, sonarr.url(), key), pvrclient.Definition(pvrclient.Sonarr)),
 	})
 }
 
@@ -231,7 +231,7 @@ func TestRadarr(t *testing.T) {
 			assert.InDelta(t, 120, profiles["kids,uhd"]["usenetDelay"], 0)
 			assert.Equal(t, false, profiles["default"]["bypassIfHighestQuality"])
 		},
-		cleanup: ownedGone(directClient(t, radarr.url(), key), pvrclient.Definition("v3")),
+		cleanup: ownedGone(directClient(t, radarr.url(), key), pvrclient.Definition(pvrclient.Radarr)),
 	})
 }
 
@@ -331,7 +331,7 @@ func TestLidarr(t *testing.T) {
 		},
 		// The root folder defaults to this profile and is never deleted.
 		// The root folder defaults to these, so the app keeps them.
-		cleanup: ownedGone(directClient(t, lidarr.url(), key), pvrclient.Definition("v1"),
+		cleanup: ownedGone(directClient(t, lidarr.url(), key), pvrclient.Definition(pvrclient.Lidarr),
 			"qualityProfiles/Music", "metadataProfiles/Albums Only"),
 	})
 }
@@ -403,7 +403,7 @@ func TestReadarr(t *testing.T) {
 		},
 		// The root folder defaults to this profile and is never deleted.
 		// The root folder defaults to these, so the app keeps them.
-		cleanup: ownedGone(directClient(t, readarr.url(), key), pvrclient.Definition("v1"),
+		cleanup: ownedGone(directClient(t, readarr.url(), key), pvrclient.Definition(pvrclient.Readarr),
 			"qualityProfiles/Books", "metadataProfiles/English Books"),
 	})
 }
