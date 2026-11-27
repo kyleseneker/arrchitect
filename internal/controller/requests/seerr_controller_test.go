@@ -627,7 +627,7 @@ func TestSeerrFailedSetupKeepsTrackOfTheServersItCreated(t *testing.T) {
 	assert.Equal(t, []string{"Sonarr"}, got.GetManagedResources()["sonarr"], "prune and deletion could never remove it")
 }
 
-func TestSeerrReportsARefusedAPIKeyAsUnreachable(t *testing.T) {
+func TestSeerrReportsARefusedAPIKeyAsUnauthorized(t *testing.T) {
 	app := &fakeSeerr{initialized: true, refuseKey: true}
 
 	got := runSeerr(t, seerrWithAPIKey(app.serve(t)))
@@ -635,7 +635,7 @@ func TestSeerrReportsARefusedAPIKeyAsUnreachable(t *testing.T) {
 	ready := meta.FindStatusCondition(got.Status.Conditions, "Ready")
 	require.NotNil(t, ready)
 	assert.Equal(t, metav1.ConditionFalse, ready.Status)
-	assert.Equal(t, "AppUnreachable", ready.Reason, "the Secret exists; Seerr refused the key in it")
+	assert.Equal(t, "Unauthorized", ready.Reason, "the Secret exists; Seerr refused the key in it")
 }
 
 func jellyfinServerConfig(addr string) *requestsv1alpha1.Seerr {

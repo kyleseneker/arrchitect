@@ -6,9 +6,11 @@ const (
 	DefaultReconcileInterval = 5 * time.Minute
 	ConditionSynced          = "Synced"
 	ConditionReady           = "Ready"
+	ConditionStalled         = "Stalled"
 	ReasonSynced             = "Synced"
 	ReasonSyncFailed         = "SyncFailed"
 	ReasonAppUnreachable     = "AppUnreachable"
+	ReasonUnauthorized       = "Unauthorized"
 	ReasonSecretNotFound     = "SecretNotFound"
 	ReasonInvalidConfig      = "InvalidConfig"
 	ReasonReferenceNotFound  = "ReferenceNotFound"

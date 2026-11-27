@@ -48,16 +48,15 @@ var (
 		[]string{"app", "resource_type"},
 	)
 
-	// ManagedResources is a gauge of resources declared per CR, by type.
-	// Updated on each successful reconcile.
-	// Labels: app, resource_type.
+	// ManagedResources counts the items the operator created and tracks for
+	// each resource, by type, as status.managedResources records them.
 	ManagedResources = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Namespace: namespace,
 			Name:      "managed_resources",
-			Help:      "Number of resources declared in each CR, by type.",
+			Help:      "Items the operator created and tracks for each resource, by type.",
 		},
-		[]string{"app", "resource_type"},
+		[]string{"kind", "namespace", "name", "resource_type"},
 	)
 
 	// DriftCorrectedTotal counts writes that changed a resource the operator had

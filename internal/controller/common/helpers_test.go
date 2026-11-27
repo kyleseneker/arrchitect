@@ -7,7 +7,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/testutil"
+	dto "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
@@ -129,7 +131,7 @@ func TestObservationStatus(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			obj := newConfig("", 0)
 			c := testClient(obj).WithStatusSubresource(obj).Build()
-			updateObservationStatus(context.Background(), c, obj, tt.drift, tt.err)
+			updateObservationStatus(context.Background(), c, nil, obj, tt.drift, tt.err)
 			require.NoError(t, c.Get(context.Background(), client.ObjectKeyFromObject(obj), obj))
 			condition := meta.FindStatusCondition(obj.Status.Conditions, "Synced")
 			require.NotNil(t, condition)
@@ -159,7 +161,7 @@ func TestReportResultReportsObservedDrift(t *testing.T) {
 			obj := newConfig("", 0)
 			obj.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{DriftPolicy: tc.policy}
 			c := testClient(obj).WithStatusSubresource(obj).Build()
-			ReportResult(context.Background(), c, obj, ObserveOnly(obj.Spec.Reconcile), tc.result)
+			ReportResult(context.Background(), c, nil, obj, ObserveOnly(obj.Spec.Reconcile), tc.result)
 			require.NoError(t, c.Get(context.Background(), client.ObjectKeyFromObject(obj), obj))
 			condition := meta.FindStatusCondition(obj.Status.Conditions, "Synced")
 			require.NotNil(t, condition)
@@ -188,7 +190,7 @@ func TestUpdateStatusSurvivesASpecEditMidPass(t *testing.T) {
 		"precondition: a plain status write from the stale copy conflicts")
 
 	UpdateStatusManaged(stale, map[string][]string{"downloadClients": {"qbit"}})
-	UpdateStatus(ctx, cl, stale, true, engine.ReasonSynced, "ok")
+	UpdateStatus(ctx, cl, nil, stale, true, engine.ReasonSynced, "ok")
 
 	got := &pvrv1alpha1.Sonarr{}
 	require.NoError(t, cl.Get(ctx, key, got))
@@ -227,7 +229,7 @@ func TestUpdateStatusReadsPastALaggingCache(t *testing.T) {
 	cache := lagging{Client: cl, snapshot: stale.DeepCopy()}
 
 	UpdateStatusManaged(stale, map[string][]string{"downloadClients": {"qbit"}})
-	UpdateStatus(ctx, cache, stale, true, engine.ReasonSynced, "ok")
+	UpdateStatus(ctx, cache, nil, stale, true, engine.ReasonSynced, "ok")
 
 	got := &pvrv1alpha1.Sonarr{}
 	require.NoError(t, cl.Get(ctx, key, got))
@@ -242,7 +244,7 @@ func TestUpdateStatusOutlivesACancelledReconcile(t *testing.T) {
 	cancel()
 
 	UpdateStatusManaged(obj, map[string][]string{"downloadClients": {"qbit"}})
-	UpdateStatus(ctx, cl, obj, true, engine.ReasonSynced, "ok")
+	UpdateStatus(ctx, cl, nil, obj, true, engine.ReasonSynced, "ok")
 
 	got := &pvrv1alpha1.Sonarr{}
 	require.NoError(t, cl.Get(context.Background(), client.ObjectKeyFromObject(obj), got))
@@ -269,7 +271,7 @@ func TestReportResultMessages(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			obj := newConfig("", 0)
 			c := testClient(obj).WithStatusSubresource(obj).Build()
-			ReportResult(context.Background(), c, obj, tc.observe, engine.ReconcileResult{Errors: tc.errors, Drift: tc.drift})
+			ReportResult(context.Background(), c, nil, obj, tc.observe, engine.ReconcileResult{Errors: tc.errors, Drift: tc.drift})
 			require.NoError(t, c.Get(context.Background(), client.ObjectKeyFromObject(obj), obj))
 			condition := meta.FindStatusCondition(obj.Status.Conditions, "Synced")
 			require.NotNil(t, condition)
@@ -457,11 +459,11 @@ func TestConfigSyncedGaugeTracksOutcome(t *testing.T) {
 	cl := fake.NewClientBuilder().WithScheme(scheme.Scheme).
 		WithObjects(c).WithStatusSubresource(c).Build()
 
-	UpdateStatus(context.Background(), cl, c, true, "Synced", "ok")
+	UpdateStatus(context.Background(), cl, nil, c, true, "Synced", "ok")
 	assert.Equal(t, 1.0, testutil.ToFloat64(metrics.ConfigSynced.WithLabelValues("Sonarr", "arr", "s")),
 		"expected gauge 1 after a successful sync")
 
-	UpdateStatusUnreachable(context.Background(), cl, c, "AppUnreachable", "boom")
+	UpdateStatus(context.Background(), cl, nil, c, false, "AppUnreachable", "boom")
 	assert.Equal(t, 0.0, testutil.ToFloat64(metrics.ConfigSynced.WithLabelValues("Sonarr", "arr", "s")),
 		"expected gauge 0 after failure")
 }
@@ -487,4 +489,145 @@ func TestIgnoreDeletedDropsTheSyncedSeries(t *testing.T) {
 	metrics.ConfigSynced.WithLabelValues("Sonarr", "media", "gone").Set(0)
 	assert.NoError(t, IgnoreDeleted(obj, key, apierrors.NewNotFound(schema.GroupResource{Resource: "sonarrs"}, "gone")))
 	assert.False(t, metrics.ConfigSynced.DeleteLabelValues("Sonarr", "media", "gone"), "the series outlived the resource")
+}
+
+// statusSonarr is a Sonarr in a fake API server that serves its status.
+func statusSonarr(t *testing.T) (*pvrv1alpha1.Sonarr, client.Client) {
+	t.Helper()
+	obj := &pvrv1alpha1.Sonarr{Name: "sonarr", Namespace: "media"}
+	s := runtime.NewScheme()
+	require.NoError(t, pvrv1alpha1.AddToScheme(s))
+	return obj, fake.NewClientBuilder().WithScheme(s).WithObjects(obj).WithStatusSubresource(obj).Build()
+}
+
+func TestReadySumsUpSyncedAndStalledMarksWhatNoRetryFixes(t *testing.T) {
+	obj, c := statusSonarr(t)
+	for _, step := range []struct {
+		synced  bool
+		reason  string
+		ready   metav1.ConditionStatus
+		stalled bool
+	}{
+		{true, engine.ReasonSynced, metav1.ConditionTrue, false},
+		{false, engine.ReasonSyncFailed, metav1.ConditionFalse, false},
+		{false, engine.ReasonAppUnreachable, metav1.ConditionFalse, false},
+		{false, engine.ReasonInvalidConfig, metav1.ConditionFalse, true},
+		{false, engine.ReasonUnauthorized, metav1.ConditionFalse, true},
+		{true, engine.ReasonObserved, metav1.ConditionTrue, false},
+	} {
+		UpdateStatus(context.Background(), c, nil, obj, step.synced, step.reason, "message")
+		ready := meta.FindStatusCondition(obj.Status.Conditions, engine.ConditionReady)
+		require.NotNil(t, ready, step.reason)
+		assert.Equal(t, step.ready, ready.Status, step.reason)
+		assert.Equal(t, step.reason, ready.Reason, "Ready carries Synced's reason")
+		assert.Equal(t, step.stalled, meta.IsStatusConditionTrue(obj.Status.Conditions, engine.ConditionStalled), step.reason)
+	}
+}
+
+func TestReadyChangesAreRecordedAsEvents(t *testing.T) {
+	obj, c := statusSonarr(t)
+	recorder := events.NewFakeRecorder(10)
+	update := func(synced bool, reason string) {
+		UpdateStatus(context.Background(), c, recorder, obj, synced, reason, "message")
+	}
+
+	update(true, engine.ReasonSynced)
+	update(false, engine.ReasonAppUnreachable)
+	update(false, engine.ReasonAppUnreachable)
+	update(false, engine.ReasonSyncFailed)
+	update(true, engine.ReasonSynced)
+	update(true, engine.ReasonSynced)
+
+	close(recorder.Events)
+	var got []string
+	for e := range recorder.Events {
+		got = append(got, e)
+	}
+	assert.Equal(t, []string{
+		"Warning AppUnreachable The app didn't respond.",
+		"Warning SyncFailed The app refused some settings. The Ready condition says which.",
+		"Normal Synced The app matches the resource again.",
+	}, got, "one event per change of Ready, none for the first success or a repeat")
+}
+
+func TestManagedResourcesGaugeFollowsEachResource(t *testing.T) {
+	sonarr := &pvrv1alpha1.Sonarr{Name: "tv", Namespace: "media"}
+	sonarr4k := &pvrv1alpha1.Sonarr{Name: "tv-4k", Namespace: "media"}
+	own := func(obj ConfigResource, managed map[string][]string) {
+		UpdateStatusManaged(obj, managed)
+		recordManaged(obj)
+	}
+	gauge := func(name, resourceType string) float64 {
+		return testutil.ToFloat64(metrics.ManagedResources.WithLabelValues("Sonarr", "media", name, resourceType))
+	}
+
+	own(sonarr, map[string][]string{"tags": {"a", "b"}, "indexers": {"x"}})
+	own(sonarr4k, map[string][]string{"tags": {"c"}})
+	assert.Equal(t, 2.0, gauge("tv", "tags"), "each resource has its own series")
+	assert.Equal(t, 1.0, gauge("tv-4k", "tags"))
+
+	own(sonarr, map[string][]string{"tags": {"a"}})
+	assert.Equal(t, 1, managedSeries(t, "tv"), "a type the resource no longer owns loses its series")
+
+	require.NoError(t, IgnoreDeleted(&pvrv1alpha1.Sonarr{}, types.NamespacedName{Namespace: "media", Name: "tv"},
+		apierrors.NewNotFound(schema.GroupResource{Resource: "sonarrs"}, "tv")))
+	assert.Equal(t, 1.0, gauge("tv-4k", "tags"), "another resource's series stay")
+	assert.Zero(t, managedSeries(t, "tv"), "a deleted resource loses its series")
+}
+
+// managedSeries counts the managed_resources series of the Sonarr name.
+func managedSeries(t *testing.T, name string) int {
+	t.Helper()
+	ch := make(chan prometheus.Metric, 64)
+	metrics.ManagedResources.Collect(ch)
+	close(ch)
+	n := 0
+	for m := range ch {
+		var out dto.Metric
+		require.NoError(t, m.Write(&out))
+		labels := map[string]string{}
+		for _, l := range out.GetLabel() {
+			labels[l.GetName()] = l.GetValue()
+		}
+		if labels["kind"] == "Sonarr" && labels["namespace"] == "media" && labels["name"] == name {
+			n++
+		}
+	}
+	return n
+}
+
+func TestEventNotesKeepTheAppsWordsOut(t *testing.T) {
+	obj, c := statusSonarr(t)
+	recorder := events.NewFakeRecorder(1)
+
+	UpdateStatus(context.Background(), c, recorder, obj, false, engine.ReasonSyncFailed, "indexers(Private): the tracker said key abc123 is banned")
+
+	assert.Equal(t, "Warning SyncFailed The app refused some settings. The Ready condition says which.", <-recorder.Events,
+		"an event can reach readers who can't read the resource")
+	ready := meta.FindStatusCondition(obj.Status.Conditions, engine.ConditionReady)
+	require.NotNil(t, ready)
+	assert.Contains(t, ready.Message, "the tracker said", "the details stay in the condition")
+}
+
+func TestManagedResourcesGaugeSurvivesARestartWhileTheAppIsDown(t *testing.T) {
+	obj, c := statusSonarr(t)
+	obj.Name = "restarted"
+	obj.SetManagedResources(map[string][]string{"tags": {"a", "b"}})
+
+	UpdateStatus(context.Background(), c, nil, obj, false, engine.ReasonAppUnreachable, "connection refused")
+
+	assert.Equal(t, 2.0, testutil.ToFloat64(metrics.ManagedResources.WithLabelValues("Sonarr", "media", "restarted", "tags")),
+		"the series comes from the ownership status records, not only from a successful sync")
+}
+
+func TestNoEventWithoutTheStatusItDescribes(t *testing.T) {
+	obj := &pvrv1alpha1.Sonarr{Name: "never-stored", Namespace: "media"}
+	s := runtime.NewScheme()
+	require.NoError(t, pvrv1alpha1.AddToScheme(s))
+	c := fake.NewClientBuilder().WithScheme(s).WithStatusSubresource(obj).Build()
+	recorder := events.NewFakeRecorder(1)
+
+	UpdateStatus(context.Background(), c, recorder, obj, false, engine.ReasonAppUnreachable, "connection refused")
+
+	assert.Empty(t, recorder.Events, "the status write failed, so the event would describe a state nobody can read")
 }

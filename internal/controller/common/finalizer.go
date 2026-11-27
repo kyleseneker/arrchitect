@@ -95,8 +95,12 @@ func HandleDeletion(ctx context.Context, c client.Client, recorder events.EventR
 		}
 	}
 
+	// Cleanup may have used up the reconcile's deadline, and the release must
+	// still land, or deletion outlasts DeletionGiveUpAfter.
+	releaseCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), statusWriteTimeout)
+	defer cancel()
 	controllerutil.RemoveFinalizer(obj, Finalizer)
-	if err := c.Update(ctx, obj); err != nil && !errors.IsNotFound(err) {
+	if err := c.Update(releaseCtx, obj); err != nil && !errors.IsNotFound(err) {
 		return true, err
 	}
 	return true, nil
@@ -162,11 +166,11 @@ func HandleLifecycle(ctx context.Context, c client.Client, recorder events.Event
 		if ObserveOnly(rc) {
 			message = "deletionPolicy delete conflicts with driftPolicy observe; use orphan"
 		}
-		UpdateStatusUnreachable(ctx, c, obj, engine.ReasonInvalidConfig, message)
+		UpdateStatus(ctx, c, recorder, obj, false, engine.ReasonInvalidConfig, message)
 		return true, ReconcileInterval(rc)
 	}
 	if PruneEnabled(rc) && !lc.Prune {
-		UpdateStatusUnreachable(ctx, c, obj, engine.ReasonInvalidConfig,
+		UpdateStatus(ctx, c, recorder, obj, false, engine.ReasonInvalidConfig,
 			"prune is not supported by this integration; remove spec.reconcile.prune")
 		return true, ReconcileInterval(rc)
 	}

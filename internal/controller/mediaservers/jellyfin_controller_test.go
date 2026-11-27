@@ -447,7 +447,7 @@ func TestJellyfinUsesItsAPIKeyInsteadOfSigningIn(t *testing.T) {
 	assert.Equal(t, conditionTrue, jellyfinSynced(t, c), "Synced")
 }
 
-func TestJellyfinReportsARefusedAPIKeyAsUnreachable(t *testing.T) {
+func TestJellyfinReportsARefusedAPIKeyAsUnauthorized(t *testing.T) {
 	app := &fakeJellyfin{setupComplete: true, apiKey: "another-key"}
 	cfg, secret := jellyfinWithAPIKey(app.serve(t))
 
@@ -457,8 +457,9 @@ func TestJellyfinReportsARefusedAPIKeyAsUnreachable(t *testing.T) {
 	require.NoError(t, c.Get(context.Background(), types.NamespacedName{Name: "jellyfin", Namespace: "media"}, &got))
 	ready := meta.FindStatusCondition(got.Status.Conditions, "Ready")
 	require.NotNil(t, ready)
-	assert.Equal(t, "AppUnreachable", ready.Reason)
+	assert.Equal(t, "Unauthorized", ready.Reason)
 	assert.Contains(t, ready.Message, "checking the API key")
+	assert.NotNil(t, meta.FindStatusCondition(got.Status.Conditions, "Stalled"), "a refused key won't fix itself")
 	assert.False(t, app.saw("GET", "/System/Configuration"), "carried on with a refused key")
 }
 

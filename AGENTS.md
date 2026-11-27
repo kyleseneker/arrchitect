@@ -160,9 +160,12 @@ Never edit these by hand. Change the source, then regenerate.
   `Maintainerr has no Radarr server named "M"`,
   `Tdarr has more than one node named "T"`. The lint config allows a capital
   first letter in an error string only for an app name.
-- Keep the existing requeue policy: 30 seconds for a missing Secret, 60 when an
-  app is unreachable, none for `InvalidConfig`. `ctrlcommon.Classify` applies
-  it to what `Connect` returns; wrap a spec problem in `engine.InvalidConfig`.
+- Keep the existing requeue policy. `ctrlcommon.Classify` picks a base delay
+  from what `Connect` returns: 30 seconds for a missing Secret or reference, 60
+  when an app is unreachable, 5 minutes for refused credentials, and none for
+  `InvalidConfig`. `ctrlcommon.RetryAfter` doubles it for each failure in a row,
+  up to 10 minutes. Wrap a spec problem in `engine.InvalidConfig`, and refused
+  credentials in `engine.ErrUnauthorized` when the app doesn't answer 401.
 - Send every write to an app through `engine.Writes` (`Apply`, `Sync`,
   `Prune`), so observe mode reports exactly what enforce mode would write.
   Don't add a separate observe path.

@@ -74,21 +74,23 @@ func (in Integration[T, C]) Reconcile(
 		err = in.Check(ctx, conn, obj)
 	}
 	if err != nil {
-		reason, after := Classify(err)
-		log.FromContext(ctx).Error(err, "connecting to "+engine.AppName(in.App), "reason", reason)
-		UpdateStatusUnreachable(ctx, c, obj, reason, err.Error())
+		reason, base := Classify(err)
+		after := RetryAfter(obj, base)
+		log.FromContext(ctx).Info("Couldn't reach "+engine.AppName(in.App), "reason", reason, "error", err.Error(), "retryAfter", after)
+		UpdateStatus(ctx, c, recorder, obj, false, reason, err.Error())
 		return ctrl.Result{RequeueAfter: after}, nil
 	}
+	Reached(obj)
 
 	rc := obj.GetReconcileConfig()
 	pass := engine.NewPass(in.App, Policy(rc), obj.GetManagedResources())
 	problems := in.Sync(ctx, conn, obj, pass)
 	UpdateStatusManaged(obj, pass.Owned.Managed())
 	EmitPruneEvents(recorder, obj, pass.Owned.Pruned())
-	ReportResult(ctx, c, obj, pass.Observe, engine.ReconcileResult{
+	ReportResult(ctx, c, recorder, obj, pass.Observe, engine.ReconcileResult{
 		Synced: pass.SyncedItems(), Errors: problems, Drift: pass.Drift(),
 	})
-	after := ReconcileInterval(rc)
+	after := NextSync(rc)
 	if pass.Retry > 0 && pass.Retry < after {
 		after = pass.Retry
 	}
@@ -107,6 +109,10 @@ func Classify(err error) (string, time.Duration) {
 		return engine.ReasonInvalidConfig, 0
 	case reconciler.IsSecretError(err):
 		return engine.ReasonSecretNotFound, 30 * time.Second
+	case engine.IsUnauthorized(err):
+		// A Secret change requeues the resource, and some apps lock out a
+		// client that keeps failing to sign in.
+		return engine.ReasonUnauthorized, 5 * time.Minute
 	default:
 		return engine.ReasonAppUnreachable, 60 * time.Second
 	}

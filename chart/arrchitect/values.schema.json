@@ -103,6 +103,21 @@
       "type": "string",
       "description": "Namespaces to watch, comma-separated. Empty watches every namespace."
     },
+    "maxConcurrentReconciles": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "How many resources of one kind reconcile at once."
+    },
+    "reconcileTimeout": {
+      "type": "string",
+      "pattern": "^([0-9]+(\\.[0-9]+)?(ns|us|ms|s|m|h))+$",
+      "description": "How long one reconcile may run before it's cancelled, as a Go duration such as 10m."
+    },
+    "logLevel": {
+      "type": "string",
+      "enum": ["debug", "info", "error"],
+      "description": "debug, info or error. debug logs the full error each app sends back."
+    },
     "extraArgs": {
       "type": "array",
       "items": {
@@ -144,6 +159,26 @@
             },
             "interval": {
               "type": "string"
+            },
+            "honorLabels": {
+              "type": "boolean",
+              "description": "Keep the namespace label of each resource's metrics instead of renaming it to exported_namespace."
+            },
+            "labels": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "prometheusRule": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Create a PrometheusRule with the operator's alerts. Needs the Prometheus Operator CRDs."
             },
             "labels": {
               "type": "object",

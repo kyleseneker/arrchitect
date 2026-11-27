@@ -1,0 +1,49 @@
+{{- if and .Values.metrics.enabled .Values.metrics.prometheusRule.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ include "arrchitect.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "arrchitect.labels" . | nindent 4 }}
+    {{- with .Values.metrics.prometheusRule.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  groups:
+    - name: arrchitect
+      rules:
+        - alert: ArrchitectResourceNotReady
+          expr: arrchitect_config_synced == 0
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: {{`'{{ $labels.kind }} {{ or $labels.exported_namespace $labels.namespace }}/{{ $labels.name }} is not in sync'`}}
+            description: >-
+              {{`{{ $labels.kind }} {{ or $labels.exported_namespace $labels.namespace }}/{{ $labels.name }} has not synced for 15
+              minutes. Run kubectl -n {{ or $labels.exported_namespace $labels.namespace }} describe {{ $labels.kind }}
+              {{ $labels.name }} to see why.`}}
+        - alert: ArrchitectDriftNeverSettles
+          expr: sum by (app, resource_type, name) (increase(arrchitect_drift_corrected_total[2h])) > 6
+          for: 30m
+          labels:
+            severity: warning
+          annotations:
+            summary: {{`'Arrchitect keeps rewriting {{ $labels.app }} {{ $labels.resource_type }} {{ $labels.name }}'`}}
+            description: >-
+              {{`It was corrected more than six times in two hours. Something outside the operator keeps changing
+              it, or {{ $labels.app }} accepts the write and then ignores it.`}}
+        {{- if .Values.metrics.serviceMonitor.enabled }}
+        - alert: ArrchitectDown
+          expr: absent(up{job="{{ include "arrchitect.fullname" . }}-metrics", namespace="{{ .Release.Namespace }}"} == 1)
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: Arrchitect is not running
+            description: >-
+              Prometheus has not scraped the operator in {{ .Release.Namespace }} for 10 minutes. No resource
+              syncs while it's down.
+        {{- end }}
+{{- end }}

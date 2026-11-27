@@ -5,11 +5,7 @@ import (
 	indexersv1alpha1 "github.com/kyleseneker/arrchitect/api/indexers/v1alpha1"
 	pvrclient "github.com/kyleseneker/arrchitect/internal/client/pvr"
 	"github.com/kyleseneker/arrchitect/internal/engine"
-	"github.com/kyleseneker/arrchitect/internal/metrics"
 )
-
-// appLabel is the constant metrics label used for Prowlarr.
-const appLabel = "prowlarr"
 
 // ProwlarrDefinition returns the AppDefinition for Prowlarr.
 func ProwlarrDefinition() engine.AppDefinition {
@@ -116,10 +112,6 @@ func ProwlarrResources(opts ProwlarrOptions, tagIDs map[string]int) map[string][
 			notifs = append(notifs, payload)
 		}
 		resources["notifications"] = notifs
-	}
-
-	for resourceType, items := range resources {
-		metrics.ManagedResources.WithLabelValues(appLabel, resourceType).Set(float64(len(items)))
 	}
 
 	return resources

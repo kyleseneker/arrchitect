@@ -17,6 +17,7 @@ spec:
     - port: https
       scheme: https
       path: /metrics
+      honorLabels: {{ .Values.metrics.serviceMonitor.honorLabels }}
       interval: {{ .Values.metrics.serviceMonitor.interval | default "30s" }}
       bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
       tlsConfig:

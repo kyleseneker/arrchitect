@@ -24,6 +24,24 @@ tests:
           value:
             - --leader-elect
             - --enable-controllers=autobrr,bazarr,flaresolverr,jellyfin,lidarr,maintainerr,plex,prowlarr,qbittorrent,radarr,readarr,sabnzbd,seerr,sonarr,tdarr
+            - --max-concurrent-reconciles=2
+            - --reconcile-timeout=10m
+            - --zap-log-level=info
+  - it: passes the concurrency, deadline and log level
+    set:
+      maxConcurrentReconciles: 4
+      reconcileTimeout: 3m
+      logLevel: debug
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].args
+          content: --max-concurrent-reconciles=4
+      - contains:
+          path: spec.template.spec.containers[0].args
+          content: --reconcile-timeout=3m
+      - contains:
+          path: spec.template.spec.containers[0].args
+          content: --zap-log-level=debug
   - it: turns metrics off
     set:
       metrics.enabled: false
