@@ -278,6 +278,7 @@ func TestReportResultRetriesSoonerOnlyForASharedReason(t *testing.T) {
 		{"the app refused", []error{errors.New("flow(a): x")}, 0, 0},
 		{"a missing Secret", []error{fmt.Errorf("settings: %w", &reconciler.SecretError{})}, 30 * time.Second, 33 * time.Second},
 		{"a missing Secret and a refused write", []error{errors.New("flow(a): x"), fmt.Errorf("settings: %w", &reconciler.SecretError{})}, 0, 0},
+		{"refused credentials", []error{fmt.Errorf("flow(a): %w", &engine.APIError{StatusCode: 401})}, 0, 0},
 		{"a missing Secret and refused credentials", []error{
 			fmt.Errorf("settings: %w", &reconciler.SecretError{}), fmt.Errorf("flow(a): %w", &engine.APIError{StatusCode: 401}),
 		}, 0, 0},

@@ -114,7 +114,9 @@ func Classify(err error) (string, time.Duration) {
 // have one reason of their own, such as a missing Secret, report it and its
 // retry. Any other mix reads SyncFailed and waits for the interval, so a
 // write the app refused isn't sent again sooner because something else is
-// missing. Failures joined into one count apart.
+// missing. Refused credentials wait for the interval too: their delay slows
+// down connecting, and mustn't speed up a resource that syncs less often.
+// Failures joined into one count apart.
 func syncFailure(errs []error) (string, time.Duration) {
 	leaves := make([]error, 0, len(errs))
 	for _, err := range errs {
@@ -128,6 +130,9 @@ func syncFailure(errs []error) (string, time.Duration) {
 			return engine.ReasonSyncFailed, 0
 		}
 		reason, retry = r, after
+	}
+	if reason == engine.ReasonUnauthorized {
+		retry = 0
 	}
 	return reason, retry
 }
