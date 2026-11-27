@@ -22,6 +22,7 @@ import (
 	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
 	"github.com/kyleseneker/arrchitect/internal/controller/curation"
 	"github.com/kyleseneker/arrchitect/internal/httpapi"
+	"github.com/kyleseneker/arrchitect/internal/testnet"
 )
 
 // TestMaintainerr sets up a fresh Maintainerr against Jellyfin and a Radarr, and
@@ -71,7 +72,7 @@ func TestMaintainerr(t *testing.T) {
 		proxy:   proxy,
 		observe: true,
 		verify: func(t *testing.T) {
-			hc := directClient(t, maintainerr.url(), "")
+			hc := testnet.Client(t, maintainerr.url(), "")
 			settings, err := hc.GetJSON(ctx, "/api/settings")
 			require.NoError(t, err)
 			assert.Equal(t, "jellyfin", settings["media_server_type"])
@@ -106,7 +107,7 @@ func TestMaintainerr(t *testing.T) {
 			assert.Equal(t, n["id"], linked[0].(map[string]any)["id"])
 		},
 		cleanup: func(t *testing.T, _ map[string][]string) {
-			hc := directClient(t, maintainerr.url(), "")
+			hc := testnet.Client(t, maintainerr.url(), "")
 			for _, path := range []string{"/api/rules", "/api/notifications/configurations", "/api/settings/radarr"} {
 				items, err := hc.GetJSONList(ctx, path)
 				require.NoError(t, err)

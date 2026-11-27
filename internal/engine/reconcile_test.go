@@ -18,6 +18,7 @@ import (
 	"github.com/kyleseneker/arrchitect/internal/httpapi"
 	"github.com/kyleseneker/arrchitect/internal/metrics"
 	"github.com/kyleseneker/arrchitect/internal/secrets"
+	"github.com/kyleseneker/arrchitect/internal/testnet"
 )
 
 func TestIsNilInterface(t *testing.T) {
@@ -41,7 +42,7 @@ func TestIsNilInterface(t *testing.T) {
 
 func TestFailedUpdateDoesNotPruneOrForgetOwnership(t *testing.T) {
 	var deletes int
-	hc := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+	hc := testnet.ServeApp(t, func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
 			_ = json.NewEncoder(w).Encode([]map[string]any{{"id": 1, "name": "desired", "enabled": false}, {"id": 2, "name": "removed"}})
@@ -64,7 +65,7 @@ func TestExistingResourcesAreNotAdoptedForPruning(t *testing.T) {
 		for _, existing := range []bool{false, true} {
 			t.Run(strconv.FormatBool(observe)+"/"+strconv.FormatBool(existing), func(t *testing.T) {
 				var posts int
-				hc := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+				hc := testnet.ServeApp(t, func(w http.ResponseWriter, r *http.Request) {
 					if r.Method == http.MethodPost {
 						posts++
 						return
@@ -91,7 +92,7 @@ func TestExistingResourcesAreNotAdoptedForPruning(t *testing.T) {
 }
 
 func TestPruneRetainsFailedDeletesForRetry(t *testing.T) {
-	hc := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+	hc := testnet.ServeApp(t, func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodDelete {
 			if r.URL.Path == "/indexers/3" {
 				w.WriteHeader(http.StatusInternalServerError)
@@ -112,7 +113,7 @@ func TestPruneRetainsFailedDeletesForRetry(t *testing.T) {
 
 func TestObserveReportsWhatPruneWouldDelete(t *testing.T) {
 	var writes []string
-	hc := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+	hc := testnet.ServeApp(t, func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			writes = append(writes, r.Method+" "+r.URL.Path)
 			return
@@ -171,7 +172,7 @@ func TestDeleteManagedResourcesRespectsOwnershipAndDependencyOrder(t *testing.T)
 	for _, fail := range []bool{false, true} {
 		t.Run(strconv.FormatBool(fail), func(t *testing.T) {
 			var deleted []string
-			hc := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+			hc := testnet.ServeApp(t, func(w http.ResponseWriter, r *http.Request) {
 				if r.Method == http.MethodDelete {
 					deleted = append(deleted, r.URL.Path)
 					if fail {
@@ -205,7 +206,7 @@ func TestDeleteManagedResourcesRespectsOwnershipAndDependencyOrder(t *testing.T)
 
 func TestDeleteManagedResourcesKeepsWhatTheAppRefusesAndCarriesOn(t *testing.T) {
 	var deleted []string
-	hc := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+	hc := testnet.ServeApp(t, func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodDelete {
 			if r.URL.Path == "/profiles/1" {
 				w.WriteHeader(http.StatusBadRequest)
@@ -278,7 +279,7 @@ func TestReconcileSetting_NoChange(t *testing.T) {
 		}
 	}
 
-	hc := newTestServer(t, handler)
+	hc := testnet.ServeApp(t, handler)
 	err := reconcileSetting(context.Background(), hc, NewPass("test", "", SyncPolicy{}, nil), namingSetting, map[string]any{
 		"rename": true, "createEmpty": false,
 	})
@@ -303,7 +304,7 @@ func TestReconcileSetting_WithChange(t *testing.T) {
 		}
 	}
 
-	hc := newTestServer(t, handler)
+	hc := testnet.ServeApp(t, handler)
 	err := reconcileSetting(context.Background(), hc, NewPass("test", "", SyncPolicy{}, nil), namingSetting, map[string]any{
 		"rename": true,
 	})
@@ -314,7 +315,7 @@ func TestReconcileSetting_WithChange(t *testing.T) {
 }
 
 func TestReconcileSetting_NoID(t *testing.T) {
-	hc := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+	hc := testnet.ServeApp(t, func(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]any{"rename": true})
 	})
 	err := reconcileSetting(context.Background(), hc, NewPass("test", "", SyncPolicy{}, nil), namingSetting, map[string]any{"rename": true})
@@ -335,7 +336,7 @@ func TestReconcileResource_CreateNew(t *testing.T) {
 		}
 	}
 
-	hc := newTestServer(t, handler)
+	hc := testnet.ServeApp(t, handler)
 	endpoint := ResourceEndpoint{Name: "tags", Path: "/api/v3/tag", MatchField: "label", Policy: CreateOrUpdate}
 	err := reconcileResource(context.Background(), hc, endpoint, map[string]any{"label": "test"}, false)
 	require.NoError(t, err)
@@ -358,7 +359,7 @@ func TestReconcileResource_UpdateExisting(t *testing.T) {
 		}
 	}
 
-	hc := newTestServer(t, handler)
+	hc := testnet.ServeApp(t, handler)
 	endpoint := ResourceEndpoint{Name: "downloadClients", Path: "/api/v3/downloadclient", MatchField: "name", Policy: CreateOrUpdate}
 	err := reconcileResource(context.Background(), hc, endpoint, map[string]any{
 		"name": "test-dc", "host": "new-host",
@@ -370,7 +371,7 @@ func TestReconcileResource_UpdateExisting(t *testing.T) {
 func TestCreateDefaultsGoToNewItemsOnly(t *testing.T) {
 	existing := []map[string]any{}
 	var posted, put map[string]any
-	hc := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+	hc := testnet.ServeApp(t, func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
 			_ = json.NewEncoder(w).Encode(existing)
@@ -403,7 +404,7 @@ func TestExactListsRemoveEntriesTheResourceLeavesOut(t *testing.T) {
 		map[string]any{"name": "Not Remux", "negate": true},
 	}}
 	var puts []map[string]any
-	hc := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+	hc := testnet.ServeApp(t, func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
 			_ = json.NewEncoder(w).Encode([]map[string]any{current})
@@ -438,7 +439,7 @@ func TestExactListsRemoveEntriesTheResourceLeavesOut(t *testing.T) {
 }
 
 func TestObserveReportsAnEntryAnExactListWouldRemove(t *testing.T) {
-	hc := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+	hc := testnet.ServeApp(t, func(w http.ResponseWriter, r *http.Request) {
 		require.Equal(t, http.MethodGet, r.Method)
 		_ = json.NewEncoder(w).Encode([]map[string]any{{"id": 4, "name": "x265", "specifications": []any{
 			map[string]any{"name": "HEVC"}, map[string]any{"name": "Not Remux"},
@@ -468,7 +469,7 @@ func TestReconcileResource_CreateOnly(t *testing.T) {
 		}
 	}
 
-	hc := newTestServer(t, handler)
+	hc := testnet.ServeApp(t, handler)
 	endpoint := ResourceEndpoint{Name: "rootFolders", Path: "/api/v3/rootfolder", MatchField: "path", Policy: CreateOnly}
 	err := reconcileResource(context.Background(), hc, endpoint, map[string]any{"path": "/tv"}, false)
 	assert.NoError(t, err)
@@ -487,7 +488,7 @@ func TestReconcileResource_UpdateOnly(t *testing.T) {
 		}
 	}
 
-	hc := newTestServer(t, handler)
+	hc := testnet.ServeApp(t, handler)
 	endpoint := ResourceEndpoint{Name: "qualityDefinitions", Path: "/api/v3/qualitydefinition", MatchField: "name", Policy: UpdateOnly}
 	require.NoError(t, reconcileResource(context.Background(), hc, endpoint, map[string]any{"name": "DVD", "maxSize": 50}, false))
 	assert.Equal(t, []string{"/api/v3/qualitydefinition/3"}, puts)
@@ -515,18 +516,18 @@ func TestPruneResources(t *testing.T) {
 		}
 	}
 
-	hc := newTestServer(t, handler)
+	hc := testnet.ServeApp(t, handler)
 	endpoint := ResourceEndpoint{Name: "downloadClients", Path: "/api/v3/downloadclient", MatchField: "name", Policy: CreateOrUpdate, Prunable: true}
 	desired := []map[string]any{{"name": "managed"}}
 
-	before := testutil.ToFloat64(metrics.ResourcesPrunedTotal.WithLabelValues(testAppLabel, "downloadClients"))
+	before := testutil.ToFloat64(metrics.ResourcesPrunedTotal.WithLabelValues(testnet.AppLabel, "downloadClients"))
 	pruned, err := pruneResources(context.Background(), hc, endpoint, desired, []string{"managed", "unmanaged-1", "unmanaged-2"})
 	require.NoError(t, err)
 	assert.Len(t, pruned, 2)
 	assert.Contains(t, deletedPaths, "/api/v3/downloadclient/2")
 	assert.Contains(t, deletedPaths, "/api/v3/downloadclient/3")
 
-	after := testutil.ToFloat64(metrics.ResourcesPrunedTotal.WithLabelValues(testAppLabel, "downloadClients"))
+	after := testutil.ToFloat64(metrics.ResourcesPrunedTotal.WithLabelValues(testnet.AppLabel, "downloadClients"))
 	assert.Equal(t, before+2, after, "expected prune counter to increment by 2")
 }
 
@@ -546,11 +547,11 @@ func TestPruneResources_SafetyThreshold(t *testing.T) {
 		}
 	}
 
-	hc := newTestServer(t, handler)
+	hc := testnet.ServeApp(t, handler)
 	endpoint := ResourceEndpoint{Name: "indexers", Path: "/api/v3/indexer", MatchField: "name", Prunable: true}
 	desired := []map[string]any{{"name": "kept"}} // all 30 would be pruned
 
-	before := testutil.ToFloat64(metrics.ResourcesPrunedTotal.WithLabelValues(testAppLabel, "indexers"))
+	before := testutil.ToFloat64(metrics.ResourcesPrunedTotal.WithLabelValues(testnet.AppLabel, "indexers"))
 	allManaged := make([]string, len(existing))
 	for i := range existing {
 		allManaged[i] = existing[i]["name"].(string)
@@ -560,7 +561,7 @@ func TestPruneResources_SafetyThreshold(t *testing.T) {
 	assert.Contains(t, err.Error(), "refusing to delete")
 	assert.Contains(t, err.Error(), "30")
 
-	after := testutil.ToFloat64(metrics.ResourcesPrunedTotal.WithLabelValues(testAppLabel, "indexers"))
+	after := testutil.ToFloat64(metrics.ResourcesPrunedTotal.WithLabelValues(testnet.AppLabel, "indexers"))
 	assert.Equal(t, before, after, "prune counter must NOT increment when safety threshold blocks deletion")
 }
 
@@ -589,7 +590,7 @@ func TestReconcileApp(t *testing.T) {
 		}
 	}
 
-	hc := newTestServer(t, handler)
+	hc := testnet.ServeApp(t, handler)
 
 	def := AppDefinition{
 		Settings: []SettingEndpoint{
@@ -613,7 +614,7 @@ func TestReconcileApp(t *testing.T) {
 }
 
 func TestReconcileApp_SkipsNilSections(t *testing.T) {
-	hc := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+	hc := testnet.ServeApp(t, func(w http.ResponseWriter, r *http.Request) {
 		assert.Failf(t, "no HTTP calls expected", "got %s %s", r.Method, r.URL.Path)
 	})
 
@@ -639,7 +640,7 @@ func TestPruneSkipsResourcesTheOperatorNeverCreated(t *testing.T) {
 			w.WriteHeader(http.StatusOK)
 		}
 	}
-	hc := newTestServer(t, handler)
+	hc := testnet.ServeApp(t, handler)
 	endpoint := ResourceEndpoint{Name: "indexers", Path: "/api/v3/indexer", MatchField: "name", Prunable: true}
 
 	// The CR no longer declares either one, but the operator only ever created
@@ -666,7 +667,7 @@ func TestPruneIsNoOpOnFirstReconcile(t *testing.T) {
 			assert.Fail(t, "nothing may be deleted when the operator has no recorded managed set")
 		}
 	}
-	hc := newTestServer(t, handler)
+	hc := testnet.ServeApp(t, handler)
 	endpoint := ResourceEndpoint{Name: "indexers", Path: "/api/v3/indexer", MatchField: "name", Prunable: true}
 
 	pruned, err := pruneResources(context.Background(), hc, endpoint, []map[string]any{{"name": "declared"}}, nil)
@@ -998,7 +999,7 @@ func messages(errs []error) []string {
 func TestReconcileAppListsEachEndpointOncePerPass(t *testing.T) {
 	var lists, creates int
 	stored := []map[string]any{{"id": float64(1), "name": "existing"}}
-	hc := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+	hc := testnet.ServeApp(t, func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
 			lists++
@@ -1025,7 +1026,7 @@ func TestReconcileAppListsEachEndpointOncePerPass(t *testing.T) {
 func TestAnUpdateMergesOverTheItemAsItIsNow(t *testing.T) {
 	lists := 0
 	var put map[string]any
-	hc := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+	hc := testnet.ServeApp(t, func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
 			lists++
@@ -1049,7 +1050,7 @@ func TestAnUpdateMergesOverTheItemAsItIsNow(t *testing.T) {
 
 func TestPruneSparesAnItemRenamedInTheAppDuringThePass(t *testing.T) {
 	lists, deleted := 0, false
-	hc := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+	hc := testnet.ServeApp(t, func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
 			lists++
@@ -1073,7 +1074,7 @@ func TestPruneSparesAnItemRenamedInTheAppDuringThePass(t *testing.T) {
 
 func TestPruneRefusesANameTheAppHasTwice(t *testing.T) {
 	deleted := false
-	hc := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+	hc := testnet.ServeApp(t, func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodDelete {
 			deleted = true
 			return
@@ -1092,7 +1093,7 @@ func TestPruneRefusesANameTheAppHasTwice(t *testing.T) {
 
 func TestCleanupKeepsANameTheAppHasTwiceAndCarriesOn(t *testing.T) {
 	var deleted []string
-	hc := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+	hc := testnet.ServeApp(t, func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodDelete {
 			deleted = append(deleted, r.URL.Path)
 			return
@@ -1117,7 +1118,7 @@ func TestCleanupKeepsANameTheAppHasTwiceAndCarriesOn(t *testing.T) {
 
 func TestACreateChecksTheItemIsStillMissing(t *testing.T) {
 	lists, creates := 0, 0
-	hc := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+	hc := testnet.ServeApp(t, func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
 			lists++
@@ -1137,22 +1138,4 @@ func TestACreateChecksTheItemIsStillMissing(t *testing.T) {
 	require.Empty(t, result.Errors)
 	assert.Zero(t, creates, "a second item with the same name must not be created")
 	assert.Empty(t, result.Managed["tags"], "an item someone else created isn't the operator's")
-}
-
-// testAppLabel is the app label newTestServer gives its client. Tests that
-// assert on the per-app metrics read their series under it.
-const testAppLabel = "test-app"
-
-// newTestServer serves handler as an app and returns a client for it.
-func newTestServer(t *testing.T, handler http.HandlerFunc) *httpapi.HTTPClient {
-	t.Helper()
-	srv := httptest.NewServer(handler)
-	t.Cleanup(srv.Close)
-	hc, err := httpapi.NewHTTPClient(srv.URL, httpapi.AuthAPIKey,
-		httpapi.WithAPIKey("test-key"),
-		httpapi.WithTransport(&http.Transport{}),
-		httpapi.WithAppLabel(testAppLabel),
-	)
-	require.NoError(t, err)
-	return hc
 }

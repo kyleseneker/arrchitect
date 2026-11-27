@@ -25,13 +25,14 @@ import (
 	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
 	"github.com/kyleseneker/arrchitect/internal/controller/pvr"
 	"github.com/kyleseneker/arrchitect/internal/httpapi"
+	"github.com/kyleseneker/arrchitect/internal/testnet"
 )
 
 func TestSonarr(t *testing.T) {
 	t.Parallel()
 	sonarr, key := startPVR(t, "sonarr", sonarrImage, 8989, "v3")
 	sonarr.exec(t, "mkdir -p /data/media/tv && chown -R abc:abc /data")
-	seedDelayProfile(t, directClient(t, sonarr.url(), key), "/api/v3", "hdr",
+	seedDelayProfile(t, testnet.Client(t, sonarr.url(), key), "/api/v3", "hdr",
 		map[string]any{"enableUsenet": true, "enableTorrent": true, "preferredProtocol": "usenet"})
 	condition := func(name, implementation string, value any) map[string]any {
 		return map[string]any{
@@ -39,7 +40,7 @@ func TestSonarr(t *testing.T) {
 			"fields": []any{map[string]any{"name": "value", "value": value}},
 		}
 	}
-	_, err := directClient(t, sonarr.url(), key).Do(context.Background(), http.MethodPost, "/api/v3/customformat",
+	_, err := testnet.Client(t, sonarr.url(), key).Do(context.Background(), http.MethodPost, "/api/v3/customformat",
 		map[string]any{
 			"name": "WEBDL", "includeCustomFormatWhenRenaming": true,
 			"specifications": []any{
@@ -94,7 +95,7 @@ func TestSonarr(t *testing.T) {
 		proxy:   proxy,
 		observe: true,
 		verify: func(t *testing.T) {
-			hc := directClient(t, sonarr.url(), key)
+			hc := testnet.Client(t, sonarr.url(), key)
 			requireAutoTagReference(t, hc, "/api/v3", "Compat Anime", "Profile", "/qualityprofile", "name", "HD-1080p")
 			requireAutoTagReference(t, hc, "/api/v3", "Compat Anime", "Anime", "/tag", "label", "anime")
 			listConfig, err := hc.GetJSON(context.Background(), "/api/v3/config/importlist")
@@ -143,7 +144,7 @@ func TestSonarr(t *testing.T) {
 			assert.InDelta(t, 30, profiles["default"]["usenetDelay"], 0)
 			assert.InDelta(t, 10, profiles["default"]["torrentDelay"], 0)
 		},
-		cleanup: ownedGone(directClient(t, sonarr.url(), key), pvrclient.Definition(pvrclient.Sonarr)),
+		cleanup: ownedGone(testnet.Client(t, sonarr.url(), key), pvrclient.Definition(pvrclient.Sonarr)),
 	})
 }
 
@@ -195,7 +196,7 @@ func TestRadarr(t *testing.T) {
 		proxy:   proxy,
 		observe: true,
 		verify: func(t *testing.T) {
-			hc := directClient(t, radarr.url(), key)
+			hc := testnet.Client(t, radarr.url(), key)
 			requireAutoTagReference(t, hc, "/api/v3", "Compat Kids", "Profile", "/qualityprofile", "name", "HD-1080p")
 			requireMediaServerNotification(t, hc, "/api/v3/notification", "Compat Jellyfin", "MediaBrowser", "/jellyfin")
 			requireMetadataConsumer(t, hc, "/api/v3/metadata", "XbmcMetadata",
@@ -231,7 +232,7 @@ func TestRadarr(t *testing.T) {
 			assert.InDelta(t, 120, profiles["kids,uhd"]["usenetDelay"], 0)
 			assert.Equal(t, false, profiles["default"]["bypassIfHighestQuality"])
 		},
-		cleanup: ownedGone(directClient(t, radarr.url(), key), pvrclient.Definition(pvrclient.Radarr)),
+		cleanup: ownedGone(testnet.Client(t, radarr.url(), key), pvrclient.Definition(pvrclient.Radarr)),
 	})
 }
 
@@ -239,7 +240,7 @@ func TestLidarr(t *testing.T) {
 	t.Parallel()
 	lidarr, key := startPVR(t, "lidarr", lidarrImage, 8686, "v1")
 	lidarr.exec(t, "mkdir -p /data/media/music && chown -R abc:abc /data")
-	lidarrHC := directClient(t, lidarr.url(), key)
+	lidarrHC := testnet.Client(t, lidarr.url(), key)
 	seedDelayProfile(t, lidarrHC, "/api/v1", "live", lidarrDelayProfile(t, lidarrHC))
 	qbit, qbitPassword := startQBittorrent(t)
 	fakes := startFakes(t)
@@ -285,7 +286,7 @@ func TestLidarr(t *testing.T) {
 		proxy:   proxy,
 		observe: true,
 		verify: func(t *testing.T) {
-			hc := directClient(t, lidarr.url(), key)
+			hc := testnet.Client(t, lidarr.url(), key)
 			requireAutoTagReference(t, hc, "/api/v1", "Compat Albums", "Albums", "/metadataprofile", "name", "Albums Only")
 			requireAutoTagReference(t, hc, "/api/v1", "Compat Albums", "Favorites", "/tag", "label", "favorites")
 			requireMediaServerNotification(t, hc, "/api/v1/notification", "Compat Jellyfin", "MediaBrowser", "/jellyfin")
@@ -331,7 +332,7 @@ func TestLidarr(t *testing.T) {
 		},
 		// The root folder defaults to this profile and is never deleted.
 		// The root folder defaults to these, so the app keeps them.
-		cleanup: ownedGone(directClient(t, lidarr.url(), key), pvrclient.Definition(pvrclient.Lidarr),
+		cleanup: ownedGone(testnet.Client(t, lidarr.url(), key), pvrclient.Definition(pvrclient.Lidarr),
 			"qualityProfiles/Music", "metadataProfiles/Albums Only"),
 	})
 }
@@ -377,7 +378,7 @@ func TestReadarr(t *testing.T) {
 		proxy:   proxy,
 		observe: true,
 		verify: func(t *testing.T) {
-			hc := directClient(t, readarr.url(), key)
+			hc := testnet.Client(t, readarr.url(), key)
 			requireMediaServerNotification(t, hc, "/api/v1/notification", "Compat Plex", "PlexServer", "/plex")
 			metadata, err := hc.GetJSON(context.Background(), "/api/v1/config/metadataprovider")
 			require.NoError(t, err)
@@ -403,7 +404,7 @@ func TestReadarr(t *testing.T) {
 		},
 		// The root folder defaults to this profile and is never deleted.
 		// The root folder defaults to these, so the app keeps them.
-		cleanup: ownedGone(directClient(t, readarr.url(), key), pvrclient.Definition(pvrclient.Readarr),
+		cleanup: ownedGone(testnet.Client(t, readarr.url(), key), pvrclient.Definition(pvrclient.Readarr),
 			"qualityProfiles/Books", "metadataProfiles/English Books"),
 	})
 }
