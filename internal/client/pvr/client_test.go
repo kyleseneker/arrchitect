@@ -140,6 +140,31 @@ func TestSettingsGoBeforeTheKindsTheyGovern(t *testing.T) {
 	assert.Less(t, settings, lists, "Radarr's list sync level must change before its lists do")
 }
 
+func TestOnlyRadarrTurnsAnImportListOff(t *testing.T) {
+	for _, app := range []App{Sonarr, Radarr, Lidarr, Readarr} {
+		t.Run(app.Name, func(t *testing.T) {
+			api := &rebuildAPI{}
+			hc := api.client(t)
+			opts := Options{App: app, ImportLists: []commonv1alpha1.ImportList{{
+				Name: "Trakt", Implementation: "TraktListImport", Enabled: new(false), EnableAutomaticAdd: new(true),
+			}}}
+
+			result := reconcileOnce(context.Background(), hc, opts, engine.SyncPolicy{}, nil)
+			api.mu.Lock()
+			defer api.mu.Unlock()
+			if app.ImportListFields.Enable != "" {
+				require.Empty(t, result.Errors)
+				require.Len(t, api.items["importlist"], 1)
+				assert.Equal(t, false, api.items["importlist"][0]["enabled"])
+				return
+			}
+			require.Len(t, result.Errors, 1)
+			assert.Contains(t, result.Errors[0], engine.AppName(app.Name)+" import lists are always active")
+			assert.NotContains(t, api.writes, "POST importlist", "a list declared off must not be created active")
+		})
+	}
+}
+
 func TestEveryKindIsBuiltInOneStage(t *testing.T) {
 	builders := Options{App: Sonarr}.builders(context.Background(), nil)
 	staged := map[string]bool{}

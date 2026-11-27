@@ -288,7 +288,7 @@ func TestBuildImportListPayload(t *testing.T) {
 		},
 		{
 			name:    "sonarr has no enable property",
-			il:      commonv1alpha1.ImportList{Name: "List", Implementation: "CustomImport", Enabled: new(false), EnableAutomaticAdd: new(true)},
+			il:      commonv1alpha1.ImportList{Name: "List", Implementation: "CustomImport", Enabled: new(true), EnableAutomaticAdd: new(true)},
 			monitor: sonarr,
 			check: func(t *testing.T, p map[string]any) {
 				assert.NotContains(t, p, "enable", "Sonarr drops it, so it reads back missing and is rewritten forever")

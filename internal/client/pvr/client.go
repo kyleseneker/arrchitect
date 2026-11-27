@@ -488,6 +488,10 @@ func importListResources(
 	schema := opts.schema(ctx, client, apiVersion, "importlist")
 	ils := make([]map[string]any, 0, len(opts.ImportLists))
 	for _, il := range opts.ImportLists {
+		if il.Enabled != nil && !*il.Enabled && opts.App.ImportListFields.Enable == "" {
+			return nil, fmt.Errorf("importLists(%s): %s import lists are always active; set enableAutomaticAdd to false so this one adds nothing",
+				il.Name, engine.AppName(opts.App.Name))
+		}
 		tags, err := tagIDs.ResolveTags(il.TagLabels)
 		if err != nil {
 			return nil, fmt.Errorf("importLists(%s): %w", il.Name, err)

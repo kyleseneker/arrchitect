@@ -1012,7 +1012,8 @@ type ImportList struct {
 	Name string `json:"name,omitempty"`
 
 	// enabled controls whether this import list is active. A new import list is
-	// enabled unless this is false.
+	// enabled unless this is false. Sonarr, Lidarr and Readarr import lists are
+	// always active, so they refuse false; set enableAutomaticAdd to false there.
 	// +optional
 	Enabled *bool `json:"enabled,omitempty"`
 
