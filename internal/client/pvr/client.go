@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"maps"
 	"slices"
@@ -267,124 +266,79 @@ var stages = [][]string{
 	{"importLists"},
 }
 
-// builder builds one kind's items. tagged marks a kind with items that name
-// tags, which the builder is then given.
-type builder struct {
-	count  int
-	tagged bool
-	build  func(tags engine.NamedIDs) ([]map[string]any, error)
-}
-
-func (o Options) builders(ctx context.Context, client *engine.HTTPClient) map[string]builder {
+func (o Options) builders(ctx context.Context, client *engine.HTTPClient) map[string]engine.Builder {
 	v := o.App.APIVersion
-	return map[string]builder{
-		"tags": {count: len(o.Tags), build: func(engine.NamedIDs) ([]map[string]any, error) {
+	return map[string]engine.Builder{
+		"tags": {Count: len(o.Tags), Build: func(engine.NamedIDs) ([]map[string]any, error) {
 			return tagResources(o.Tags), nil
 		}},
-		"metadataProfiles": {count: len(o.LidarrMetadataProfiles) + len(o.ReadarrMetadataProfiles), build: func(engine.NamedIDs) ([]map[string]any, error) {
+		"metadataProfiles": {Count: len(o.LidarrMetadataProfiles) + len(o.ReadarrMetadataProfiles), Build: func(engine.NamedIDs) ([]map[string]any, error) {
 			if len(o.LidarrMetadataProfiles) > 0 {
 				return lidarrMetadataProfileResources(ctx, client, v, o.LidarrMetadataProfiles)
 			}
 			return readarrMetadataProfileResources(ctx, client, v, o.ReadarrMetadataProfiles)
 		}},
-		"remotePathMappings": {count: len(o.RemotePathMappings), build: func(engine.NamedIDs) ([]map[string]any, error) {
+		"remotePathMappings": {Count: len(o.RemotePathMappings), Build: func(engine.NamedIDs) ([]map[string]any, error) {
 			return remotePathMappingResources(o.RemotePathMappings)
 		}},
 		"rootFolders": {
-			count:  len(o.RootFolders),
-			tagged: slices.ContainsFunc(o.RootFolders, func(rf commonv1alpha1.RootFolder) bool { return len(rf.DefaultTagLabels) > 0 }),
-			build: func(tags engine.NamedIDs) ([]map[string]any, error) {
+			Count:  len(o.RootFolders),
+			Tagged: slices.ContainsFunc(o.RootFolders, func(rf commonv1alpha1.RootFolder) bool { return len(rf.DefaultTagLabels) > 0 }),
+			Build: func(tags engine.NamedIDs) ([]map[string]any, error) {
 				return rootFolderResources(ctx, client, v, o, tags)
 			},
 		},
 		"downloadClients": {
-			count:  len(o.DownloadClients),
-			tagged: slices.ContainsFunc(o.DownloadClients, func(dc commonv1alpha1.DownloadClient) bool { return len(dc.TagLabels) > 0 }),
-			build: func(tags engine.NamedIDs) ([]map[string]any, error) {
+			Count:  len(o.DownloadClients),
+			Tagged: slices.ContainsFunc(o.DownloadClients, func(dc commonv1alpha1.DownloadClient) bool { return len(dc.TagLabels) > 0 }),
+			Build: func(tags engine.NamedIDs) ([]map[string]any, error) {
 				return downloadClientResources(ctx, client, v, o, tags)
 			},
 		},
 		"indexers": {
-			count:  len(o.Indexers),
-			tagged: slices.ContainsFunc(o.Indexers, func(idx commonv1alpha1.Indexer) bool { return len(idx.TagLabels) > 0 }),
-			build: func(tags engine.NamedIDs) ([]map[string]any, error) {
+			Count:  len(o.Indexers),
+			Tagged: slices.ContainsFunc(o.Indexers, func(idx commonv1alpha1.Indexer) bool { return len(idx.TagLabels) > 0 }),
+			Build: func(tags engine.NamedIDs) ([]map[string]any, error) {
 				return indexerResources(ctx, client, v, o, tags)
 			},
 		},
-		"customFormats": {count: len(o.CustomFormats), build: func(engine.NamedIDs) ([]map[string]any, error) {
+		"customFormats": {Count: len(o.CustomFormats), Build: func(engine.NamedIDs) ([]map[string]any, error) {
 			return customFormatResources(o.CustomFormats), nil
 		}},
-		"qualityDefinitions": {count: len(o.QualityDefinitions), build: func(engine.NamedIDs) ([]map[string]any, error) {
+		"qualityDefinitions": {Count: len(o.QualityDefinitions), Build: func(engine.NamedIDs) ([]map[string]any, error) {
 			return qualityDefinitionResources(ctx, client, v, o.QualityDefinitions)
 		}},
-		"qualityProfiles": {count: len(o.QualityProfiles), build: func(engine.NamedIDs) ([]map[string]any, error) {
+		"qualityProfiles": {Count: len(o.QualityProfiles), Build: func(engine.NamedIDs) ([]map[string]any, error) {
 			return qualityProfileResources(ctx, client, v, o.QualityProfiles, o.planned["customFormats"])
 		}},
 		"notifications": {
-			count:  len(o.Notifications),
-			tagged: slices.ContainsFunc(o.Notifications, func(n commonv1alpha1.Notification) bool { return len(n.TagLabels) > 0 }),
-			build: func(tags engine.NamedIDs) ([]map[string]any, error) {
+			Count:  len(o.Notifications),
+			Tagged: slices.ContainsFunc(o.Notifications, func(n commonv1alpha1.Notification) bool { return len(n.TagLabels) > 0 }),
+			Build: func(tags engine.NamedIDs) ([]map[string]any, error) {
 				return notificationResources(ctx, client, v, o, tags)
 			},
 		},
 		"importLists": {
-			count:  len(o.ImportLists),
-			tagged: slices.ContainsFunc(o.ImportLists, func(il commonv1alpha1.ImportList) bool { return len(il.TagLabels) > 0 }),
-			build: func(tags engine.NamedIDs) ([]map[string]any, error) {
+			Count:  len(o.ImportLists),
+			Tagged: slices.ContainsFunc(o.ImportLists, func(il commonv1alpha1.ImportList) bool { return len(il.TagLabels) > 0 }),
+			Build: func(tags engine.NamedIDs) ([]map[string]any, error) {
 				return importListResources(ctx, client, v, o, tags)
 			},
 		},
 		"releaseProfiles": {
-			count:  len(o.ReleaseProfiles),
-			tagged: slices.ContainsFunc(o.ReleaseProfiles, func(rp commonv1alpha1.ReleaseProfile) bool { return len(rp.TagLabels) > 0 }),
-			build: func(tags engine.NamedIDs) ([]map[string]any, error) {
+			Count:  len(o.ReleaseProfiles),
+			Tagged: slices.ContainsFunc(o.ReleaseProfiles, func(rp commonv1alpha1.ReleaseProfile) bool { return len(rp.TagLabels) > 0 }),
+			Build: func(tags engine.NamedIDs) ([]map[string]any, error) {
 				return releaseProfileResources(ctx, client, v, o.ReleaseProfiles, tags)
 			},
 		},
-		"autoTags": {count: len(o.AutoTags), tagged: true, build: func(tags engine.NamedIDs) ([]map[string]any, error) {
+		"autoTags": {Count: len(o.AutoTags), Tagged: true, Build: func(tags engine.NamedIDs) ([]map[string]any, error) {
 			return autoTagResources(ctx, client, v, o, tags)
 		}},
-		"metadataConsumers": {count: len(o.MetadataConsumers), build: func(engine.NamedIDs) ([]map[string]any, error) {
+		"metadataConsumers": {Count: len(o.MetadataConsumers), Build: func(engine.NamedIDs) ([]map[string]any, error) {
 			return metadataConsumerResources(ctx, client, v, o.MetadataConsumers)
 		}},
 	}
-}
-
-// buildKinds builds the items of the given kinds. A kind that can't be built,
-// such as one naming a tag that doesn't exist, is left out of the map, so it is
-// neither written nor pruned, and reported in the error; the other kinds are
-// still built.
-func buildKinds(ctx context.Context, client *engine.HTTPClient, opts Options, kinds ...string) (map[string][]map[string]any, error) {
-	builders := opts.builders(ctx, client)
-	resources := make(map[string][]map[string]any)
-	var problems []string
-	var tags engine.NamedIDs
-	var tagsErr error
-	for _, kind := range kinds {
-		b := builders[kind]
-		if b.count == 0 {
-			continue
-		}
-		if b.tagged && tags == nil && tagsErr == nil {
-			if tags, tagsErr = engine.FetchNamedIDs(ctx, client, fmt.Sprintf("/api/%s/tag", opts.App.APIVersion), "label"); tagsErr == nil {
-				tags.Plan(opts.planned["tags"]...)
-			}
-		}
-		if b.tagged && tagsErr != nil {
-			problems = append(problems, fmt.Sprintf("%s: %v", kind, tagsErr))
-			continue
-		}
-		items, err := b.build(tags)
-		if err != nil {
-			problems = append(problems, err.Error())
-			continue
-		}
-		resources[kind] = items
-	}
-	if len(problems) > 0 {
-		return resources, errors.New(strings.Join(problems, "; "))
-	}
-	return resources, nil
 }
 
 func tagResources(declared []commonv1alpha1.Tag) []map[string]any {
@@ -571,13 +525,10 @@ func Reconcile(ctx context.Context, client *engine.HTTPClient, spec any, opts Op
 	}
 
 	problems := validateOptionFields(ctx, client, apiVersion, opts)
-	for _, kinds := range stages {
-		resources, err := buildKinds(ctx, client, opts, kinds...)
-		if err != nil {
-			problems = append(problems, err.Error())
-		}
-		problems = append(problems, engine.ReconcileApp(ctx, client, def, nil, resources, pass)...)
-	}
+	problems = append(problems, engine.Stages{
+		Order: stages, Builders: opts.builders(ctx, client),
+		TagPath: "/api/" + apiVersion + "/tag", PlannedTags: opts.planned["tags"],
+	}.Reconcile(ctx, client, def, pass)...)
 
 	// Settings and delay profiles name tags, which the first stage writes.
 	if err := resolveListSyncTag(ctx, client, apiVersion, sections, opts.planned["tags"]); err != nil {

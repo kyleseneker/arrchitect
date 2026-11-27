@@ -171,6 +171,8 @@ Never edit these by hand. Change the source, then regenerate.
 - Send every write to an app through `engine.Writes` (`Apply`, `Sync`,
   `Prune`), so observe mode reports exactly what enforce mode would write.
   Don't add a separate observe path.
+- The PVR apps and Prowlarr write kinds in `engine.Stages`. A kind whose items
+  name another kind goes in a later stage, so the IDs exist when it's built.
 
 ## Safety
 
