@@ -85,7 +85,7 @@ func (o *Ownership) owned(kind string, declared, existing []string) []string {
 // a later pass retries them. With keepRefused, an item the app refuses to
 // delete is passed over and returned in a *KeptError.
 func (o *Ownership) delete(kind string, names []string, remove func(name string) error, keepRefused bool) error {
-	if err := pruneLimit(kind, len(names)); err != nil {
+	if err := PruneLimit(kind, len(names)); err != nil {
 		return err
 	}
 	kept := &KeptError{App: o.app}
@@ -170,7 +170,9 @@ func SplitKept(err error) ([]*KeptError, error) {
 	return kept, errors.Join(rest...)
 }
 
-func pruneLimit(kind string, n int) error {
+// PruneLimit refuses to delete more than DefaultMaxPruneCount items of kind at
+// once, which usually means the resource left out what it meant to list.
+func PruneLimit(kind string, n int) error {
 	if n > DefaultMaxPruneCount {
 		return fmt.Errorf("refusing to delete %d %s (threshold is %d); check the resource lists everything it should",
 			n, kind, DefaultMaxPruneCount)

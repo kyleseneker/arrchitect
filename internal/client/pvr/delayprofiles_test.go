@@ -71,7 +71,8 @@ func (a *delayAPI) add(tags []any, fields map[string]any) float64 {
 	return a.nextID
 }
 
-func (a *delayAPI) profile(id float64) map[string]any {
+// find returns the profile with id. The caller holds the lock.
+func (a *delayAPI) find(id float64) map[string]any {
 	for _, p := range a.profiles {
 		if p["id"] == id {
 			return p
@@ -103,7 +104,7 @@ func (a *delayAPI) refuse(w http.ResponseWriter, body map[string]any, id float64
 func (a *delayAPI) reorder(id, after float64) {
 	tagged := slices.DeleteFunc(slices.Clone(a.profiles), func(p map[string]any) bool { return p["id"] == float64(1) })
 	slices.SortFunc(tagged, func(x, y map[string]any) int { return int(x["order"].(float64) - y["order"].(float64)) })
-	moved := a.profile(id)
+	moved := a.find(id)
 	tagged = slices.DeleteFunc(tagged, func(p map[string]any) bool { return p["id"] == id })
 	at := slices.IndexFunc(tagged, func(p map[string]any) bool { return p["id"] == after }) + 1
 	tagged = slices.Insert(tagged, at, moved)
@@ -162,12 +163,12 @@ func (a *delayAPI) client(t *testing.T) *engine.HTTPClient {
 				}
 			}
 			created := a.add(body["tags"].([]any), fields)
-			_ = json.NewEncoder(w).Encode(a.profile(created))
+			_ = json.NewEncoder(w).Encode(a.find(created))
 		case r.Method == http.MethodPut:
 			if a.refuse(w, body, id) {
 				return
 			}
-			current := a.profile(id)
+			current := a.find(id)
 			order := current["order"]
 			clear(current)
 			maps.Copy(current, body)
@@ -192,14 +193,38 @@ func (a *delayAPI) reconcile(t *testing.T, hc *engine.HTTPClient, declared []com
 	}
 }
 
+// profile returns a copy of the profile with id.
+func (a *delayAPI) profile(id float64) map[string]any {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return maps.Clone(a.find(id))
+}
+
+// byTags returns a copy of the profile holding exactly tags.
 func (a *delayAPI) byTags(tags ...float64) map[string]any {
+	a.mu.Lock()
+	defer a.mu.Unlock()
 	for _, p := range a.profiles {
 		got := profileTags(p)
 		if len(got) == len(tags) && overlap(got, intIDs(tags)) == len(tags) {
-			return p
+			return maps.Clone(p)
 		}
 	}
 	return nil
+}
+
+// count returns how many profiles the app holds.
+func (a *delayAPI) count() int {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return len(a.profiles)
+}
+
+// writeLog returns the writes so far.
+func (a *delayAPI) writeLog() []string {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return slices.Clone(a.writes)
 }
 
 func intIDs(ids []float64) []int {
@@ -232,10 +257,10 @@ func TestDelayProfilesCreateUpdateTheDefaultAndConverge(t *testing.T) {
 	assert.Equal(t, map[string][]string{delayProfilesKind: {delayProfileID(created)}}, result.Managed)
 	assert.ElementsMatch(t, []string{"delayProfiles(kids,anime)", "delayProfiles(default)"}, result.Synced)
 
-	writes := len(app.writes)
+	writes := len(app.writeLog())
 	second := app.reconcile(t, hc, declared, engine.SyncPolicy{}, result.Managed)
 	require.Empty(t, second.Errors)
-	assert.Len(t, app.writes, writes, "second pass must not write")
+	assert.Len(t, app.writeLog(), writes, "second pass must not write")
 	assert.Equal(t, result.Managed, second.Managed)
 }
 
@@ -246,7 +271,7 @@ func TestDelayProfilesAdoptTheProfileHoldingADeclaredTag(t *testing.T) {
 
 	result := app.reconcile(t, hc, []commonv1alpha1.DelayProfile{{TagLabels: []string{"anime", "kids"}, TorrentDelay: new(int32(5))}}, engine.SyncPolicy{Prune: true}, nil)
 	require.Empty(t, result.Errors)
-	assert.Equal(t, []string{"PUT delayprofile/" + strconv.Itoa(int(handMade))}, app.writes)
+	assert.Equal(t, []string{"PUT delayprofile/" + strconv.Itoa(int(handMade))}, app.writeLog())
 	assert.Equal(t, []any{float64(2), float64(1)}, app.profile(handMade)["tags"], "the same tags in another order are left alone")
 	assert.Empty(t, result.Managed, "an adopted profile is not the operator's to delete")
 }
@@ -315,11 +340,31 @@ func TestDelayProfilesObserveWritesNothing(t *testing.T) {
 		{UsenetDelay: new(int32(5))},
 	}, engine.SyncPolicy{Prune: true, Observe: true}, managed)
 	require.Empty(t, result.Errors)
-	assert.Empty(t, app.writes)
+	assert.Empty(t, app.writeLog())
 	assert.ElementsMatch(t, []string{
 		"delayProfiles(four)", "delayProfiles(kids)", "delayProfiles(default)", "delayProfiles(order)",
 	}, result.Drift)
 	assert.Equal(t, managed, result.Managed)
+}
+
+func TestDelayProfilesObserveRefusesTheSamePruneAsEnforce(t *testing.T) {
+	for _, observe := range []bool{false, true} {
+		t.Run(strconv.FormatBool(observe), func(t *testing.T) {
+			app := newDelayAPI(false)
+			owned := make([]string, 0, engine.DefaultMaxPruneCount+1)
+			for i := range engine.DefaultMaxPruneCount + 1 {
+				owned = append(owned, strconv.Itoa(int(app.add([]any{float64(i + 1)}, nil))))
+			}
+			hc := app.client(t)
+
+			result := app.reconcile(t, hc, []commonv1alpha1.DelayProfile{{UsenetDelay: new(int32(5))}},
+				engine.SyncPolicy{Prune: true, Observe: observe}, map[string][]string{delayProfilesKind: owned})
+			require.Len(t, result.Errors, 1)
+			assert.Contains(t, result.Errors[0], "refusing to delete 26")
+			assert.Empty(t, app.writeLog())
+			assert.Empty(t, result.Drift)
+		})
+	}
 }
 
 func TestDelayProfilesFollowTheDeclaredOrder(t *testing.T) {
@@ -339,9 +384,9 @@ func TestDelayProfilesFollowTheDeclaredOrder(t *testing.T) {
 	assert.Less(t, order(handMade), order(c), "the moved profile goes after the one before it, not to the top")
 	assert.Equal(t, maxOrder, order(1))
 
-	writes := len(app.writes)
+	writes := len(app.writeLog())
 	require.Empty(t, app.reconcile(t, hc, declared, engine.SyncPolicy{}, nil).Errors)
-	assert.Len(t, app.writes, writes)
+	assert.Len(t, app.writeLog(), writes)
 }
 
 func TestDelayProfilesWithProtocolItems(t *testing.T) {
@@ -368,9 +413,9 @@ func TestDelayProfilesWithProtocolItems(t *testing.T) {
 		map[string]any{"name": "Torrent", "protocol": "TorrentDownloadProtocol", "allowed": true, "delay": float64(0)},
 	}, app.profile(1)["items"])
 
-	writes := len(app.writes)
+	writes := len(app.writeLog())
 	require.Empty(t, app.reconcile(t, hc, declared, engine.SyncPolicy{}, result.Managed).Errors)
-	assert.Len(t, app.writes, writes, "second pass must not write")
+	assert.Len(t, app.writeLog(), writes, "second pass must not write")
 }
 
 func TestDelayProfilesRefuseWhatTheAppWouldReject(t *testing.T) {
@@ -391,7 +436,7 @@ func TestDelayProfilesRefuseWhatTheAppWouldReject(t *testing.T) {
 			result := app.reconcile(t, hc, tt.declared, engine.SyncPolicy{Prune: true}, nil)
 			require.Len(t, result.Errors, 1)
 			assert.Contains(t, result.Errors[0], tt.want)
-			assert.Empty(t, app.writes)
+			assert.Empty(t, app.writeLog())
 		})
 	}
 }
@@ -405,7 +450,7 @@ func TestDelayProfileCleanupDeletesOnlyOwnedProfiles(t *testing.T) {
 	ownership := engine.NewOwnership("sonarr", map[string][]string{delayProfilesKind: {strconv.Itoa(int(owned))}})
 	require.NoError(t, engine.DeleteManagedResources(context.Background(), hc, Definition(Sonarr), ownership))
 	deleted := ownership.Pruned()
-	assert.Equal(t, []string{"DELETE delayprofile/" + strconv.Itoa(int(owned))}, app.writes)
+	assert.Equal(t, []string{"DELETE delayprofile/" + strconv.Itoa(int(owned))}, app.writeLog())
 	require.Len(t, deleted, 1)
-	assert.Len(t, app.profiles, 2)
+	assert.Equal(t, 2, app.count())
 }

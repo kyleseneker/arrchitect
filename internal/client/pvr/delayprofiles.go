@@ -199,10 +199,14 @@ func (s *delayProfileStage) pruneUnmatched(ctx context.Context, plans []*delayPl
 		}
 	}
 	if s.Observe {
-		for _, id := range unmatched {
-			if slices.Contains(s.Owned.Managed()[delayProfilesKind], id) {
-				s.RecordDrift(delayProfilesKind, names[id])
-			}
+		owned := slices.DeleteFunc(unmatched, func(id string) bool {
+			return !slices.Contains(s.Owned.Managed()[delayProfilesKind], id)
+		})
+		if err := engine.PruneLimit(delayProfilesKind, len(owned)); err != nil {
+			return err
+		}
+		for _, id := range owned {
+			s.RecordDrift(delayProfilesKind, names[id])
 		}
 		return nil
 	}

@@ -36,7 +36,7 @@ func (w *Writes) Prune(owned *Ownership, kind string, declared, existing []strin
 		return owned.Prune(kind, declared, existing, remove)
 	}
 	candidates := owned.Candidates(kind, declared, existing)
-	if err := pruneLimit(kind, len(candidates)); err != nil {
+	if err := PruneLimit(kind, len(candidates)); err != nil {
 		return err
 	}
 	for _, name := range candidates {
