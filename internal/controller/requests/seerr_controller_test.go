@@ -140,6 +140,9 @@ type fakeSeerr struct {
 	notifications map[string]map[string]any
 	// refuseKey answers every request but the public settings with 401.
 	refuseKey bool
+	// refuseSync answers a media server's library sync with 401, which only
+	// setup sends.
+	refuseSync bool
 	// network is the stored network settings. Like Seerr, a POST merges the
 	// body into it.
 	network map[string]any
@@ -349,6 +352,10 @@ func (f *fakeSeerr) libraryRoutes(w http.ResponseWriter, r *http.Request, body m
 	prefix := mediaServerLibraries(r.URL.Path)
 	switch {
 	case r.URL.Path == prefix+"sync" && r.Method == http.MethodPost:
+		if f.refuseSync {
+			w.WriteHeader(http.StatusUnauthorized)
+			return true
+		}
 		if len(f.libraries) == 0 {
 			w.WriteHeader(http.StatusNotFound)
 			_ = json.NewEncoder(w).Encode(map[string]any{"message": "SYNC_ERROR_NO_LIBRARIES"})
@@ -628,6 +635,13 @@ func TestSeerrFailedSetupRetriesByItsReason(t *testing.T) {
 	require.NotNil(t, ready)
 	assert.Equal(t, "SyncFailed", ready.Reason)
 	assert.GreaterOrEqual(t, mixed.RequeueAfter, 5*time.Minute, "a mix of failures retried before the interval")
+
+	refused, got := reconcileSeerr(t, firstRunJellyfinConfig((&fakeSeerr{refuseSync: true}).serve(t)))
+	require.NotNil(t, got)
+	ready = meta.FindStatusCondition(got.Status.Conditions, "Ready")
+	require.NotNil(t, ready)
+	assert.Equal(t, "Unauthorized", ready.Reason)
+	assert.GreaterOrEqual(t, refused.RequeueAfter, 5*time.Minute, "refused credentials retried before the 5 minutes they wait")
 }
 
 func TestSeerrFailedSetupKeepsTrackOfTheServersItCreated(t *testing.T) {

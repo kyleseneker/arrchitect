@@ -370,6 +370,30 @@ func TestDelayProfilesTakeOverConvergesAfterAFailedUpdate(t *testing.T) {
 	assert.Equal(t, float64(30), converged["usenetDelay"], "the declared settings carry over")
 }
 
+// A restart between the delete and the update loses the status the pass
+// would have written, so the next pass starts from the ownership recorded
+// before it, which names a profile that's gone. It finishes the takeover the
+// same way.
+func TestDelayProfilesTakeOverConvergesAfterARestart(t *testing.T) {
+	app := newDelayAPI(false, "a", "b", "c")
+	owned := app.add([]any{float64(1), float64(2)}, map[string]any{"usenetDelay": float64(30)})
+	handMade := app.add([]any{float64(3)}, nil)
+	app.failOnce = handMade
+	hc := app.client(t)
+	declared := []commonv1alpha1.DelayProfile{{TagLabels: []string{"a", "b", "c"}, UsenetDelay: new(int32(30))}}
+	before := map[string][]string{delayProfilesKind: {strconv.Itoa(int(owned))}}
+
+	app.reconcile(t, hc, declared, engine.SyncPolicy{Prune: true}, before)
+	require.Nil(t, app.profile(owned))
+
+	again := app.reconcile(t, hc, declared, engine.SyncPolicy{Prune: true}, before)
+	require.Empty(t, again.Errors)
+	converged := app.byTags(1, 2, 3)
+	require.NotNil(t, converged)
+	assert.Equal(t, handMade, converged["id"])
+	assert.Equal(t, float64(30), converged["usenetDelay"])
+}
+
 // A plan that would leave a declared tag in a profile the operator neither
 // takes over nor prunes is refused before it writes anything.
 func TestDelayProfilesRefuseAPlanThatCantFinish(t *testing.T) {
