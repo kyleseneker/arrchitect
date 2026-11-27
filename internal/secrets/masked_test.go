@@ -1,4 +1,4 @@
-package reconciler
+package secrets
 
 import (
 	"crypto/rand"
@@ -25,14 +25,14 @@ func TestSecretsDifferTracksRotation(t *testing.T) {
 	owner := freshOwner(t)
 	const key = "notifications/Jellyfin"
 
-	first := digestOf([]string{"key-v1"})
+	first := Digest([]string{"key-v1"})
 	require.NotEmpty(t, first)
 
 	assert.True(t, SecretsDiffer(owner, key, first, false), "never written, so it must write")
 	RecordSecrets(owner, key, first)
 	assert.False(t, SecretsDiffer(owner, key, first, false), "unchanged secret must stay quiet")
 
-	rotated := digestOf([]string{"key-v2"})
+	rotated := Digest([]string{"key-v2"})
 	assert.True(t, SecretsDiffer(owner, key, rotated, false), "rotated secret must write")
 	RecordSecrets(owner, key, rotated)
 	assert.False(t, SecretsDiffer(owner, key, rotated, false))
@@ -58,21 +58,21 @@ func TestSecretsDifferIgnoresEmptyDigest(t *testing.T) {
 func TestSecretsDifferOnlyFromARecordUnderObserve(t *testing.T) {
 	owner := freshOwner(t)
 	const key = "downloadClients/qbit"
-	written := digestOf([]string{"pw-v1"})
+	written := Digest([]string{"pw-v1"})
 
 	assert.False(t, SecretsDiffer(owner, key, written, true), "nothing recorded: unverifiable, not drift")
 	assert.True(t, SecretsDiffer(owner, key, written, false), "enforce still sends it once")
 
 	RecordSecrets(owner, key, written)
 	assert.False(t, SecretsDiffer(owner, key, written, true))
-	assert.True(t, SecretsDiffer(owner, key, digestOf([]string{"pw-v2"}), true), "a rotation away from what was written is drift")
+	assert.True(t, SecretsDiffer(owner, key, Digest([]string{"pw-v2"}), true), "a rotation away from what was written is drift")
 }
 
 // A resource's records are its own: another resource writing the same item
 // doesn't silence it.
 func TestSecretsAreRecordedPerOwner(t *testing.T) {
 	a, b := freshOwner(t), freshOwner(t)
-	digest := digestOf([]string{"pw"})
+	digest := Digest([]string{"pw"})
 	RecordSecrets(a, "downloadClients/qbit", digest)
 	assert.True(t, SecretsDiffer(b, "downloadClients/qbit", digest, false))
 }
@@ -82,7 +82,7 @@ func TestSecretsAreRecordedPerOwner(t *testing.T) {
 func TestForgetSecretsDropsEveryOwnerUnderThePrefix(t *testing.T) {
 	prefix := "Test/" + rand.Text() + "/"
 	first, second, other := prefix+"uid-1", prefix+"uid-2", freshOwner(t)
-	digest := digestOf([]string{"pw"})
+	digest := Digest([]string{"pw"})
 	for _, owner := range []string{first, second, other} {
 		RecordSecrets(owner, "settings/host", digest)
 	}
@@ -95,9 +95,9 @@ func TestForgetSecretsDropsEveryOwnerUnderThePrefix(t *testing.T) {
 }
 
 func TestDigestOfIsOrderIndependent(t *testing.T) {
-	assert.Equal(t, digestOf([]string{"a", "b"}), digestOf([]string{"b", "a"}))
-	assert.NotEqual(t, digestOf([]string{"a"}), digestOf([]string{"b"}))
-	assert.Empty(t, digestOf(nil))
+	assert.Equal(t, Digest([]string{"a", "b"}), Digest([]string{"b", "a"}))
+	assert.NotEqual(t, Digest([]string{"a"}), Digest([]string{"b"}))
+	assert.Empty(t, Digest(nil))
 }
 
 func TestIsMaskedRecognizesAutobrrRedaction(t *testing.T) {

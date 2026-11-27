@@ -1,3 +1,6 @@
+// Package common holds what every controller shares: the reconcile skeleton,
+// status reasons and conditions, appRef resolution, finalizers, TLS and
+// retries.
 package common
 
 import (
@@ -11,7 +14,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/kyleseneker/arrchitect/internal/engine"
-	"github.com/kyleseneker/arrchitect/internal/reconciler"
+	"github.com/kyleseneker/arrchitect/internal/failure"
+	"github.com/kyleseneker/arrchitect/internal/httpapi"
+	"github.com/kyleseneker/arrchitect/internal/secrets"
 )
 
 // Integration is how the operator reaches one app and syncs a resource to it.
@@ -76,7 +81,7 @@ func (in Integration[T, C]) Reconcile(
 	if err != nil {
 		reason, base := Classify(err)
 		after := RetryAfter(obj, base)
-		log.FromContext(ctx).Info("Couldn't reach "+engine.AppName(in.App), "reason", reason, "error", err.Error(), "retryAfter", after)
+		log.FromContext(ctx).Info("Couldn't reach "+httpapi.AppName(in.App), "reason", reason, "error", err.Error(), "retryAfter", after)
 		UpdateStatus(ctx, c, recorder, obj, false, reason, err.Error())
 		return ctrl.Result{RequeueAfter: after}, nil
 	}
@@ -106,7 +111,7 @@ func Classify(err error) (string, time.Duration) {
 	if reason, after, ok := failureReason(err); ok {
 		return reason, after
 	}
-	return engine.ReasonAppUnreachable, 60 * time.Second
+	return ReasonAppUnreachable, 60 * time.Second
 }
 
 // syncFailure is the status reason for what a pass failed to sync, and how
@@ -127,11 +132,11 @@ func syncFailure(errs []error) (string, time.Duration) {
 	for i, err := range leaves {
 		r, after, ok := failureReason(err)
 		if !ok || (i > 0 && r != reason) {
-			return engine.ReasonSyncFailed, 0
+			return ReasonSyncFailed, 0
 		}
 		reason, retry = r, after
 	}
-	if reason == engine.ReasonUnauthorized {
+	if reason == ReasonUnauthorized {
 		retry = 0
 	}
 	return reason, retry
@@ -176,12 +181,12 @@ func failureLeaves(err error) []error {
 // failureReason names.
 func hasOwnReason(err error) bool {
 	switch e := err.(type) {
-	case *engine.ConfigError, *reconciler.SecretError, *invalidAppRefError:
+	case *failure.ConfigError, *secrets.SecretError, *invalidAppRefError:
 		return true
-	case *engine.APIError:
-		return engine.IsUnauthorized(e)
+	case *httpapi.APIError:
+		return httpapi.IsUnauthorized(e)
 	}
-	return err == errAppRefNotFound || err == engine.ErrUnauthorized
+	return err == errAppRefNotFound || err == httpapi.ErrUnauthorized
 }
 
 // failureReason is the status reason for a failure that has one of its own,
@@ -190,15 +195,15 @@ func failureReason(err error) (string, time.Duration, bool) {
 	_, invalidRef := errors.AsType[*invalidAppRefError](err)
 	switch {
 	case isAppRefNotFound(err):
-		return engine.ReasonReferenceNotFound, 30 * time.Second, true
-	case invalidRef, engine.IsConfigError(err):
-		return engine.ReasonInvalidConfig, 0, true
-	case reconciler.IsSecretError(err):
-		return engine.ReasonSecretNotFound, 30 * time.Second, true
-	case engine.IsUnauthorized(err):
+		return ReasonReferenceNotFound, 30 * time.Second, true
+	case invalidRef, failure.IsConfigError(err):
+		return ReasonInvalidConfig, 0, true
+	case secrets.IsSecretError(err):
+		return ReasonSecretNotFound, 30 * time.Second, true
+	case httpapi.IsUnauthorized(err):
 		// A Secret change requeues the resource, and some apps lock out a
 		// client that keeps failing to sign in.
-		return engine.ReasonUnauthorized, 5 * time.Minute, true
+		return ReasonUnauthorized, 5 * time.Minute, true
 	}
 	return "", 0, false
 }

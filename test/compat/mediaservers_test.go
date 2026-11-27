@@ -24,7 +24,7 @@ import (
 	plexclient "github.com/kyleseneker/arrchitect/internal/client/plex"
 	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
 	"github.com/kyleseneker/arrchitect/internal/controller/mediaservers"
-	"github.com/kyleseneker/arrchitect/internal/engine"
+	"github.com/kyleseneker/arrchitect/internal/httpapi"
 )
 
 const jellyfinAdmin = "compat-admin"
@@ -168,7 +168,7 @@ func jellyfinTypeOption(t *testing.T, jc *jellyfinclient.Client, library, itemTy
 func checkJellyfinAPIKey(t *testing.T, base, password string, proxy *recordingProxy) {
 	t.Helper()
 	ctx := context.Background()
-	hc, err := engine.NewHTTPClient(base, engine.AuthMediaBrowser, engine.WithAppLabel("compat"))
+	hc, err := httpapi.NewHTTPClient(base, httpapi.AuthMediaBrowser, httpapi.WithAppLabel("compat"))
 	require.NoError(t, err)
 	require.NoError(t, jellyfinclient.NewClient(hc).Authenticate(ctx, jellyfinAdmin, password))
 	key := createJellyfinAPIKey(t, hc, "arrchitect")
@@ -200,7 +200,7 @@ func checkJellyfinAPIKey(t *testing.T, base, password string, proxy *recordingPr
 // jellyfinClient signs in as the admin the operator created.
 func jellyfinClient(t *testing.T, base, password string) *jellyfinclient.Client {
 	t.Helper()
-	hc, err := engine.NewHTTPClient(base, engine.AuthMediaBrowser, engine.WithAppLabel("compat"))
+	hc, err := httpapi.NewHTTPClient(base, httpapi.AuthMediaBrowser, httpapi.WithAppLabel("compat"))
 	require.NoError(t, err)
 	jc := jellyfinclient.NewClient(hc)
 	require.NoError(t, jc.Authenticate(context.Background(), jellyfinAdmin, password))
@@ -279,8 +279,8 @@ func TestPlex(t *testing.T) {
 			}
 			assert.ElementsMatch(t, []string{"Movies", "TV Shows"}, titles)
 
-			prefsHC, err := engine.NewHTTPClient(plex.url(), engine.AuthPlexToken, engine.WithPlexToken("unclaimed"),
-				engine.WithAppLabel("compat"))
+			prefsHC, err := httpapi.NewHTTPClient(plex.url(), httpapi.AuthPlexToken, httpapi.WithPlexToken("unclaimed"),
+				httpapi.WithAppLabel("compat"))
 			require.NoError(t, err)
 			settings, err := plexclient.NewClient(prefsHC).GetSettings(context.Background())
 			require.NoError(t, err)

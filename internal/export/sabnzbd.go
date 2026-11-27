@@ -8,7 +8,7 @@ import (
 	"strconv"
 
 	sabnzbdclient "github.com/kyleseneker/arrchitect/internal/client/sabnzbd"
-	"github.com/kyleseneker/arrchitect/internal/reconciler"
+	"github.com/kyleseneker/arrchitect/internal/secrets"
 )
 
 func exportSabnzbd(r *reader) (map[string]any, error) {
@@ -88,7 +88,7 @@ func exportSabnzbd(r *reader) (map[string]any, error) {
 			server["usernameSecretRef"] = r.creds.ref(username, "server", name, "username")
 		}
 		if password := sabText(s["password"]); password != "" {
-			if reconciler.IsMasked(password) {
+			if secrets.IsMasked(password) {
 				password = ""
 			}
 			server["passwordSecretRef"] = r.creds.ref(password, "server", name, "password")
@@ -122,7 +122,7 @@ func (r *reader) sabnzbdLogin(misc map[string]any) map[string]any {
 		return nil
 	}
 	password := sabText(misc["password"])
-	if reconciler.IsMasked(password) {
+	if secrets.IsMasked(password) {
 		password = ""
 	}
 	return map[string]any{

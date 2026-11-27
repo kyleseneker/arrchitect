@@ -1,16 +1,16 @@
-package engine
+package common
 
 import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"net/http"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
-	"github.com/kyleseneker/arrchitect/internal/reconciler"
+	"github.com/kyleseneker/arrchitect/internal/failure"
+	"github.com/kyleseneker/arrchitect/internal/secrets"
 )
 
 // ResolveTLSConfig builds a *tls.Config from a TLSConfig CRD spec.
@@ -29,25 +29,16 @@ func ResolveTLSConfig(ctx context.Context, c client.Reader, namespace string, tl
 	}
 
 	if tlsCfg.CASecretRef != (commonv1alpha1.SecretKeyRef{}) {
-		caPEM, err := reconciler.ResolveSecretKeyRef(ctx, c, namespace, tlsCfg.CASecretRef)
+		caPEM, err := secrets.ResolveSecretKeyRef(ctx, c, namespace, tlsCfg.CASecretRef)
 		if err != nil {
 			return nil, fmt.Errorf("resolving CA certificate secret: %w", err)
 		}
 		pool := x509.NewCertPool()
 		if !pool.AppendCertsFromPEM([]byte(caPEM)) {
-			return nil, InvalidConfig(fmt.Errorf("CA certificate secret %s/%s key %q contains no valid PEM certificates", namespace, tlsCfg.CASecretRef.Name, tlsCfg.CASecretRef.Key))
+			return nil, failure.InvalidConfig(fmt.Errorf("CA certificate secret %s/%s key %q contains no valid PEM certificates", namespace, tlsCfg.CASecretRef.Name, tlsCfg.CASecretRef.Key))
 		}
 		cfg.RootCAs = pool
 	}
 
 	return cfg, nil
-}
-
-// newHTTPTransport creates an *http.Transport with SSRF protection and optional TLS configuration.
-// If tlsCfg is nil, the default TLS settings are used.
-func newHTTPTransport(tlsCfg *tls.Config) *http.Transport {
-	return &http.Transport{
-		DialContext:     ssrfSafeDialContext,
-		TLSClientConfig: tlsCfg,
-	}
 }

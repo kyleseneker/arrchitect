@@ -10,7 +10,9 @@ import (
 
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
 	requestsv1alpha1 "github.com/kyleseneker/arrchitect/api/requests/v1alpha1"
+	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
 	"github.com/kyleseneker/arrchitect/internal/engine"
+	"github.com/kyleseneker/arrchitect/internal/httpapi"
 )
 
 // Names survive a database rebuild; numeric profile IDs do not. Resolve before
@@ -32,12 +34,12 @@ func (r *SeerrReconciler) resolvedServicePayload(
 		scheme = "https"
 	}
 	endpoint := url.URL{Scheme: scheme, Host: net.JoinHostPort(svc.Hostname, strconv.Itoa(int(*svc.Port))), Path: "/" + strings.Trim(svc.BaseURL, "/")}
-	tlsCfg, err := engine.ResolveTLSConfig(ctx, r.Client, namespace, tlsSpec)
+	tlsCfg, err := ctrlcommon.ResolveTLSConfig(ctx, r.Client, namespace, tlsSpec)
 	if err != nil {
 		return nil, err
 	}
-	hc, err := engine.NewHTTPClient(endpoint.String(), engine.AuthAPIKey, engine.WithAPIKey(apiKey),
-		engine.WithTLSConfig(tlsCfg), engine.WithAppLabel(kind))
+	hc, err := httpapi.NewHTTPClient(endpoint.String(), httpapi.AuthAPIKey, httpapi.WithAPIKey(apiKey),
+		httpapi.WithTLSConfig(tlsCfg), httpapi.WithAppLabel(kind))
 	if err != nil {
 		return nil, err
 	}

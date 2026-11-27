@@ -12,17 +12,17 @@ import (
 
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
 	subtitlesv1alpha1 "github.com/kyleseneker/arrchitect/api/subtitles/v1alpha1"
-	"github.com/kyleseneker/arrchitect/internal/engine"
+	"github.com/kyleseneker/arrchitect/internal/httpapi"
 )
 
 func newTestClient(t *testing.T, handler http.HandlerFunc) *Client {
 	t.Helper()
 	srv := httptest.NewServer(handler)
 	t.Cleanup(srv.Close)
-	hc, err := engine.NewHTTPClient(srv.URL, engine.AuthAPIKey,
-		engine.WithAPIKey("test-key"),
-		engine.WithAPIKeyHeader("X-API-KEY"),
-		engine.WithTransport(&http.Transport{}),
+	hc, err := httpapi.NewHTTPClient(srv.URL, httpapi.AuthAPIKey,
+		httpapi.WithAPIKey("test-key"),
+		httpapi.WithAPIKeyHeader("X-API-KEY"),
+		httpapi.WithTransport(&http.Transport{}),
 	)
 	require.NoError(t, err)
 	return NewClient(hc)

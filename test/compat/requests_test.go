@@ -20,7 +20,8 @@ import (
 	seerrclient "github.com/kyleseneker/arrchitect/internal/client/seerr"
 	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
 	"github.com/kyleseneker/arrchitect/internal/controller/requests"
-	"github.com/kyleseneker/arrchitect/internal/engine"
+	"github.com/kyleseneker/arrchitect/internal/httpapi"
+	"github.com/kyleseneker/arrchitect/internal/testnet"
 )
 
 // TestSeerr runs Seerr's first-time setup through Jellyfin, as a rebuild does:
@@ -29,7 +30,7 @@ func TestSeerr(t *testing.T) {
 	t.Parallel()
 	jf := startJellyfin(t)
 	jellyfinPassword := randomKey()
-	hc, err := engine.NewHTTPClient(jf.url(), engine.AuthMediaBrowser, engine.WithAppLabel("compat"))
+	hc, err := httpapi.NewHTTPClient(jf.url(), httpapi.AuthMediaBrowser, httpapi.WithAppLabel("compat"))
 	require.NoError(t, err)
 	jc := jellyfinclient.NewClient(hc)
 	ctx := context.Background()
@@ -48,7 +49,7 @@ func TestSeerr(t *testing.T) {
 	}{{sonarr, sonarrKey, "/data/media/tv"}, {radarr, radarrKey, "/data/media/movies"}} {
 		app.c.exec(t, "mkdir -p "+app.path+" && chown -R abc:abc /data")
 		root := map[string]any{"path": app.path}
-		require.NoError(t, directClient(t, app.c.url(), app.key).PostJSON(ctx, "/api/v3/rootfolder", root))
+		require.NoError(t, testnet.Client(t, app.c.url(), app.key).PostJSON(ctx, "/api/v3/rootfolder", root))
 	}
 
 	seerr := startContainer(t, containerSpec{
@@ -68,7 +69,7 @@ func TestSeerr(t *testing.T) {
 	fakes := startFakes(t)
 	proxy := newRecordingProxy(t, seerr.url())
 	seerrAPIKey := func(t *testing.T) string {
-		hc, err := engine.NewHTTPClient(seerr.url(), engine.AuthSession, engine.WithAppLabel("compat"))
+		hc, err := httpapi.NewHTTPClient(seerr.url(), httpapi.AuthSession, httpapi.WithAppLabel("compat"))
 		require.NoError(t, err)
 		sc := seerrclient.NewClient(hc)
 		require.NoError(t, sc.AuthenticateJellyfin(ctx, jellyfinAdmin, jellyfinPassword, hostIP, jf.port, "", false, true))
@@ -82,7 +83,7 @@ func TestSeerr(t *testing.T) {
 		export:       "seerr",
 		exportAPIKey: seerrAPIKey,
 		cleanup: func(t *testing.T, _ map[string][]string) {
-			hc := directClient(t, seerr.url(), seerrAPIKey(t))
+			hc := testnet.Client(t, seerr.url(), seerrAPIKey(t))
 			for _, kind := range []string{"sonarr", "radarr"} {
 				servers, err := hc.GetJSONList(ctx, "/api/v1/settings/"+kind)
 				require.NoError(t, err)
@@ -111,7 +112,7 @@ func TestSeerr(t *testing.T) {
 			{"op": "replace", "path": "/spec/main/defaultQuotas/movie/limit", "value": 3},
 			{"op": "replace", "path": "/spec/jobSchedules/0/schedule", "value": "0 15 */6 * * *"}]`,
 		verifyUpdate: func(t *testing.T) {
-			direct := directClient(t, seerr.url(), seerrAPIKey(t))
+			direct := testnet.Client(t, seerr.url(), seerrAPIKey(t))
 			sonarrs, err := direct.GetJSONList(ctx, "/api/v1/settings/sonarr")
 			require.NoError(t, err)
 			urls := map[any]any{}
@@ -138,13 +139,13 @@ func TestSeerr(t *testing.T) {
 			assert.True(t, public.Initialized, "first-time setup did not complete")
 			assert.Equal(t, "Compat Requests", public.ApplicationTitle)
 
-			server, err := directClient(t, seerr.url(), seerrAPIKey(t)).GetJSON(ctx, "/api/v1/settings/jellyfin")
+			server, err := testnet.Client(t, seerr.url(), seerrAPIKey(t)).GetJSON(ctx, "/api/v1/settings/jellyfin")
 			require.NoError(t, err)
 			assert.Equal(t, hostIP, server["ip"])
 			assert.Equal(t, float64(jf.port), server["port"])
 			assert.NotContains(t, server, "hostname", "Seerr's settings migration rewrites the port from a stored hostname")
 
-			direct := directClient(t, seerr.url(), seerrAPIKey(t))
+			direct := testnet.Client(t, seerr.url(), seerrAPIKey(t))
 			main, err := direct.GetJSON(ctx, "/api/v1/settings/main")
 			require.NoError(t, err)
 			assert.Equal(t, "en|ja", main["originalLanguage"])
@@ -179,7 +180,7 @@ func TestSeerr(t *testing.T) {
 }
 
 // seerrJobSchedules maps each job Seerr runs to its schedule.
-func seerrJobSchedules(t *testing.T, hc *engine.HTTPClient) map[any]any {
+func seerrJobSchedules(t *testing.T, hc *httpapi.HTTPClient) map[any]any {
 	t.Helper()
 	jobs, err := hc.GetJSONList(context.Background(), "/api/v1/settings/jobs")
 	require.NoError(t, err)

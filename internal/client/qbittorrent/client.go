@@ -1,3 +1,4 @@
+// Package qbittorrent is a client for the qBittorrent Web API.
 package qbittorrent
 
 import (
@@ -9,20 +10,20 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/kyleseneker/arrchitect/internal/engine"
-	"github.com/kyleseneker/arrchitect/internal/reconciler"
+	"github.com/kyleseneker/arrchitect/internal/httpapi"
+	"github.com/kyleseneker/arrchitect/internal/secrets"
 )
 
 // HTTPOptions are what every client for qBittorrent takes. Sign-in answers
 // with a redirect, and the session cookie must be read before following it.
-func HTTPOptions() []engine.HTTPClientOption {
-	return []engine.HTTPClientOption{engine.WithDisableRedirect(), engine.WithAppLabel("qbittorrent")}
+func HTTPOptions() []httpapi.HTTPClientOption {
+	return []httpapi.HTTPClientOption{httpapi.WithDisableRedirect(), httpapi.WithAppLabel("qbittorrent")}
 }
 
 // Client is an HTTP client for the qBittorrent WebUI API v2.
 // It authenticates via session cookies obtained from the login endpoint.
 type Client struct {
-	hc       *engine.HTTPClient
+	hc       *httpapi.HTTPClient
 	username string
 	password string
 }
@@ -137,8 +138,8 @@ var SpeedLimits = map[string]string{
 	"dlLimit": "dl_limit", "upLimit": "up_limit", "altDlLimit": "alt_dl_limit", "altUpLimit": "alt_up_limit",
 }
 
-// NewClient creates a new qBittorrent API client backed by the given engine.HTTPClient.
-func NewClient(hc *engine.HTTPClient, username, password string) *Client {
+// NewClient creates a new qBittorrent API client backed by the given httpapi.HTTPClient.
+func NewClient(hc *httpapi.HTTPClient, username, password string) *Client {
 	return &Client{
 		hc:       hc,
 		username: username,
@@ -153,7 +154,7 @@ func (c *Client) Login(ctx context.Context) error {
 	form.Set("password", c.password)
 
 	body, err := c.hc.DoForm(ctx, "/api/v2/auth/login", form)
-	if apiErr, ok := errors.AsType[*engine.APIError](err); ok && apiErr.StatusCode == http.StatusUnauthorized {
+	if apiErr, ok := errors.AsType[*httpapi.APIError](err); ok && apiErr.StatusCode == http.StatusUnauthorized {
 		return fmt.Errorf("qBittorrent refused the sign-in: check the credentials, and that the URL's port is "+
 			"qBittorrent's own, as it refuses a request addressed to any other: %w", err)
 	}
@@ -162,7 +163,7 @@ func (c *Client) Login(ctx context.Context) error {
 	}
 
 	if resp := strings.TrimSpace(string(body)); resp != "" && !strings.EqualFold(resp, "Ok.") {
-		return fmt.Errorf("%w: qBittorrent answered %q", engine.ErrUnauthorized, reconciler.Redact(resp))
+		return fmt.Errorf("%w: qBittorrent answered %q", httpapi.ErrUnauthorized, secrets.Redact(resp))
 	}
 
 	// The cookie jar captured the session cookie automatically. Register it with

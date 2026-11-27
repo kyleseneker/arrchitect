@@ -1,3 +1,5 @@
+// Package prowlarr reconciles Prowlarr: its definition, the payloads for
+// each kind, and the stages they are written in.
 package prowlarr
 
 import (
@@ -9,6 +11,7 @@ import (
 	indexersv1alpha1 "github.com/kyleseneker/arrchitect/api/indexers/v1alpha1"
 	pvrclient "github.com/kyleseneker/arrchitect/internal/client/pvr"
 	"github.com/kyleseneker/arrchitect/internal/engine"
+	"github.com/kyleseneker/arrchitect/internal/httpapi"
 )
 
 // Definition returns the AppDefinition for Prowlarr.
@@ -76,7 +79,7 @@ var stages = [][]string{
 
 // Reconcile writes the options to Prowlarr. A kind that names a tag or app
 // profile Prowlarr lacks is left out and reported; the rest still syncs.
-func Reconcile(ctx context.Context, client *engine.HTTPClient, opts Options, pass *engine.Pass) []error {
+func Reconcile(ctx context.Context, client *httpapi.HTTPClient, opts Options, pass *engine.Pass) []error {
 	var plannedTags []string
 	if pass.Observe {
 		for _, t := range opts.Tags {
@@ -89,7 +92,7 @@ func Reconcile(ctx context.Context, client *engine.HTTPClient, opts Options, pas
 	}.Reconcile(ctx, client, Definition(), pass)
 }
 
-func (o Options) builders(ctx context.Context, client *engine.HTTPClient, observe bool) map[string]engine.Builder {
+func (o Options) builders(ctx context.Context, client *httpapi.HTTPClient, observe bool) map[string]engine.Builder {
 	return map[string]engine.Builder{
 		"tags": {Count: len(o.Tags), Build: func(engine.NamedIDs) ([]map[string]any, error) {
 			tags := make([]map[string]any, 0, len(o.Tags))
@@ -166,7 +169,7 @@ func taggedKind[T any](
 // profiles the resource declares resolve even when Prowlarr lacks them; see
 // engine.PlannedID.
 func (o Options) indexerPayload(
-	ctx context.Context, client *engine.HTTPClient, observe bool,
+	ctx context.Context, client *httpapi.HTTPClient, observe bool,
 ) func(indexersv1alpha1.ProwlarrIndexer, []int) (map[string]any, error) {
 	var profiles engine.NamedIDs
 	return func(idx indexersv1alpha1.ProwlarrIndexer, tags []int) (map[string]any, error) {

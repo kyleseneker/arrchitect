@@ -1,4 +1,4 @@
-package reconciler
+package common
 
 import (
 	"k8s.io/apimachinery/pkg/api/meta"

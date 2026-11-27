@@ -1,4 +1,6 @@
-package reconciler
+// Package secrets reads values from Kubernetes Secrets, keeps them out of
+// errors and logs, and remembers the masked secrets the operator wrote.
+package secrets
 
 import (
 	"context"

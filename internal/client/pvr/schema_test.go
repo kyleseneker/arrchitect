@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
-	"github.com/kyleseneker/arrchitect/internal/engine"
+	"github.com/kyleseneker/arrchitect/internal/httpapi"
 )
 
 func qbitSchema() []map[string]any {
@@ -86,7 +86,7 @@ func TestUnsupportedEventsAreTheOnesTheImplementationLacks(t *testing.T) {
 
 // schemaServer serves only the schema endpoints, so a request for anything else
 // stands out as unexpected.
-func schemaServer(t *testing.T) *engine.HTTPClient {
+func schemaServer(t *testing.T) *httpapi.HTTPClient {
 	t.Helper()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -98,9 +98,9 @@ func schemaServer(t *testing.T) *engine.HTTPClient {
 	}))
 	t.Cleanup(srv.Close)
 
-	hc, err := engine.NewHTTPClient(srv.URL, engine.AuthAPIKey,
-		engine.WithAPIKey("k"), engine.WithAPIKeyHeader("X-Api-Key"),
-		engine.WithTransport(&http.Transport{}))
+	hc, err := httpapi.NewHTTPClient(srv.URL, httpapi.AuthAPIKey,
+		httpapi.WithAPIKey("k"), httpapi.WithAPIKeyHeader("X-Api-Key"),
+		httpapi.WithTransport(&http.Transport{}))
 	require.NoError(t, err, "building client")
 	return hc
 }

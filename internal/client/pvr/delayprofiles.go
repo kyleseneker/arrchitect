@@ -14,7 +14,9 @@ import (
 
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
 	"github.com/kyleseneker/arrchitect/internal/engine"
-	"github.com/kyleseneker/arrchitect/internal/reconciler"
+	"github.com/kyleseneker/arrchitect/internal/failure"
+	"github.com/kyleseneker/arrchitect/internal/httpapi"
+	"github.com/kyleseneker/arrchitect/internal/jsondiff"
 )
 
 const delayProfilesKind = "delayProfiles"
@@ -45,7 +47,7 @@ type delayPlan struct {
 
 type delayProfileStage struct {
 	*engine.Pass
-	client *engine.HTTPClient
+	client *httpapi.HTTPClient
 	path   string
 	labels map[int]string
 }
@@ -55,7 +57,7 @@ type delayProfileStage struct {
 // allows a tag in only one profile, so pruned profiles go first and tags leave
 // a profile before any joins another.
 func reconcileDelayProfiles(
-	ctx context.Context, client *engine.HTTPClient, apiVersion string, declared []commonv1alpha1.DelayProfile, pass *engine.Pass, plannedTags []string,
+	ctx context.Context, client *httpapi.HTTPClient, apiVersion string, declared []commonv1alpha1.DelayProfile, pass *engine.Pass, plannedTags []string,
 ) []error {
 	s := &delayProfileStage{Pass: pass, client: client, path: fmt.Sprintf("/api/%s/delayprofile", apiVersion)}
 	return s.run(ctx, fmt.Sprintf("/api/%s/tag", apiVersion), declared, plannedTags)
@@ -198,7 +200,7 @@ func planDelayProfiles(
 					label = l
 				}
 			}
-			return nil, engine.InvalidConfig(fmt.Errorf(
+			return nil, failure.InvalidConfig(fmt.Errorf(
 				"%s(%s): tag %q is in profile %s, which no declared profile takes over and the operator can't prune",
 				delayProfilesKind, name, label, delayProfileID(e)))
 		}
@@ -364,7 +366,7 @@ func (s *delayProfileStage) pruneUnmatched(ctx context.Context, plans []*delayPl
 	kept, rest := engine.SplitKept(err)
 	for _, k := range kept {
 		for _, r := range k.Kept {
-			rest = engine.JoinErrors(rest, fmt.Errorf("%s: %s", names[r.Name], r.Reason))
+			rest = failure.Join(rest, fmt.Errorf("%s: %s", names[r.Name], r.Reason))
 		}
 	}
 	return rest
@@ -476,7 +478,7 @@ func delayProfileBody(base map[string]any, p *delayPlan, protocolItems bool) (ma
 			set["preferredProtocol"] = d.PreferredProtocol
 		}
 	}
-	out, err := reconciler.MergeDesired(base, set)
+	out, err := jsondiff.MergeDesired(base, set)
 	if err != nil {
 		return nil, err
 	}

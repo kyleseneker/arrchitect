@@ -1,3 +1,4 @@
+// Package mediaservers holds the Jellyfin and Plex controllers.
 package mediaservers
 
 import (
@@ -21,7 +22,9 @@ import (
 	jellyfinclient "github.com/kyleseneker/arrchitect/internal/client/jellyfin"
 	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
 	"github.com/kyleseneker/arrchitect/internal/engine"
-	"github.com/kyleseneker/arrchitect/internal/reconciler"
+	"github.com/kyleseneker/arrchitect/internal/httpapi"
+	"github.com/kyleseneker/arrchitect/internal/jsondiff"
+	"github.com/kyleseneker/arrchitect/internal/secrets"
 )
 
 // JellyfinReconciler reconciles a Jellyfin object.
@@ -57,19 +60,19 @@ type jellyfinConn struct {
 }
 
 func (r *JellyfinReconciler) connect(ctx context.Context, config *mediaserversv1alpha1.Jellyfin) (*jellyfinConn, error) {
-	username, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, config.Spec.AdminUser.UsernameSecretRef)
+	username, err := secrets.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, config.Spec.AdminUser.UsernameSecretRef)
 	if err != nil {
 		return nil, err
 	}
-	password, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, config.Spec.AdminUser.PasswordSecretRef)
+	password, err := secrets.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, config.Spec.AdminUser.PasswordSecretRef)
 	if err != nil {
 		return nil, err
 	}
-	tlsCfg, err := engine.ResolveTLSConfig(ctx, r.Client, config.Namespace, config.Spec.Connection.TLS)
+	tlsCfg, err := ctrlcommon.ResolveTLSConfig(ctx, r.Client, config.Namespace, config.Spec.Connection.TLS)
 	if err != nil {
 		return nil, err
 	}
-	hc, err := engine.NewHTTPClient(config.Spec.Connection.URL, engine.AuthMediaBrowser, engine.WithTLSConfig(tlsCfg), engine.WithAppLabel("jellyfin"))
+	hc, err := httpapi.NewHTTPClient(config.Spec.Connection.URL, httpapi.AuthMediaBrowser, httpapi.WithTLSConfig(tlsCfg), httpapi.WithAppLabel("jellyfin"))
 	if err != nil {
 		return nil, err
 	}
@@ -153,7 +156,7 @@ func (r *JellyfinReconciler) signIn(
 	if ref == nil {
 		return jf.Authenticate(ctx, admin.username, admin.password)
 	}
-	key, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, *ref)
+	key, err := secrets.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, *ref)
 	if err != nil {
 		return err
 	}
@@ -219,7 +222,7 @@ func reconcileJellyfinSection(ctx context.Context, jf *jellyfinclient.Client, w 
 		return err
 	}
 	missing := withoutNewerSettings(section.name, desired, version)
-	merged, changed, err := reconciler.MergeDesiredOverCurrent(current, desired)
+	merged, changed, err := jsondiff.MergeDesiredOverCurrent(current, desired)
 	if err != nil {
 		return fmt.Errorf("merging config: %w", err)
 	}
@@ -337,7 +340,7 @@ func reconcileJellyfinLibrary(ctx context.Context, jf *jellyfinclient.Client, w 
 	if err != nil || len(declared) == 0 {
 		return err
 	}
-	merged, differs, err := reconciler.MergeDesiredOverCurrent(options, declared)
+	merged, differs, err := jsondiff.MergeDesiredOverCurrent(options, declared)
 	if err != nil || !differs {
 		return err
 	}

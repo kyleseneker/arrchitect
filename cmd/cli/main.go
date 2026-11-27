@@ -1,3 +1,5 @@
+// Command arrchitect writes resources from running apps with its export
+// subcommand, for adopting an app that was set up by hand.
 package main
 
 import (

@@ -74,11 +74,19 @@ targets, plus compat and e2e.
 - `api/<group>/v1alpha1/`: the API types. `api/common/v1alpha1/` holds the
   types several apps share.
 - `internal/controller/<group>/`: one controller per app.
-  `internal/controller/common/` holds the shared status, appRef and finalizer
-  helpers.
+  `internal/controller/common/` holds the shared reconcile skeleton, status
+  reasons and conditions, appRef, TLS and finalizer helpers.
 - `internal/client/<app>/`: a client for each app's HTTP API.
-- `internal/engine/`: shared reconcile logic, the HTTP client, ownership
-  tracking, and the status and event reason constants.
+- `internal/engine/`: the sync engine: app definitions, passes and their
+  writes, ownership tracking, stages and name lookups.
+- `internal/httpapi/`: the HTTP client every app client builds on, with its
+  SSRF guard and `APIError`.
+- `internal/secrets/`: reading Secrets, redaction, and the digests of masked
+  secrets the operator wrote.
+- `internal/jsondiff/`: merging a declared item over the app's and telling
+  whether it differs.
+- `internal/failure/`: the failure kinds a status reports apart, such as a
+  spec the operator can't act on.
 - `internal/export/`: `arrchitect export`, which writes a resource from a
   running app.
 - `chart/arrchitect/`: the Helm chart and its `values.schema.json`.
@@ -97,8 +105,8 @@ Copy these when you add something similar:
   cleanup reuses it. `Check` probes the app before a sync, and holds any spec
   check that mustn't block cleanup. `Sync` writes through the `engine.Pass`
   it's given. `Integration.Reconcile` does the lifecycle, status, events and
-  requeue, with the reasons in `internal/engine/controller.go`. An app that
-  needs its own header, timeout or redirect handling exports them as
+  requeue, with the reasons in `internal/controller/common/reasons.go`. An
+  app that needs its own header, timeout or redirect handling exports them as
   `HTTPOptions()` from its client package, which `arrchitect export` uses too.
 - appRef resolution: `internal/controller/common/appref.go`. A failure goes
   through `AppRefFailure`, which picks the reason and the requeue.
@@ -158,7 +166,7 @@ Never edit these by hand. Change the source, then regenerate.
   topic-named test files.
 - Write comments only for what the code can't say. Don't add comments that
   restate the next line.
-- Errors spell app names as the apps do, through `engine.AppName`:
+- Errors spell app names as the apps do, through `httpapi.AppName`:
   `Maintainerr has no Radarr server named "M"`,
   `Tdarr has more than one node named "T"`. The lint config allows a capital
   first letter in an error string only for an app name.
@@ -166,14 +174,14 @@ Never edit these by hand. Change the source, then regenerate.
   from what `Connect` returns: 30 seconds for a missing Secret or reference, 60
   when an app is unreachable, 5 minutes for refused credentials, and none for
   `InvalidConfig`. `ctrlcommon.RetryAfter` doubles it for each failure in a row,
-  up to 10 minutes. Wrap a spec problem in `engine.InvalidConfig`, and refused
-  credentials in `engine.ErrUnauthorized` when the app doesn't answer 401.
+  up to 10 minutes. Wrap a spec problem in `failure.InvalidConfig`, and refused
+  credentials in `httpapi.ErrUnauthorized` when the app doesn't answer 401.
 - `Sync` returns each failure as an `error`, wrapped with `%w` and prefixed
   with the kind and item, such as `notifications(Discord): %w`. The status
   reason and retry come from the errors: a pass whose only failure is a
   missing Secret reads `SecretNotFound` and retries in 30 seconds, and a mix
   of reasons reads `SyncFailed` and waits for the interval. Join errors with
-  `engine.JoinErrors`, not `errors.Join`, which keeps a status message on one
+  `failure.Join`, not `errors.Join`, which keeps a status message on one
   line.
 - Send every write to an app through `engine.Writes` (`Apply`, `Sync`,
   `Prune`), so observe mode reports exactly what enforce mode would write.
@@ -184,17 +192,17 @@ Never edit these by hand. Change the source, then regenerate.
 ## Safety
 
 - Never put a credential in a spec, status, event or log line. Read Secrets
-  through `reconciler.ResolveSecretKeyRef`, which registers each value for
+  through `secrets.ResolveSecretKeyRef`, which registers each value for
   redaction, and pass any text an app sends back, such as an error body,
-  through `reconciler.Redact` before it goes into an error.
+  through `secrets.Redact` before it goes into an error.
 - TLS verification stays on unless the user sets `insecureSkipVerify`. Every
   client built for an app, including the target of an `appRef`, passes that
-  connection's TLS settings and its app name: `engine.WithTLSConfig` and
-  `engine.WithAppLabel`.
-- The engine's HTTP client refuses loopback, link-local, unspecified and cloud
+  connection's TLS settings and its app name: `httpapi.WithTLSConfig` and
+  `httpapi.WithAppLabel`.
+- The HTTP client refuses loopback, link-local, unspecified and cloud
   metadata addresses, follows redirects only on the app's own host and caps
   response bodies. Don't weaken that. Tests serve fake apps with
-  `testnet.Serve` or pass `engine.WithTransport`.
+  `testnet.Serve` or pass `httpapi.WithTransport`.
 - Prune and `deletionPolicy: delete` only delete items the operator created,
   which `status.managedResources` records. Never delete an item the operator
   didn't create.

@@ -15,6 +15,7 @@ import (
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
 	indexersv1alpha1 "github.com/kyleseneker/arrchitect/api/indexers/v1alpha1"
 	"github.com/kyleseneker/arrchitect/internal/engine"
+	"github.com/kyleseneker/arrchitect/internal/httpapi"
 )
 
 func TestProwlarrDefinition(t *testing.T) {
@@ -360,7 +361,7 @@ type fakeProwlarr struct {
 	nextID int
 }
 
-func (a *fakeProwlarr) client(t *testing.T) *engine.HTTPClient {
+func (a *fakeProwlarr) client(t *testing.T) *httpapi.HTTPClient {
 	t.Helper()
 	if a.lists == nil {
 		a.lists = map[string][]map[string]any{}
@@ -387,8 +388,8 @@ func (a *fakeProwlarr) client(t *testing.T) *engine.HTTPClient {
 		_ = json.NewEncoder(w).Encode(body)
 	}))
 	t.Cleanup(srv.Close)
-	hc, err := engine.NewHTTPClient(srv.URL, engine.AuthAPIKey,
-		engine.WithAPIKey("k"), engine.WithAPIKeyHeader("X-Api-Key"), engine.WithTransport(&http.Transport{}))
+	hc, err := httpapi.NewHTTPClient(srv.URL, httpapi.AuthAPIKey,
+		httpapi.WithAPIKey("k"), httpapi.WithAPIKeyHeader("X-Api-Key"), httpapi.WithTransport(&http.Transport{}))
 	require.NoError(t, err)
 	return hc
 }

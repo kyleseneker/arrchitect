@@ -56,6 +56,7 @@ import (
 	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
 	"github.com/kyleseneker/arrchitect/internal/engine"
 	"github.com/kyleseneker/arrchitect/internal/export"
+	"github.com/kyleseneker/arrchitect/internal/httpapi"
 )
 
 var (
@@ -486,7 +487,7 @@ func reconcileUntilCurrent(
 func assertSynced(t *testing.T, obj ctrlcommon.ConfigResource, stage string) bool {
 	t.Helper()
 	for _, c := range obj.GetConfigStatus().Conditions {
-		if c.Type == engine.ConditionSynced {
+		if c.Type == ctrlcommon.ConditionSynced {
 			return assert.Equal(t, metav1.ConditionTrue, c.Status,
 				"%s: Synced=%s (%s): %s", stage, c.Status, c.Reason, c.Message)
 		}
@@ -611,7 +612,7 @@ func specOf(t *testing.T, obj client.Object) map[string]any {
 // ownedGone checks that none of the items a resource recorded creating is left
 // in an application reconciled through def, except kept ones (as kind/name),
 // which the app refuses to delete while something it keeps still uses them.
-func ownedGone(hc *engine.HTTPClient, def engine.AppDefinition, kept ...string) func(*testing.T, map[string][]string) {
+func ownedGone(hc *httpapi.HTTPClient, def engine.AppDefinition, kept ...string) func(*testing.T, map[string][]string) {
 	return func(t *testing.T, owned map[string][]string) {
 		for _, ep := range def.Resources {
 			if !ep.Prunable || len(owned[ep.Name]) == 0 {

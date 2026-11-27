@@ -21,7 +21,8 @@ import (
 	jellyfinclient "github.com/kyleseneker/arrchitect/internal/client/jellyfin"
 	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
 	"github.com/kyleseneker/arrchitect/internal/controller/curation"
-	"github.com/kyleseneker/arrchitect/internal/engine"
+	"github.com/kyleseneker/arrchitect/internal/httpapi"
+	"github.com/kyleseneker/arrchitect/internal/testnet"
 )
 
 // TestMaintainerr sets up a fresh Maintainerr against Jellyfin and a Radarr, and
@@ -71,7 +72,7 @@ func TestMaintainerr(t *testing.T) {
 		proxy:   proxy,
 		observe: true,
 		verify: func(t *testing.T) {
-			hc := directClient(t, maintainerr.url(), "")
+			hc := testnet.Client(t, maintainerr.url(), "")
 			settings, err := hc.GetJSON(ctx, "/api/settings")
 			require.NoError(t, err)
 			assert.Equal(t, "jellyfin", settings["media_server_type"])
@@ -106,7 +107,7 @@ func TestMaintainerr(t *testing.T) {
 			assert.Equal(t, n["id"], linked[0].(map[string]any)["id"])
 		},
 		cleanup: func(t *testing.T, _ map[string][]string) {
-			hc := directClient(t, maintainerr.url(), "")
+			hc := testnet.Client(t, maintainerr.url(), "")
 			for _, path := range []string{"/api/rules", "/api/notifications/configurations", "/api/settings/radarr"} {
 				items, err := hc.GetJSONList(ctx, path)
 				require.NoError(t, err)
@@ -122,7 +123,7 @@ func jellyfinAPIKey(t *testing.T, base string) string {
 	t.Helper()
 	ctx := context.Background()
 	password := randomKey()
-	hc, err := engine.NewHTTPClient(base, engine.AuthMediaBrowser, engine.WithAppLabel("compat"))
+	hc, err := httpapi.NewHTTPClient(base, httpapi.AuthMediaBrowser, httpapi.WithAppLabel("compat"))
 	require.NoError(t, err)
 	jc := jellyfinclient.NewClient(hc)
 	require.NoError(t, jc.RunSetupWizard(ctx, jellyfinAdmin, password, "compat", "en", "US"))
@@ -134,7 +135,7 @@ func jellyfinAPIKey(t *testing.T, base string) string {
 }
 
 // createJellyfinAPIKey creates an API key named app through a signed-in client.
-func createJellyfinAPIKey(t *testing.T, hc *engine.HTTPClient, app string) string {
+func createJellyfinAPIKey(t *testing.T, hc *httpapi.HTTPClient, app string) string {
 	t.Helper()
 	ctx := context.Background()
 	_, err := hc.Do(ctx, http.MethodPost, "/Auth/Keys?app="+app, nil)

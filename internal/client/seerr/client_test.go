@@ -10,15 +10,15 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kyleseneker/arrchitect/internal/engine"
+	"github.com/kyleseneker/arrchitect/internal/httpapi"
 )
 
 func newTestClient(t *testing.T, handler http.HandlerFunc) *Client {
 	t.Helper()
 	srv := httptest.NewServer(handler)
 	t.Cleanup(srv.Close)
-	hc, err := engine.NewHTTPClient(srv.URL, engine.AuthSession,
-		engine.WithTransport(&http.Transport{}),
+	hc, err := httpapi.NewHTTPClient(srv.URL, httpapi.AuthSession,
+		httpapi.WithTransport(&http.Transport{}),
 	)
 	require.NoError(t, err)
 	return NewClient(hc)

@@ -20,7 +20,7 @@ import (
 	subtitlesv1alpha1 "github.com/kyleseneker/arrchitect/api/subtitles/v1alpha1"
 	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
 	"github.com/kyleseneker/arrchitect/internal/controller/subtitles"
-	"github.com/kyleseneker/arrchitect/internal/engine"
+	"github.com/kyleseneker/arrchitect/internal/httpapi"
 )
 
 func TestBazarr(t *testing.T) {
@@ -137,7 +137,7 @@ func TestBazarr(t *testing.T) {
 	})
 }
 
-func bazarrProfile(t *testing.T, hc *engine.HTTPClient, name string) map[string]any {
+func bazarrProfile(t *testing.T, hc *httpapi.HTTPClient, name string) map[string]any {
 	t.Helper()
 	profiles, err := hc.GetJSONList(context.Background(), "/api/system/languages/profiles")
 	require.NoError(t, err)
@@ -150,7 +150,7 @@ func bazarrProfile(t *testing.T, hc *engine.HTTPClient, name string) map[string]
 	return nil
 }
 
-func bazarrProfileNames(t *testing.T, hc *engine.HTTPClient) []string {
+func bazarrProfileNames(t *testing.T, hc *httpapi.HTTPClient) []string {
 	t.Helper()
 	profiles, err := hc.GetJSONList(context.Background(), "/api/system/languages/profiles")
 	require.NoError(t, err)
@@ -163,10 +163,10 @@ func bazarrProfileNames(t *testing.T, hc *engine.HTTPClient) []string {
 }
 
 // bazarrClient talks to Bazarr directly, outside the operator.
-func bazarrClient(t *testing.T, base, key string) *engine.HTTPClient {
+func bazarrClient(t *testing.T, base, key string) *httpapi.HTTPClient {
 	t.Helper()
-	hc, err := engine.NewHTTPClient(base, engine.AuthAPIKey, engine.WithAPIKey(key),
-		engine.WithAPIKeyHeader("X-API-KEY"), engine.WithAppLabel("compat"))
+	hc, err := httpapi.NewHTTPClient(base, httpapi.AuthAPIKey, httpapi.WithAPIKey(key),
+		httpapi.WithAPIKeyHeader("X-API-KEY"), httpapi.WithAppLabel("compat"))
 	require.NoError(t, err)
 	return hc
 }

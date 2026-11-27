@@ -14,16 +14,16 @@ import (
 	"github.com/stretchr/testify/require"
 
 	automationv1alpha1 "github.com/kyleseneker/arrchitect/api/automation/v1alpha1"
-	"github.com/kyleseneker/arrchitect/internal/engine"
+	"github.com/kyleseneker/arrchitect/internal/httpapi"
 )
 
 func newTestClient(t *testing.T, handler http.HandlerFunc) *Client {
 	t.Helper()
 	srv := httptest.NewServer(handler)
 	t.Cleanup(srv.Close)
-	hc, err := engine.NewHTTPClient(srv.URL, engine.AuthAPIKey,
-		engine.WithAPIKey("test-key"),
-		engine.WithTransport(&http.Transport{}),
+	hc, err := httpapi.NewHTTPClient(srv.URL, httpapi.AuthAPIKey,
+		httpapi.WithAPIKey("test-key"),
+		httpapi.WithTransport(&http.Transport{}),
 	)
 	require.NoError(t, err)
 	return NewClient(hc)

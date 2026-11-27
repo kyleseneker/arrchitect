@@ -16,6 +16,7 @@ import (
 
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
 	"github.com/kyleseneker/arrchitect/internal/engine"
+	"github.com/kyleseneker/arrchitect/internal/httpapi"
 )
 
 func TestBuildQualityProfilePayload(t *testing.T) {
@@ -280,7 +281,7 @@ func TestQualityProfileResolvesCustomFormatsCreatedInTheSameRun(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	hc, err := engine.NewHTTPClient(srv.URL, engine.AuthAPIKey, engine.WithAPIKey("k"), engine.WithAppLabel("sonarr"), engine.WithTransport(&http.Transport{}))
+	hc, err := httpapi.NewHTTPClient(srv.URL, httpapi.AuthAPIKey, httpapi.WithAPIKey("k"), httpapi.WithAppLabel("sonarr"), httpapi.WithTransport(&http.Transport{}))
 	require.NoError(t, err)
 
 	opts := Options{
@@ -458,7 +459,7 @@ func TestQualityProfileLanguageIsLookedUpByName(t *testing.T) {
 		_, _ = w.Write([]byte(`[]`))
 	}))
 	t.Cleanup(srv.Close)
-	hc, err := engine.NewHTTPClient(srv.URL, engine.AuthNone, engine.WithTransport(&http.Transport{}))
+	hc, err := httpapi.NewHTTPClient(srv.URL, httpapi.AuthNone, httpapi.WithTransport(&http.Transport{}))
 	require.NoError(t, err)
 
 	qps, err := qualityProfileResources(context.Background(), hc, "v3", []commonv1alpha1.QualityProfile{{Name: "HD", Language: "Original"}}, nil)

@@ -6,6 +6,8 @@ import (
 	"math"
 	"slices"
 	"strings"
+
+	"github.com/kyleseneker/arrchitect/internal/httpapi"
 )
 
 // NamedIDs maps a name to every ID an app assigned it. Duplicates are retained
@@ -14,7 +16,7 @@ import (
 type NamedIDs map[string][]int
 
 // FetchNamedIDs lists path and indexes each item's ID by the given name field.
-func FetchNamedIDs(ctx context.Context, client *HTTPClient, path, field string) (NamedIDs, error) {
+func FetchNamedIDs(ctx context.Context, client *httpapi.HTTPClient, path, field string) (NamedIDs, error) {
 	items, err := client.GetJSONList(ctx, path)
 	if err != nil {
 		return nil, fmt.Errorf("reading references from %s: %w", path, err)

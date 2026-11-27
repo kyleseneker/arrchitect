@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/kyleseneker/arrchitect/internal/httpapi"
 	"github.com/kyleseneker/arrchitect/internal/metrics"
 )
 
@@ -66,7 +67,7 @@ func TestOwnershipCleanupKeepsWhatTheAppRefusesAndCarriesOn(t *testing.T) {
 	var removed []string
 	err := o.Cleanup("profiles", []string{"a", "b", "c"}, func(name string) error {
 		if name == "b" {
-			return &APIError{StatusCode: 409, Body: []byte(`{"message":"in use by a root folder"}`)}
+			return &httpapi.APIError{StatusCode: 409, Body: []byte(`{"message":"in use by a root folder"}`)}
 		}
 		removed = append(removed, name)
 		return nil
@@ -79,7 +80,7 @@ func TestOwnershipCleanupKeepsWhatTheAppRefusesAndCarriesOn(t *testing.T) {
 	assert.Equal(t, []string{"a", "c"}, removed)
 
 	err = o.Prune("profiles", []string{"x"}, []string{"b"}, func(string) error {
-		return &APIError{StatusCode: 409, Body: []byte(`{"message":"in use"}`)}
+		return &httpapi.APIError{StatusCode: 409, Body: []byte(`{"message":"in use"}`)}
 	})
 	assert.ErrorContains(t, err, `deleting profiles "b"`, "prune reports a refusal each pass instead of keeping it")
 }
@@ -137,7 +138,7 @@ func TestCleanupKeepsARefusalWhenALaterDeleteFails(t *testing.T) {
 	owned := NewOwnership("ownership-kept", map[string][]string{"profiles": {"a-in-use", "b-flaky"}})
 	err := owned.Cleanup("profiles", []string{"a-in-use", "b-flaky"}, func(name string) error {
 		if name == "a-in-use" {
-			return &APIError{StatusCode: 400, Body: []byte(`{"message":"Profile is in use"}`)}
+			return &httpapi.APIError{StatusCode: 400, Body: []byte(`{"message":"Profile is in use"}`)}
 		}
 		return errors.New("connection reset")
 	})

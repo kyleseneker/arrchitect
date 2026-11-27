@@ -1,4 +1,4 @@
-// Package testnet holds network helpers shared by tests.
+// Package testnet holds network and client helpers shared by tests.
 package testnet
 
 import (
@@ -6,6 +6,10 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/stretchr/testify/require"
+
+	"github.com/kyleseneker/arrchitect/internal/httpapi"
 )
 
 // RoutableAddr returns a non-loopback IPv4 address of this host, skipping the
@@ -46,4 +50,28 @@ func Serve(t *testing.T, handler http.Handler) *httptest.Server {
 	srv.Start()
 	t.Cleanup(srv.Close)
 	return srv
+}
+
+// AppLabel is the app label of the clients Client builds, under which tests
+// read the per-app metrics.
+const AppLabel = "test-app"
+
+// Client returns a client for the app at base that sends apiKey. Its plain
+// transport reaches a test server on loopback, which the operator's own
+// client refuses.
+func Client(t *testing.T, base, apiKey string) *httpapi.HTTPClient {
+	t.Helper()
+	hc, err := httpapi.NewHTTPClient(base, httpapi.AuthAPIKey,
+		httpapi.WithAPIKey(apiKey), httpapi.WithTransport(&http.Transport{}), httpapi.WithAppLabel(AppLabel))
+	require.NoError(t, err)
+	return hc
+}
+
+// ServeApp starts a loopback server for handler, closed when the test ends,
+// and returns a Client for it.
+func ServeApp(t *testing.T, handler http.HandlerFunc) *httpapi.HTTPClient {
+	t.Helper()
+	srv := httptest.NewServer(handler)
+	t.Cleanup(srv.Close)
+	return Client(t, srv.URL, "test-key")
 }

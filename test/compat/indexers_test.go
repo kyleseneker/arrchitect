@@ -23,6 +23,7 @@ import (
 	prowlarrclient "github.com/kyleseneker/arrchitect/internal/client/prowlarr"
 	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
 	"github.com/kyleseneker/arrchitect/internal/controller/indexers"
+	"github.com/kyleseneker/arrchitect/internal/testnet"
 )
 
 func TestProwlarr(t *testing.T) {
@@ -62,7 +63,7 @@ func TestProwlarr(t *testing.T) {
 		proxy:   proxy,
 		observe: true,
 		verify: func(t *testing.T) {
-			hc := directClient(t, prowlarr.url(), key)
+			hc := testnet.Client(t, prowlarr.url(), key)
 			requireNamed(t, hc, "/api/v1/appprofile", "Compat Profile")
 			application := requireNamed(t, hc, "/api/v1/applications", "Sonarr")
 			if atNewest() {
@@ -75,7 +76,7 @@ func TestProwlarr(t *testing.T) {
 			requireNamed(t, hc, "/api/v1/downloadclient", "qBittorrent")
 			requireNamed(t, hc, "/api/v1/notification", "Compat Webhook")
 			// The application is only useful if Prowlarr can push the indexer into Sonarr.
-			sonarrHC := directClient(t, sonarr.url(), sonarrKey)
+			sonarrHC := testnet.Client(t, sonarr.url(), sonarrKey)
 			waitFor(t, "indexer sync to Sonarr", 2*time.Minute, func() error {
 				items, err := sonarrHC.GetJSONList(context.Background(), "/api/v3/indexer")
 				if err != nil {
@@ -89,7 +90,7 @@ func TestProwlarr(t *testing.T) {
 				return fmt.Errorf("sonarr has %d indexers, none synced from Prowlarr", len(items))
 			})
 		},
-		cleanup: ownedGone(directClient(t, prowlarr.url(), key), prowlarrclient.Definition()),
+		cleanup: ownedGone(testnet.Client(t, prowlarr.url(), key), prowlarrclient.Definition()),
 	})
 }
 

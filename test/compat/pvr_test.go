@@ -24,14 +24,15 @@ import (
 	pvrclient "github.com/kyleseneker/arrchitect/internal/client/pvr"
 	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
 	"github.com/kyleseneker/arrchitect/internal/controller/pvr"
-	"github.com/kyleseneker/arrchitect/internal/engine"
+	"github.com/kyleseneker/arrchitect/internal/httpapi"
+	"github.com/kyleseneker/arrchitect/internal/testnet"
 )
 
 func TestSonarr(t *testing.T) {
 	t.Parallel()
 	sonarr, key := startPVR(t, "sonarr", sonarrImage, 8989, "v3")
 	sonarr.exec(t, "mkdir -p /data/media/tv && chown -R abc:abc /data")
-	seedDelayProfile(t, directClient(t, sonarr.url(), key), "/api/v3", "hdr",
+	seedDelayProfile(t, testnet.Client(t, sonarr.url(), key), "/api/v3", "hdr",
 		map[string]any{"enableUsenet": true, "enableTorrent": true, "preferredProtocol": "usenet"})
 	condition := func(name, implementation string, value any) map[string]any {
 		return map[string]any{
@@ -39,7 +40,7 @@ func TestSonarr(t *testing.T) {
 			"fields": []any{map[string]any{"name": "value", "value": value}},
 		}
 	}
-	_, err := directClient(t, sonarr.url(), key).Do(context.Background(), http.MethodPost, "/api/v3/customformat",
+	_, err := testnet.Client(t, sonarr.url(), key).Do(context.Background(), http.MethodPost, "/api/v3/customformat",
 		map[string]any{
 			"name": "WEBDL", "includeCustomFormatWhenRenaming": true,
 			"specifications": []any{
@@ -94,7 +95,7 @@ func TestSonarr(t *testing.T) {
 		proxy:   proxy,
 		observe: true,
 		verify: func(t *testing.T) {
-			hc := directClient(t, sonarr.url(), key)
+			hc := testnet.Client(t, sonarr.url(), key)
 			requireAutoTagReference(t, hc, "/api/v3", "Compat Anime", "Profile", "/qualityprofile", "name", "HD-1080p")
 			requireAutoTagReference(t, hc, "/api/v3", "Compat Anime", "Anime", "/tag", "label", "anime")
 			listConfig, err := hc.GetJSON(context.Background(), "/api/v3/config/importlist")
@@ -143,7 +144,7 @@ func TestSonarr(t *testing.T) {
 			assert.InDelta(t, 30, profiles["default"]["usenetDelay"], 0)
 			assert.InDelta(t, 10, profiles["default"]["torrentDelay"], 0)
 		},
-		cleanup: ownedGone(directClient(t, sonarr.url(), key), pvrclient.Definition(pvrclient.Sonarr)),
+		cleanup: ownedGone(testnet.Client(t, sonarr.url(), key), pvrclient.Definition(pvrclient.Sonarr)),
 	})
 }
 
@@ -195,7 +196,7 @@ func TestRadarr(t *testing.T) {
 		proxy:   proxy,
 		observe: true,
 		verify: func(t *testing.T) {
-			hc := directClient(t, radarr.url(), key)
+			hc := testnet.Client(t, radarr.url(), key)
 			requireAutoTagReference(t, hc, "/api/v3", "Compat Kids", "Profile", "/qualityprofile", "name", "HD-1080p")
 			requireMediaServerNotification(t, hc, "/api/v3/notification", "Compat Jellyfin", "MediaBrowser", "/jellyfin")
 			requireMetadataConsumer(t, hc, "/api/v3/metadata", "XbmcMetadata",
@@ -231,7 +232,7 @@ func TestRadarr(t *testing.T) {
 			assert.InDelta(t, 120, profiles["kids,uhd"]["usenetDelay"], 0)
 			assert.Equal(t, false, profiles["default"]["bypassIfHighestQuality"])
 		},
-		cleanup: ownedGone(directClient(t, radarr.url(), key), pvrclient.Definition(pvrclient.Radarr)),
+		cleanup: ownedGone(testnet.Client(t, radarr.url(), key), pvrclient.Definition(pvrclient.Radarr)),
 	})
 }
 
@@ -239,7 +240,7 @@ func TestLidarr(t *testing.T) {
 	t.Parallel()
 	lidarr, key := startPVR(t, "lidarr", lidarrImage, 8686, "v1")
 	lidarr.exec(t, "mkdir -p /data/media/music && chown -R abc:abc /data")
-	lidarrHC := directClient(t, lidarr.url(), key)
+	lidarrHC := testnet.Client(t, lidarr.url(), key)
 	seedDelayProfile(t, lidarrHC, "/api/v1", "live", lidarrDelayProfile(t, lidarrHC))
 	qbit, qbitPassword := startQBittorrent(t)
 	fakes := startFakes(t)
@@ -285,7 +286,7 @@ func TestLidarr(t *testing.T) {
 		proxy:   proxy,
 		observe: true,
 		verify: func(t *testing.T) {
-			hc := directClient(t, lidarr.url(), key)
+			hc := testnet.Client(t, lidarr.url(), key)
 			requireAutoTagReference(t, hc, "/api/v1", "Compat Albums", "Albums", "/metadataprofile", "name", "Albums Only")
 			requireAutoTagReference(t, hc, "/api/v1", "Compat Albums", "Favorites", "/tag", "label", "favorites")
 			requireMediaServerNotification(t, hc, "/api/v1/notification", "Compat Jellyfin", "MediaBrowser", "/jellyfin")
@@ -331,7 +332,7 @@ func TestLidarr(t *testing.T) {
 		},
 		// The root folder defaults to this profile and is never deleted.
 		// The root folder defaults to these, so the app keeps them.
-		cleanup: ownedGone(directClient(t, lidarr.url(), key), pvrclient.Definition(pvrclient.Lidarr),
+		cleanup: ownedGone(testnet.Client(t, lidarr.url(), key), pvrclient.Definition(pvrclient.Lidarr),
 			"qualityProfiles/Music", "metadataProfiles/Albums Only"),
 	})
 }
@@ -377,7 +378,7 @@ func TestReadarr(t *testing.T) {
 		proxy:   proxy,
 		observe: true,
 		verify: func(t *testing.T) {
-			hc := directClient(t, readarr.url(), key)
+			hc := testnet.Client(t, readarr.url(), key)
 			requireMediaServerNotification(t, hc, "/api/v1/notification", "Compat Plex", "PlexServer", "/plex")
 			metadata, err := hc.GetJSON(context.Background(), "/api/v1/config/metadataprovider")
 			require.NoError(t, err)
@@ -403,7 +404,7 @@ func TestReadarr(t *testing.T) {
 		},
 		// The root folder defaults to this profile and is never deleted.
 		// The root folder defaults to these, so the app keeps them.
-		cleanup: ownedGone(directClient(t, readarr.url(), key), pvrclient.Definition(pvrclient.Readarr),
+		cleanup: ownedGone(testnet.Client(t, readarr.url(), key), pvrclient.Definition(pvrclient.Readarr),
 			"qualityProfiles/Books", "metadataProfiles/English Books"),
 	})
 }
@@ -488,7 +489,7 @@ func requireNamed(t *testing.T, hc interface {
 
 // seedDelayProfile adds a tag and a delay profile holding it, as if made in the
 // app, so the first reconcile has a profile to adopt and move into place.
-func seedDelayProfile(t *testing.T, hc *engine.HTTPClient, prefix, tag string, profile map[string]any) {
+func seedDelayProfile(t *testing.T, hc *httpapi.HTTPClient, prefix, tag string, profile map[string]any) {
 	t.Helper()
 	ctx := context.Background()
 	body, err := hc.Do(ctx, http.MethodPost, prefix+"/tag", map[string]any{"label": tag})
@@ -502,7 +503,7 @@ func seedDelayProfile(t *testing.T, hc *engine.HTTPClient, prefix, tag string, p
 
 // lidarrDelayProfile returns a delay profile in the shape the running Lidarr
 // takes: Lidarr 3.1 lists protocols as items, earlier versions have flags.
-func lidarrDelayProfile(t *testing.T, hc *engine.HTTPClient) map[string]any {
+func lidarrDelayProfile(t *testing.T, hc *httpapi.HTTPClient) map[string]any {
 	t.Helper()
 	profiles, err := hc.GetJSONList(context.Background(), "/api/v1/delayprofile")
 	require.NoError(t, err)
@@ -519,7 +520,7 @@ func lidarrDelayProfile(t *testing.T, hc *engine.HTTPClient) map[string]any {
 	}
 }
 
-func qualityDefinition(t *testing.T, hc *engine.HTTPClient, prefix, quality string) map[string]any {
+func qualityDefinition(t *testing.T, hc *httpapi.HTTPClient, prefix, quality string) map[string]any {
 	t.Helper()
 	definitions, err := hc.GetJSONList(context.Background(), prefix+"/qualitydefinition")
 	require.NoError(t, err)
@@ -534,7 +535,7 @@ func qualityDefinition(t *testing.T, hc *engine.HTTPClient, prefix, quality stri
 
 // delayProfiles keys the app's delay profiles by their sorted tag labels, or
 // "default", and lists the tagged ones in the order the app checks them.
-func delayProfiles(t *testing.T, hc *engine.HTTPClient, prefix string) (map[string]map[string]any, []string) {
+func delayProfiles(t *testing.T, hc *httpapi.HTTPClient, prefix string) (map[string]map[string]any, []string) {
 	t.Helper()
 	ctx := context.Background()
 	tags, err := hc.GetJSONList(ctx, prefix+"/tag")

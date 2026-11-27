@@ -29,7 +29,6 @@ import (
 	mediaserversv1alpha1 "github.com/kyleseneker/arrchitect/api/mediaservers/v1alpha1"
 	pvrv1alpha1 "github.com/kyleseneker/arrchitect/api/pvr/v1alpha1"
 	requestsv1alpha1 "github.com/kyleseneker/arrchitect/api/requests/v1alpha1"
-	"github.com/kyleseneker/arrchitect/internal/engine"
 )
 
 // App is what an AppRef resolves to: where the app is, how to reach it over
@@ -127,7 +126,7 @@ func AppRefFailure(err error) (string, time.Duration) {
 	if reason, after, ok := failureReason(err); ok {
 		return reason, after
 	}
-	return engine.ReasonSyncFailed, 30 * time.Second
+	return ReasonSyncFailed, 30 * time.Second
 }
 
 // ResolveAppRef reads the resource ref names in namespace. Its errors name the

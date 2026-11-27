@@ -30,8 +30,8 @@ import (
 	mediaserversv1alpha1 "github.com/kyleseneker/arrchitect/api/mediaservers/v1alpha1"
 	pvrv1alpha1 "github.com/kyleseneker/arrchitect/api/pvr/v1alpha1"
 	requestsv1alpha1 "github.com/kyleseneker/arrchitect/api/requests/v1alpha1"
+	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
 	"github.com/kyleseneker/arrchitect/internal/controller/internal/contract"
-	"github.com/kyleseneker/arrchitect/internal/engine"
 	"github.com/kyleseneker/arrchitect/internal/testnet"
 )
 
@@ -552,7 +552,7 @@ func TestMaintainerrObserveReportsUnresolvableGroupsOnceTheRestMatches(t *testin
 	run := newMaintainerrRun(t, spec)
 	run.reconcile(t)
 	synced := run.condition(t, "Synced")
-	assert.Equal(t, engine.ReasonSyncFailed, synced.Reason)
+	assert.Equal(t, ctrlcommon.ReasonSyncFailed, synced.Reason)
 	assert.Contains(t, synced.Message, `Maintainerr has no Jellyfin property named "nope"`)
 }
 
@@ -569,7 +569,7 @@ func TestMaintainerrObserveDoesNotExcuseABrokenGroupForAnUnrelatedDifference(t *
 	run := newMaintainerrRun(t, spec)
 	run.reconcile(t)
 	synced := run.condition(t, "Synced")
-	assert.Equal(t, engine.ReasonSyncFailed, synced.Reason, synced.Message)
+	assert.Equal(t, ctrlcommon.ReasonSyncFailed, synced.Reason, synced.Message)
 	assert.Contains(t, synced.Message, `Maintainerr has no Jellyfin property named "nope"`)
 }
 

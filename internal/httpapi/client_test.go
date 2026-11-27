@@ -1,7 +1,8 @@
-package engine
+package httpapi
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"io"
@@ -17,7 +18,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kyleseneker/arrchitect/internal/metrics"
-	"github.com/kyleseneker/arrchitect/internal/reconciler"
+	"github.com/kyleseneker/arrchitect/internal/secrets"
 )
 
 func TestValidateBaseURL(t *testing.T) {
@@ -128,7 +129,7 @@ func TestAPIError_Error(t *testing.T) {
 }
 
 func TestAPIErrorCarriesTheAppsReason(t *testing.T) {
-	reconciler.RememberSecret("s3cret-api-error-test")
+	secrets.RememberSecret("s3cret-api-error-test")
 	tests := []struct {
 		name string
 		body string
@@ -627,4 +628,24 @@ func TestOversizedResponseIsRefused(t *testing.T) {
 
 	_, err := hc.Do(context.Background(), http.MethodGet, "/huge", nil)
 	assert.ErrorContains(t, err, "is larger than 32 MiB")
+}
+
+func TestNewHTTPTransport(t *testing.T) {
+	tests := []struct {
+		name   string
+		tlsCfg *tls.Config
+	}{
+		{"nil tls config", nil},
+		{"with tls config", &tls.Config{InsecureSkipVerify: true}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			transport := newHTTPTransport(tt.tlsCfg)
+			assert.NotNil(t, transport)
+			assert.NotNil(t, transport.DialContext, "should have SSRF-safe dialer")
+			if tt.tlsCfg != nil {
+				assert.Equal(t, tt.tlsCfg, transport.TLSClientConfig)
+			}
+		})
+	}
 }

@@ -39,8 +39,8 @@ import (
 	qbclient "github.com/kyleseneker/arrchitect/internal/client/qbittorrent"
 	tdarrclient "github.com/kyleseneker/arrchitect/internal/client/tdarr"
 	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
-	"github.com/kyleseneker/arrchitect/internal/engine"
-	"github.com/kyleseneker/arrchitect/internal/reconciler"
+	"github.com/kyleseneker/arrchitect/internal/httpapi"
+	"github.com/kyleseneker/arrchitect/internal/secrets"
 )
 
 const apiKeyKey = "api-key"
@@ -83,7 +83,7 @@ type Result struct {
 }
 
 type app struct {
-	auth       engine.AuthType
+	auth       httpapi.AuthType
 	apiKey     bool
 	login      bool
 	keyInstead bool
@@ -91,7 +91,7 @@ type app struct {
 	// another port than its own, as through a port-forward.
 	hostPort bool
 	token    bool
-	options  []engine.HTTPClientOption
+	options  []httpapi.HTTPClientOption
 	newObj   func() client.Object
 	export   func(r *reader) (map[string]any, error)
 	// objects maps the spec sections whose items are resources of their own to
@@ -137,50 +137,50 @@ var apps = map[string]app{
 				newObj: func() client.Object { return &pvrv1alpha1.ReadarrDownloadClient{} }},
 		}),
 	"prowlarr": {
-		auth: engine.AuthAPIKey, apiKey: true, export: exportProwlarr,
+		auth: httpapi.AuthAPIKey, apiKey: true, export: exportProwlarr,
 		newObj: func() client.Object { return &indexersv1alpha1.Prowlarr{} },
 	},
 	"flaresolverr": {
-		auth: engine.AuthNone, export: exportFlareSolverr,
+		auth: httpapi.AuthNone, export: exportFlareSolverr,
 		newObj: func() client.Object { return &indexersv1alpha1.FlareSolverr{} },
 	},
 	"qbittorrent": {
-		auth: engine.AuthCookie, login: true, hostPort: true, export: exportQBittorrent,
+		auth: httpapi.AuthCookie, login: true, hostPort: true, export: exportQBittorrent,
 		options: qbclient.HTTPOptions(),
 		newObj:  func() client.Object { return &downloadsv1alpha1.QBittorrent{} },
 	},
 	"sabnzbd": {
-		auth: engine.AuthNone, apiKey: true, export: exportSabnzbd,
+		auth: httpapi.AuthNone, apiKey: true, export: exportSabnzbd,
 		newObj: func() client.Object { return &downloadsv1alpha1.Sabnzbd{} },
 	},
 	"jellyfin": {
-		auth: engine.AuthMediaBrowser, login: true, keyInstead: true, export: exportJellyfin,
+		auth: httpapi.AuthMediaBrowser, login: true, keyInstead: true, export: exportJellyfin,
 		newObj: func() client.Object { return &mediaserversv1alpha1.Jellyfin{} },
 	},
 	"plex": {
-		auth: engine.AuthPlexToken, token: true, export: exportPlex,
+		auth: httpapi.AuthPlexToken, token: true, export: exportPlex,
 		newObj: func() client.Object { return &mediaserversv1alpha1.Plex{} },
 	},
 	"seerr": {
-		auth: engine.AuthSession, apiKey: true, export: exportSeerr,
+		auth: httpapi.AuthSession, apiKey: true, export: exportSeerr,
 		newObj: func() client.Object { return &requestsv1alpha1.Seerr{} },
 	},
 	"tdarr": {
-		auth: engine.AuthAPIKey, apiKey: true, export: exportTdarr,
+		auth: httpapi.AuthAPIKey, apiKey: true, export: exportTdarr,
 		options: tdarrclient.HTTPOptions(),
 		newObj:  func() client.Object { return &transcodev1alpha1.Tdarr{} },
 	},
 	"autobrr": {
-		auth: engine.AuthAPIKey, apiKey: true, export: exportAutobrr,
+		auth: httpapi.AuthAPIKey, apiKey: true, export: exportAutobrr,
 		options: autobrrclient.HTTPOptions(),
 		newObj:  func() client.Object { return &automationv1alpha1.Autobrr{} },
 	},
 	"maintainerr": {
-		auth: engine.AuthNone, export: exportMaintainerr,
+		auth: httpapi.AuthNone, export: exportMaintainerr,
 		newObj: func() client.Object { return &curationv1alpha1.Maintainerr{} },
 	},
 	"bazarr": {
-		auth: engine.AuthAPIKey, apiKey: true, export: exportBazarr,
+		auth: httpapi.AuthAPIKey, apiKey: true, export: exportBazarr,
 		options: bazarrclient.HTTPOptions(),
 		newObj:  func() client.Object { return &subtitlesv1alpha1.Bazarr{} },
 	},
@@ -218,7 +218,7 @@ func Run(ctx context.Context, o Options) (Result, error) {
 		return Result{}, fmt.Errorf("unsupported app %q; supported: %s", o.App, strings.Join(Apps(), ", "))
 	}
 	for _, secret := range []string{o.APIKey, o.Password, o.Token} {
-		reconciler.RememberSecret(secret)
+		secrets.RememberSecret(secret)
 	}
 	if o.Name == "" {
 		o.Name = o.App
@@ -241,13 +241,13 @@ func Run(ctx context.Context, o Options) (Result, error) {
 	if o.InsecureSkipVerify {
 		transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true} //nolint:gosec // the user asked to skip verification
 	}
-	options := append([]engine.HTTPClientOption{
-		engine.WithAPIKey(o.APIKey), engine.WithTransport(transport), engine.WithAppLabel(o.App),
+	options := append([]httpapi.HTTPClientOption{
+		httpapi.WithAPIKey(o.APIKey), httpapi.WithTransport(transport), httpapi.WithAppLabel(o.App),
 	}, a.options...)
 	if a.token {
-		options = append(options, engine.WithPlexToken(o.Token))
+		options = append(options, httpapi.WithPlexToken(o.Token))
 	}
-	hc, err := engine.NewHTTPClient(o.URL, a.auth, options...)
+	hc, err := httpapi.NewHTTPClient(o.URL, a.auth, options...)
 	if err != nil {
 		return Result{}, err
 	}
@@ -427,7 +427,7 @@ func documentYAML(obj any) ([]byte, error) {
 // explain says what a failed read most likely means for the URL and
 // credentials given.
 func explain(o Options, err error) error {
-	var apiErr *engine.APIError
+	var apiErr *httpapi.APIError
 	var syntaxErr *json.SyntaxError
 	switch {
 	case errors.As(err, &apiErr) && (apiErr.StatusCode == http.StatusUnauthorized || apiErr.StatusCode == http.StatusForbidden):
@@ -479,13 +479,13 @@ type credentials struct {
 var invalidKeyChars = regexp.MustCompile(`[^a-z0-9.]+`)
 
 // configFields lists values and Secret references as fields, ordered by name.
-func configFields[V any](values map[string]V, secrets map[string]any) []any {
-	fields := make([]any, 0, len(values)+len(secrets))
+func configFields[V any](values map[string]V, refs map[string]any) []any {
+	fields := make([]any, 0, len(values)+len(refs))
 	for _, name := range slices.Sorted(maps.Keys(values)) {
 		fields = append(fields, map[string]any{"name": name, "value": values[name]})
 	}
-	for _, name := range slices.Sorted(maps.Keys(secrets)) {
-		fields = append(fields, map[string]any{"name": name, "valueFrom": map[string]any{"secretKeyRef": secrets[name]}})
+	for _, name := range slices.Sorted(maps.Keys(refs)) {
+		fields = append(fields, map[string]any{"name": name, "valueFrom": map[string]any{"secretKeyRef": refs[name]}})
 	}
 	slices.SortFunc(fields, func(a, b any) int {
 		return strings.Compare(a.(map[string]any)["name"].(string), b.(map[string]any)["name"].(string))
@@ -530,7 +530,7 @@ func referencedKeys(objs []client.Object, secret string) []string {
 
 type reader struct {
 	ctx        context.Context
-	hc         *engine.HTTPClient
+	hc         *httpapi.HTTPClient
 	apiKey     string
 	username   string
 	password   string
@@ -613,8 +613,8 @@ func (r *reader) resources(spec map[string]any, resources []resource) error {
 
 // fields keeps provider fields that differ from the implementation's defaults,
 // turning masked values into Secret references where the resource can read
-// one (secrets) and warning where it cannot.
-func (r *reader) fields(item map[string]any, defaults map[string]map[string]any, skip map[string]bool, kind string, secrets bool) []any {
+// one (readsSecrets) and warning where it cannot.
+func (r *reader) fields(item map[string]any, defaults map[string]map[string]any, skip map[string]bool, kind string, readsSecrets bool) []any {
 	impl, _ := item["implementation"].(string)
 	name, _ := item["name"].(string)
 	var out []any
@@ -623,9 +623,9 @@ func (r *reader) fields(item map[string]any, defaults map[string]map[string]any,
 		value := f["value"]
 		switch {
 		case skip[key]:
-		case reconciler.IsMasked(value) && secrets:
+		case secrets.IsMasked(value) && readsSecrets:
 			out = append(out, map[string]any{"name": key, "valueFrom": map[string]any{"secretKeyRef": r.creds.ref("", kind, name, key)}})
-		case reconciler.IsMasked(value):
+		case secrets.IsMasked(value):
 			r.warn("%s %q: the app hides %s and the config can't read it from a Secret; set it in the app", kind, name, key)
 		case reflect.DeepEqual(value, defaults[impl][key]):
 		default:

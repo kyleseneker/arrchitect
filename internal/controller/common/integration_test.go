@@ -20,11 +20,13 @@ import (
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
 	pvrv1alpha1 "github.com/kyleseneker/arrchitect/api/pvr/v1alpha1"
 	"github.com/kyleseneker/arrchitect/internal/engine"
-	"github.com/kyleseneker/arrchitect/internal/reconciler"
+	"github.com/kyleseneker/arrchitect/internal/failure"
+	"github.com/kyleseneker/arrchitect/internal/httpapi"
+	"github.com/kyleseneker/arrchitect/internal/secrets"
 )
 
 func TestClassify(t *testing.T) {
-	_, missingSecret := reconciler.ResolveSecretKeyRef(context.Background(), fake.NewClientBuilder().Build(), "media",
+	_, missingSecret := secrets.ResolveSecretKeyRef(context.Background(), fake.NewClientBuilder().Build(), "media",
 		commonv1alpha1.SecretKeyRef{Name: "sonarr-credentials", Key: "api-key"})
 
 	for _, tc := range []struct {
@@ -33,13 +35,13 @@ func TestClassify(t *testing.T) {
 		reason string
 		after  time.Duration
 	}{
-		{"missing appRef target", fmt.Errorf("Sonarr %q %w", "sonarr", errAppRefNotFound), engine.ReasonReferenceNotFound, 30 * time.Second},
-		{"appRef that can't be followed", InvalidAppRef("Plex %q: unsupported kind", "plex"), engine.ReasonInvalidConfig, 0},
-		{"spec problem", engine.InvalidConfig(errors.New("bad URL")), engine.ReasonInvalidConfig, 0},
-		{"missing Secret", fmt.Errorf("authentication: %w", missingSecret), engine.ReasonSecretNotFound, 30 * time.Second},
-		{"refused credentials", &engine.APIError{StatusCode: 401}, engine.ReasonUnauthorized, 5 * time.Minute},
-		{"refused sign-in", fmt.Errorf("%w: qBittorrent answered %q", engine.ErrUnauthorized, "Fails."), engine.ReasonUnauthorized, 5 * time.Minute},
-		{"anything else", errors.New("connection refused"), engine.ReasonAppUnreachable, 60 * time.Second},
+		{"missing appRef target", fmt.Errorf("Sonarr %q %w", "sonarr", errAppRefNotFound), ReasonReferenceNotFound, 30 * time.Second},
+		{"appRef that can't be followed", InvalidAppRef("Plex %q: unsupported kind", "plex"), ReasonInvalidConfig, 0},
+		{"spec problem", failure.InvalidConfig(errors.New("bad URL")), ReasonInvalidConfig, 0},
+		{"missing Secret", fmt.Errorf("authentication: %w", missingSecret), ReasonSecretNotFound, 30 * time.Second},
+		{"refused credentials", &httpapi.APIError{StatusCode: 401}, ReasonUnauthorized, 5 * time.Minute},
+		{"refused sign-in", fmt.Errorf("%w: qBittorrent answered %q", httpapi.ErrUnauthorized, "Fails."), ReasonUnauthorized, 5 * time.Minute},
+		{"anything else", errors.New("connection refused"), ReasonAppUnreachable, 60 * time.Second},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			reason, after := Classify(tc.err)
@@ -53,7 +55,7 @@ func TestClassify(t *testing.T) {
 // only that section, with the reason and retry a missing connection Secret
 // gets, where a write the app refused waits for the resource's interval.
 func TestSyncFailuresKeepTheirReason(t *testing.T) {
-	_, missingSecret := reconciler.ResolveSecretKeyRef(context.Background(), fake.NewClientBuilder().Build(), "media",
+	_, missingSecret := secrets.ResolveSecretKeyRef(context.Background(), fake.NewClientBuilder().Build(), "media",
 		commonv1alpha1.SecretKeyRef{Name: "discord", Key: "webhook"})
 	for _, tc := range []struct {
 		name    string
@@ -61,8 +63,8 @@ func TestSyncFailuresKeepTheirReason(t *testing.T) {
 		reason  string
 		within  time.Duration
 	}{
-		{"missing Secret", fmt.Errorf("settings: %w", missingSecret), engine.ReasonSecretNotFound, 33 * time.Second},
-		{"refused write", fmt.Errorf("flow(a): %w", &engine.APIError{StatusCode: 400}), engine.ReasonSyncFailed, engine.DefaultReconcileInterval * 11 / 10},
+		{"missing Secret", fmt.Errorf("settings: %w", missingSecret), ReasonSecretNotFound, 33 * time.Second},
+		{"refused write", fmt.Errorf("flow(a): %w", &httpapi.APIError{StatusCode: 400}), ReasonSyncFailed, DefaultReconcileInterval * 11 / 10},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			obj := &pvrv1alpha1.Sonarr{Name: "sonarr", Namespace: "media"}
@@ -84,7 +86,7 @@ func TestSyncFailuresKeepTheirReason(t *testing.T) {
 			assert.Greater(t, result.RequeueAfter, tc.within/2)
 			got := &pvrv1alpha1.Sonarr{}
 			require.NoError(t, c.Get(context.Background(), client.ObjectKeyFromObject(obj), got))
-			ready := meta.FindStatusCondition(got.Status.Conditions, engine.ConditionReady)
+			ready := meta.FindStatusCondition(got.Status.Conditions, ConditionReady)
 			require.NotNil(t, ready)
 			assert.Equal(t, tc.reason, ready.Reason)
 			assert.Equal(t, tc.problem.Error(), ready.Message)
@@ -96,11 +98,11 @@ func TestSyncFailuresKeepTheirReason(t *testing.T) {
 // in a minute. One that failed for a reason of its own, alone or mixed with
 // others, leaves the retry to that reason.
 func TestSetupRetry(t *testing.T) {
-	refused := fmt.Errorf("radarr: %w", &engine.APIError{StatusCode: 401})
+	refused := fmt.Errorf("radarr: %w", &httpapi.APIError{StatusCode: 401})
 	assert.Equal(t, time.Minute, SetupRetry(errors.New("connection refused")))
-	assert.Equal(t, time.Minute, SetupRetry(engine.JoinErrors(errors.New("a"), errors.New("b"))))
+	assert.Equal(t, time.Minute, SetupRetry(failure.Join(errors.New("a"), errors.New("b"))))
 	assert.Zero(t, SetupRetry(refused))
-	assert.Zero(t, SetupRetry(fmt.Errorf("initialization failed: %w", engine.JoinErrors(errors.New("a"), refused))))
+	assert.Zero(t, SetupRetry(fmt.Errorf("initialization failed: %w", failure.Join(errors.New("a"), refused))))
 }
 
 func TestCleanupSkipsCheck(t *testing.T) {
@@ -110,7 +112,7 @@ func TestCleanupSkipsCheck(t *testing.T) {
 		App:     "sonarr",
 		Connect: func(context.Context, *pvrv1alpha1.Sonarr) (string, error) { return "conn", nil },
 		Check: func(context.Context, string, *pvrv1alpha1.Sonarr) error {
-			return engine.InvalidConfig(errors.New("the spec's whitelist would lock the operator out"))
+			return failure.InvalidConfig(errors.New("the spec's whitelist would lock the operator out"))
 		},
 		Sync: func(context.Context, string, *pvrv1alpha1.Sonarr, *engine.Pass) []error { return nil },
 		Cleanup: func(_ context.Context, conn string, owned *engine.Ownership) error {

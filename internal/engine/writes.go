@@ -1,8 +1,8 @@
 package engine
 
 import (
+	"github.com/kyleseneker/arrchitect/internal/jsondiff"
 	"github.com/kyleseneker/arrchitect/internal/metrics"
-	"github.com/kyleseneker/arrchitect/internal/reconciler"
 )
 
 // Writes gates the writes an integration sends through its own client on the
@@ -94,7 +94,7 @@ func (w *Writes) RecordDrift(kind, name string) {
 // Sync sends write, with desired merged over current, when the two differ in
 // the fields desired sets. A nil current is an item the app doesn't have yet.
 func (w *Writes) Sync(kind, name string, current map[string]any, desired any, write func(merged map[string]any) error) error {
-	out, err := reconciler.MergeDesired(current, desired)
+	out, err := jsondiff.MergeDesired(current, desired)
 	if err != nil {
 		return err
 	}

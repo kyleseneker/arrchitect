@@ -23,7 +23,7 @@ import (
 	downloadsv1alpha1 "github.com/kyleseneker/arrchitect/api/downloads/v1alpha1"
 	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
 	"github.com/kyleseneker/arrchitect/internal/controller/downloads"
-	"github.com/kyleseneker/arrchitect/internal/engine"
+	"github.com/kyleseneker/arrchitect/internal/httpapi"
 )
 
 func TestSabnzbd(t *testing.T) {
@@ -262,7 +262,7 @@ func TestQBittorrent(t *testing.T) {
 }
 
 // qbittorrentFeeds lists qBittorrent's RSS feeds by path.
-func qbittorrentFeeds(t *testing.T, hc *engine.HTTPClient) map[string]string {
+func qbittorrentFeeds(t *testing.T, hc *httpapi.HTTPClient) map[string]string {
 	t.Helper()
 	root, err := hc.GetJSON(context.Background(), "/api/v2/rss/items")
 	require.NoError(t, err)
@@ -283,9 +283,9 @@ func qbittorrentFeeds(t *testing.T, hc *engine.HTTPClient) map[string]string {
 }
 
 // qbittorrentClient logs in to the WebUI directly for verification.
-func qbittorrentClient(t *testing.T, base, password string) *engine.HTTPClient {
+func qbittorrentClient(t *testing.T, base, password string) *httpapi.HTTPClient {
 	t.Helper()
-	hc, err := engine.NewHTTPClient(base, engine.AuthNone, engine.WithAppLabel("compat"))
+	hc, err := httpapi.NewHTTPClient(base, httpapi.AuthNone, httpapi.WithAppLabel("compat"))
 	require.NoError(t, err)
 	_, err = hc.DoForm(context.Background(), "/api/v2/auth/login",
 		url.Values{"username": {qbittorrentUser}, "password": {password}})

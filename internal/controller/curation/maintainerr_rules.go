@@ -14,7 +14,8 @@ import (
 	curationv1alpha1 "github.com/kyleseneker/arrchitect/api/curation/v1alpha1"
 	maintainerrclient "github.com/kyleseneker/arrchitect/internal/client/maintainerr"
 	"github.com/kyleseneker/arrchitect/internal/engine"
-	"github.com/kyleseneker/arrchitect/internal/reconciler"
+	"github.com/kyleseneker/arrchitect/internal/httpapi"
+	"github.com/kyleseneker/arrchitect/internal/jsondiff"
 )
 
 // The collection types Maintainerr stores for a rule group.
@@ -153,7 +154,7 @@ func (s *maintainerrSync) ruleGroup(
 	}
 
 	current := storedRuleGroup(match)
-	if reconciler.Covers(current, mustJSON(compare)) {
+	if jsondiff.Covers(current, mustJSON(compare)) {
 		return nil
 	}
 	// An update deletes and recreates every rule and writes a collection log
@@ -182,13 +183,13 @@ func (s *maintainerrSync) qualityProfile(
 	if name == "" {
 		return nil, fmt.Errorf("arrAction changeQualityProfile needs radarrServer or sonarrServer")
 	}
-	id, err := oneNamed(env.servers[kind], engine.AppName(string(kind))+" server", name)
+	id, err := oneNamed(env.servers[kind], httpapi.AppName(string(kind))+" server", name)
 	if err != nil {
 		return nil, err
 	}
 	profiles, err := s.mc.QualityProfiles(ctx, kind, id)
 	if err != nil {
-		return nil, fmt.Errorf("listing %s quality profiles: %w", engine.AppName(string(kind)), err)
+		return nil, fmt.Errorf("listing %s quality profiles: %w", httpapi.AppName(string(kind)), err)
 	}
 	for _, p := range profiles {
 		if p["name"] == g.QualityProfile {
@@ -198,7 +199,7 @@ func (s *maintainerrSync) qualityProfile(
 			}
 		}
 	}
-	return nil, fmt.Errorf("%s server %q has no quality profile named %q", engine.AppName(string(kind)), name, g.QualityProfile)
+	return nil, fmt.Errorf("%s server %q has no quality profile named %q", httpapi.AppName(string(kind)), name, g.QualityProfile)
 }
 
 // buildRuleGroup renders a rule group as Maintainerr saves it (send) and the
@@ -415,7 +416,7 @@ func (env ruleEnv) resolve(identifier string) ([]int, error) {
 	}
 	appKey := strings.ToLower(appName)
 	if slices.Contains(maintainerrMediaServerApps, appKey) && appKey != env.mediaServer {
-		server := engine.AppName(env.mediaServer)
+		server := httpapi.AppName(env.mediaServer)
 		if server == "" {
 			server = "not set"
 		}
@@ -526,7 +527,7 @@ func serverID(env ruleEnv, kind maintainerrclient.Arr, name string) (any, error)
 	if name == "" {
 		return nil, nil
 	}
-	return oneNamed(env.servers[kind], engine.AppName(string(kind))+" server", name)
+	return oneNamed(env.servers[kind], httpapi.AppName(string(kind))+" server", name)
 }
 
 // oneNamed returns the ID of the single item named name, refusing a name that

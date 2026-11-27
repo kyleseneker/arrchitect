@@ -23,7 +23,10 @@ import (
 	sabnzbdclient "github.com/kyleseneker/arrchitect/internal/client/sabnzbd"
 	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
 	"github.com/kyleseneker/arrchitect/internal/engine"
-	"github.com/kyleseneker/arrchitect/internal/reconciler"
+	"github.com/kyleseneker/arrchitect/internal/failure"
+	"github.com/kyleseneker/arrchitect/internal/httpapi"
+	"github.com/kyleseneker/arrchitect/internal/jsondiff"
+	"github.com/kyleseneker/arrchitect/internal/secrets"
 )
 
 type SabnzbdReconciler struct {
@@ -49,15 +52,15 @@ func (r *SabnzbdReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 }
 
 func (r *SabnzbdReconciler) connect(ctx context.Context, config *downloadsv1alpha1.Sabnzbd) (*sabnzbdclient.Client, error) {
-	apiKey, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, config.Spec.Connection.APIKeySecretRef)
+	apiKey, err := secrets.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, config.Spec.Connection.APIKeySecretRef)
 	if err != nil {
 		return nil, err
 	}
-	tlsCfg, err := engine.ResolveTLSConfig(ctx, r.Client, config.Namespace, config.Spec.Connection.TLS)
+	tlsCfg, err := ctrlcommon.ResolveTLSConfig(ctx, r.Client, config.Namespace, config.Spec.Connection.TLS)
 	if err != nil {
 		return nil, err
 	}
-	hc, err := engine.NewHTTPClient(config.Spec.Connection.URL, engine.AuthNone, engine.WithTLSConfig(tlsCfg), engine.WithAppLabel("sabnzbd"))
+	hc, err := httpapi.NewHTTPClient(config.Spec.Connection.URL, httpapi.AuthNone, httpapi.WithTLSConfig(tlsCfg), httpapi.WithAppLabel("sabnzbd"))
 	if err != nil {
 		return nil, err
 	}
@@ -69,7 +72,7 @@ func (r *SabnzbdReconciler) connect(ctx context.Context, config *downloadsv1alph
 func (r *SabnzbdReconciler) check(ctx context.Context, sc *sabnzbdclient.Client, config *downloadsv1alpha1.Sabnzbd) error {
 	if config.Spec.General != nil {
 		if err := sabnzbdHostAllowed(config.Spec.Connection.URL, config.Spec.General.HostWhitelist); err != nil {
-			return engine.InvalidConfig(err)
+			return failure.InvalidConfig(err)
 		}
 	}
 	return sc.Ping(ctx)
@@ -333,7 +336,7 @@ func cleanupSabnzbd(ctx context.Context, sc *sabnzbdclient.Client, owned *engine
 			return sc.DeleteNamed(ctx, section, name)
 		}))
 	}
-	return engine.JoinErrors(errs...)
+	return failure.Join(errs...)
 }
 
 func sabnzbdNames(current map[string]any, section string) []string {
@@ -373,7 +376,7 @@ func (r *SabnzbdReconciler) resolveSabnzbdServers(
 			if ref == nil {
 				continue
 			}
-			value, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, *ref)
+			value, err := secrets.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, *ref)
 			if err != nil {
 				problems = append(problems, fmt.Errorf("server(%s).%s: %w", srv.Name, field, err))
 				ok = false
@@ -407,7 +410,7 @@ func planKeywords(current map[string]any, section string, values map[string]stri
 			}
 			value = strings.Join(items, ",")
 		}
-		out, err := reconciler.MergeDesired(map[string]any{key: value}, map[string]any{key: values[key]})
+		out, err := jsondiff.MergeDesired(map[string]any{key: value}, map[string]any{key: values[key]})
 		if err == nil && !out.Changed {
 			continue
 		}
@@ -433,7 +436,7 @@ func (r *SabnzbdReconciler) sabnzbdAppriseValues(ctx context.Context, config *do
 		}
 	}
 	if a.URLsSecretRef != nil {
-		urls, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, *a.URLsSecretRef)
+		urls, err := secrets.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, *a.URLsSecretRef)
 		if err != nil {
 			return nil, fmt.Errorf("urls: %w", err)
 		}
@@ -450,7 +453,7 @@ func (r *SabnzbdReconciler) sabnzbdLoginValues(ctx context.Context, config *down
 	}
 	values := map[string]string{}
 	for field, ref := range map[string]commonv1alpha1.SecretKeyRef{"username": l.UsernameSecretRef, "password": l.PasswordSecretRef} {
-		value, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, ref)
+		value, err := secrets.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, ref)
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", field, err)
 		}
@@ -478,7 +481,7 @@ func planLogin(current map[string]any, login map[string]string, owner string, ob
 	}
 	w.secretKey = "misc/password"
 	w.secretDigest = maskedDigest("password", password)
-	if !reconciler.IsMasked(stored) || reconciler.SecretsDiffer(owner, w.secretKey, w.secretDigest, observe) {
+	if !secrets.IsMasked(stored) || secrets.SecretsDiffer(owner, w.secretKey, w.secretDigest, observe) {
 		writes = append(writes, w)
 	}
 	return writes
@@ -486,7 +489,7 @@ func planLogin(current map[string]any, login map[string]string, owner string, ob
 
 // maskedDigest is the digest of a secret SABnzbd reads back masked.
 func maskedDigest(field, value string) string {
-	out, err := reconciler.MergeDesired(map[string]any{field: "**********"}, map[string]any{field: value})
+	out, err := jsondiff.MergeDesired(map[string]any{field: "**********"}, map[string]any{field: value})
 	if err != nil {
 		return ""
 	}
@@ -548,12 +551,12 @@ func planNamed(current map[string]any, section, name string, vals map[string]str
 		for k, v := range vals {
 			desired[k] = v
 		}
-		out, err := reconciler.MergeDesired(entry, desired)
+		out, err := jsondiff.MergeDesired(entry, desired)
 		if err != nil {
 			return w, true
 		}
 		w.secretDigest = out.SecretDigest
-		return w, out.Changed || reconciler.SecretsDiffer(owner, secretKey, out.SecretDigest, observe)
+		return w, out.Changed || secrets.SecretsDiffer(owner, secretKey, out.SecretDigest, observe)
 	}
 	w.create = true
 	// A new entry reads back with its password masked; remember what is

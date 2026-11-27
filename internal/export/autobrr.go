@@ -9,8 +9,8 @@ import (
 	"strings"
 
 	autobrrclient "github.com/kyleseneker/arrchitect/internal/client/autobrr"
-	"github.com/kyleseneker/arrchitect/internal/engine"
-	"github.com/kyleseneker/arrchitect/internal/reconciler"
+	"github.com/kyleseneker/arrchitect/internal/httpapi"
+	"github.com/kyleseneker/arrchitect/internal/secrets"
 )
 
 func exportAutobrr(r *reader) (map[string]any, error) {
@@ -133,7 +133,7 @@ func exportAutobrr(r *reader) (map[string]any, error) {
 // key without that scope, and the export leaves field out.
 func (r *reader) autobrrRead(scope, field string, list func(context.Context) ([]map[string]any, error)) ([]map[string]any, error) {
 	items, err := list(r.ctx)
-	var apiErr *engine.APIError
+	var apiErr *httpapi.APIError
 	if errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusForbidden {
 		r.warn("the API key can't read %s (scope %s:read), so %s is left out", scope, scope, field)
 		return nil, nil
@@ -323,7 +323,7 @@ func (r *reader) autobrrNotification(n map[string]any) map[string]any {
 			switch {
 			case value == "":
 			case slices.Contains(autobrrclient.NotificationSecrets, key):
-				if reconciler.IsMasked(value) {
+				if secrets.IsMasked(value) {
 					value = ""
 				}
 				options = append(options, map[string]any{"name": key, "valueFrom": map[string]any{
@@ -424,7 +424,7 @@ func (r *reader) autobrrIndexer(i map[string]any) map[string]any {
 		value, _ := settings[key].(string)
 		switch {
 		case value == "":
-		case reconciler.IsMasked(value):
+		case secrets.IsMasked(value):
 			out = append(out, map[string]any{"name": key, "valueFrom": map[string]any{"secretKeyRef": r.creds.ref("", "indexer", name, key)}})
 		default:
 			out = append(out, map[string]any{"name": key, "value": value})
@@ -441,7 +441,7 @@ func (r *reader) autobrrSecret(out map[string]any, field string, value any, part
 	if text == "" {
 		return
 	}
-	if reconciler.IsMasked(text) {
+	if secrets.IsMasked(text) {
 		text = ""
 	}
 	out[field] = r.creds.ref(text, parts...)
