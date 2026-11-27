@@ -37,6 +37,9 @@ spec:
           args:
             - --leader-elect
             - --enable-controllers={{ include "arrchitect.enabledApps" . }}
+            - --max-concurrent-reconciles={{ .Values.maxConcurrentReconciles }}
+            - --reconcile-timeout={{ .Values.reconcileTimeout }}
+            - --zap-log-level={{ .Values.logLevel }}
             {{- if .Values.watchNamespace }}
             - --watch-namespace={{ .Values.watchNamespace }}
             {{- end }}

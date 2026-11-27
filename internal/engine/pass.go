@@ -2,6 +2,7 @@ package engine
 
 import (
 	"errors"
+	"net/http"
 	"slices"
 	"time"
 )
@@ -60,4 +61,16 @@ func InvalidConfig(err error) error {
 func IsConfigError(err error) bool {
 	_, ok := errors.AsType[*ConfigError](err)
 	return ok
+}
+
+// ErrUnauthorized is an app refusing the credentials the operator sent.
+var ErrUnauthorized = errors.New("the app refused the credentials")
+
+// IsUnauthorized reports whether err is an app refusing the credentials.
+func IsUnauthorized(err error) bool {
+	if errors.Is(err, ErrUnauthorized) {
+		return true
+	}
+	apiErr, ok := errors.AsType[*APIError](err)
+	return ok && (apiErr.StatusCode == http.StatusUnauthorized || apiErr.StatusCode == http.StatusForbidden)
 }

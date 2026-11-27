@@ -51,10 +51,10 @@ func TestResourcesPrunedTotal_Inc(t *testing.T) {
 }
 
 func TestManagedResources_Set(t *testing.T) {
-	ManagedResources.WithLabelValues("test-app", "tags").Set(5)
-	assert.Equal(t, float64(5), testutil.ToFloat64(ManagedResources.WithLabelValues("test-app", "tags")))
+	ManagedResources.WithLabelValues("Sonarr", "media", "sonarr", "tags").Set(5)
+	assert.Equal(t, float64(5), testutil.ToFloat64(ManagedResources.WithLabelValues("Sonarr", "media", "sonarr", "tags")))
 
 	// Overwrites, not adds
-	ManagedResources.WithLabelValues("test-app", "tags").Set(3)
-	assert.Equal(t, float64(3), testutil.ToFloat64(ManagedResources.WithLabelValues("test-app", "tags")))
+	ManagedResources.WithLabelValues("Sonarr", "media", "sonarr", "tags").Set(3)
+	assert.Equal(t, float64(3), testutil.ToFloat64(ManagedResources.WithLabelValues("Sonarr", "media", "sonarr", "tags")))
 }

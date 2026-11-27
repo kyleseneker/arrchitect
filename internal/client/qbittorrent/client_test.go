@@ -45,8 +45,8 @@ func TestLogin_Failure(t *testing.T) {
 		_, _ = w.Write([]byte("Fails."))
 	})
 	err := c.Login(context.Background())
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "login failed")
+	require.ErrorIs(t, err, engine.ErrUnauthorized)
+	assert.Contains(t, err.Error(), "Fails.")
 }
 
 func TestLoginRefusedNamesTheHostHeaderPort(t *testing.T) {

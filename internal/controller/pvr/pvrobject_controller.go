@@ -79,9 +79,9 @@ func reconcilePVRObject(ctx context.Context, c client.Client, recorder events.Ev
 		return ctrl.Result{RequeueAfter: after}, nil
 	}
 	if missing {
-		ctrlcommon.UpdateStatusUnreachable(ctx, c, obj, engine.ReasonReferenceNotFound,
+		ctrlcommon.UpdateStatus(ctx, c, recorder, obj, false, engine.ReasonReferenceNotFound,
 			fmt.Sprintf("%s %q not found", o.instanceKind, o.instanceName))
-		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
+		return ctrl.Result{RequeueAfter: ctrlcommon.RetryAfter(obj, 30*time.Second)}, nil
 	}
 
 	claimant, err := olderClaim(ctx, c, o)
@@ -89,9 +89,9 @@ func reconcilePVRObject(ctx context.Context, c client.Client, recorder events.Ev
 		return ctrl.Result{}, err
 	}
 	if claimant != "" {
-		ctrlcommon.UpdateStatusUnreachable(ctx, c, obj, engine.ReasonNameConflict,
+		ctrlcommon.UpdateStatus(ctx, c, recorder, obj, false, engine.ReasonNameConflict,
 			fmt.Sprintf("%q already configures %q in %s %q", claimant, o.name, o.instanceKind, o.instanceName))
-		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
+		return ctrl.Result{RequeueAfter: ctrlcommon.RetryAfter(obj, 30*time.Second)}, nil
 	}
 
 	hc, err := connectPVR(ctx, c, obj, instance.connection, o.app)
@@ -99,19 +99,20 @@ func reconcilePVRObject(ctx context.Context, c client.Client, recorder events.Ev
 		err = pingPVR(ctx, hc, o.app)
 	}
 	if err != nil {
-		reason, after := ctrlcommon.Classify(err)
-		log.FromContext(ctx).Error(err, "connecting to "+o.instanceKind, "reason", reason)
-		ctrlcommon.UpdateStatusUnreachable(ctx, c, obj, reason, err.Error())
+		reason, base := ctrlcommon.Classify(err)
+		after := ctrlcommon.RetryAfter(obj, base)
+		log.FromContext(ctx).Info("Couldn't reach "+o.instanceKind, "reason", reason, "error", err.Error(), "retryAfter", after)
+		ctrlcommon.UpdateStatus(ctx, c, recorder, obj, false, reason, err.Error())
 		return ctrl.Result{RequeueAfter: after}, nil
 	}
 	opts, err := o.options(ctx)
 	if err != nil {
-		reason, after := ctrlcommon.AppRefFailure(err)
-		ctrlcommon.UpdateStatusUnreachable(ctx, c, obj, reason, err.Error())
-		return ctrl.Result{RequeueAfter: after}, nil
+		reason, base := ctrlcommon.AppRefFailure(err)
+		ctrlcommon.UpdateStatus(ctx, c, recorder, obj, false, reason, err.Error())
+		return ctrl.Result{RequeueAfter: ctrlcommon.RetryAfter(obj, base)}, nil
 	}
+	ctrlcommon.Reached(obj)
 
-	interval := ctrlcommon.ReconcileInterval(instance.policy)
 	policy := ctrlcommon.Policy(instance.policy)
 	// The object owns only the item it names, so prune replaces it on a rename.
 	policy.Prune = true
@@ -122,10 +123,10 @@ func reconcilePVRObject(ctx context.Context, c client.Client, recorder events.Ev
 	}
 	ctrlcommon.UpdateStatusManaged(obj, pass.Owned.Managed())
 	ctrlcommon.EmitPruneEvents(recorder, obj, pass.Owned.Pruned())
-	ctrlcommon.ReportResult(ctx, c, obj, policy.Observe, engine.ReconcileResult{
+	ctrlcommon.ReportResult(ctx, c, recorder, obj, policy.Observe, engine.ReconcileResult{
 		Synced: pass.SyncedItems(), Errors: problems, Drift: pass.Drift(),
 	})
-	return ctrl.Result{RequeueAfter: interval}, nil
+	return ctrl.Result{RequeueAfter: ctrlcommon.NextSync(instance.policy)}, nil
 }
 
 // olderClaim names an older resource of the same kind that configures the same

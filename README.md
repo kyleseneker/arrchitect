@@ -168,6 +168,7 @@ what.
 
 - [Example stack](docs/example-stack.md): deploying the apps and wiring them together
 - [User guide](docs/guide.md): how resources reconcile, connect apps and report status
+- [Running the operator](docs/operations.md): health checks for Argo CD and Flux, troubleshooting, retries, alerts and tuning
 - [Exporting an existing app](docs/export.md): generating resources from apps you already run
 - [Rebuilding apps](docs/rebuilding.md): getting a rebuilt app configured again
 - [Sharing apps with other tools](docs/other-tools.md): Recyclarr, Configarr, Profilarr and Prowlarr

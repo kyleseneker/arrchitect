@@ -13,6 +13,7 @@
 - [Access](#access)
 - [Metrics](#metrics)
 - [Upgrading](#upgrading)
+- [Uninstalling](#uninstalling)
 - [Verifying a release](#verifying-a-release)
 
 ## Reconciling
@@ -164,16 +165,26 @@ spec:
 
 ## Status
 
-Each resource has a `Ready` condition, for whether the app and its credentials
-are reachable, and a `Synced` condition, for whether the app matches. `kubectl
-get` shows both, and `kubectl get arrchitect` lists every resource across
-apps. The `Synced` reason is one of:
+Each resource has a `Synced` condition, for whether the app matches the
+resource, and a `Ready` condition that repeats it with the same reason. `Ready`
+is the one GitOps tools and `kubectl wait --for=condition=Ready` read. An
+`InvalidConfig`, `NameConflict` or `Unauthorized` failure also sets `Stalled`
+to `True`, because no retry fixes it until you change the resource, a Secret or
+the app. `kubectl get` shows `Synced` and `Ready`, and `kubectl get
+arrchitect` lists every resource across apps. A change of `Ready` is recorded
+as an event: a Warning when it turns `False` or its reason changes, and a
+Normal event when it turns `True` again. [Running the
+operator](operations.md#health-in-argo-cd-and-flux) shows how to read these in
+Argo CD and Flux.
+
+The reason is one of:
 
 | Reason | Meaning |
 | --- | --- |
 | `Synced` | The app matches the resource. |
 | `SyncFailed` | Some settings could not be applied; the message says which, and the reason the app gave. |
-| `AppUnreachable` | The app did not respond, or rejected the credentials. |
+| `AppUnreachable` | The app did not respond. |
+| `Unauthorized` | The app refused the API key, token or password. |
 | `SecretNotFound` | A Secret or key the connection needs does not exist. |
 | `InvalidConfig` | The resource asks for something the operator does not support, or an `appRef` the resource needs can't work, such as one naming an app the operator doesn't run. |
 | `ReferenceNotFound` | An indexer's or download client's app resource doesn't exist, or an `appRef` the resource needs names a missing resource. |
@@ -360,7 +371,9 @@ there through an `appRef`, as naming that resource's Secret already allows.
 
 Metrics are served on `:8443/metrics` over HTTPS and require a token with access
 to them. Set `metrics.serviceMonitor.enabled` in the chart to create a
-ServiceMonitor.
+ServiceMonitor, and `metrics.prometheusRule.enabled` to create alerts for a
+resource out of sync for 15 minutes, drift that never settles and, with the
+ServiceMonitor, the operator being down.
 
 | Metric | Description |
 | --- | --- |
@@ -368,11 +381,17 @@ ServiceMonitor.
 | `arrchitect_drift_corrected_total` | Items rewritten because the app differed |
 | `arrchitect_drift_observed_total` | Differences found in observe mode |
 | `arrchitect_resources_pruned_total` | Items deleted by prune |
-| `arrchitect_managed_resources` | Items declared per resource type |
+| `arrchitect_managed_resources` | Items the operator created and tracks, per resource and type |
 | `arrchitect_app_api_request_duration_seconds` | Request latency to each app |
 | `arrchitect_app_api_errors_total` | Failed requests to each app |
 
-`arrchitect_config_synced == 0` is the condition to alert on.
+`arrchitect_config_synced == 0` is the condition to alert on. Give it 15
+minutes, as the chart's alert does, so an app that restarts doesn't page you.
+
+Prometheus keeps its own `namespace` label on every series it scrapes, so
+through the chart's ServiceMonitor a resource's namespace is in
+`exported_namespace`. Set `metrics.serviceMonitor.honorLabels` to keep it in
+`namespace` instead, if your Prometheus allows it.
 
 ## Upgrading
 
@@ -385,6 +404,13 @@ that changed. Breaking changes are listed at the top of the release notes; see
 A CRD that a release removes stays installed, along with any resources of that
 kind, and the operator no longer reconciles them. Delete it once you've moved
 them to their replacement.
+
+Each chart release passes flags its own image understands, so roll back the
+chart with `helm rollback` rather than pinning an older `image.tag` under a
+newer chart. Releases before 0.10 don't know the `Stalled` condition, so rolling
+back to one leaves it on any resource that had it, and Flux keeps reporting that
+resource as failed. Remove it with `kubectl edit <kind>/<name>
+--subresource=status`.
 
 ## Uninstalling
 

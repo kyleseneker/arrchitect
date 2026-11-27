@@ -764,6 +764,6 @@ func TestTdarrMissingWebhookSecretSkipsOnlyTheSettings(t *testing.T) {
 	app.mu.Lock()
 	assert.Empty(t, app.settingsWrites, "settings were written without their webhook")
 	app.mu.Unlock()
-	assert.Equal(t, conditionTrue, tdarrCondition(t, c, "Ready"))
+	assert.NotEqual(t, conditionTrue, tdarrCondition(t, c, "Ready"))
 	assert.NotEqual(t, conditionTrue, tdarrCondition(t, c, "Synced"))
 }

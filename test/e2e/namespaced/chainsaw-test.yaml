@@ -37,8 +37,8 @@ spec:
             content: helm uninstall arrchitect --namespace arrchitect --wait --ignore-not-found
     - name: reconcile in the watched namespace
       description: >-
-        The download client names a qBittorrent that isn't there, so Sonarr refuses to save it. Ready
-        alone shows the object found its Sonarr and reached the app through it.
+        The download client names a qBittorrent that isn't there, so Sonarr refuses to save it. The
+        SyncFailed reason shows the object found its Sonarr and reached the app through it.
       try:
         - apply:
             file: ../resources/arrchitect-sonarr.yaml
@@ -58,7 +58,8 @@ spec:
               metadata:
                 name: sonarr-qbittorrent
               status:
-                (conditions[?type == 'Ready'] | [0].status): "True"
+                (conditions[?type == 'Ready'] | [0].status): "False"
+                (conditions[?type == 'Ready'] | [0].reason): SyncFailed
       catch: &diagnostics
         - podLogs:
             namespace: arrchitect
