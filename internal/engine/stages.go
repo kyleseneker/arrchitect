@@ -20,9 +20,9 @@ type Stages struct {
 	Order [][]string
 	// Builders builds each kind's items.
 	Builders map[string]Builder
-	// TagPath lists the app's tags. They're read once, for the first tagged kind
-	// with items, so tags must be written in an earlier stage than any kind that
-	// names them.
+	// TagPath lists the app's tags. They're read once per stage, for its first
+	// tagged kind with items, so tags must be written in an earlier stage than
+	// any kind that names them.
 	TagPath string
 	// PlannedTags are the tag labels observe mode may find missing that the
 	// resource declares; see PlannedID.
@@ -35,9 +35,9 @@ type Stages struct {
 // written.
 func (s Stages) Reconcile(ctx context.Context, client *HTTPClient, def AppDefinition, pass *Pass) []string {
 	var problems []string
-	var tags NamedIDs
-	var tagsErr error
 	for _, kinds := range s.Order {
+		var tags NamedIDs
+		var tagsErr error
 		resources := make(map[string][]map[string]any)
 		for _, kind := range kinds {
 			b := s.Builders[kind]

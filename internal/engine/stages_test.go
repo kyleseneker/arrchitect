@@ -3,7 +3,9 @@ package engine
 import (
 	"context"
 	"encoding/json"
+	"maps"
 	"net/http"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -12,12 +14,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// stagesApp is an app that keeps what's posted to it, by path.
+// stagesApp is an app that keeps what's posted to it, by path. A GET of a path
+// in failures fails while its count lasts.
 type stagesApp struct {
-	mu     sync.Mutex
-	items  map[string][]map[string]any
-	lists  map[string]int
-	nextID int
+	mu       sync.Mutex
+	items    map[string][]map[string]any
+	lists    map[string]int
+	failures map[string]int
+	nextID   int
 }
 
 func (a *stagesApp) client(t *testing.T) *HTTPClient {
@@ -28,6 +32,11 @@ func (a *stagesApp) client(t *testing.T) *HTTPClient {
 		w.Header().Set("Content-Type", "application/json")
 		if r.Method == http.MethodGet {
 			a.lists[r.URL.Path]++
+			if a.failures[r.URL.Path] > 0 {
+				a.failures[r.URL.Path]--
+				http.Error(w, "unavailable", http.StatusServiceUnavailable)
+				return
+			}
 			items := a.items[r.URL.Path]
 			if items == nil {
 				items = []map[string]any{}
@@ -44,11 +53,30 @@ func (a *stagesApp) client(t *testing.T) *HTTPClient {
 	})
 }
 
+// seed sets what the app holds at path.
+func (a *stagesApp) seed(path string, items ...map[string]any) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.items[path] = items
+}
+
+// snapshot copies what the app holds and how often each path was listed.
+func (a *stagesApp) snapshot() (map[string][]map[string]any, map[string]int) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	items := make(map[string][]map[string]any, len(a.items))
+	for path, list := range a.items {
+		items[path] = slices.Clone(list)
+	}
+	return items, maps.Clone(a.lists)
+}
+
 func stagesDefinition() AppDefinition {
 	return AppDefinition{Resources: []ResourceEndpoint{
 		{Name: "tags", Path: "/tags", MatchField: "label", Policy: CreateOrUpdate},
 		{Name: "indexers", Path: "/indexers", MatchField: "name", Policy: CreateOrUpdate},
 		{Name: "clients", Path: "/clients", MatchField: "name", Policy: CreateOrUpdate},
+		{Name: "feeds", Path: "/feeds", MatchField: "name", Policy: CreateOrUpdate},
 	}}
 }
 
@@ -80,23 +108,45 @@ func TestStagesNameWhatEarlierStagesCreated(t *testing.T) {
 
 	problems := stages.Reconcile(context.Background(), hc, stagesDefinition(), NewPass("test", SyncPolicy{}, nil))
 	require.Empty(t, problems)
-	tag := app.items["/tags"][0]["id"]
-	assert.Equal(t, []any{tag}, app.items["/indexers"][0]["tags"])
-	assert.Equal(t, []any{tag}, app.items["/clients"][0]["tags"])
+	items, _ := app.snapshot()
+	tag := items["/tags"][0]["id"]
+	assert.Equal(t, []any{tag}, items["/indexers"][0]["tags"])
+	assert.Equal(t, []any{tag}, items["/clients"][0]["tags"])
 }
 
-func TestStagesReadTagsOnce(t *testing.T) {
+func TestStagesReadTagsOncePerStage(t *testing.T) {
 	app := &stagesApp{}
 	hc := app.client(t)
-	app.items["/tags"] = []map[string]any{{"id": 4, "label": "tv"}}
+	app.seed("/tags", map[string]any{"id": 4, "label": "tv"})
+	stages := Stages{
+		Order: [][]string{{"indexers", "clients"}, {"feeds"}},
+		Builders: map[string]Builder{
+			"indexers": taggedItem("indexer", "tv"), "clients": taggedItem("client", "tv"), "feeds": taggedItem("feed", "tv"),
+		},
+		TagPath: "/tags",
+	}
+
+	require.Empty(t, stages.Reconcile(context.Background(), hc, stagesDefinition(), NewPass("test", SyncPolicy{}, nil)))
+	_, lists := app.snapshot()
+	assert.Equal(t, 2, lists["/tags"])
+}
+
+func TestStagesReadTagsAgainAfterAStageFailedToRead(t *testing.T) {
+	app := &stagesApp{failures: map[string]int{"/tags": 1}}
+	hc := app.client(t)
+	app.seed("/tags", map[string]any{"id": 4, "label": "tv"})
 	stages := Stages{
 		Order:    [][]string{{"indexers"}, {"clients"}},
 		Builders: map[string]Builder{"indexers": taggedItem("indexer", "tv"), "clients": taggedItem("client", "tv")},
 		TagPath:  "/tags",
 	}
 
-	require.Empty(t, stages.Reconcile(context.Background(), hc, stagesDefinition(), NewPass("test", SyncPolicy{}, nil)))
-	assert.Equal(t, 1, app.lists["/tags"])
+	problems := stages.Reconcile(context.Background(), hc, stagesDefinition(), NewPass("test", SyncPolicy{}, nil))
+	require.Len(t, problems, 1)
+	assert.True(t, strings.HasPrefix(problems[0], "indexers: "), problems[0])
+	items, _ := app.snapshot()
+	assert.Empty(t, items["/indexers"])
+	assert.Len(t, items["/clients"], 1)
 }
 
 func TestStagesLeaveOutAKindThatCantBeBuilt(t *testing.T) {
@@ -116,8 +166,9 @@ func TestStagesLeaveOutAKindThatCantBeBuilt(t *testing.T) {
 	problems := stages.Reconcile(context.Background(), hc, stagesDefinition(), NewPass("test", SyncPolicy{}, nil))
 	require.Len(t, problems, 1)
 	assert.Contains(t, problems[0], `the app has no item named "missing"`)
-	assert.Empty(t, app.items["/indexers"])
-	assert.Len(t, app.items["/clients"], 1)
+	items, _ := app.snapshot()
+	assert.Empty(t, items["/indexers"])
+	assert.Len(t, items["/clients"], 1)
 }
 
 func TestStagesReadTagsOnlyForTaggedItems(t *testing.T) {
@@ -135,17 +186,13 @@ func TestStagesReadTagsOnlyForTaggedItems(t *testing.T) {
 	}
 
 	require.Empty(t, stages.Reconcile(context.Background(), hc, stagesDefinition(), NewPass("test", SyncPolicy{}, nil)))
-	assert.Zero(t, app.lists["/tags"])
+	_, lists := app.snapshot()
+	assert.Zero(t, lists["/tags"])
 }
 
 func TestStagesReportATagListFailureAgainstEachTaggedKind(t *testing.T) {
-	hc := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/tags" {
-			http.Error(w, "unavailable", http.StatusServiceUnavailable)
-			return
-		}
-		_ = json.NewEncoder(w).Encode([]map[string]any{})
-	})
+	app := &stagesApp{failures: map[string]int{"/tags": 1}}
+	hc := app.client(t)
 	stages := Stages{
 		Order:    [][]string{{"indexers", "clients"}},
 		Builders: map[string]Builder{"indexers": taggedItem("indexer", "tv"), "clients": taggedItem("client", "tv")},
