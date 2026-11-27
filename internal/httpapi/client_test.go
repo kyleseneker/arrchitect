@@ -643,6 +643,7 @@ func TestNewHTTPTransport(t *testing.T) {
 			transport := newHTTPTransport(tt.tlsCfg)
 			assert.NotNil(t, transport)
 			assert.NotNil(t, transport.DialContext, "should have SSRF-safe dialer")
+			assert.Equal(t, idleConnTimeout, transport.IdleConnTimeout, "a pass's idle connections must close")
 			if tt.tlsCfg != nil {
 				assert.Equal(t, tt.tlsCfg, transport.TLSClientConfig)
 			}

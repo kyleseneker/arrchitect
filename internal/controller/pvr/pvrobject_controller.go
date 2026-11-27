@@ -197,10 +197,12 @@ func objectsOf(c client.Client, list client.ObjectList) handler.MapFunc {
 		objects := list.DeepCopyObject().(client.ObjectList)
 		if err := c.List(ctx, objects, client.InNamespace(instance.GetNamespace()),
 			client.MatchingFields{instanceRefIndex: instance.GetName()}); err != nil {
+			log.FromContext(ctx).Error(err, "listing the objects that name a changed instance")
 			return nil
 		}
 		items, err := apimeta.ExtractList(objects)
 		if err != nil {
+			log.FromContext(ctx).Error(err, "reading the objects that name a changed instance")
 			return nil
 		}
 		reqs := make([]reconcile.Request, 0, len(items))

@@ -82,12 +82,12 @@ func TestWritesPruneEnforceDeletes(t *testing.T) {
 	assert.Equal(t, []string{"old"}, removed)
 }
 
-func TestWritesCleanupObserveRecordsWhatItWouldDelete(t *testing.T) {
+func TestWritesPruneOwnedObserveRecordsWhatItWouldDelete(t *testing.T) {
 	owned := NewOwnership("writes-cleanup", map[string][]string{"profiles": {"3", "4"}})
 	w := &Writes{App: "writes-cleanup", Observe: true}
 	labels := map[string]string{"3": "anime", "4": "kids", "5": "hand-made"}
 
-	require.NoError(t, w.Cleanup(owned, "profiles", []string{"3", "5"}, func(id string) string { return labels[id] }, func(string) error {
+	require.NoError(t, w.PruneOwned(owned, "profiles", []string{"3", "5"}, func(id string) string { return labels[id] }, func(string) error {
 		require.Fail(t, "observe mode must not delete")
 		return nil
 	}))
@@ -95,7 +95,7 @@ func TestWritesCleanupObserveRecordsWhatItWouldDelete(t *testing.T) {
 	assert.Equal(t, map[string][]string{"profiles": {"3", "4"}}, owned.Managed(), "observe mode changed ownership")
 }
 
-func TestWritesCleanupObserveHoldsToThePruneLimit(t *testing.T) {
+func TestWritesPruneOwnedObserveHoldsToThePruneLimit(t *testing.T) {
 	ids := make([]string, 0, DefaultMaxPruneCount+1)
 	for i := range DefaultMaxPruneCount + 1 {
 		ids = append(ids, strconv.Itoa(i))
@@ -103,7 +103,7 @@ func TestWritesCleanupObserveHoldsToThePruneLimit(t *testing.T) {
 	owned := NewOwnership("writes-cleanup", map[string][]string{"profiles": ids})
 	w := &Writes{App: "writes-cleanup", Observe: true}
 
-	err := w.Cleanup(owned, "profiles", ids, func(id string) string { return id }, func(string) error { return nil })
+	err := w.PruneOwned(owned, "profiles", ids, func(id string) string { return id }, func(string) error { return nil })
 	require.ErrorContains(t, err, "refusing to delete 26 profiles")
 	assert.Empty(t, w.Drift())
 }

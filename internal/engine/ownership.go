@@ -50,13 +50,31 @@ func (o *Ownership) Candidates(kind string, declared, existing []string) []strin
 	return o.owned(kind, declared, existing)
 }
 
-// Prune deletes the candidates of kind.
+// Prune deletes the candidates of kind, refusing more than
+// DefaultMaxPruneCount at once.
 func (o *Ownership) Prune(kind string, declared, existing []string, remove func(name string) error) error {
-	return o.delete(kind, o.Candidates(kind, declared, existing), remove, false)
+	names := o.Candidates(kind, declared, existing)
+	if err := pruneLimit(kind, len(names)); err != nil {
+		return err
+	}
+	return o.delete(kind, names, remove, false)
+}
+
+// PruneOwned deletes the owned items among names, which the caller found
+// nothing declared matches, refusing more than DefaultMaxPruneCount at once.
+// An item the app refuses to delete is kept and the rest are still deleted;
+// the kept items come back as a *KeptError.
+func (o *Ownership) PruneOwned(kind string, names []string, remove func(name string) error) error {
+	owned := o.owned(kind, nil, names)
+	if err := pruneLimit(kind, len(owned)); err != nil {
+		return err
+	}
+	return o.delete(kind, owned, remove, true)
 }
 
 // Cleanup deletes every owned item of kind that exists, for deletionPolicy
-// delete. An item the app refuses to delete is kept and the rest are still
+// delete. Deleting all of it is what was asked, so prune's limit doesn't
+// apply. An item the app refuses to delete is kept and the rest are still
 // deleted; the kept items come back as a *KeptError.
 func (o *Ownership) Cleanup(kind string, existing []string, remove func(name string) error) error {
 	return o.delete(kind, o.owned(kind, nil, existing), remove, true)
@@ -87,9 +105,6 @@ func (o *Ownership) owned(kind string, declared, existing []string) []string {
 // a later pass retries them. With keepRefused, an item the app refuses to
 // delete is passed over and returned in a *KeptError.
 func (o *Ownership) delete(kind string, names []string, remove func(name string) error, keepRefused bool) error {
-	if err := pruneLimit(kind, len(names)); err != nil {
-		return err
-	}
 	kept := &KeptError{App: o.app}
 	for _, name := range names {
 		if err := remove(name); err != nil {

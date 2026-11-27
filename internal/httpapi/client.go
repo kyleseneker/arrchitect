@@ -563,11 +563,18 @@ func IsUnauthorized(err error) bool {
 	return ok && (apiErr.StatusCode == http.StatusUnauthorized || apiErr.StatusCode == http.StatusForbidden)
 }
 
+// idleConnTimeout closes a transport's idle connections soon after a pass.
+// A client lives for one pass, so a connection left idle longer is never
+// reused, and without a timeout it stays open until the app closes it.
+const idleConnTimeout = 30 * time.Second
+
 // newHTTPTransport creates an *http.Transport with SSRF protection and optional TLS configuration.
 // If tlsCfg is nil, the default TLS settings are used.
 func newHTTPTransport(tlsCfg *tls.Config) *http.Transport {
 	return &http.Transport{
-		DialContext:     ssrfSafeDialContext,
-		TLSClientConfig: tlsCfg,
+		DialContext:         ssrfSafeDialContext,
+		TLSClientConfig:     tlsCfg,
+		TLSHandshakeTimeout: 10 * time.Second,
+		IdleConnTimeout:     idleConnTimeout,
 	}
 }
