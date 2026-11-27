@@ -41,7 +41,7 @@ func generateTestCAPEM(t *testing.T) []byte {
 }
 
 func TestResolveTLSConfig_Nil(t *testing.T) {
-	cfg, err := ResolveTLSConfig(context.Background(), nil, "default", nil)
+	cfg, err := resolveTLSConfig(context.Background(), nil, "default", nil)
 	assert.NoError(t, err)
 	assert.Nil(t, cfg)
 }
@@ -52,7 +52,7 @@ func TestResolveTLSConfig_InsecureSkipVerify(t *testing.T) {
 	fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
 
 	tlsCfg := &commonv1alpha1.TLSConfig{InsecureSkipVerify: new(true)}
-	cfg, err := ResolveTLSConfig(context.Background(), fakeClient, "default", tlsCfg)
+	cfg, err := resolveTLSConfig(context.Background(), fakeClient, "default", tlsCfg)
 	require.NoError(t, err)
 	require.NotNil(t, cfg)
 	assert.True(t, cfg.InsecureSkipVerify)
@@ -73,7 +73,7 @@ func TestResolveTLSConfig_CASecret(t *testing.T) {
 	tlsCfg := &commonv1alpha1.TLSConfig{
 		CASecretRef: commonv1alpha1.SecretKeyRef{Name: "tls-ca", Key: "ca.crt"},
 	}
-	cfg, err := ResolveTLSConfig(context.Background(), fakeClient, "default", tlsCfg)
+	cfg, err := resolveTLSConfig(context.Background(), fakeClient, "default", tlsCfg)
 	require.NoError(t, err)
 	require.NotNil(t, cfg)
 	assert.NotNil(t, cfg.RootCAs)
@@ -87,6 +87,6 @@ func TestResolveTLSConfig_CASecretNotFound(t *testing.T) {
 	tlsCfg := &commonv1alpha1.TLSConfig{
 		CASecretRef: commonv1alpha1.SecretKeyRef{Name: "nonexistent", Key: "ca.crt"},
 	}
-	_, err := ResolveTLSConfig(context.Background(), fakeClient, "default", tlsCfg)
+	_, err := resolveTLSConfig(context.Background(), fakeClient, "default", tlsCfg)
 	assert.Error(t, err)
 }

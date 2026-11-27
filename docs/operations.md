@@ -101,21 +101,29 @@ kubectl annotate sonarr/sonarr arrchitect.dev/reconcile-requested-at="$(date +%s
 
 ## Retries
 
-A resource that can't reach its app tries again after a delay that depends on
-the reason: 30 seconds for a missing Secret or reference, a minute when the app
-doesn't answer, and 5 minutes when it refuses the credentials, so an app that
-locks out failed sign-ins isn't pushed into it. The delay doubles with each
-failure in a row, up to 10 minutes, and starts over once the app answers.
-`InvalidConfig` isn't retried until the resource changes.
+How soon a resource that failed tries again depends on why:
 
-Changing a Secret the resource uses, or the resource itself, reconciles it at
-once, whatever the delay.
+| Reason | Next try |
+| --- | --- |
+| `AppUnreachable` | After 30 seconds, doubling with each failure in a row, up to 10 minutes |
+| `SyncFailed` from reading a Secret or an appRef's resource | The same |
+| `SecretNotFound`, `ReferenceNotFound` | When the Secret or resource appears, or after the interval |
+| `Unauthorized`, `InvalidConfig` | When the resource or a Secret it uses changes, or after the interval |
+| `NameConflict`, any other `SyncFailed` | After the interval |
 
-A resource that reached its app reconciles again after
-`spec.reconcile.intervalSeconds`, 5 minutes by default, or after 30 seconds
-when everything that failed was a missing Secret or reference. Every delay is
-stretched by up to 10% at random, so resources created together don't all reach
-their app at the same moment.
+The interval is `spec.reconcile.intervalSeconds`, 5 minutes by default. An
+indexer or download client takes its app resource's. A resource that synced
+waits for the interval too, stretched by up to 10% at random so resources
+created together don't all reach their app at once. Changing the resource, or
+a Secret it uses, reconciles it at once.
+
+Refused credentials aren't retried before the interval unless the resource or
+a Secret changes, so an app that locks out failed sign-ins sees one attempt per
+interval. A short interval for such an app makes a lockout come sooner.
+
+A failure to read the resource itself, or the app resource an indexer or
+download client belongs to, backs off without changing its status. A retry
+that backs off counts in `controller_runtime_reconcile_errors_total`.
 
 ## Alerting
 

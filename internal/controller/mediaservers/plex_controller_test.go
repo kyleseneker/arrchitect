@@ -24,7 +24,7 @@ import (
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
 	mediaserversv1alpha1 "github.com/kyleseneker/arrchitect/api/mediaservers/v1alpha1"
 	"github.com/kyleseneker/arrchitect/internal/controller/internal/contract"
-	"github.com/kyleseneker/arrchitect/internal/controller/reconciler"
+	"github.com/kyleseneker/arrchitect/internal/failure"
 	"github.com/kyleseneker/arrchitect/internal/testnet"
 )
 
@@ -300,11 +300,11 @@ func TestPlexClientSaysWhyItCantConnect(t *testing.T) {
 	for _, tc := range []struct {
 		name, url string
 		secret    bool
-		reason    string
+		kind      failure.Kind
 	}{
-		{"missing token Secret", "http://plex:32400", false, reconciler.ReasonSecretNotFound},
-		{"unusable URL", "ftp://plex", true, reconciler.ReasonInvalidConfig},
-		{"connects", "http://plex:32400", true, ""},
+		{"missing token Secret", "http://plex:32400", false, failure.SecretNotFound},
+		{"unusable URL", "ftp://plex", true, failure.InvalidConfig},
+		{"connects", "http://plex:32400", true, 0},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			b := fake.NewClientBuilder().WithScheme(scheme)
@@ -313,13 +313,12 @@ func TestPlexClientSaysWhyItCantConnect(t *testing.T) {
 			}
 			r := &PlexReconciler{Client: b.Build()}
 			_, err := r.connect(context.Background(), plexConfig(tc.url))
-			if tc.reason == "" {
+			if tc.kind == 0 {
 				require.NoError(t, err)
 				return
 			}
 			require.Error(t, err)
-			reason, _ := reconciler.Classify(err)
-			assert.Equal(t, tc.reason, reason)
+			assert.Equal(t, tc.kind, failure.KindOf(err))
 		})
 	}
 }

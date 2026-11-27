@@ -14,14 +14,12 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	transcodev1alpha1 "github.com/kyleseneker/arrchitect/api/transcode/v1alpha1"
 	tdarrclient "github.com/kyleseneker/arrchitect/internal/client/tdarr"
 	"github.com/kyleseneker/arrchitect/internal/controller/reconciler"
-	"github.com/kyleseneker/arrchitect/internal/controller/secretref"
 	"github.com/kyleseneker/arrchitect/internal/engine"
 	"github.com/kyleseneker/arrchitect/internal/failure"
 	"github.com/kyleseneker/arrchitect/internal/httpapi"
@@ -41,8 +39,19 @@ type TdarrReconciler struct {
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
 
 func (r *TdarrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	integration := reconciler.Integration[*transcodev1alpha1.Tdarr, *tdarrclient.Client]{
+	return r.integration().Reconcile(ctx, r.Client, r.Recorder, req)
+}
+
+// SetupWithManager sets up the controller with the Manager.
+func (r *TdarrReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	return r.integration().SetupWithManager(mgr, nil, r)
+}
+
+func (r *TdarrReconciler) integration() reconciler.Integration[*transcodev1alpha1.Tdarr, *tdarrclient.Client] {
+	return reconciler.Integration[*transcodev1alpha1.Tdarr, *tdarrclient.Client]{
 		App:     "tdarr",
+		New:     func() *transcodev1alpha1.Tdarr { return &transcodev1alpha1.Tdarr{} },
+		NewList: func() client.ObjectList { return &transcodev1alpha1.TdarrList{} },
 		Connect: r.connect,
 		Check: func(ctx context.Context, tc *tdarrclient.Client, _ *transcodev1alpha1.Tdarr) error {
 			return tc.Ping(ctx)
@@ -51,20 +60,14 @@ func (r *TdarrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		Cleanup: cleanupTdarr,
 		Prune:   true,
 	}
-	return integration.Reconcile(ctx, r.Client, r.Recorder, req, &transcodev1alpha1.Tdarr{})
 }
 
 func (r *TdarrReconciler) connect(ctx context.Context, config *transcodev1alpha1.Tdarr) (*tdarrclient.Client, error) {
-	apiKey, err := secrets.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, config.Spec.Connection.APIKeySecretRef)
-	if err != nil {
-		return nil, err
-	}
-	tlsCfg, err := reconciler.ResolveTLSConfig(ctx, r.Client, config.Namespace, config.Spec.Connection.TLS)
-	if err != nil {
-		return nil, err
-	}
-	hc, err := httpapi.NewHTTPClient(config.Spec.Connection.URL, httpapi.AuthAPIKey,
-		append(tdarrclient.HTTPOptions(), httpapi.WithAPIKey(apiKey), httpapi.WithTLSConfig(tlsCfg))...)
+	conn := config.Spec.Connection
+	hc, err := reconciler.Dial(ctx, r.Client, config.Namespace, reconciler.Endpoint{
+		App: "tdarr", URL: conn.URL, TLS: conn.TLS, Auth: httpapi.AuthAPIKey, Key: &conn.APIKeySecretRef,
+		Options: tdarrclient.HTTPOptions(),
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -593,15 +596,4 @@ func (s *tdarrSync) convergeWorkerLimit(ctx context.Context, nodeID, workerType 
 		}
 		return nil
 	})
-}
-
-// SetupWithManager sets up the controller with the Manager.
-func (r *TdarrReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	b := ctrl.NewControllerManagedBy(mgr).
-		For(&transcodev1alpha1.Tdarr{}, builder.WithPredicates(reconciler.ConfigChangedPredicate()))
-	b, err := secretref.Watch(mgr, b, &transcodev1alpha1.Tdarr{}, &transcodev1alpha1.TdarrList{})
-	if err != nil {
-		return err
-	}
-	return b.Named("tdarr").Complete(r)
 }

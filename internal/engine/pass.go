@@ -2,7 +2,6 @@ package engine
 
 import (
 	"slices"
-	"time"
 
 	"github.com/kyleseneker/arrchitect/internal/secrets"
 )
@@ -17,9 +16,6 @@ type Pass struct {
 	Owner string
 	// PruneEnabled is set when the resource asks for prune.
 	PruneEnabled bool
-	// Retry asks for the next pass sooner than the resource's interval, as
-	// after a first-time setup that failed.
-	Retry time.Duration
 
 	synced []string
 }

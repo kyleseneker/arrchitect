@@ -22,7 +22,7 @@ func TestReconcileInterval(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, ReconcileInterval(tt.rc))
+			assert.Equal(t, tt.want, reconcileInterval(tt.rc))
 		})
 	}
 }
@@ -40,7 +40,15 @@ func TestPruneEnabled(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, PruneEnabled(tt.rc))
+			assert.Equal(t, tt.want, pruneEnabled(tt.rc))
 		})
+	}
+}
+
+func TestNextSyncStretchesTheIntervalALittle(t *testing.T) {
+	for range 50 {
+		got := nextSync(nil)
+		assert.GreaterOrEqual(t, got, DefaultReconcileInterval)
+		assert.LessOrEqual(t, got, DefaultReconcileInterval+time.Duration(float64(DefaultReconcileInterval)*jitter))
 	}
 }

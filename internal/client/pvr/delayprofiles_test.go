@@ -412,7 +412,7 @@ func TestDelayProfilesRefuseAPlanThatCantFinish(t *testing.T) {
 		engine.NamedIDs{"a": {1}, "b": {2}},
 		[]map[string]any{{"id": float64(2), "tags": []any{float64(1)}}, {"id": float64(3), "tags": []any{float64(2)}}},
 		func(map[string]any) bool { return false })
-	assert.True(t, failure.IsConfigError(err))
+	assert.Equal(t, failure.InvalidConfig, failure.KindOf(err))
 }
 
 // Profiles holding no declared tag never enter the match, so its size

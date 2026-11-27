@@ -12,7 +12,6 @@ import (
 
 	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
@@ -43,15 +42,27 @@ type SeerrReconciler struct {
 // +kubebuilder:rbac:groups=arrchitect.dev,resources=sonarrs;radarrs;jellyfins;plexes,verbs=get;list;watch
 
 func (r *SeerrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	integration := reconciler.Integration[*requestsv1alpha1.Seerr, *seerrConn]{
-		App:     "seerr",
-		Connect: r.connect,
-		Check:   r.check,
-		Sync:    r.sync,
-		Cleanup: r.cleanup,
-		Prune:   true,
+	return r.integration().Reconcile(ctx, r.Client, r.Recorder, req)
+}
+
+// SetupWithManager sets up the controller with the Manager.
+func (r *SeerrReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	return r.integration().SetupWithManager(mgr, r.Apps, r)
+}
+
+func (r *SeerrReconciler) integration() reconciler.Integration[*requestsv1alpha1.Seerr, *seerrConn] {
+	return reconciler.Integration[*requestsv1alpha1.Seerr, *seerrConn]{
+		App:      "seerr",
+		New:      func() *requestsv1alpha1.Seerr { return &requestsv1alpha1.Seerr{} },
+		NewList:  func() client.ObjectList { return &requestsv1alpha1.SeerrList{} },
+		AppRefs:  seerrAppRefs,
+		RefKinds: []string{"Sonarr", "Radarr", "Jellyfin", "Plex"},
+		Connect:  r.connect,
+		Check:    r.check,
+		Sync:     r.sync,
+		Cleanup:  r.cleanup,
+		Prune:    true,
 	}
-	return integration.Reconcile(ctx, r.Client, r.Recorder, req, &requestsv1alpha1.Seerr{})
 }
 
 // seerrConn is a Seerr client for one resource, and what check found before a
@@ -65,11 +76,9 @@ type seerrConn struct {
 }
 
 func (r *SeerrReconciler) connect(ctx context.Context, config *requestsv1alpha1.Seerr) (*seerrConn, error) {
-	tlsCfg, err := reconciler.ResolveTLSConfig(ctx, r.Client, config.Namespace, config.Spec.Connection.TLS)
-	if err != nil {
-		return nil, err
-	}
-	hc, err := httpapi.NewHTTPClient(config.Spec.Connection.URL, httpapi.AuthSession, httpapi.WithTLSConfig(tlsCfg), httpapi.WithAppLabel("seerr"))
+	hc, err := reconciler.Dial(ctx, r.Client, config.Namespace, reconciler.Endpoint{
+		App: "seerr", URL: config.Spec.Connection.URL, TLS: config.Spec.Connection.TLS, Auth: httpapi.AuthSession,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -103,7 +112,6 @@ func (r *SeerrReconciler) sync(ctx context.Context, conn *seerrConn, config *req
 			return r.setup(ctx, sc, &pass.Writes, pass.Owned, config, conn.media)
 		})
 		if err != nil {
-			pass.Retry = reconciler.SetupRetry(err)
 			return []error{err}
 		}
 		if pass.Observe {
@@ -761,23 +769,6 @@ func seerrDiffers(current, payload map[string]any) bool {
 		return true
 	}
 	return !jsondiff.Covers(current, desired)
-}
-
-// SetupWithManager sets up the controller with the Manager.
-func (r *SeerrReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	b := ctrl.NewControllerManagedBy(mgr).
-		For(&requestsv1alpha1.Seerr{}, builder.WithPredicates(reconciler.ConfigChangedPredicate()))
-	b, err := secretref.Watch(mgr, b, &requestsv1alpha1.Seerr{}, &requestsv1alpha1.SeerrList{})
-	if err != nil {
-		return err
-	}
-	b, err = appref.Watch(mgr, b, r.Apps, &requestsv1alpha1.Seerr{}, &requestsv1alpha1.SeerrList{}, seerrAppRefs, "Sonarr", "Radarr", "Jellyfin", "Plex")
-	if err != nil {
-		return err
-	}
-	return b.
-		Named("seerr").
-		Complete(r)
 }
 
 func syncJellyfinLibraries(

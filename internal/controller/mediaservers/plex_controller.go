@@ -11,17 +11,14 @@ import (
 
 	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	mediaserversv1alpha1 "github.com/kyleseneker/arrchitect/api/mediaservers/v1alpha1"
 	plexclient "github.com/kyleseneker/arrchitect/internal/client/plex"
 	"github.com/kyleseneker/arrchitect/internal/controller/reconciler"
-	"github.com/kyleseneker/arrchitect/internal/controller/secretref"
 	"github.com/kyleseneker/arrchitect/internal/engine"
 	"github.com/kyleseneker/arrchitect/internal/httpapi"
-	"github.com/kyleseneker/arrchitect/internal/secrets"
 )
 
 type PlexReconciler struct {
@@ -35,8 +32,19 @@ type PlexReconciler struct {
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
 
 func (r *PlexReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	integration := reconciler.Integration[*mediaserversv1alpha1.Plex, *plexclient.Client]{
+	return r.integration().Reconcile(ctx, r.Client, r.Recorder, req)
+}
+
+// SetupWithManager sets up the controller with the Manager.
+func (r *PlexReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	return r.integration().SetupWithManager(mgr, nil, r)
+}
+
+func (r *PlexReconciler) integration() reconciler.Integration[*mediaserversv1alpha1.Plex, *plexclient.Client] {
+	return reconciler.Integration[*mediaserversv1alpha1.Plex, *plexclient.Client]{
 		App:     "plex",
+		New:     func() *mediaserversv1alpha1.Plex { return &mediaserversv1alpha1.Plex{} },
+		NewList: func() client.ObjectList { return &mediaserversv1alpha1.PlexList{} },
 		Connect: r.connect,
 		Check: func(ctx context.Context, pc *plexclient.Client, _ *mediaserversv1alpha1.Plex) error {
 			return pc.Ping(ctx)
@@ -46,22 +54,15 @@ func (r *PlexReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 			return append(problems, reconcilePlexLibraries(ctx, pc, &pass.Writes, config.Spec.Libraries)...)
 		},
 	}
-	return integration.Reconcile(ctx, r.Client, r.Recorder, req, &mediaserversv1alpha1.Plex{})
 }
 
 // plexClient builds the client for a config, or returns the status reason it
 // can't.
 func (r *PlexReconciler) connect(ctx context.Context, config *mediaserversv1alpha1.Plex) (*plexclient.Client, error) {
-	token, err := secrets.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, config.Spec.Connection.TokenSecretRef)
-	if err != nil {
-		return nil, err
-	}
-	tlsCfg, err := reconciler.ResolveTLSConfig(ctx, r.Client, config.Namespace, config.Spec.Connection.TLS)
-	if err != nil {
-		return nil, err
-	}
-	hc, err := httpapi.NewHTTPClient(config.Spec.Connection.URL, httpapi.AuthPlexToken, httpapi.WithPlexToken(token),
-		httpapi.WithTLSConfig(tlsCfg), httpapi.WithAppLabel("plex"))
+	conn := config.Spec.Connection
+	hc, err := reconciler.Dial(ctx, r.Client, config.Namespace, reconciler.Endpoint{
+		App: "plex", URL: conn.URL, TLS: conn.TLS, Auth: httpapi.AuthPlexToken, Key: &conn.TokenSecretRef,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -169,16 +170,6 @@ func plexLibraryDefaults(lib mediaserversv1alpha1.PlexLibrary) (agent, scanner, 
 		lang = "en-US"
 	}
 	return agent, scanner, lang
-}
-
-func (r *PlexReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	b := ctrl.NewControllerManagedBy(mgr).
-		For(&mediaserversv1alpha1.Plex{}, builder.WithPredicates(reconciler.ConfigChangedPredicate()))
-	b, err := secretref.Watch(mgr, b, &mediaserversv1alpha1.Plex{}, &mediaserversv1alpha1.PlexList{})
-	if err != nil {
-		return err
-	}
-	return b.Named("plex").Complete(r)
 }
 
 func buildPlexPreferences(spec mediaserversv1alpha1.PlexSpec) map[string]string {

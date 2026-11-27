@@ -27,6 +27,7 @@ import (
 	indexersv1alpha1 "github.com/kyleseneker/arrchitect/api/indexers/v1alpha1"
 	pvrv1alpha1 "github.com/kyleseneker/arrchitect/api/pvr/v1alpha1"
 	"github.com/kyleseneker/arrchitect/internal/controller/reconciler"
+	"github.com/kyleseneker/arrchitect/internal/failure"
 	"github.com/kyleseneker/arrchitect/internal/testnet"
 )
 
@@ -481,11 +482,11 @@ func TestProwlarrClientSaysWhyItCantConnect(t *testing.T) {
 	for _, tc := range []struct {
 		name, url string
 		secret    bool
-		reason    string
+		kind      failure.Kind
 	}{
-		{"missing API key Secret", "http://prowlarr:9696", false, reconciler.ReasonSecretNotFound},
-		{"unusable URL", "ftp://prowlarr", true, reconciler.ReasonInvalidConfig},
-		{"connects", "http://prowlarr:9696", true, ""},
+		{"missing API key Secret", "http://prowlarr:9696", false, failure.SecretNotFound},
+		{"unusable URL", "ftp://prowlarr", true, failure.InvalidConfig},
+		{"connects", "http://prowlarr:9696", true, 0},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			b := fake.NewClientBuilder().WithScheme(scheme)
@@ -494,13 +495,12 @@ func TestProwlarrClientSaysWhyItCantConnect(t *testing.T) {
 			}
 			r := &ProwlarrReconciler{Client: b.Build()}
 			_, err := r.connect(context.Background(), prowlarrConfig(tc.url))
-			if tc.reason == "" {
+			if tc.kind == 0 {
 				require.NoError(t, err)
 				return
 			}
 			require.Error(t, err)
-			reason, _ := reconciler.Classify(err)
-			assert.Equal(t, tc.reason, reason)
+			assert.Equal(t, tc.kind, failure.KindOf(err))
 		})
 	}
 }

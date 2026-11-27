@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/kyleseneker/arrchitect/internal/failure"
 	"github.com/kyleseneker/arrchitect/internal/httpapi"
 	"github.com/kyleseneker/arrchitect/internal/secrets"
 )
@@ -163,7 +164,7 @@ func (c *Client) Login(ctx context.Context) error {
 	}
 
 	if resp := strings.TrimSpace(string(body)); resp != "" && !strings.EqualFold(resp, "Ok.") {
-		return fmt.Errorf("%w: qBittorrent answered %q", httpapi.ErrUnauthorized, secrets.Redact(resp))
+		return failure.Unauthorized.Errorf("qBittorrent refused the credentials: it answered %q", secrets.Redact(resp))
 	}
 
 	// The cookie jar captured the session cookie automatically. Register it with

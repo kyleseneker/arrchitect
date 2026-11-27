@@ -189,7 +189,7 @@ func TestOnlyRadarrTurnsAnImportListOff(t *testing.T) {
 			require.Len(t, result.Errors, 1)
 			assert.Contains(t, result.Errors[0], httpapi.AppName(app.Name)+" import lists are always active")
 			assert.NotContains(t, api.writes, "POST importlist", "a list declared off must not be created active")
-			assert.True(t, failure.IsConfigError(buildErr), "only a spec change fixes it: %v", buildErr)
+			assert.Equal(t, failure.InvalidConfig, failure.KindOf(buildErr), "only a spec change fixes it: %v", buildErr)
 		})
 	}
 }

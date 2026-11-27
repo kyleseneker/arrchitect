@@ -13,7 +13,6 @@ import (
 
 	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
@@ -21,7 +20,6 @@ import (
 	downloadsv1alpha1 "github.com/kyleseneker/arrchitect/api/downloads/v1alpha1"
 	qbclient "github.com/kyleseneker/arrchitect/internal/client/qbittorrent"
 	"github.com/kyleseneker/arrchitect/internal/controller/reconciler"
-	"github.com/kyleseneker/arrchitect/internal/controller/secretref"
 	"github.com/kyleseneker/arrchitect/internal/engine"
 	"github.com/kyleseneker/arrchitect/internal/httpapi"
 	"github.com/kyleseneker/arrchitect/internal/secrets"
@@ -39,8 +37,19 @@ type QBittorrentReconciler struct {
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
 
 func (r *QBittorrentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	integration := reconciler.Integration[*downloadsv1alpha1.QBittorrent, *qbclient.Client]{
+	return r.integration().Reconcile(ctx, r.Client, r.Recorder, req)
+}
+
+// SetupWithManager sets up the controller with the Manager.
+func (r *QBittorrentReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	return r.integration().SetupWithManager(mgr, nil, r)
+}
+
+func (r *QBittorrentReconciler) integration() reconciler.Integration[*downloadsv1alpha1.QBittorrent, *qbclient.Client] {
+	return reconciler.Integration[*downloadsv1alpha1.QBittorrent, *qbclient.Client]{
 		App:     "qbittorrent",
+		New:     func() *downloadsv1alpha1.QBittorrent { return &downloadsv1alpha1.QBittorrent{} },
+		NewList: func() client.ObjectList { return &downloadsv1alpha1.QBittorrentList{} },
 		Connect: r.connect,
 		Check: func(ctx context.Context, qb *qbclient.Client, _ *downloadsv1alpha1.QBittorrent) error {
 			return qb.Ping(ctx)
@@ -49,7 +58,6 @@ func (r *QBittorrentReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		Cleanup: cleanupQBittorrent,
 		Prune:   true,
 	}
-	return integration.Reconcile(ctx, r.Client, r.Recorder, req, &downloadsv1alpha1.QBittorrent{})
 }
 
 func (r *QBittorrentReconciler) sync(ctx context.Context, qb *qbclient.Client, config *downloadsv1alpha1.QBittorrent, pass *engine.Pass) []error {
@@ -261,20 +269,18 @@ func reconcileQBPreferences(
 }
 
 func (r *QBittorrentReconciler) connect(ctx context.Context, config *downloadsv1alpha1.QBittorrent) (*qbclient.Client, error) {
-	username, err := secrets.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, config.Spec.Connection.UsernameSecretRef)
+	conn := config.Spec.Connection
+	username, err := secrets.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, conn.UsernameSecretRef)
 	if err != nil {
 		return nil, err
 	}
-	password, err := secrets.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, config.Spec.Connection.PasswordSecretRef)
+	password, err := secrets.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, conn.PasswordSecretRef)
 	if err != nil {
 		return nil, err
 	}
-	tlsCfg, err := reconciler.ResolveTLSConfig(ctx, r.Client, config.Namespace, config.Spec.Connection.TLS)
-	if err != nil {
-		return nil, err
-	}
-	hc, err := httpapi.NewHTTPClient(config.Spec.Connection.URL, httpapi.AuthCookie,
-		append(qbclient.HTTPOptions(), httpapi.WithTLSConfig(tlsCfg))...)
+	hc, err := reconciler.Dial(ctx, r.Client, config.Namespace, reconciler.Endpoint{
+		App: "qbittorrent", URL: conn.URL, TLS: conn.TLS, Auth: httpapi.AuthCookie, Options: qbclient.HTTPOptions(),
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -348,15 +354,4 @@ func reconcileQBCategory(
 	return pass.Sync("categories", cat.Name, current, map[string]any{"savePath": qbPath(cat.SavePath)}, func(map[string]any) error {
 		return qb.EditCategory(ctx, cat.Name, qbPath(cat.SavePath), current)
 	})
-}
-
-// SetupWithManager sets up the controller with the Manager.
-func (r *QBittorrentReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	b := ctrl.NewControllerManagedBy(mgr).
-		For(&downloadsv1alpha1.QBittorrent{}, builder.WithPredicates(reconciler.ConfigChangedPredicate()))
-	b, err := secretref.Watch(mgr, b, &downloadsv1alpha1.QBittorrent{}, &downloadsv1alpha1.QBittorrentList{})
-	if err != nil {
-		return err
-	}
-	return b.Named("qbittorrent").Complete(r)
 }

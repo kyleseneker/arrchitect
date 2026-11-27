@@ -494,8 +494,8 @@ func importListResources(
 	ils := make([]map[string]any, 0, len(opts.ImportLists))
 	for _, il := range opts.ImportLists {
 		if il.Enabled != nil && !*il.Enabled && opts.App.ImportListFields.Enable == "" {
-			return nil, failure.InvalidConfig(fmt.Errorf("importLists(%s): %s import lists are always active; set enableAutomaticAdd to false so this one adds nothing",
-				il.Name, httpapi.AppName(opts.App.Name)))
+			return nil, failure.InvalidConfig.Errorf("importLists(%s): %s import lists are always active; set enableAutomaticAdd to false so this one adds nothing",
+				il.Name, httpapi.AppName(opts.App.Name))
 		}
 		tags, err := tagIDs.ResolveTags(il.TagLabels)
 		if err != nil {

@@ -579,6 +579,6 @@ func TestResolveNotificationsFillsInTheMediaServer(t *testing.T) {
 	} {
 		_, err := resolveNotifications(context.Background(), c, nil, "media", []commonv1alpha1.Notification{tt.n})
 		require.EqualError(t, err, tt.want)
-		assert.Equal(t, tt.invalid, failure.IsConfigError(err), "only a spec change fixes it: %v", err)
+		assert.Equal(t, tt.invalid, failure.KindOf(err) == failure.InvalidConfig, "only a spec change fixes it: %v", err)
 	}
 }

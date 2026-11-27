@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/kyleseneker/arrchitect/internal/failure"
 	"github.com/kyleseneker/arrchitect/internal/httpapi"
 )
 
@@ -45,8 +46,8 @@ func TestLogin_Failure(t *testing.T) {
 		_, _ = w.Write([]byte("Fails."))
 	})
 	err := c.Login(context.Background())
-	require.ErrorIs(t, err, httpapi.ErrUnauthorized)
-	assert.Contains(t, err.Error(), "Fails.")
+	assert.EqualError(t, err, `qBittorrent refused the credentials: it answered "Fails."`)
+	assert.Equal(t, failure.Unauthorized, failure.KindOf(err))
 }
 
 func TestLoginRefusedNamesTheHostHeaderPort(t *testing.T) {
@@ -59,6 +60,7 @@ func TestLoginRefusedNamesTheHostHeaderPort(t *testing.T) {
 	apiErr, ok := errors.AsType[*httpapi.APIError](err)
 	require.True(t, ok)
 	assert.Equal(t, http.StatusUnauthorized, apiErr.StatusCode)
+	assert.Equal(t, failure.Unauthorized, failure.KindOf(err))
 }
 
 func TestPing(t *testing.T) {
