@@ -345,28 +345,7 @@ type ProwlarrDownloadClientCategory struct {
 // ProwlarrStatus defines the observed state of Prowlarr.
 // +kubebuilder:validation:MinProperties=1
 type ProwlarrStatus struct {
-	// conditions represent the current state of the Prowlarr resource.
-	// +listType=map
-	// +listMapKey=type
-	// +optional
-	Conditions []metav1.Condition `json:"conditions,omitempty"`
-
-	// observedGeneration is the most recent generation observed.
-	// +optional
-	// +kubebuilder:validation:Minimum=1
-	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
-
-	// lastSyncTime is the timestamp of the last successful reconciliation.
-	// +optional
-	LastSyncTime *metav1.Time `json:"lastSyncTime,omitempty"`
-
-	// managedResources records the resources this operator created, keyed by
-	// resource type. Prune only removes entries listed here, so resources
-	// created outside the operator are never deleted.
-	// +optional
-	// +listType=map
-	// +listMapKey=type
-	ManagedResources []commonv1alpha1.ManagedResource `json:"managedResources,omitempty"`
+	commonv1alpha1.ConfigStatus `json:",inline"`
 }
 
 // +kubebuilder:object:root=true
@@ -403,16 +382,7 @@ type ProwlarrList struct {
 	Items           []Prowlarr `json:"items"`
 }
 
-func (c *Prowlarr) GetConditions() *[]metav1.Condition { return &c.Status.Conditions }
-func (c *Prowlarr) GetObservedGeneration() *int64      { return &c.Status.ObservedGeneration }
-func (c *Prowlarr) GetLastSyncTime() **metav1.Time     { return &c.Status.LastSyncTime }
+func (c *Prowlarr) GetConfigStatus() *commonv1alpha1.ConfigStatus { return &c.Status.ConfigStatus }
 func (c *Prowlarr) GetReconcileConfig() *commonv1alpha1.ReconcileConfig {
 	return c.Spec.Reconcile
-}
-func (c *Prowlarr) GetManagedResources() map[string][]string {
-	return commonv1alpha1.ManagedMap(c.Status.ManagedResources)
-}
-
-func (c *Prowlarr) SetManagedResources(m map[string][]string) {
-	c.Status.ManagedResources = commonv1alpha1.ManagedList(m)
 }

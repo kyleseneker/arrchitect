@@ -52,9 +52,7 @@ func TestResolveServiceProfileByName(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			ln, err := net.Listen("tcp", net.JoinHostPort(testnet.RoutableAddr(t), "0"))
-			require.NoError(t, err)
-			server := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			server := testnet.Serve(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				assert.Equal(t, "GET", r.Method, "unexpected request method")
 				assert.Equal(t, "/sonarr/api/v3/qualityprofile", r.URL.Path, "unexpected request path")
 				assert.Equal(t, "lab-key", r.Header.Get("X-Api-Key"), "missing service authentication")
@@ -62,10 +60,6 @@ func TestResolveServiceProfileByName(t *testing.T) {
 				w.WriteHeader(tc.status)
 				_, _ = w.Write([]byte(tc.response))
 			}))
-			_ = server.Listener.Close()
-			server.Listener = ln
-			server.Start()
-			defer server.Close()
 			endpoint, _ := url.Parse(server.URL)
 			n, _ := strconv.Atoi(endpoint.Port())
 			port := int32(n)

@@ -520,32 +520,11 @@ type SeerrServiceConnection struct {
 // SeerrStatus defines the observed state of Seerr.
 // +kubebuilder:validation:MinProperties=1
 type SeerrStatus struct {
-	// conditions represent the current state of the Seerr resource.
-	// +listType=map
-	// +listMapKey=type
-	// +optional
-	Conditions []metav1.Condition `json:"conditions,omitempty"`
-
-	// observedGeneration is the most recent generation observed.
-	// +optional
-	// +kubebuilder:validation:Minimum=1
-	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
-
-	// lastSyncTime is the timestamp of the last successful reconciliation.
-	// +optional
-	LastSyncTime *metav1.Time `json:"lastSyncTime,omitempty"`
+	commonv1alpha1.ConfigStatus `json:",inline"`
 
 	// initialized indicates whether the Seerr initial setup has been completed.
 	// +optional
 	Initialized *bool `json:"initialized,omitempty"`
-
-	// managedResources records the resources this operator created, keyed by
-	// resource type. Prune only removes entries listed here, so resources
-	// created outside the operator are never deleted.
-	// +optional
-	// +listType=map
-	// +listMapKey=type
-	ManagedResources []commonv1alpha1.ManagedResource `json:"managedResources,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -582,14 +561,5 @@ type SeerrList struct {
 	Items           []Seerr `json:"items"`
 }
 
-func (c *Seerr) GetConditions() *[]metav1.Condition                  { return &c.Status.Conditions }
-func (c *Seerr) GetObservedGeneration() *int64                       { return &c.Status.ObservedGeneration }
-func (c *Seerr) GetLastSyncTime() **metav1.Time                      { return &c.Status.LastSyncTime }
+func (c *Seerr) GetConfigStatus() *commonv1alpha1.ConfigStatus       { return &c.Status.ConfigStatus }
 func (c *Seerr) GetReconcileConfig() *commonv1alpha1.ReconcileConfig { return c.Spec.Reconcile }
-func (c *Seerr) GetManagedResources() map[string][]string {
-	return commonv1alpha1.ManagedMap(c.Status.ManagedResources)
-}
-
-func (c *Seerr) SetManagedResources(m map[string][]string) {
-	c.Status.ManagedResources = commonv1alpha1.ManagedList(m)
-}

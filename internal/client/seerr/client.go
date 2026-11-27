@@ -166,5 +166,5 @@ func (c *Client) Ping(ctx context.Context) error {
 
 // Delete performs a DELETE request.
 func (c *Client) Delete(ctx context.Context, path string) error {
-	return c.hc.DeleteJSON(ctx, path)
+	return c.hc.Delete(ctx, path)
 }

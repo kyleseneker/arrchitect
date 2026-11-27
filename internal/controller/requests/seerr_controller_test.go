@@ -5,9 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"maps"
-	"net"
 	"net/http"
-	"net/http/httptest"
 	"slices"
 	"strings"
 	"sync"
@@ -48,7 +46,7 @@ func observeSeerr(t *testing.T, cfg *requestsv1alpha1.Seerr) metav1.Condition {
 	require.NoError(t, requestsv1alpha1.AddToScheme(scheme))
 	c := fake.NewClientBuilder().WithScheme(scheme).
 		WithStatusSubresource(&requestsv1alpha1.Seerr{}).WithObjects(cfg, seerrSecret()).Build()
-	r := &SeerrReconciler{Client: c, Scheme: scheme, Recorder: events.NewFakeRecorder(50)}
+	r := &SeerrReconciler{Client: c, Recorder: events.NewFakeRecorder(50)}
 	key := types.NamespacedName{Namespace: cfg.Namespace, Name: cfg.Name}
 	_, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: key})
 	require.NoError(t, err)
@@ -232,11 +230,7 @@ func (f *fakeSeerr) serve(t *testing.T) string {
 	if f.notifications == nil {
 		f.notifications = map[string]map[string]any{}
 	}
-	ln, err := net.Listen("tcp", net.JoinHostPort(testnet.RoutableAddr(t), "0"))
-	if err != nil {
-		t.Skipf("cannot bind a routable listener: %v", err)
-	}
-	srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := testnet.Serve(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var body map[string]any
 		if r.Method == http.MethodPost || r.Method == http.MethodPut {
 			_ = json.NewDecoder(r.Body).Decode(&body)
@@ -293,10 +287,6 @@ func (f *fakeSeerr) serve(t *testing.T) string {
 			_ = json.NewEncoder(w).Encode(map[string]any{})
 		}
 	}))
-	_ = srv.Listener.Close()
-	srv.Listener = ln
-	srv.Start()
-	t.Cleanup(srv.Close)
 	return srv.URL
 }
 
@@ -454,7 +444,7 @@ func runSeerr(t *testing.T, cfg *requestsv1alpha1.Seerr, objs ...client.Object) 
 	c := fake.NewClientBuilder().WithScheme(scheme).
 		WithStatusSubresource(&requestsv1alpha1.Seerr{}).
 		WithObjects(append(objs, cfg, seerrSecret())...).Build()
-	r := &SeerrReconciler{Client: c, Scheme: scheme, Recorder: events.NewFakeRecorder(50)}
+	r := &SeerrReconciler{Client: c, Recorder: events.NewFakeRecorder(50)}
 	_, err := r.Reconcile(context.Background(), ctrl.Request{
 		Name: "seerr", Namespace: "media",
 	})
@@ -624,7 +614,7 @@ func TestSeerrFailedSetupKeepsTrackOfTheServersItCreated(t *testing.T) {
 	got := runSeerr(t, cfg)
 
 	require.Equal(t, []string{"Sonarr"}, seerrServiceNames(app, "sonarr"))
-	assert.Equal(t, []string{"Sonarr"}, got.GetManagedResources()["sonarr"], "prune and deletion could never remove it")
+	assert.Equal(t, []string{"Sonarr"}, got.Status.GetManagedResources()["sonarr"], "prune and deletion could never remove it")
 }
 
 func TestSeerrReportsARefusedAPIKeyAsUnauthorized(t *testing.T) {
@@ -844,7 +834,7 @@ func TestSeerrPrunesTheConnectionItCreatedUnderAnOldName(t *testing.T) {
 		APIKeySecretRef: &commonv1alpha1.SecretKeyRef{Name: "seerr-secrets", Key: "api-key"},
 	}}
 	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{Prune: new(true)}
-	cfg.SetManagedResources(map[string][]string{"sonarr": {"Old"}})
+	cfg.Status.SetManagedResources(map[string][]string{"sonarr": {"Old"}})
 
 	runSeerr(t, cfg)
 
@@ -858,7 +848,7 @@ func TestSeerrDeletionPolicyRemovesTheConnectionsItCreated(t *testing.T) {
 	cfg := seerrWithAPIKey(app.serve(t))
 	policy := ctrlcommon.DeletionPolicyDelete
 	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{DeletionPolicy: policy}
-	cfg.SetManagedResources(map[string][]string{"sonarr": {"Sonarr"}})
+	cfg.Status.SetManagedResources(map[string][]string{"sonarr": {"Sonarr"}})
 	now := metav1.NewTime(time.Now())
 	cfg.DeletionTimestamp = &now
 	cfg.Finalizers = []string{ctrlcommon.Finalizer}
@@ -880,7 +870,7 @@ func TestSeerrObserveReportsAConnectionPruneWouldDelete(t *testing.T) {
 	}}
 	observe := "observe"
 	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{Prune: new(true), DriftPolicy: observe}
-	cfg.SetManagedResources(map[string][]string{"sonarr": {"ObserveOld"}})
+	cfg.Status.SetManagedResources(map[string][]string{"sonarr": {"ObserveOld"}})
 	observed := metrics.DriftObservedTotal.WithLabelValues("seerr", "sonarr", "ObserveOld")
 	before := testutil.ToFloat64(observed)
 

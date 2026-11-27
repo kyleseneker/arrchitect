@@ -153,7 +153,7 @@ func (c *Client) AddLibraryPath(ctx context.Context, library, path string) error
 // RemoveLibraryPath removes a folder from a library without rescanning it.
 func (c *Client) RemoveLibraryPath(ctx context.Context, library, path string) error {
 	params := url.Values{"name": {library}, "path": {path}, "refreshLibrary": {"false"}}
-	return c.hc.DeleteJSON(ctx, "/Library/VirtualFolders/Paths?"+params.Encode())
+	return c.hc.Delete(ctx, "/Library/VirtualFolders/Paths?"+params.Encode())
 }
 
 // AvailableLibraryOptions lists the fetchers, readers and providers a library

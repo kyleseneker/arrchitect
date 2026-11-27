@@ -3,9 +3,7 @@ package subtitles
 import (
 	"context"
 	"encoding/json"
-	"net"
 	"net/http"
-	"net/http/httptest"
 	"net/url"
 	"slices"
 	"strings"
@@ -85,11 +83,7 @@ func (f *fakeBazarr) sawPath(p string) bool {
 
 func (f *fakeBazarr) serve(t *testing.T) string {
 	t.Helper()
-	ln, err := net.Listen("tcp", net.JoinHostPort(testnet.RoutableAddr(t), "0"))
-	if err != nil {
-		t.Skipf("cannot bind a routable listener: %v", err)
-	}
-	srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := testnet.Serve(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_ = r.ParseForm()
 		f.mu.Lock()
 		f.paths = append(f.paths, r.URL.Path)
@@ -121,10 +115,6 @@ func (f *fakeBazarr) serve(t *testing.T) string {
 		}
 		_ = json.NewEncoder(w).Encode(map[string]any{"status": "ok"})
 	}))
-	_ = srv.Listener.Close()
-	srv.Listener = ln
-	srv.Start()
-	t.Cleanup(srv.Close)
 	return srv.URL
 }
 
@@ -163,7 +153,7 @@ func runBazarr(t *testing.T, cfg *subtitlesv1alpha1.Bazarr, objs ...client.Objec
 		b = b.WithObjects(o)
 	}
 	c := b.Build()
-	r := &BazarrReconciler{Client: c, Scheme: scheme, Recorder: events.NewFakeRecorder(50)}
+	r := &BazarrReconciler{Client: c, Recorder: events.NewFakeRecorder(50)}
 	_, err := r.Reconcile(context.Background(), ctrl.Request{
 		Name: "bazarr", Namespace: "media",
 	})
@@ -340,7 +330,7 @@ func TestBazarrDefaultProfilesResolveByName(t *testing.T) {
 
 func newTestBazarrClient(t *testing.T, addr string) *bazarrclient.Client {
 	t.Helper()
-	hc, err := engine.NewHTTPClient(addr, engine.AuthFormEncoded, engine.WithAPIKey("key"), engine.WithAPIKeyHeader("X-API-KEY"))
+	hc, err := engine.NewHTTPClient(addr, engine.AuthAPIKey, engine.WithAPIKey("key"), engine.WithAPIKeyHeader("X-API-KEY"))
 	require.NoError(t, err)
 	return bazarrclient.NewClient(hc)
 }

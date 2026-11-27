@@ -3,6 +3,8 @@ package testnet
 
 import (
 	"net"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 )
 
@@ -28,4 +30,20 @@ func RoutableAddr(t *testing.T) string {
 	}
 	t.Skip("no routable non-loopback IPv4 address on this host")
 	return ""
+}
+
+// Serve starts a server for handler on RoutableAddr, closed when the test
+// ends.
+func Serve(t *testing.T, handler http.Handler) *httptest.Server {
+	t.Helper()
+	ln, err := net.Listen("tcp", net.JoinHostPort(RoutableAddr(t), "0"))
+	if err != nil {
+		t.Skipf("cannot bind a routable listener: %v", err)
+	}
+	srv := httptest.NewUnstartedServer(handler)
+	_ = srv.Listener.Close()
+	srv.Listener = ln
+	srv.Start()
+	t.Cleanup(srv.Close)
+	return srv
 }

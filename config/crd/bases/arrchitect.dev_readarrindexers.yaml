@@ -194,7 +194,7 @@ spec:
             minProperties: 1
             properties:
               conditions:
-                description: conditions represent the current state of the indexer.
+                description: conditions represent the current state of the resource.
                 items:
                   description: Condition contains details for one aspect of the current
                     state of this API Resource.
@@ -265,8 +265,9 @@ spec:
                 type: string
               managedResources:
                 description: |-
-                  managedResources records what the operator created for this resource,
-                  so deletion only removes what it created.
+                  managedResources records the items the operator created, keyed by
+                  resource type. Prune and deletion only remove items listed here, so
+                  items created outside the operator are never deleted.
                 items:
                   description: ManagedResource lists the items of one type the operator
                     created.

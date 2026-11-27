@@ -67,7 +67,7 @@ func TestSabnzbd(t *testing.T) {
 		},
 		newObj: func() ctrlcommon.ConfigResource { return &downloadsv1alpha1.Sabnzbd{} },
 		reconciler: func(c client.Client) reconcile.Reconciler {
-			return &downloads.SabnzbdReconciler{Client: c, Scheme: c.Scheme(), Recorder: events.NewFakeRecorder(100)}
+			return &downloads.SabnzbdReconciler{Client: c, Recorder: events.NewFakeRecorder(100)}
 		},
 		proxy: proxy,
 		// Every call is a form POST to /api; the mode says whether it writes.
@@ -193,7 +193,7 @@ func TestQBittorrent(t *testing.T) {
 		},
 		newObj: func() ctrlcommon.ConfigResource { return &downloadsv1alpha1.QBittorrent{} },
 		reconciler: func(c client.Client) reconcile.Reconciler {
-			return &downloads.QBittorrentReconciler{Client: c, Scheme: c.Scheme(), Recorder: events.NewFakeRecorder(100)}
+			return &downloads.QBittorrentReconciler{Client: c, Recorder: events.NewFakeRecorder(100)}
 		},
 		proxy: proxy,
 		// The WebUI authenticates with a POST; it changes no settings.

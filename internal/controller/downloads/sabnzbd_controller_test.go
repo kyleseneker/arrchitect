@@ -5,9 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/json"
 	"maps"
-	"net"
 	"net/http"
-	"net/http/httptest"
 	"net/url"
 	"sync"
 	"testing"
@@ -66,11 +64,7 @@ func (f *fakeSabnzbd) sawMode(mode string) bool {
 
 func (f *fakeSabnzbd) serve(t *testing.T) string {
 	t.Helper()
-	ln, err := net.Listen("tcp", net.JoinHostPort(testnet.RoutableAddr(t), "0"))
-	if err != nil {
-		t.Skipf("cannot bind a routable listener: %v", err)
-	}
-	srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := testnet.Serve(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_ = r.ParseForm()
 		params := url.Values{}
 		maps.Copy(params, r.Form)
@@ -85,10 +79,6 @@ func (f *fakeSabnzbd) serve(t *testing.T) string {
 		}
 		_ = json.NewEncoder(w).Encode(map[string]any{"status": true, "config": config})
 	}))
-	_ = srv.Listener.Close()
-	srv.Listener = ln
-	srv.Start()
-	t.Cleanup(srv.Close)
 	return srv.URL
 }
 
@@ -122,7 +112,7 @@ func runSabnzbd(t *testing.T, cfg *downloadsv1alpha1.Sabnzbd, withSecret bool) {
 		b = b.WithObjects(sabnzbdSecret())
 	}
 	c := b.Build()
-	r := &SabnzbdReconciler{Client: c, Scheme: scheme, Recorder: events.NewFakeRecorder(50)}
+	r := &SabnzbdReconciler{Client: c, Recorder: events.NewFakeRecorder(50)}
 	_, err := r.Reconcile(context.Background(), ctrl.Request{
 		Name: "sabnzbd", Namespace: "media",
 	})
@@ -220,7 +210,7 @@ func TestSabnzbdObserveReportsDriftWithoutWriting(t *testing.T) {
 	require.NoError(t, downloadsv1alpha1.AddToScheme(scheme))
 	c := fake.NewClientBuilder().WithScheme(scheme).
 		WithStatusSubresource(&downloadsv1alpha1.Sabnzbd{}).WithObjects(cfg, sabnzbdSecret()).Build()
-	r := &SabnzbdReconciler{Client: c, Scheme: scheme}
+	r := &SabnzbdReconciler{Client: c}
 	_, err := r.Reconcile(context.Background(), ctrl.Request{Name: "sabnzbd", Namespace: "media"})
 	require.NoError(t, err)
 
@@ -353,14 +343,14 @@ func runSabnzbdConfig(t *testing.T, cfg *downloadsv1alpha1.Sabnzbd) map[string][
 	require.NoError(t, downloadsv1alpha1.AddToScheme(scheme))
 	c := fake.NewClientBuilder().WithScheme(scheme).
 		WithStatusSubresource(&downloadsv1alpha1.Sabnzbd{}).WithObjects(cfg, sabnzbdSecret()).Build()
-	r := &SabnzbdReconciler{Client: c, Scheme: scheme, Recorder: events.NewFakeRecorder(50)}
+	r := &SabnzbdReconciler{Client: c, Recorder: events.NewFakeRecorder(50)}
 	_, err := r.Reconcile(context.Background(), ctrl.Request{Name: "sabnzbd", Namespace: "media"})
 	require.NoError(t, err)
 	var got downloadsv1alpha1.Sabnzbd
 	if err := c.Get(context.Background(), ctrl.Request{Name: "sabnzbd", Namespace: "media"}.NamespacedName, &got); err != nil {
 		return nil
 	}
-	return got.GetManagedResources()
+	return got.Status.GetManagedResources()
 }
 
 func sabnzbdEntries(names ...string) []any {
@@ -376,7 +366,7 @@ func TestSabnzbdPrunesOnlyServersItCreated(t *testing.T) {
 	cfg := sabnzbdConfig(app.serve(t))
 	cfg.Spec.Servers = []downloadsv1alpha1.SabnzbdServer{{Name: "kept", Host: "news", Port: 563}}
 	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{Prune: new(true)}
-	cfg.SetManagedResources(map[string][]string{"servers": {"old", "kept"}})
+	cfg.Status.SetManagedResources(map[string][]string{"servers": {"old", "kept"}})
 
 	managed := runSabnzbdConfig(t, cfg)
 
@@ -403,7 +393,7 @@ func TestSabnzbdDeletionPolicyRemovesWhatItCreated(t *testing.T) {
 	cfg := sabnzbdConfig(app.serve(t))
 	policy := ctrlcommon.DeletionPolicyDelete
 	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{DeletionPolicy: policy}
-	cfg.SetManagedResources(map[string][]string{"servers": {"old"}, "categories": {"tv"}})
+	cfg.Status.SetManagedResources(map[string][]string{"servers": {"old"}, "categories": {"tv"}})
 	now := metav1.NewTime(time.Now())
 	cfg.DeletionTimestamp = &now
 	cfg.Finalizers = []string{ctrlcommon.Finalizer}
@@ -422,7 +412,7 @@ func TestSabnzbdObserveReportsWhatPruneWouldDelete(t *testing.T) {
 	cfg.Spec.Servers = []downloadsv1alpha1.SabnzbdServer{{Name: "kept", Host: "news", Port: 563}}
 	observe := "observe"
 	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{Prune: new(true), DriftPolicy: observe}
-	cfg.SetManagedResources(map[string][]string{"servers": {"observe-old"}})
+	cfg.Status.SetManagedResources(map[string][]string{"servers": {"observe-old"}})
 	observed := metrics.DriftObservedTotal.WithLabelValues("sabnzbd", "servers", "observe-old")
 	before := testutil.ToFloat64(observed)
 
@@ -568,7 +558,7 @@ func TestSabnzbdReportsSettingsSABnzbdDidNotKeep(t *testing.T) {
 	require.NoError(t, downloadsv1alpha1.AddToScheme(scheme))
 	c := fake.NewClientBuilder().WithScheme(scheme).
 		WithStatusSubresource(&downloadsv1alpha1.Sabnzbd{}).WithObjects(cfg, sabnzbdSecret()).Build()
-	r := &SabnzbdReconciler{Client: c, Scheme: scheme, Recorder: events.NewFakeRecorder(50)}
+	r := &SabnzbdReconciler{Client: c, Recorder: events.NewFakeRecorder(50)}
 	_, err := r.Reconcile(context.Background(), ctrl.Request{Name: "sabnzbd", Namespace: "media"})
 	require.NoError(t, err)
 

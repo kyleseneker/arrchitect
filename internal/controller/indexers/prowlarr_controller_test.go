@@ -3,9 +3,7 @@ package indexers
 import (
 	"context"
 	"encoding/json"
-	"net"
 	"net/http"
-	"net/http/httptest"
 	"strings"
 	"sync"
 	"testing"
@@ -67,11 +65,7 @@ func (f *fakeProwlarr) serve(t *testing.T) string {
 	if f.existing == nil {
 		f.existing = map[string][]map[string]any{}
 	}
-	ln, err := net.Listen("tcp", net.JoinHostPort(testnet.RoutableAddr(t), "0"))
-	if err != nil {
-		t.Skipf("cannot bind a routable listener: %v", err)
-	}
-	srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := testnet.Serve(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		key := r.Method + " " + r.URL.Path
 		w.Header().Set("Content-Type", "application/json")
 
@@ -119,10 +113,6 @@ func (f *fakeProwlarr) serve(t *testing.T) string {
 			w.WriteHeader(http.StatusOK)
 		}
 	}))
-	_ = srv.Listener.Close()
-	srv.Listener = ln
-	srv.Start()
-	t.Cleanup(srv.Close)
 	return srv.URL
 }
 
@@ -145,7 +135,7 @@ func runProwlarr(t *testing.T, cfg *indexersv1alpha1.Prowlarr, objs ...client.Ob
 		b = b.WithObjects(o)
 	}
 	c := b.Build()
-	r := &ProwlarrReconciler{Client: c, Scheme: scheme, Recorder: events.NewFakeRecorder(50)}
+	r := &ProwlarrReconciler{Client: c, Recorder: events.NewFakeRecorder(50)}
 	_, err := r.Reconcile(context.Background(), ctrl.Request{
 		Name: "prowlarr", Namespace: "media",
 	})
@@ -200,8 +190,8 @@ func TestProwlarrCreatesDeclaredIndexer(t *testing.T) {
 	var got indexersv1alpha1.Prowlarr
 	require.NoError(t, c.Get(context.Background(), types.NamespacedName{Name: "prowlarr", Namespace: "media"}, &got),
 		"fetching config")
-	assert.NotEmpty(t, got.GetManagedResources()["indexers"],
-		"indexer not recorded as managed: %+v", got.GetManagedResources())
+	assert.NotEmpty(t, got.Status.GetManagedResources()["indexers"],
+		"indexer not recorded as managed: %+v", got.Status.GetManagedResources())
 }
 
 func TestProwlarrPruneLeavesUnmanagedIndexerAlone(t *testing.T) {
@@ -236,7 +226,7 @@ func TestProwlarrDeletePolicyCleansTrackedResources(t *testing.T) {
 	cfg := prowlarrConfig(app.serve(t))
 	policy := "delete"
 	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{DeletionPolicy: policy}
-	cfg.SetManagedResources(map[string][]string{"indexers": {"owned"}})
+	cfg.Status.SetManagedResources(map[string][]string{"indexers": {"owned"}})
 	cfg.Finalizers = []string{ctrlcommon.Finalizer}
 	now := metav1.Now()
 	cfg.DeletionTimestamp = &now
@@ -261,7 +251,7 @@ func TestProwlarrProfileCreatedBeforeIndexer(t *testing.T) {
 	require.Equal(t, float64(42), posts[0]["appProfileId"])
 	var got indexersv1alpha1.Prowlarr
 	require.NoError(t, c.Get(context.Background(), types.NamespacedName{Name: "prowlarr", Namespace: "media"}, &got))
-	require.Equal(t, []string{"Search"}, got.GetManagedResources()["appProfiles"])
+	require.Equal(t, []string{"Search"}, got.Status.GetManagedResources()["appProfiles"])
 	require.Equal(t, int32(7), *got.Spec.Indexers[0].AppProfileID)
 }
 
@@ -282,7 +272,7 @@ func TestProwlarrProfileReferenceFailuresPreserveOwnership(t *testing.T) {
 			require.Empty(t, app.postsTo("/api/v1/indexer"))
 			var got indexersv1alpha1.Prowlarr
 			require.NoError(t, c.Get(context.Background(), types.NamespacedName{Name: "prowlarr", Namespace: "media"}, &got))
-			require.Equal(t, []string{"new"}, got.GetManagedResources()["tags"])
+			require.Equal(t, []string{"new"}, got.Status.GetManagedResources()["tags"])
 			for _, condition := range got.Status.Conditions {
 				if condition.Type == "Synced" {
 					require.Equal(t, metav1.ConditionFalse, condition.Status)

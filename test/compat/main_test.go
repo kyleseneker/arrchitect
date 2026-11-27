@@ -359,7 +359,7 @@ func checkCleanup(t *testing.T, tc compatCase, resources []resource) {
 	require.True(t, reconcileAll(t, resources, "reconcile with deletionPolicy: delete"))
 	owned := map[string][]string{}
 	for _, r := range resources {
-		for kind, names := range r.newObjAt(t).GetManagedResources() {
+		for kind, names := range r.newObjAt(t).GetConfigStatus().GetManagedResources() {
 			owned[kind] = append(owned[kind], names...)
 		}
 	}
@@ -475,7 +475,7 @@ func reconcileUntilCurrent(
 		require.NoError(t, err, "reconcile")
 		obj := newObj()
 		require.NoError(t, k8s.Get(ctx, key, obj), "reading %s", key)
-		if observed := obj.GetObservedGeneration(); observed != nil && *observed == obj.GetGeneration() {
+		if obj.GetConfigStatus().ObservedGeneration == obj.GetGeneration() {
 			return obj
 		}
 	}
@@ -485,7 +485,7 @@ func reconcileUntilCurrent(
 
 func assertSynced(t *testing.T, obj ctrlcommon.ConfigResource, stage string) bool {
 	t.Helper()
-	for _, c := range *obj.GetConditions() {
+	for _, c := range obj.GetConfigStatus().Conditions {
 		if c.Type == engine.ConditionSynced {
 			return assert.Equal(t, metav1.ConditionTrue, c.Status,
 				"%s: Synced=%s (%s): %s", stage, c.Status, c.Reason, c.Message)

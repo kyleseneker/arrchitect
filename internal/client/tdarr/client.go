@@ -6,9 +6,18 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/kyleseneker/arrchitect/internal/engine"
 )
+
+// HTTPOptions are what every client for Tdarr takes: the header it reads the
+// API key from, and room for the time a large flow or library write takes.
+func HTTPOptions() []engine.HTTPClientOption {
+	return []engine.HTTPClientOption{
+		engine.WithAPIKeyHeader("x-api-key"), engine.WithAppLabel("tdarr"), engine.WithTimeout(3 * time.Minute),
+	}
+}
 
 // Client wraps engine.HTTPClient with Tdarr-specific API methods.
 type Client struct {
@@ -98,20 +107,6 @@ func (c *Client) Insert(ctx context.Context, collection, docID string, obj map[s
 func (c *Client) Update(ctx context.Context, collection, docID string, obj map[string]any) error {
 	_, err := c.CrudDB(ctx, collection, "update", docID, obj)
 	return err
-}
-
-// Upsert inserts or updates a document. It attempts a GetByID first;
-// if the document exists it updates, otherwise it inserts.
-func (c *Client) Upsert(ctx context.Context, collection, docID string, obj map[string]any) error {
-	existing, err := c.GetByID(ctx, collection, docID)
-	if err != nil {
-		return fmt.Errorf("looking up %s/%s: %w", collection, docID, err)
-	}
-	// A nil or empty result means the document was not found.
-	if len(existing) == 0 {
-		return c.Insert(ctx, collection, docID, obj)
-	}
-	return c.Update(ctx, collection, docID, obj)
 }
 
 // GetNodes returns all registered Tdarr nodes.

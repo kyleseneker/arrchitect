@@ -72,19 +72,6 @@ func TestSetConfig(t *testing.T) {
 	assert.NoError(t, c.SetConfig(context.Background(), "misc", "download_dir", "/new"))
 }
 
-func TestSetConfigMulti(t *testing.T) {
-	var callCount int
-	c := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
-		callCount++
-		w.WriteHeader(http.StatusOK)
-	})
-	err := c.SetConfigMulti(context.Background(), "misc", map[string]string{
-		"download_dir": "/dl", "complete_dir": "/done",
-	})
-	assert.NoError(t, err)
-	assert.Equal(t, 2, callCount)
-}
-
 func TestApiParams(t *testing.T) {
 	c := &Client{apiKey: "key123"}
 	params := c.apiParams("get_config", "section=misc&keyword=dir")

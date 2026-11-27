@@ -4,9 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net"
 	"net/http"
-	"net/http/httptest"
 	"slices"
 	"sync"
 	"testing"
@@ -47,11 +45,7 @@ func (f *fakeFlareSolverr) ran(cmd, session string) bool {
 
 func (f *fakeFlareSolverr) serve(t *testing.T) string {
 	t.Helper()
-	ln, err := net.Listen("tcp", net.JoinHostPort(testnet.RoutableAddr(t), "0"))
-	if err != nil {
-		t.Skipf("cannot bind a routable listener: %v", err)
-	}
-	srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := testnet.Serve(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
 			Cmd     string `json:"cmd"`
 			Session string `json:"session"`
@@ -70,10 +64,6 @@ func (f *fakeFlareSolverr) serve(t *testing.T) string {
 		}
 		_ = json.NewEncoder(w).Encode(resp)
 	}))
-	_ = srv.Listener.Close()
-	srv.Listener = ln
-	srv.Start()
-	t.Cleanup(srv.Close)
 	return srv.URL
 }
 
@@ -92,7 +82,7 @@ func flareConfig(url string, prune bool, managed []string, sessions ...string) *
 		cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{Prune: &yes}
 	}
 	if managed != nil {
-		cfg.SetManagedResources(map[string][]string{"sessions": managed})
+		cfg.Status.SetManagedResources(map[string][]string{"sessions": managed})
 	}
 	return cfg
 }
@@ -105,7 +95,7 @@ func runFlare(t *testing.T, cfg *indexersv1alpha1.FlareSolverr) client.Client {
 	c := fake.NewClientBuilder().WithScheme(scheme).
 		WithStatusSubresource(&indexersv1alpha1.FlareSolverr{}).
 		WithObjects(cfg).Build()
-	r := &FlareSolverrReconciler{Client: c, Scheme: scheme, Recorder: events.NewFakeRecorder(50)}
+	r := &FlareSolverrReconciler{Client: c, Recorder: events.NewFakeRecorder(50)}
 	_, err := r.Reconcile(context.Background(), ctrl.Request{
 		Name: "flaresolverr", Namespace: "media",
 	})
@@ -122,7 +112,7 @@ func TestFlareSolverrCreatesDeclaredSessions(t *testing.T) {
 	assert.True(t, app.ran("sessions.create", "indexer-a"), "declared session was never created")
 	var cfg indexersv1alpha1.FlareSolverr
 	require.NoError(t, c.Get(context.Background(), types.NamespacedName{Name: "flaresolverr", Namespace: "media"}, &cfg), "fetching config")
-	assert.Contains(t, cfg.GetManagedResources()["sessions"], "indexer-a", "session not recorded as managed")
+	assert.Contains(t, cfg.Status.GetManagedResources()["sessions"], "indexer-a", "session not recorded as managed")
 }
 
 // Prowlarr opens FlareSolverr sessions on demand. Destroying one mid-request
@@ -179,7 +169,7 @@ func TestFlareSolverrObserveDoesNotCreatePruneOrClaimSessions(t *testing.T) {
 	c := runFlare(t, cfg)
 	require.NoError(t, c.Get(context.Background(), types.NamespacedName{Name: cfg.Name, Namespace: cfg.Namespace}, cfg))
 	require.Equal(t, int32(2), cfg.Status.ActiveSessions, "active sessions")
-	require.Equal(t, []string{"owned"}, cfg.GetManagedResources()["sessions"], "ownership changed")
+	require.Equal(t, []string{"owned"}, cfg.Status.GetManagedResources()["sessions"], "ownership changed")
 	app.mu.Lock()
 	defer app.mu.Unlock()
 	for _, cmd := range app.commands {
@@ -210,7 +200,7 @@ func TestFlareSolverrDoesNotAdoptExistingSessions(t *testing.T) {
 	cfg := flareConfig(app.serve(t), false, nil, "manual")
 	c := runFlare(t, cfg)
 	require.NoError(t, c.Get(context.Background(), client.ObjectKeyFromObject(cfg), cfg))
-	require.Empty(t, cfg.GetManagedResources()["sessions"], "manual session adopted")
+	require.Empty(t, cfg.Status.GetManagedResources()["sessions"], "manual session adopted")
 }
 
 func TestFlareSolverrPruneLimitPreservesOwnership(t *testing.T) {
@@ -222,7 +212,7 @@ func TestFlareSolverrPruneLimitPreservesOwnership(t *testing.T) {
 	cfg := flareConfig(app.serve(t), true, names)
 	c := runFlare(t, cfg)
 	require.NoError(t, c.Get(context.Background(), client.ObjectKeyFromObject(cfg), cfg))
-	require.Equal(t, names, cfg.GetManagedResources()["sessions"], "ownership lost when pruning was refused")
+	require.Equal(t, names, cfg.Status.GetManagedResources()["sessions"], "ownership lost when pruning was refused")
 	for _, name := range names {
 		require.False(t, app.ran("sessions.destroy", name), "prune limit ignored")
 	}

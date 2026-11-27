@@ -3,9 +3,7 @@ package automation
 import (
 	"context"
 	"encoding/json"
-	"net"
 	"net/http"
-	"net/http/httptest"
 	"slices"
 	"strconv"
 	"strings"
@@ -65,11 +63,7 @@ func (f *fakeAutobrr) serve(t *testing.T) string {
 	if f.existing == nil {
 		f.existing = map[string][]map[string]any{}
 	}
-	ln, err := net.Listen("tcp", net.JoinHostPort(testnet.RoutableAddr(t), "0"))
-	if err != nil {
-		t.Skipf("cannot bind a routable listener: %v", err)
-	}
-	srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := testnet.Serve(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var body map[string]any
 		_ = json.NewDecoder(r.Body).Decode(&body)
 		f.mu.Lock()
@@ -110,10 +104,6 @@ func (f *fakeAutobrr) serve(t *testing.T) string {
 			_ = json.NewEncoder(w).Encode(map[string]any{"id": 1})
 		}
 	}))
-	_ = srv.Listener.Close()
-	srv.Listener = ln
-	srv.Start()
-	t.Cleanup(srv.Close)
 	return srv.URL
 }
 
@@ -149,7 +139,7 @@ func runAutobrr(t *testing.T, cfg *automationv1alpha1.Autobrr, withSecret bool, 
 		b = b.WithObjects(autobrrSecret())
 	}
 	c := b.Build()
-	r := &AutobrrReconciler{Client: c, Scheme: scheme, Recorder: events.NewFakeRecorder(50)}
+	r := &AutobrrReconciler{Client: c, Recorder: events.NewFakeRecorder(50)}
 	_, err := r.Reconcile(context.Background(), ctrl.Request{
 		Name: "autobrr", Namespace: "media",
 	})

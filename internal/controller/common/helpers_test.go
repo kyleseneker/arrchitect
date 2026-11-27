@@ -41,8 +41,8 @@ func TestReconcileInterval(t *testing.T) {
 		rc   *commonv1alpha1.ReconcileConfig
 		want time.Duration
 	}{
-		{"nil config", nil, DefaultReconcileInterval},
-		{"nil interval", &commonv1alpha1.ReconcileConfig{}, DefaultReconcileInterval},
+		{"nil config", nil, engine.DefaultReconcileInterval},
+		{"nil interval", &commonv1alpha1.ReconcileConfig{}, engine.DefaultReconcileInterval},
 		{"30s", &commonv1alpha1.ReconcileConfig{IntervalSeconds: int32(30)}, 30 * time.Second},
 		{"10m", &commonv1alpha1.ReconcileConfig{IntervalSeconds: int32(600)}, 10 * time.Minute},
 	}
@@ -194,7 +194,7 @@ func TestUpdateStatusSurvivesASpecEditMidPass(t *testing.T) {
 
 	got := &pvrv1alpha1.Sonarr{}
 	require.NoError(t, cl.Get(ctx, key, got))
-	assert.Equal(t, map[string][]string{"downloadClients": {"qbit"}}, got.GetManagedResources(), "ownership was lost")
+	assert.Equal(t, map[string][]string{"downloadClients": {"qbit"}}, got.Status.GetManagedResources(), "ownership was lost")
 	condition := meta.FindStatusCondition(got.Status.Conditions, "Synced")
 	require.NotNil(t, condition)
 	assert.Equal(t, metav1.ConditionTrue, condition.Status)
@@ -233,7 +233,7 @@ func TestUpdateStatusReadsPastALaggingCache(t *testing.T) {
 
 	got := &pvrv1alpha1.Sonarr{}
 	require.NoError(t, cl.Get(ctx, key, got))
-	assert.Equal(t, map[string][]string{"downloadClients": {"qbit"}}, got.GetManagedResources(),
+	assert.Equal(t, map[string][]string{"downloadClients": {"qbit"}}, got.Status.GetManagedResources(),
 		"retrying against the cached version kept conflicting, and the ownership was lost")
 }
 
@@ -248,7 +248,7 @@ func TestUpdateStatusOutlivesACancelledReconcile(t *testing.T) {
 
 	got := &pvrv1alpha1.Sonarr{}
 	require.NoError(t, cl.Get(context.Background(), client.ObjectKeyFromObject(obj), got))
-	assert.Equal(t, map[string][]string{"downloadClients": {"qbit"}}, got.GetManagedResources())
+	assert.Equal(t, map[string][]string{"downloadClients": {"qbit"}}, got.Status.GetManagedResources())
 }
 
 func TestReportResultMessages(t *testing.T) {
@@ -314,55 +314,6 @@ func TestConfigChangedPredicate(t *testing.T) {
 	assert.True(t, p.Generic(event.GenericEvent{Object: old}))
 }
 
-func newFakeClient(objs ...client.Object) client.Client {
-	s := runtime.NewScheme()
-	_ = corev1.AddToScheme(s)
-	return fake.NewClientBuilder().WithScheme(s).WithObjects(objs...).Build()
-}
-
-func TestResolveDownloadClientSecrets(t *testing.T) {
-	secret := &corev1.Secret{
-		Name: "qbit-creds", Namespace: "default",
-		Data: map[string][]byte{
-			"username": []byte("admin"),
-			"password": []byte("pass123"),
-		},
-	}
-	fc := newFakeClient(secret)
-
-	dcs := []commonv1alpha1.DownloadClient{
-		{
-			Name:              "qbit",
-			UsernameSecretRef: commonv1alpha1.SecretKeyRef{Name: "qbit-creds", Key: "username"},
-			PasswordSecretRef: commonv1alpha1.SecretKeyRef{Name: "qbit-creds", Key: "password"},
-		},
-		{
-			Name: "no-secrets",
-		},
-	}
-
-	resolved, err := ResolveDownloadClientSecrets(context.Background(), fc, "default", dcs)
-	require.NoError(t, err)
-	assert.Equal(t, "admin", resolved["qbit"].Username)
-	assert.Equal(t, "pass123", resolved["qbit"].Password)
-	assert.Empty(t, resolved["no-secrets"].Username)
-}
-
-func TestResolveDownloadClientSecrets_MissingSecret(t *testing.T) {
-	fc := newFakeClient()
-
-	dcs := []commonv1alpha1.DownloadClient{
-		{
-			Name:              "qbit",
-			UsernameSecretRef: commonv1alpha1.SecretKeyRef{Name: "nonexistent", Key: "username"},
-		},
-	}
-
-	_, err := ResolveDownloadClientSecrets(context.Background(), fc, "default", dcs)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "username")
-}
-
 func TestReferencesSecretFindsEveryReference(t *testing.T) {
 	ref := commonv1alpha1.SecretKeyRef{Name: "target", Key: "k"}
 	for name, config := range map[string]any{
@@ -385,8 +336,8 @@ func TestReferencesSecretFindsEveryReference(t *testing.T) {
 			}}},
 		},
 	} {
-		assert.True(t, ReferencesSecret(config, "target"), name)
-		assert.False(t, ReferencesSecret(config, "other"), name)
+		assert.True(t, referencesSecret(config, "target"), name)
+		assert.False(t, referencesSecret(config, "other"), name)
 	}
 }
 
@@ -612,7 +563,7 @@ func TestEventNotesKeepTheAppsWordsOut(t *testing.T) {
 func TestManagedResourcesGaugeSurvivesARestartWhileTheAppIsDown(t *testing.T) {
 	obj, c := statusSonarr(t)
 	obj.Name = "restarted"
-	obj.SetManagedResources(map[string][]string{"tags": {"a", "b"}})
+	obj.Status.SetManagedResources(map[string][]string{"tags": {"a", "b"}})
 
 	UpdateStatus(context.Background(), c, nil, obj, false, engine.ReasonAppUnreachable, "connection refused")
 

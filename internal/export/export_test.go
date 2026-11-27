@@ -137,3 +137,12 @@ func fieldNames(fields []commonv1alpha1.ConfigField) []string {
 	}
 	return names
 }
+
+func TestDecodeStrictRefusesAFieldTheResourceLacks(t *testing.T) {
+	var cfg pvrv1alpha1.Sonarr
+	require.NoError(t, decodeStrict([]byte(`{"metadata":{"name":"tv"},"spec":{"tags":[{"label":"anime"}]}}`), &cfg))
+	assert.Equal(t, "tv", cfg.Name)
+
+	err := decodeStrict([]byte(`{"spec":{"tagz":[{"label":"anime"}]}}`), &pvrv1alpha1.Sonarr{})
+	require.ErrorContains(t, err, `unknown field "tagz"`, "a misspelled key in a mapping must fail, not vanish")
+}

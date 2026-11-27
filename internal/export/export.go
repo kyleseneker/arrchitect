@@ -3,6 +3,7 @@
 package export
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"encoding/json"
@@ -32,7 +33,11 @@ import (
 	requestsv1alpha1 "github.com/kyleseneker/arrchitect/api/requests/v1alpha1"
 	subtitlesv1alpha1 "github.com/kyleseneker/arrchitect/api/subtitles/v1alpha1"
 	transcodev1alpha1 "github.com/kyleseneker/arrchitect/api/transcode/v1alpha1"
+	autobrrclient "github.com/kyleseneker/arrchitect/internal/client/autobrr"
+	bazarrclient "github.com/kyleseneker/arrchitect/internal/client/bazarr"
 	pvrclient "github.com/kyleseneker/arrchitect/internal/client/pvr"
+	qbclient "github.com/kyleseneker/arrchitect/internal/client/qbittorrent"
+	tdarrclient "github.com/kyleseneker/arrchitect/internal/client/tdarr"
 	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
 	"github.com/kyleseneker/arrchitect/internal/engine"
 	"github.com/kyleseneker/arrchitect/internal/reconciler"
@@ -141,7 +146,7 @@ var apps = map[string]app{
 	},
 	"qbittorrent": {
 		auth: engine.AuthCookie, login: true, hostPort: true, export: exportQBittorrent,
-		options: []engine.HTTPClientOption{engine.WithDisableRedirect()},
+		options: qbclient.HTTPOptions(),
 		newObj:  func() client.Object { return &downloadsv1alpha1.QBittorrent{} },
 	},
 	"sabnzbd": {
@@ -162,12 +167,12 @@ var apps = map[string]app{
 	},
 	"tdarr": {
 		auth: engine.AuthAPIKey, apiKey: true, export: exportTdarr,
-		options: []engine.HTTPClientOption{engine.WithAPIKeyHeader("x-api-key")},
+		options: tdarrclient.HTTPOptions(),
 		newObj:  func() client.Object { return &transcodev1alpha1.Tdarr{} },
 	},
 	"autobrr": {
 		auth: engine.AuthAPIKey, apiKey: true, export: exportAutobrr,
-		options: []engine.HTTPClientOption{engine.WithAPIKeyHeader("X-API-Token")},
+		options: autobrrclient.HTTPOptions(),
 		newObj:  func() client.Object { return &automationv1alpha1.Autobrr{} },
 	},
 	"maintainerr": {
@@ -175,8 +180,8 @@ var apps = map[string]app{
 		newObj: func() client.Object { return &curationv1alpha1.Maintainerr{} },
 	},
 	"bazarr": {
-		auth: engine.AuthFormEncoded, apiKey: true, export: exportBazarr,
-		options: []engine.HTTPClientOption{engine.WithAPIKeyHeader("X-API-KEY")},
+		auth: engine.AuthAPIKey, apiKey: true, export: exportBazarr,
+		options: bazarrclient.HTTPOptions(),
 		newObj:  func() client.Object { return &subtitlesv1alpha1.Bazarr{} },
 	},
 }
@@ -287,7 +292,7 @@ func Run(ctx context.Context, o Options) (Result, error) {
 	if err != nil {
 		return Result{}, err
 	}
-	if err := json.Unmarshal(raw, obj); err != nil {
+	if err := decodeStrict(raw, obj); err != nil {
 		return Result{}, fmt.Errorf("reading %s into %T: %w", o.App, obj, err)
 	}
 
@@ -340,7 +345,7 @@ func splitObjects(spec map[string]any, kinds map[string]objectKind, o Options) (
 				return nil, err
 			}
 			obj := k.newObj()
-			if err := json.Unmarshal(raw, obj); err != nil {
+			if err := decodeStrict(raw, obj); err != nil {
 				return nil, fmt.Errorf("reading %s %q into %T: %w", section, name, obj, err)
 			}
 			objects = append(objects, obj)
@@ -725,4 +730,12 @@ func fieldList(item map[string]any) []map[string]any {
 func num(v any) float64 {
 	f, _ := v.(float64)
 	return f
+}
+
+// decodeStrict decodes raw into obj and refuses a field obj doesn't have, so a
+// misspelled key in a mapping fails rather than vanishing.
+func decodeStrict(raw []byte, obj any) error {
+	dec := json.NewDecoder(bytes.NewReader(raw))
+	dec.DisallowUnknownFields()
+	return dec.Decode(obj)
 }

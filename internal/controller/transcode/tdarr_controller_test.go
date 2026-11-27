@@ -3,9 +3,7 @@ package transcode
 import (
 	"context"
 	"encoding/json"
-	"net"
 	"net/http"
-	"net/http/httptest"
 	"reflect"
 	"slices"
 	"sync"
@@ -78,11 +76,7 @@ func (f *fakeTdarr) varWrites() []varWrite {
 
 func (f *fakeTdarr) serve(t *testing.T) string {
 	t.Helper()
-	ln, err := net.Listen("tcp", net.JoinHostPort(testnet.RoutableAddr(t), "0"))
-	if err != nil {
-		t.Skipf("cannot bind a routable listener: %v", err)
-	}
-	srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := testnet.Serve(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 
 		switch r.URL.Path {
@@ -147,10 +141,6 @@ func (f *fakeTdarr) serve(t *testing.T) string {
 			_ = json.NewEncoder(w).Encode(map[string]any{})
 		}
 	}))
-	_ = srv.Listener.Close()
-	srv.Listener = ln
-	srv.Start()
-	t.Cleanup(srv.Close)
 	return srv.URL
 }
 
@@ -184,7 +174,7 @@ func runTdarr(t *testing.T, cfg *transcodev1alpha1.Tdarr, withSecret bool) clien
 		b = b.WithObjects(tdarrSecret())
 	}
 	c := b.Build()
-	r := &TdarrReconciler{Client: c, Scheme: scheme, Recorder: events.NewFakeRecorder(50)}
+	r := &TdarrReconciler{Client: c, Recorder: events.NewFakeRecorder(50)}
 	_, err := r.Reconcile(context.Background(), ctrl.Request{
 		Name: "tdarr", Namespace: "media",
 	})
@@ -433,7 +423,7 @@ func TestLibraryVariablesPruneOnlyWhatTheOperatorCreated(t *testing.T) {
 		ID: "movies", Name: "Movies", Folder: "/data/media/movies",
 		Variables: map[string]string{"bitrate_1080p": "2500"},
 	}}
-	cfg.SetManagedResources(map[string][]string{variablesResource: {"movies/bitrate_1080p", "movies/stale_key"}})
+	cfg.Status.SetManagedResources(map[string][]string{variablesResource: {"movies/bitrate_1080p", "movies/stale_key"}})
 	c := runTdarr(t, cfg, true)
 
 	writes := app.varWrites()
@@ -457,7 +447,7 @@ func TestLibraryVariablesKeptWithoutPrune(t *testing.T) {
 		ID: "movies", Name: "Movies", Folder: "/data/media/movies",
 		Variables: map[string]string{"bitrate_1080p": "2500"},
 	}}
-	cfg.SetManagedResources(map[string][]string{variablesResource: {"movies/stale_key"}})
+	cfg.Status.SetManagedResources(map[string][]string{variablesResource: {"movies/stale_key"}})
 	runTdarr(t, cfg, true)
 
 	assert.Empty(t, app.varWrites(), "deleted a variable with prune off")
@@ -489,7 +479,7 @@ func TestTdarrDeletionPolicyRemovesTheVariablesItCreated(t *testing.T) {
 	cfg := tdarrConfig(app.serve(t))
 	policy := ctrlcommon.DeletionPolicyDelete
 	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{DeletionPolicy: policy}
-	cfg.SetManagedResources(map[string][]string{variablesResource: {"movies/created", "tv/created"}})
+	cfg.Status.SetManagedResources(map[string][]string{variablesResource: {"movies/created", "tv/created"}})
 	now := metav1.NewTime(time.Now())
 	cfg.DeletionTimestamp = &now
 	cfg.Finalizers = []string{ctrlcommon.Finalizer}
@@ -509,7 +499,7 @@ func tdarrManaged(t *testing.T, c client.Client) map[string][]string {
 	t.Helper()
 	var cfg transcodev1alpha1.Tdarr
 	require.NoError(t, c.Get(context.Background(), types.NamespacedName{Name: "tdarr", Namespace: "media"}, &cfg), "fetching config")
-	return cfg.GetManagedResources()
+	return cfg.Status.GetManagedResources()
 }
 
 func TestLibraryDocDecisionMode(t *testing.T) {
@@ -718,7 +708,7 @@ func TestLibraryVariablesObserveReportsWhatPruneWouldDelete(t *testing.T) {
 		ID: "movies", Name: "Movies", Folder: "/data/media/movies",
 		Variables: map[string]string{"bitrate_1080p": "2500"},
 	}}
-	cfg.SetManagedResources(map[string][]string{variablesResource: {"movies/observe_stale"}})
+	cfg.Status.SetManagedResources(map[string][]string{variablesResource: {"movies/observe_stale"}})
 	observed := metrics.DriftObservedTotal.WithLabelValues("tdarr", variablesResource, "movies/observe_stale")
 	before := testutil.ToFloat64(observed)
 

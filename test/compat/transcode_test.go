@@ -63,7 +63,7 @@ func TestTdarr(t *testing.T) {
 		secrets: map[string]string{"api-key": "unused", "discord-webhook": "http://discord.invalid/hook"},
 		newObj:  func() ctrlcommon.ConfigResource { return &transcodev1alpha1.Tdarr{} },
 		reconciler: func(c client.Client) reconcile.Reconciler {
-			return &transcode.TdarrReconciler{Client: c, Scheme: c.Scheme(), Recorder: events.NewFakeRecorder(100)}
+			return &transcode.TdarrReconciler{Client: c, Recorder: events.NewFakeRecorder(100)}
 		},
 		proxy:   proxy,
 		observe: true,

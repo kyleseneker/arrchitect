@@ -26,32 +26,12 @@ type LidarrDownloadClientSpec struct {
 // LidarrDownloadClientStatus is the observed state of a LidarrDownloadClient.
 // +kubebuilder:validation:MinProperties=1
 type LidarrDownloadClientStatus struct {
-	// conditions represent the current state of the download client.
-	// +listType=map
-	// +listMapKey=type
-	// +optional
-	Conditions []metav1.Condition `json:"conditions,omitempty"`
-
-	// observedGeneration is the most recent generation observed.
-	// +optional
-	// +kubebuilder:validation:Minimum=1
-	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
-
-	// lastSyncTime is the timestamp of the last successful reconciliation.
-	// +optional
-	LastSyncTime *metav1.Time `json:"lastSyncTime,omitempty"`
+	commonv1alpha1.ConfigStatus `json:",inline"`
 
 	// id is the download client's ID in Lidarr.
 	// +optional
 	// +kubebuilder:validation:Minimum=1
 	ID int32 `json:"id,omitempty"`
-
-	// managedResources records what the operator created for this resource,
-	// so deletion only removes what it created.
-	// +optional
-	// +listType=map
-	// +listMapKey=type
-	ManagedResources []commonv1alpha1.ManagedResource `json:"managedResources,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -88,19 +68,11 @@ type LidarrDownloadClientList struct {
 	Items           []LidarrDownloadClient `json:"items"`
 }
 
-func (c *LidarrDownloadClient) GetConditions() *[]metav1.Condition { return &c.Status.Conditions }
-func (c *LidarrDownloadClient) GetObservedGeneration() *int64      { return &c.Status.ObservedGeneration }
-func (c *LidarrDownloadClient) GetLastSyncTime() **metav1.Time     { return &c.Status.LastSyncTime }
-func (c *LidarrDownloadClient) GetManagedResources() map[string][]string {
-	return commonv1alpha1.ManagedMap(c.Status.ManagedResources)
-}
-
-func (c *LidarrDownloadClient) SetManagedResources(m map[string][]string) {
-	c.Status.ManagedResources = commonv1alpha1.ManagedList(m)
-}
-
 // GetReconcileConfig carries only the deletion policy: the interval and drift
 // policy come from the Lidarr the download client belongs to.
+func (c *LidarrDownloadClient) GetConfigStatus() *commonv1alpha1.ConfigStatus {
+	return &c.Status.ConfigStatus
+}
 func (c *LidarrDownloadClient) GetReconcileConfig() *commonv1alpha1.ReconcileConfig {
 	return &commonv1alpha1.ReconcileConfig{DeletionPolicy: c.Spec.DeletionPolicy}
 }

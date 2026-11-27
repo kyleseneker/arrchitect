@@ -147,7 +147,7 @@ func pruneEndpoint(ctx context.Context, client *HTTPClient, pass *Pass, r Resour
 	}
 	return pass.PruneItems(r.Name, declared, items, func(id int) error {
 		log.FromContext(ctx).Info("pruning unmanaged resource", "type", r.Name, "id", id)
-		return client.DeleteJSON(ctx, fmt.Sprintf("%s/%d", r.Path, id))
+		return client.Delete(ctx, fmt.Sprintf("%s/%d", r.Path, id))
 	})
 }
 
@@ -379,7 +379,7 @@ func DeleteManagedResources(ctx context.Context, client *HTTPClient, def AppDefi
 			if err != nil {
 				return err
 			}
-			if err := client.DeleteJSON(ctx, fmt.Sprintf("%s/%d", endpoint.Path, id)); err != nil && !isNotFound(err) {
+			if err := client.Delete(ctx, fmt.Sprintf("%s/%d", endpoint.Path, id)); err != nil && !isNotFound(err) {
 				return err
 			}
 			return nil

@@ -222,13 +222,6 @@ func TestApplyAuth(t *testing.T) {
 			wantValue:  `MediaBrowser Client="arrchitect", Device="operator", DeviceId="arrchitect-operator", Version="1.0.0", Token="jf-tok"`,
 		},
 		{
-			name:       "FormEncoded",
-			authType:   AuthFormEncoded,
-			setup:      func(c *HTTPClient) { c.apiKey = "bazarr-key" },
-			wantHeader: "X-Api-Key",
-			wantValue:  "bazarr-key",
-		},
-		{
 			name:       "Session with API key",
 			authType:   AuthSession,
 			setup:      func(c *HTTPClient) { c.apiKey = "seerr-key" },
@@ -281,8 +274,6 @@ func TestSetters(t *testing.T) {
 	c.SetAPIKey("ak")
 	assert.Equal(t, "ak", c.apiKey)
 
-	c.SetCookieSessionID("sid")
-	assert.Equal(t, "sid", c.cookieSessionID)
 }
 
 // A dial failure must not be reported as an SSRF block; they lead to completely
@@ -422,7 +413,7 @@ func TestPostJSON(t *testing.T) {
 	assert.Equal(t, http.MethodPost, capturedMethod)
 }
 
-func TestDeleteJSON(t *testing.T) {
+func TestDelete(t *testing.T) {
 	var capturedMethod string
 
 	hc := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
@@ -430,7 +421,7 @@ func TestDeleteJSON(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	err := hc.DeleteJSON(context.Background(), "/api/resource/1")
+	err := hc.Delete(context.Background(), "/api/resource/1")
 	require.NoError(t, err)
 	assert.Equal(t, http.MethodDelete, capturedMethod)
 }

@@ -1,6 +1,12 @@
 package prowlarr
 
 import (
+	"context"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"slices"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -8,10 +14,11 @@ import (
 
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
 	indexersv1alpha1 "github.com/kyleseneker/arrchitect/api/indexers/v1alpha1"
+	"github.com/kyleseneker/arrchitect/internal/engine"
 )
 
 func TestProwlarrDefinition(t *testing.T) {
-	def := ProwlarrDefinition()
+	def := Definition()
 	assert.Equal(t, "/api/v1/system/status", def.HealthPath)
 	assert.Empty(t, def.Settings, "Prowlarr has no settings endpoints")
 	assert.True(t, len(def.Resources) >= 6)
@@ -25,48 +32,90 @@ func TestProwlarrDefinition(t *testing.T) {
 	}
 }
 
-func TestProwlarrResources(t *testing.T) {
-	tests := []struct {
-		name     string
-		opts     ProwlarrOptions
-		wantKeys []string
-	}{
-		{
-			name:     "empty options",
-			opts:     ProwlarrOptions{},
-			wantKeys: []string{},
-		},
-		{
-			name: "all resource types",
-			opts: ProwlarrOptions{
-				Tags:         []commonv1alpha1.Tag{{Label: "test"}},
-				Applications: []map[string]any{{"name": "sonarr"}},
-				Indexers:     []indexersv1alpha1.ProwlarrIndexer{{Name: "idx"}},
-				Proxies:      []map[string]any{{"name": "proxy"}},
-				DownloadClients: []indexersv1alpha1.ProwlarrDownloadClient{
-					{Name: "dc", Protocol: "torrent", Implementation: "QBittorrent"},
-				},
-				Notifications: []commonv1alpha1.Notification{{Name: "notif", Implementation: "Discord"}},
-			},
-			wantKeys: []string{"tags", "applications", "indexers", "proxies", "downloadClients", "notifications"},
-		},
-		{
-			name: "tags only",
-			opts: ProwlarrOptions{
-				Tags: []commonv1alpha1.Tag{{Label: "tag1"}, {Label: "tag2"}},
-			},
-			wantKeys: []string{"tags"},
-		},
+func TestReconcileWritesEachDeclaredKind(t *testing.T) {
+	app := &fakeProwlarr{}
+	hc := app.client(t)
+	opts := Options{
+		Tags:         []commonv1alpha1.Tag{{Label: "Public"}},
+		AppProfiles:  []indexersv1alpha1.ProwlarrAppProfile{{Name: "Standard"}},
+		Applications: []Application{{Name: "Sonarr", Implementation: "Sonarr"}},
+		Indexers: []indexersv1alpha1.ProwlarrIndexer{{
+			Name: "idx", Implementation: "Torznab", TagLabels: []string{"public"}, AppProfileName: "Standard",
+		}},
+		Proxies:         []Proxy{{Name: "proxy", Implementation: "Http"}},
+		DownloadClients: []indexersv1alpha1.ProwlarrDownloadClient{{Name: "dc", Protocol: "torrent", Implementation: "QBittorrent"}},
+		Notifications:   []commonv1alpha1.Notification{{Name: "notif", Implementation: "Discord"}},
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			resources := ProwlarrResources(tt.opts, nil)
-			assert.Len(t, resources, len(tt.wantKeys))
-			for _, k := range tt.wantKeys {
-				assert.Contains(t, resources, k)
-			}
-		})
+
+	problems := Reconcile(context.Background(), hc, opts, engine.NewPass("prowlarr", engine.SyncPolicy{}, nil))
+	require.Empty(t, problems)
+	for _, path := range []string{"tag", "appprofile", "applications", "indexer", "indexerproxy", "downloadclient", "notification"} {
+		assert.Len(t, app.items["/api/v1/"+path], 1, path)
 	}
+	indexer := app.items["/api/v1/indexer"][0]
+	assert.Equal(t, []any{app.items["/api/v1/tag"][0]["id"]}, indexer["tags"])
+	assert.Equal(t, app.items["/api/v1/appprofile"][0]["id"], indexer["appProfileId"])
+}
+
+func TestABadTagLeavesOutOnlyItsKind(t *testing.T) {
+	app := &fakeProwlarr{lists: map[string][]map[string]any{"/api/v1/tag": {{"id": 1, "label": "known"}}}}
+	hc := app.client(t)
+	opts := Options{
+		Indexers:        []indexersv1alpha1.ProwlarrIndexer{{Name: "idx", Implementation: "Torznab", TagLabels: []string{"known", "unknown"}}},
+		DownloadClients: []indexersv1alpha1.ProwlarrDownloadClient{{Name: "dc", Protocol: "torrent", Implementation: "QBittorrent", TagLabels: []string{"known"}}},
+	}
+
+	problems := Reconcile(context.Background(), hc, opts, engine.NewPass("prowlarr", engine.SyncPolicy{}, nil))
+	require.Len(t, problems, 1)
+	assert.Contains(t, problems[0], "indexers(idx): tag")
+	assert.Empty(t, app.items["/api/v1/indexer"])
+	assert.Len(t, app.items["/api/v1/downloadclient"], 1)
+}
+
+func TestIndexersFollowARecreatedAppProfile(t *testing.T) {
+	app := &fakeProwlarr{lists: map[string][]map[string]any{"/api/v1/appprofile": {{"id": 3, "name": "Standard"}}}}
+	hc := app.client(t)
+	opts := Options{Indexers: []indexersv1alpha1.ProwlarrIndexer{{Name: "idx", Implementation: "Torznab", AppProfileName: "Standard"}}}
+
+	payloads, err := opts.builders(context.Background(), hc, false)["indexers"].Build(nil)
+	require.NoError(t, err)
+	assert.Equal(t, int32(3), payloads[0]["appProfileId"])
+
+	app.lists["/api/v1/appprofile"] = []map[string]any{{"id": 7, "name": "Standard"}}
+	payloads, err = opts.builders(context.Background(), hc, false)["indexers"].Build(nil)
+	require.NoError(t, err)
+	assert.Equal(t, int32(7), payloads[0]["appProfileId"])
+	assert.Nil(t, opts.Indexers[0].AppProfileID, "the options must not carry the app's IDs")
+}
+
+func TestIndexersRejectAMissingAppProfile(t *testing.T) {
+	app := &fakeProwlarr{lists: map[string][]map[string]any{"/api/v1/appprofile": {{"id": 3, "name": "Standard"}}}}
+	hc := app.client(t)
+	opts := Options{Indexers: []indexersv1alpha1.ProwlarrIndexer{{Name: "idx", AppProfileName: "Gone"}}}
+
+	_, err := opts.builders(context.Background(), hc, false)["indexers"].Build(nil)
+	assert.ErrorContains(t, err, "indexers(idx): appProfileName")
+}
+
+func TestObserveModePlansWhatTheResourceDeclares(t *testing.T) {
+	app := &fakeProwlarr{}
+	hc := app.client(t)
+	opts := Options{
+		Tags:        []commonv1alpha1.Tag{{Label: "TV"}},
+		AppProfiles: []indexersv1alpha1.ProwlarrAppProfile{{Name: "Standard"}},
+		Indexers:    []indexersv1alpha1.ProwlarrIndexer{{Name: "x", TagLabels: []string{"tv"}, AppProfileName: "Standard"}},
+	}
+	observe := engine.SyncPolicy{Observe: true}
+
+	pass := engine.NewPass("prowlarr", observe, nil)
+	require.Empty(t, Reconcile(context.Background(), hc, opts, pass))
+	assert.Empty(t, app.writes)
+	assert.Contains(t, pass.Drift(), "indexers(x)")
+
+	opts.Indexers[0].TagLabels = []string{"typo"}
+	problems := Reconcile(context.Background(), hc, opts, engine.NewPass("prowlarr", observe, nil))
+	require.Len(t, problems, 1)
+	assert.Contains(t, problems[0], `the app has no item named "typo"`, "a name the resource doesn't declare still fails")
 }
 
 func TestBuildProwlarrApplicationPayload(t *testing.T) {
@@ -81,7 +130,7 @@ func TestBuildProwlarrApplicationPayload(t *testing.T) {
 		TagLabels:      []string{"tag1", "tag2"},
 	}
 
-	p := BuildProwlarrApplicationPayload(app, map[string]string{"apiKey": "sonarr-api-key"}, map[string]int{"tag1": 1, "tag2": 2})
+	p := buildApplicationPayload(app, map[string]string{"apiKey": "sonarr-api-key"}, []int{1, 2})
 
 	assert.Equal(t, "Sonarr", p["name"])
 	assert.Equal(t, "fullSync", p["syncLevel"])
@@ -101,11 +150,11 @@ func TestBuildProwlarrApplicationPayload(t *testing.T) {
 
 	tags := p["tags"].([]any)
 	assert.Len(t, tags, 2)
-	assert.Equal(t, []any{1, 2}, tags, "labels must be resolved to the IDs Prowlarr assigned")
+	assert.Equal(t, []any{1, 2}, tags)
 }
 
 func TestBuildProwlarrApplicationPayloadLeavesOutWhatTheResourceLeavesOut(t *testing.T) {
-	p := BuildProwlarrApplicationPayload(indexersv1alpha1.ProwlarrApplication{
+	p := buildApplicationPayload(indexersv1alpha1.ProwlarrApplication{
 		Name: "Sonarr", Implementation: "Sonarr", ConfigContract: "SonarrSettings", BaseURL: "http://sonarr:8989",
 	}, map[string]string{"apiKey": "key"}, nil)
 
@@ -118,7 +167,7 @@ func TestBuildProwlarrApplicationPayloadLeavesOutWhatTheResourceLeavesOut(t *tes
 }
 
 func TestBuildProwlarrApplicationPayloadSendsBasicAuth(t *testing.T) {
-	p := BuildProwlarrApplicationPayload(indexersv1alpha1.ProwlarrApplication{
+	p := buildApplicationPayload(indexersv1alpha1.ProwlarrApplication{
 		Name: "Radarr", Implementation: "Radarr", BaseURL: "https://radarr.example",
 	}, map[string]string{"apiKey": "key", "authUsername": "proxy", "authPassword": "secret"}, nil)
 
@@ -172,7 +221,7 @@ func TestBuildProwlarrIndexerPayload(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			p := BuildProwlarrIndexerPayload(tt.idx, nil)
+			p := buildIndexerPayload(tt.idx, nil)
 			tt.check(t, p)
 		})
 	}
@@ -210,7 +259,7 @@ func TestBuildProwlarrProxyPayload(t *testing.T) {
 	}
 	t.Run("with port and credentials", func(t *testing.T) {
 		proxy := indexersv1alpha1.ProwlarrProxy{Name: "Proxy", Implementation: "Http", ConfigContract: "HttpSettings", Host: "proxy.local", Port: 8080}
-		p := BuildProwlarrProxyPayload(proxy, map[string]string{"username": "u", "password": "p"}, nil)
+		p := buildProxyPayload(proxy, map[string]string{"username": "u", "password": "p"}, nil)
 		assert.Equal(t, []map[string]any{
 			{"name": "host", "value": "proxy.local"}, {"name": "port", "value": int32(8080)},
 			{"name": "username", "value": "u"}, {"name": "password", "value": "p"},
@@ -218,7 +267,7 @@ func TestBuildProwlarrProxyPayload(t *testing.T) {
 	})
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			p := BuildProwlarrProxyPayload(tt.proxy, nil, nil)
+			p := buildProxyPayload(tt.proxy, nil, nil)
 			tt.check(t, p)
 		})
 	}
@@ -268,7 +317,7 @@ func TestBuildProwlarrDownloadClientPayload(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			p := BuildProwlarrDownloadClientPayload(tt.dc, nil)
+			p := buildDownloadClientPayload(tt.dc, nil)
 			tt.check(t, p)
 		})
 	}
@@ -290,23 +339,56 @@ func TestIntSliceToInterface(t *testing.T) {
 	}
 }
 
-func TestSetTagsMapsLabelsToIDs(t *testing.T) {
+func TestSetTagsLeavesUndeclaredTagsAlone(t *testing.T) {
 	payload := map[string]any{}
-	setTags(payload, []string{"flaresolverr", "public"}, map[string]int{"flaresolverr": 7, "public": 9})
+	setTags(payload, nil)
+	assert.NotContains(t, payload, "tags")
+
+	setTags(payload, []int{})
+	assert.Equal(t, []any{}, payload["tags"], "an empty list clears the tags")
+
+	setTags(payload, []int{7, 9})
 	assert.Equal(t, []any{7, 9}, payload["tags"])
 }
 
-func TestSetTagsDropsUnknownLabels(t *testing.T) {
-	payload := map[string]any{}
-	setTags(payload, []string{"never-declared"}, map[string]int{"other": 1})
-	assert.Equal(t, []any{}, payload["tags"], "an unknown label must not be sent as a string; Prowlarr expects integer tag IDs")
+// fakeProwlarr serves lists by path and keeps what's posted to it.
+type fakeProwlarr struct {
+	mu     sync.Mutex
+	lists  map[string][]map[string]any
+	items  map[string][]map[string]any
+	writes []string
+	nextID int
 }
 
-func TestSetTagsLeavesUndeclaredTagsAlone(t *testing.T) {
-	payload := map[string]any{}
-	setTags(payload, nil, map[string]int{"other": 1})
-	assert.NotContains(t, payload, "tags")
-
-	setTags(payload, []string{}, nil)
-	assert.Equal(t, []any{}, payload["tags"], "an empty list clears the tags")
+func (a *fakeProwlarr) client(t *testing.T) *engine.HTTPClient {
+	t.Helper()
+	if a.lists == nil {
+		a.lists = map[string][]map[string]any{}
+	}
+	a.items = map[string][]map[string]any{}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		a.mu.Lock()
+		defer a.mu.Unlock()
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method == http.MethodGet {
+			items := append(slices.Clone(a.lists[r.URL.Path]), a.items[r.URL.Path]...)
+			if items == nil {
+				items = []map[string]any{}
+			}
+			_ = json.NewEncoder(w).Encode(items)
+			return
+		}
+		a.writes = append(a.writes, r.Method+" "+r.URL.Path)
+		var body map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		a.nextID++
+		body["id"] = float64(100 + a.nextID)
+		a.items[r.URL.Path] = append(a.items[r.URL.Path], body)
+		_ = json.NewEncoder(w).Encode(body)
+	}))
+	t.Cleanup(srv.Close)
+	hc, err := engine.NewHTTPClient(srv.URL, engine.AuthAPIKey,
+		engine.WithAPIKey("k"), engine.WithAPIKeyHeader("X-Api-Key"), engine.WithTransport(&http.Transport{}))
+	require.NoError(t, err)
+	return hc
 }

@@ -61,38 +61,6 @@ func TestInsert(t *testing.T) {
 	assert.NoError(t, c.Insert(context.Background(), "LibraryDB", "lib2", map[string]any{"name": "TV"}))
 }
 
-func TestUpsert_Exists(t *testing.T) {
-	callCount := 0
-	c := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
-		callCount++
-		if callCount == 1 {
-			// GetByID returns existing
-			_ = json.NewEncoder(w).Encode(map[string]any{"_id": "lib1", "name": "Old"})
-		} else {
-			// Update
-			_ = json.NewEncoder(w).Encode(map[string]any{"ok": true})
-		}
-	})
-	assert.NoError(t, c.Upsert(context.Background(), "LibraryDB", "lib1", map[string]any{"name": "New"}))
-	assert.Equal(t, 2, callCount)
-}
-
-func TestUpsert_NotExists(t *testing.T) {
-	callCount := 0
-	c := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
-		callCount++
-		if callCount == 1 {
-			// GetByID returns empty
-			_ = json.NewEncoder(w).Encode(map[string]any{})
-		} else {
-			// Insert
-			_ = json.NewEncoder(w).Encode(map[string]any{"ok": true})
-		}
-	})
-	assert.NoError(t, c.Upsert(context.Background(), "LibraryDB", "lib1", map[string]any{"name": "New"}))
-	assert.Equal(t, 2, callCount)
-}
-
 func TestGetNodes(t *testing.T) {
 	c := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/api/v2/get-nodes", r.URL.Path)
@@ -141,36 +109,4 @@ func TestCrudDBOmitsNilObj(t *testing.T) {
 	})
 	_, err := c.GetByID(context.Background(), "LibrarySettingsJSONDB", "lib1")
 	require.NoError(t, err)
-}
-
-func TestUpsertUpdatesExistingDoc(t *testing.T) {
-	var modes []string
-	c := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
-		var payload map[string]any
-		assert.NoError(t, json.NewDecoder(r.Body).Decode(&payload))
-		data := payload["data"].(map[string]any)
-		modes = append(modes, data["mode"].(string))
-		if data["mode"] == "getById" {
-			_ = json.NewEncoder(w).Encode(map[string]any{"_id": "movies"})
-			return
-		}
-		w.WriteHeader(http.StatusOK)
-	})
-	require.NoError(t, c.Upsert(context.Background(), "LibrarySettingsJSONDB", "movies",
-		map[string]any{"flowId": "hevc-qsv"}))
-	assert.Equal(t, []string{"getById", "update"}, modes)
-}
-
-func TestUpsertDoesNotInsertWhenLookupFails(t *testing.T) {
-	var modes []string
-	c := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
-		var payload map[string]any
-		assert.NoError(t, json.NewDecoder(r.Body).Decode(&payload))
-		modes = append(modes, payload["data"].(map[string]any)["mode"].(string))
-		w.WriteHeader(http.StatusBadRequest)
-	})
-	err := c.Upsert(context.Background(), "LibrarySettingsJSONDB", "movies",
-		map[string]any{"flowId": "hevc-qsv"})
-	require.Error(t, err)
-	assert.Equal(t, []string{"getById"}, modes, "a failed lookup must not silently become an insert")
 }

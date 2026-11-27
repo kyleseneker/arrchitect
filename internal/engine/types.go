@@ -29,8 +29,6 @@ const (
 	AuthMediaBrowser
 	// AuthPlexToken uses X-Plex-Token header.
 	AuthPlexToken
-	// AuthFormEncoded uses X-API-KEY header with form-encoded bodies (Bazarr).
-	AuthFormEncoded
 	// AuthSession uses cookie jar with optional X-Api-Key fallback (Seerr).
 	AuthSession
 )

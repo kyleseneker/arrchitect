@@ -3,9 +3,7 @@ package pvr
 import (
 	"context"
 	"encoding/json"
-	"net"
 	"net/http"
-	"net/http/httptest"
 	"slices"
 	"strings"
 	"sync"
@@ -89,7 +87,7 @@ var pvrApps = []pvrApp{
 		name: "sonarr", apiVer: "v3",
 		empty: func() ctrlcommon.ConfigResource { return &pvrv1alpha1.Sonarr{} },
 		newRec: func(c client.Client, s *runtime.Scheme) reconcile.Reconciler {
-			return &SonarrReconciler{Client: c, Scheme: s, Recorder: events.NewFakeRecorder(50)}
+			return &SonarrReconciler{Client: c, Recorder: events.NewFakeRecorder(50)}
 		},
 		build: func(url string, o buildOpts) ctrlcommon.ConfigResource {
 			conn, roots, notifications, rec := baseSpec(o)
@@ -101,7 +99,7 @@ var pvrApps = []pvrApp{
 				yes := true
 				c.Spec.Naming = &pvrv1alpha1.SonarrNaming{RenameEpisodes: &yes}
 			}
-			c.SetManagedResources(o.managed)
+			c.Status.SetManagedResources(o.managed)
 			return c
 		},
 	},
@@ -109,7 +107,7 @@ var pvrApps = []pvrApp{
 		name: "radarr", apiVer: "v3",
 		empty: func() ctrlcommon.ConfigResource { return &pvrv1alpha1.Radarr{} },
 		newRec: func(c client.Client, s *runtime.Scheme) reconcile.Reconciler {
-			return &RadarrReconciler{Client: c, Scheme: s, Recorder: events.NewFakeRecorder(50)}
+			return &RadarrReconciler{Client: c, Recorder: events.NewFakeRecorder(50)}
 		},
 		build: func(url string, o buildOpts) ctrlcommon.ConfigResource {
 			conn, roots, notifications, rec := baseSpec(o)
@@ -121,7 +119,7 @@ var pvrApps = []pvrApp{
 				yes := true
 				c.Spec.Naming = &pvrv1alpha1.RadarrNaming{RenameMovies: &yes}
 			}
-			c.SetManagedResources(o.managed)
+			c.Status.SetManagedResources(o.managed)
 			return c
 		},
 	},
@@ -129,7 +127,7 @@ var pvrApps = []pvrApp{
 		name: "lidarr", apiVer: "v1",
 		empty: func() ctrlcommon.ConfigResource { return &pvrv1alpha1.Lidarr{} },
 		newRec: func(c client.Client, s *runtime.Scheme) reconcile.Reconciler {
-			return &LidarrReconciler{Client: c, Scheme: s, Recorder: events.NewFakeRecorder(50)}
+			return &LidarrReconciler{Client: c, Recorder: events.NewFakeRecorder(50)}
 		},
 		build: func(url string, o buildOpts) ctrlcommon.ConfigResource {
 			conn, roots, notifications, rec := baseSpec(o)
@@ -141,7 +139,7 @@ var pvrApps = []pvrApp{
 				yes := true
 				c.Spec.Naming = &pvrv1alpha1.LidarrNaming{RenameTracks: &yes}
 			}
-			c.SetManagedResources(o.managed)
+			c.Status.SetManagedResources(o.managed)
 			return c
 		},
 	},
@@ -149,7 +147,7 @@ var pvrApps = []pvrApp{
 		name: "readarr", apiVer: "v1",
 		empty: func() ctrlcommon.ConfigResource { return &pvrv1alpha1.Readarr{} },
 		newRec: func(c client.Client, s *runtime.Scheme) reconcile.Reconciler {
-			return &ReadarrReconciler{Client: c, Scheme: s, Recorder: events.NewFakeRecorder(50)}
+			return &ReadarrReconciler{Client: c, Recorder: events.NewFakeRecorder(50)}
 		},
 		build: func(url string, o buildOpts) ctrlcommon.ConfigResource {
 			conn, roots, notifications, rec := baseSpec(o)
@@ -161,7 +159,7 @@ var pvrApps = []pvrApp{
 				yes := true
 				c.Spec.Naming = &pvrv1alpha1.ReadarrNaming{RenameBooks: &yes}
 			}
-			c.SetManagedResources(o.managed)
+			c.Status.SetManagedResources(o.managed)
 			return c
 		},
 	},
@@ -210,17 +208,9 @@ func (f *fakeArr) path(suffix string) string { return "/api/" + f.apiVer + "/" +
 // the dial hangs for the full timeout, Linux refuses immediately.
 func unhealthyURL(t *testing.T) string {
 	t.Helper()
-	ln, err := net.Listen("tcp", net.JoinHostPort(testnet.RoutableAddr(t), "0"))
-	if err != nil {
-		t.Skipf("cannot bind: %v", err)
-	}
-	srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	srv := testnet.Serve(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 	}))
-	_ = srv.Listener.Close()
-	srv.Listener = ln
-	srv.Start()
-	t.Cleanup(srv.Close)
 	return srv.URL
 }
 
@@ -238,11 +228,7 @@ func newFakeArr(t *testing.T, apiVer string, existing map[string][]map[string]an
 	f := &fakeArr{apiVer: apiVer, existing: existing, bodies: map[string][]map[string]any{}}
 	prefix := "/api/" + apiVer + "/"
 
-	ln, err := net.Listen("tcp", net.JoinHostPort(testnet.RoutableAddr(t), "0"))
-	if err != nil {
-		t.Skipf("cannot bind a routable listener: %v", err)
-	}
-	srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := testnet.Serve(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		f.mu.Lock()
 		f.requests = append(f.requests, r.Method+" "+r.URL.Path)
 		f.mu.Unlock()
@@ -279,10 +265,6 @@ func newFakeArr(t *testing.T, apiVer string, existing map[string][]map[string]an
 			w.WriteHeader(http.StatusOK)
 		}
 	}))
-	_ = srv.Listener.Close()
-	srv.Listener = ln
-	srv.Start()
-	t.Cleanup(srv.Close)
 	return f, srv.URL
 }
 
@@ -316,7 +298,7 @@ func conditionStatus(t *testing.T, c client.Client, app pvrApp, condType string)
 	t.Helper()
 	obj := app.empty()
 	require.NoError(t, c.Get(context.Background(), types.NamespacedName{Name: "app", Namespace: "media"}, obj), "fetching config")
-	for _, cond := range *obj.GetConditions() {
+	for _, cond := range obj.GetConfigStatus().Conditions {
 		if cond.Type == condType {
 			return string(cond.Status)
 		}
@@ -339,8 +321,8 @@ func TestReconcileWritesDeclaredResources(t *testing.T) {
 
 			obj := app.empty()
 			require.NoError(t, c.Get(context.Background(), types.NamespacedName{Name: "app", Namespace: "media"}, obj), "fetching config")
-			assert.NotEmpty(t, (obj.GetManagedResources())["notifications"],
-				"managedResources did not record the notification: %+v", obj.GetManagedResources())
+			assert.NotEmpty(t, (obj.GetConfigStatus().GetManagedResources())["notifications"],
+				"managedResources did not record the notification: %+v", obj.GetConfigStatus().GetManagedResources())
 		})
 	}
 }
@@ -383,7 +365,7 @@ func TestReconcileMissingItemSecretSkipsOnlyItsKind(t *testing.T) {
 
 			obj := app.empty()
 			require.NoError(t, c.Get(context.Background(), types.NamespacedName{Name: "app", Namespace: "media"}, obj))
-			synced := apimeta.FindStatusCondition(*obj.GetConditions(), "Synced")
+			synced := apimeta.FindStatusCondition(obj.GetConfigStatus().Conditions, "Synced")
 			require.NotNil(t, synced)
 			assert.Equal(t, "SyncFailed", synced.Reason)
 			assert.Contains(t, synced.Message, `notifications: notification Webhook field "url": secret "missing" not found`)
@@ -510,7 +492,7 @@ func TestReleaseProfilesResolveTheirIndexerAndTags(t *testing.T) {
 			assert.Equal(t, true, sent[0]["enabled"], "a new profile is enabled")
 			obj := app.empty()
 			require.NoError(t, c.Get(context.Background(), types.NamespacedName{Name: "app", Namespace: "media"}, obj))
-			assert.Equal(t, []string{"No x265"}, obj.GetManagedResources()["releaseProfiles"])
+			assert.Equal(t, []string{"No x265"}, obj.GetConfigStatus().GetManagedResources()["releaseProfiles"])
 		})
 	}
 }

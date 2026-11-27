@@ -13,6 +13,12 @@ import (
 	"github.com/kyleseneker/arrchitect/internal/reconciler"
 )
 
+// HTTPOptions are what every client for qBittorrent takes. Sign-in answers
+// with a redirect, and the session cookie must be read before following it.
+func HTTPOptions() []engine.HTTPClientOption {
+	return []engine.HTTPClientOption{engine.WithDisableRedirect(), engine.WithAppLabel("qbittorrent")}
+}
+
 // Client is an HTTP client for the qBittorrent WebUI API v2.
 // It authenticates via session cookies obtained from the login endpoint.
 type Client struct {

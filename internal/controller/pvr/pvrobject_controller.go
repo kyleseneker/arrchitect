@@ -27,6 +27,7 @@ import (
 	pvrclient "github.com/kyleseneker/arrchitect/internal/client/pvr"
 	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
 	"github.com/kyleseneker/arrchitect/internal/engine"
+	"github.com/kyleseneker/arrchitect/internal/reconciler"
 )
 
 // instanceRefIndex indexes object resources by the instance they name, so a
@@ -73,7 +74,7 @@ func reconcilePVRObject(ctx context.Context, c client.Client, recorder events.Ev
 				"%s %q is gone, so nothing was removed from it", o.instanceKind, o.instanceName)
 			return nil
 		}
-		return ctrlcommon.CleanupApp(ctx, c, recorder, obj, instance.connection, pvrclient.Definition(o.app.APIVersion), o.app.Name)
+		return ctrlcommon.CleanupApp(ctx, c, recorder, obj, instance.connection, pvrclient.Definition(o.app), o.app.Name)
 	}
 	if done, after := ctrlcommon.HandleLifecycle(ctx, c, recorder, obj, ctrlcommon.Lifecycle{Remove: cleanup, Observe: ctrlcommon.Policy(instance.policy).Observe}); done {
 		return ctrl.Result{RequeueAfter: after}, nil
@@ -112,12 +113,13 @@ func reconcilePVRObject(ctx context.Context, c client.Client, recorder events.Ev
 		return ctrl.Result{RequeueAfter: ctrlcommon.RetryAfter(obj, base)}, nil
 	}
 	ctrlcommon.Reached(obj)
+	opts.App = o.app
 
 	policy := ctrlcommon.Policy(instance.policy)
 	// The object owns only the item it names, so prune replaces it on a rename.
 	policy.Prune = true
-	pass := engine.NewPass(o.app.Name, policy, obj.GetManagedResources())
-	problems := pvrclient.Reconcile(ctx, hc, o.app.APIVersion, nil, withApp(opts, o.app), pass)
+	pass := engine.NewPass(o.app.Name, policy, obj.GetConfigStatus().GetManagedResources())
+	problems := pvrclient.Reconcile(ctx, hc, nil, opts, pass)
 	if id, ok := idOf(ctx, hc, "/api/"+o.app.APIVersion+o.path, o.name); ok {
 		o.setID(id)
 	}
@@ -225,7 +227,7 @@ func syncedStatus(obj client.Object) metav1.ConditionStatus {
 	if !ok {
 		return ""
 	}
-	if cond := apimeta.FindStatusCondition(*cr.GetConditions(), engine.ConditionSynced); cond != nil {
+	if cond := apimeta.FindStatusCondition(cr.GetConfigStatus().Conditions, engine.ConditionSynced); cond != nil {
 		return cond.Status
 	}
 	return ""
@@ -321,7 +323,7 @@ func downloadClientKind[T, L any, O interface {
 				return pvrclient.Options{}, err
 			}
 			dcs := []commonv1alpha1.DownloadClient{dc}
-			secrets, err := ctrlcommon.ResolveDownloadClientSecrets(ctx, c, obj.GetNamespace(), dcs)
+			secrets, err := resolveDownloadClientSecrets(ctx, c, obj.GetNamespace(), dcs)
 			return pvrclient.Options{DownloadClients: dcs, DCSecrets: secrets}, err
 		},
 	}
@@ -393,4 +395,36 @@ func downloadClientAppRefs(o client.Object) []commonv1alpha1.AppRef {
 		return nil
 	}
 	return []commonv1alpha1.AppRef{dc.Item().AppRef}
+}
+
+// resolveDownloadClientSecrets resolves all secret references for a list of download clients.
+// Returns a map keyed by download client name.
+func resolveDownloadClientSecrets(ctx context.Context, c client.Reader, namespace string, downloadClients []commonv1alpha1.DownloadClient) (map[string]pvrclient.DownloadClientResolvedSecrets, error) {
+	resolved := make(map[string]pvrclient.DownloadClientResolvedSecrets, len(downloadClients))
+	for _, dc := range downloadClients {
+		var s pvrclient.DownloadClientResolvedSecrets
+		if dc.UsernameSecretRef != (commonv1alpha1.SecretKeyRef{}) {
+			val, err := reconciler.ResolveSecretKeyRef(ctx, c, namespace, dc.UsernameSecretRef)
+			if err != nil {
+				return nil, fmt.Errorf("download client %q username: %w", dc.Name, err)
+			}
+			s.Username = val
+		}
+		if dc.PasswordSecretRef != (commonv1alpha1.SecretKeyRef{}) {
+			val, err := reconciler.ResolveSecretKeyRef(ctx, c, namespace, dc.PasswordSecretRef)
+			if err != nil {
+				return nil, fmt.Errorf("download client %q password: %w", dc.Name, err)
+			}
+			s.Password = val
+		}
+		if dc.APIKeySecretRef != (commonv1alpha1.SecretKeyRef{}) {
+			val, err := reconciler.ResolveSecretKeyRef(ctx, c, namespace, dc.APIKeySecretRef)
+			if err != nil {
+				return nil, fmt.Errorf("download client %q apiKey: %w", dc.Name, err)
+			}
+			s.APIKey = val
+		}
+		resolved[dc.Name] = s
+	}
+	return resolved, nil
 }

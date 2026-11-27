@@ -31,8 +31,8 @@ const DeletionGiveUpAfter = 10 * time.Minute
 // DeletionPolicyDelete removes the resources the operator created.
 const DeletionPolicyDelete = "delete"
 
-// SetFinalizer adds the finalizer when want is set and removes it otherwise.
-func SetFinalizer(ctx context.Context, c client.Client, obj ConfigResource, want bool) error {
+// setFinalizer adds the finalizer when want is set and removes it otherwise.
+func setFinalizer(ctx context.Context, c client.Client, obj ConfigResource, want bool) error {
 	if controllerutil.ContainsFinalizer(obj, Finalizer) == want {
 		return nil
 	}
@@ -44,12 +44,12 @@ func SetFinalizer(ctx context.Context, c client.Client, obj ConfigResource, want
 	return c.Update(ctx, obj)
 }
 
-// HandleDeletion runs when the resource is being deleted. It calls remove only
+// handleDeletion runs when the resource is being deleted. It calls remove only
 // when the deletion policy is "delete", then releases the finalizer. If remove
 // fails it records a warning event and retries until DeletionGiveUpAfter has
 // elapsed since deletion was requested, after which the finalizer is released
 // regardless.
-func HandleDeletion(ctx context.Context, c client.Client, recorder events.EventRecorder, obj ConfigResource, remove func(context.Context) error) (bool, error) {
+func handleDeletion(ctx context.Context, c client.Client, recorder events.EventRecorder, obj ConfigResource, remove func(context.Context) error) (bool, error) {
 	if !controllerutil.ContainsFinalizer(obj, Finalizer) {
 		return false, nil
 	}
@@ -74,7 +74,7 @@ func HandleDeletion(ctx context.Context, c client.Client, recorder events.EventR
 			var kept []*engine.KeptError
 			kept, cleanupErr = engine.SplitKept(remove(ctx))
 			for _, k := range kept {
-				EmitKeptEvents(recorder, obj, k.Kept)
+				emitKeptEvents(recorder, obj, k.Kept)
 			}
 		}
 		if err := cleanupErr; err != nil {
@@ -148,7 +148,7 @@ func HandleLifecycle(ctx context.Context, c client.Client, recorder events.Event
 				return nil
 			}
 		}
-		if _, err := HandleDeletion(ctx, c, recorder, obj, remove); err != nil {
+		if _, err := handleDeletion(ctx, c, recorder, obj, remove); err != nil {
 			logger.Error(err, "deletion not finished; retrying")
 			return true, 30 * time.Second
 		}
@@ -157,7 +157,7 @@ func HandleLifecycle(ctx context.Context, c client.Client, recorder events.Event
 	rc := obj.GetReconcileConfig()
 	deletes := rc != nil && rc.DeletionPolicy == DeletionPolicyDelete
 	unsupported := deletes && (lc.Remove == nil || ObserveOnly(rc))
-	if err := SetFinalizer(ctx, c, obj, deletes && !unsupported && !lc.Observe); err != nil {
+	if err := setFinalizer(ctx, c, obj, deletes && !unsupported && !lc.Observe); err != nil {
 		logger.Error(err, "updating finalizer; retrying")
 		return true, 30 * time.Second
 	}
@@ -182,7 +182,7 @@ func HandleLifecycle(ctx context.Context, c client.Client, recorder events.Event
 // unrelated Secret in the spec can't block it, and with nothing to delete it
 // doesn't connect at all.
 func CleanupApp(ctx context.Context, c client.Reader, recorder events.EventRecorder, obj ConfigResource, connection commonv1alpha1.AppConnection, def engine.AppDefinition, app string) error {
-	owned := engine.NewOwnership(app, obj.GetManagedResources())
+	owned := engine.NewOwnership(app, obj.GetConfigStatus().GetManagedResources())
 	if !def.Deletable(owned) {
 		return nil
 	}
@@ -203,9 +203,9 @@ func CleanupApp(ctx context.Context, c client.Reader, recorder events.EventRecor
 	return err
 }
 
-// EmitKeptEvents emits a ResourceKept warning for each item the app refused to
+// emitKeptEvents emits a ResourceKept warning for each item the app refused to
 // delete during cleanup.
-func EmitKeptEvents(recorder events.EventRecorder, obj ConfigResource, kept []engine.KeptResource) {
+func emitKeptEvents(recorder events.EventRecorder, obj ConfigResource, kept []engine.KeptResource) {
 	if recorder == nil {
 		return
 	}
@@ -218,7 +218,7 @@ func EmitKeptEvents(recorder events.EventRecorder, obj ConfigResource, kept []en
 // ownsNothing reports whether status.managedResources records nothing, so
 // deletion has nothing to remove and needs no connection to the app.
 func ownsNothing(obj ConfigResource) bool {
-	for _, names := range obj.GetManagedResources() {
+	for _, names := range obj.GetConfigStatus().GetManagedResources() {
 		if len(names) > 0 {
 			return false
 		}

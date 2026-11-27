@@ -66,7 +66,7 @@ func TestMaintainerr(t *testing.T) {
 		},
 		newObj: func() ctrlcommon.ConfigResource { return &curationv1alpha1.Maintainerr{} },
 		reconciler: func(c client.Client) reconcile.Reconciler {
-			return &curation.MaintainerrReconciler{Client: c, Scheme: c.Scheme(), Recorder: events.NewFakeRecorder(100)}
+			return &curation.MaintainerrReconciler{Client: c, Recorder: events.NewFakeRecorder(100)}
 		},
 		proxy:   proxy,
 		observe: true,
