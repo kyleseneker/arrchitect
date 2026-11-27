@@ -34,8 +34,9 @@ path.
 
 Lidarr and Readarr have no import list sync, so only Sonarr and Radarr take
 `importListConfig`. Only Radarr can turn an import list off. Sonarr, Lidarr and
-Readarr lists are always active, so the operator refuses `enabled: false` on
-them. Set `enableAutomaticAdd: false` to keep a list from adding anything. Readarr's media management has no `enableMediaInfo`,
+Readarr lists are always active, so their resources reject `enabled: false`
+when applied. Set `enableAutomaticAdd: false` to keep a list from adding
+anything. Readarr's media management has no `enableMediaInfo`,
 `useScriptImport` or `scriptImportPath`.
 
 Jellyfin and Plex libraries are matched by name and created if missing. An

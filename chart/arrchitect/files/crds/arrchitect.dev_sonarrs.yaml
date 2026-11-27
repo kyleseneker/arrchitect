@@ -515,8 +515,9 @@ spec:
                     enabled:
                       description: |-
                         enabled controls whether this import list is active. A new import list is
-                        enabled unless this is false. Sonarr, Lidarr and Readarr import lists are
-                        always active, so they refuse false; set enableAutomaticAdd to false there.
+                        enabled unless this is false. Only Radarr can turn an import list off:
+                        Sonarr, Lidarr and Readarr reject false, and enableAutomaticAdd set to
+                        false keeps a list there from adding anything.
                       type: boolean
                     fields:
                       description: fields defines the import list's configuration
@@ -654,6 +655,10 @@ spec:
                 x-kubernetes-list-map-keys:
                 - name
                 x-kubernetes-list-type: map
+                x-kubernetes-validations:
+                - message: Sonarr import lists are always active, so enabled can't
+                    be false; set enableAutomaticAdd to false so a list adds nothing
+                  rule: self.all(l, !has(l.enabled) || l.enabled)
               indexerConfig:
                 description: indexerConfig configures global indexer settings.
                 properties:

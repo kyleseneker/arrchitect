@@ -422,6 +422,21 @@ func TestAdmissionRules(t *testing.T) {
 		{name: "a Readarr notification to Jellyfin by reference", kind: "Readarr", spec: conn + `
   notifications: [{name: Jellyfin, appRef: {kind: Jellyfin, name: jellyfin}}]`,
 			rejected: "Readarr has no Jellyfin notification"},
+		{name: "a Sonarr import list turned off", kind: "Sonarr", spec: conn + `
+  importLists: [{name: Trakt, implementation: TraktListImport, enabled: false}]`,
+			rejected: "Sonarr import lists are always active"},
+		{name: "a Lidarr import list turned off", kind: "Lidarr", spec: conn + `
+  importLists: [{name: Spotify, implementation: SpotifyPlaylist, enabled: false}]`,
+			rejected: "Lidarr import lists are always active"},
+		{name: "a Readarr import list turned off", kind: "Readarr", spec: conn + `
+  importLists: [{name: Goodreads, implementation: GoodreadsBookshelf, enabled: false}]`,
+			rejected: "Readarr import lists are always active"},
+		{name: "a Sonarr import list that adds nothing", kind: "Sonarr", spec: conn + `
+  importLists:
+    - {name: Trakt, implementation: TraktListImport, enabled: true}
+    - {name: Plex, implementation: PlexImport, enableAutomaticAdd: false}`},
+		{name: "a Radarr import list turned off", kind: "Radarr", spec: conn + `
+  importLists: [{name: Trakt, implementation: TraktListImport, enabled: false}]`},
 		{name: "a Sonarr auto tag", kind: "Sonarr", spec: conn + `
   autoTags:
     - name: Anime HD
