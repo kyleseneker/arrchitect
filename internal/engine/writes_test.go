@@ -2,6 +2,7 @@ package engine
 
 import (
 	"errors"
+	"strconv"
 	"testing"
 
 	"github.com/prometheus/client_golang/prometheus/testutil"
@@ -79,6 +80,32 @@ func TestWritesPruneEnforceDeletes(t *testing.T) {
 		return nil
 	}))
 	assert.Equal(t, []string{"old"}, removed)
+}
+
+func TestWritesCleanupObserveRecordsWhatItWouldDelete(t *testing.T) {
+	owned := NewOwnership("writes-cleanup", map[string][]string{"profiles": {"3", "4"}})
+	w := &Writes{App: "writes-cleanup", Observe: true}
+	labels := map[string]string{"3": "anime", "4": "kids", "5": "hand-made"}
+
+	require.NoError(t, w.Cleanup(owned, "profiles", []string{"3", "5"}, func(id string) string { return labels[id] }, func(string) error {
+		require.Fail(t, "observe mode must not delete")
+		return nil
+	}))
+	assert.Equal(t, []string{"profiles(anime)"}, w.Drift())
+	assert.Equal(t, map[string][]string{"profiles": {"3", "4"}}, owned.Managed(), "observe mode changed ownership")
+}
+
+func TestWritesCleanupObserveHoldsToThePruneLimit(t *testing.T) {
+	ids := make([]string, 0, DefaultMaxPruneCount+1)
+	for i := range DefaultMaxPruneCount + 1 {
+		ids = append(ids, strconv.Itoa(i))
+	}
+	owned := NewOwnership("writes-cleanup", map[string][]string{"profiles": ids})
+	w := &Writes{App: "writes-cleanup", Observe: true}
+
+	err := w.Cleanup(owned, "profiles", ids, func(id string) string { return id }, func(string) error { return nil })
+	require.ErrorContains(t, err, "refusing to delete 26 profiles")
+	assert.Empty(t, w.Drift())
 }
 
 func TestWritesSyncWritesOnlyWhatDiffers(t *testing.T) {

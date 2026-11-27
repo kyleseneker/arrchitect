@@ -97,7 +97,9 @@ Copy these when you add something similar:
   cleanup reuses it. `Check` probes the app before a sync, and holds any spec
   check that mustn't block cleanup. `Sync` writes through the `engine.Pass`
   it's given. `Integration.Reconcile` does the lifecycle, status, events and
-  requeue, with the reasons in `internal/engine/controller.go`.
+  requeue, with the reasons in `internal/engine/controller.go`. An app that
+  needs its own header, timeout or redirect handling exports them as
+  `HTTPOptions()` from its client package, which `arrchitect export` uses too.
 - appRef resolution: `internal/controller/common/appref.go`. A failure goes
   through `AppRefFailure`, which picks the reason and the requeue.
 - A compat case: `compatCase` in `test/compat/main_test.go`. A case has a
@@ -169,6 +171,8 @@ Never edit these by hand. Change the source, then regenerate.
 - Send every write to an app through `engine.Writes` (`Apply`, `Sync`,
   `Prune`), so observe mode reports exactly what enforce mode would write.
   Don't add a separate observe path.
+- The PVR apps and Prowlarr write kinds in `engine.Stages`. A kind whose items
+  name another kind goes in a later stage, so the IDs exist when it's built.
 
 ## Safety
 
@@ -182,8 +186,8 @@ Never edit these by hand. Change the source, then regenerate.
   `engine.WithAppLabel`.
 - The engine's HTTP client refuses loopback, link-local, unspecified and cloud
   metadata addresses, follows redirects only on the app's own host and caps
-  response bodies. Don't weaken that. Tests serve on `testnet.RoutableAddr(t)`
-  or pass `engine.WithTransport`.
+  response bodies. Don't weaken that. Tests serve fake apps with
+  `testnet.Serve` or pass `engine.WithTransport`.
 - Prune and `deletionPolicy: delete` only delete items the operator created,
   which `status.managedResources` records. Never delete an item the operator
   didn't create.

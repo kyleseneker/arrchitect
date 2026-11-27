@@ -7,9 +7,10 @@ import (
 	"fmt"
 	"net/http"
 
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
 	"github.com/kyleseneker/arrchitect/internal/reconciler"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // ResolveTLSConfig builds a *tls.Config from a TLSConfig CRD spec.
@@ -42,9 +43,9 @@ func ResolveTLSConfig(ctx context.Context, c client.Reader, namespace string, tl
 	return cfg, nil
 }
 
-// NewHTTPTransport creates an *http.Transport with SSRF protection and optional TLS configuration.
+// newHTTPTransport creates an *http.Transport with SSRF protection and optional TLS configuration.
 // If tlsCfg is nil, the default TLS settings are used.
-func NewHTTPTransport(tlsCfg *tls.Config) *http.Transport {
+func newHTTPTransport(tlsCfg *tls.Config) *http.Transport {
 	return &http.Transport{
 		DialContext:     ssrfSafeDialContext,
 		TLSClientConfig: tlsCfg,

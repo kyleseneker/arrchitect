@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -27,7 +26,6 @@ import (
 // AutobrrReconciler reconciles an Autobrr object.
 type AutobrrReconciler struct {
 	client.Client
-	Scheme   *runtime.Scheme
 	Recorder events.EventRecorder
 	Apps     ctrlcommon.Apps
 }
@@ -68,9 +66,8 @@ func (r *AutobrrReconciler) connect(ctx context.Context, config *automationv1alp
 	if err != nil {
 		return nil, err
 	}
-	hc, err := engine.NewHTTPClient(config.Spec.Connection.URL, engine.AuthAPIKey, engine.WithAPIKey(apiKey),
-		// Autobrr reads only X-API-Token; any other header is answered with 403.
-		engine.WithAPIKeyHeader("X-API-Token"), engine.WithTLSConfig(tlsCfg), engine.WithAppLabel("autobrr"))
+	hc, err := engine.NewHTTPClient(config.Spec.Connection.URL, engine.AuthAPIKey,
+		append(autobrrclient.HTTPOptions(), engine.WithAPIKey(apiKey), engine.WithTLSConfig(tlsCfg))...)
 	if err != nil {
 		return nil, err
 	}
@@ -736,10 +733,17 @@ func (s *autobrrSync) titleList(ctx context.Context, l automationv1alpha1.Autobr
 	if err != nil {
 		return fmt.Errorf("listing lists: %w", err)
 	}
-	obj := map[string]any{"name": l.Name, "type": strings.ToUpper(l.Type)}
+	obj, err := autobrrFields(l, autobrrclient.ListFields)
+	if err != nil {
+		return err
+	}
+	obj["name"], obj["type"] = l.Name, strings.ToUpper(l.Type)
 	setEnabled(obj, l.Enabled)
-	if l.URL != "" {
-		obj["url"] = l.URL
+	// autobrrFields drops an empty tag list, but an empty list clears the tags.
+	for key, tags := range map[string][]string{"tags_included": l.TagsIncluded, "tags_excluded": l.TagsExcluded} {
+		if tags != nil {
+			obj[key] = tags
+		}
 	}
 	if l.APIKeySecretRef != nil {
 		val, err := reconciler.ResolveSecretKeyRef(ctx, s.c, s.namespace, *l.APIKeySecretRef)
@@ -785,20 +789,6 @@ func (s *autobrrSync) titleList(ctx context.Context, l automationv1alpha1.Autobr
 		refs = append(refs, map[string]any{"id": id, "name": name})
 	}
 	obj["filters"] = refs
-	for key, value := range map[string]*bool{
-		"match_release": l.MatchRelease, "include_unmonitored": l.IncludeUnmonitored,
-		"include_alternate_titles": l.IncludeAlternateTitles, "include_year": l.IncludeYear,
-		"skip_clean_sanitize": l.SkipCleanSanitize,
-	} {
-		if value != nil {
-			obj[key] = *value
-		}
-	}
-	for key, tags := range map[string][]string{"tags_included": l.TagsIncluded, "tags_excluded": l.TagsExcluded} {
-		if tags != nil {
-			obj[key] = tags
-		}
-	}
 	return s.upsert(ctx, "list", l.Name, existing, obj,
 		s.created("lists", l.Name, func() error {
 			return s.ac.CreateList(ctx, createBody(obj, map[string]any{

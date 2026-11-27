@@ -26,7 +26,7 @@ func autobrrManaged(t *testing.T, cfg *automationv1alpha1.Autobrr, withSecret bo
 	c := runAutobrr(t, cfg, withSecret)
 	var got automationv1alpha1.Autobrr
 	require.NoError(t, c.Get(context.Background(), types.NamespacedName{Name: "autobrr", Namespace: "media"}, &got))
-	return got.GetManagedResources()
+	return got.Status.GetManagedResources()
 }
 
 func TestAutobrrPrunesOnlyFeedsItCreated(t *testing.T) {
@@ -36,7 +36,7 @@ func TestAutobrrPrunesOnlyFeedsItCreated(t *testing.T) {
 	cfg := autobrrConfig(app.serve(t))
 	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{Prune: new(true)}
 	cfg.Spec.Feeds = []automationv1alpha1.AutobrrFeed{{Name: "kept", Type: "RSS", URL: "http://feed", IndexerName: "Generic"}}
-	cfg.SetManagedResources(map[string][]string{"feeds": {"old", "kept"}})
+	cfg.Status.SetManagedResources(map[string][]string{"feeds": {"old", "kept"}})
 
 	managed := autobrrManaged(t, cfg, true)
 
@@ -71,7 +71,7 @@ func TestAutobrrDeletionPolicyRemovesWhatItCreated(t *testing.T) {
 	cfg := autobrrConfig(app.serve(t))
 	policy := ctrlcommon.DeletionPolicyDelete
 	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{DeletionPolicy: policy}
-	cfg.SetManagedResources(map[string][]string{"filters": {"TV"}, "actions": {"TV/send"}, "downloadClients": {"qBit"}})
+	cfg.Status.SetManagedResources(map[string][]string{"filters": {"TV"}, "actions": {"TV/send"}, "downloadClients": {"qBit"}})
 	now := metav1.NewTime(time.Now())
 	cfg.DeletionTimestamp = &now
 	cfg.Finalizers = []string{ctrlcommon.Finalizer}
@@ -92,7 +92,7 @@ func TestAutobrrObserveReportsWhatPruneWouldDelete(t *testing.T) {
 	observe := "observe"
 	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{Prune: new(true), DriftPolicy: observe}
 	cfg.Spec.Feeds = []automationv1alpha1.AutobrrFeed{{Name: "kept", Type: "RSS", URL: "http://feed", IndexerName: "Generic"}}
-	cfg.SetManagedResources(map[string][]string{"feeds": {"observe-old", "kept"}})
+	cfg.Status.SetManagedResources(map[string][]string{"feeds": {"observe-old", "kept"}})
 	observed := metrics.DriftObservedTotal.WithLabelValues("autobrr", "feeds", "observe-old")
 	before := testutil.ToFloat64(observed)
 
@@ -114,7 +114,7 @@ func TestAutobrrDeletesListsBeforeWhatTheyNameAndProxiesLast(t *testing.T) {
 	}}
 	cfg := autobrrConfig(app.serve(t))
 	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{DeletionPolicy: ctrlcommon.DeletionPolicyDelete}
-	cfg.SetManagedResources(map[string][]string{
+	cfg.Status.SetManagedResources(map[string][]string{
 		"lists": {"Shows"}, "filters": {"TV"}, "downloadClients": {"Sonarr"}, "proxies": {"VPN"},
 	})
 	now := metav1.NewTime(time.Now())
@@ -137,7 +137,7 @@ func TestAutobrrPruneListsOnlyKindsItOwns(t *testing.T) {
 	cfg := autobrrConfig(app.serve(t))
 	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{Prune: new(true)}
 	cfg.Spec.Feeds = []automationv1alpha1.AutobrrFeed{{Name: "kept", Type: "RSS", URL: "http://feed", IndexerName: "Generic"}}
-	cfg.SetManagedResources(map[string][]string{"feeds": {"old", "kept"}})
+	cfg.Status.SetManagedResources(map[string][]string{"feeds": {"old", "kept"}})
 
 	c := runAutobrr(t, cfg, true)
 
@@ -154,7 +154,7 @@ func TestAutobrrCleanupListsOnlyKindsItOwns(t *testing.T) {
 	}}
 	cfg := autobrrConfig(app.serve(t))
 	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{DeletionPolicy: ctrlcommon.DeletionPolicyDelete}
-	cfg.SetManagedResources(map[string][]string{"downloadClients": {"qBit"}})
+	cfg.Status.SetManagedResources(map[string][]string{"downloadClients": {"qBit"}})
 	now := metav1.NewTime(time.Now())
 	cfg.DeletionTimestamp = &now
 	cfg.Finalizers = []string{ctrlcommon.Finalizer}

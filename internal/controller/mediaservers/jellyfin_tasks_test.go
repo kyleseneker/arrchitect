@@ -3,9 +3,7 @@ package mediaservers
 import (
 	"context"
 	"encoding/json"
-	"net"
 	"net/http"
-	"net/http/httptest"
 	"strings"
 	"sync"
 	"testing"
@@ -29,9 +27,7 @@ type fakeJellyfinTasks struct {
 
 func (f *fakeJellyfinTasks) client(t *testing.T) *jellyfinclient.Client {
 	t.Helper()
-	ln, err := net.Listen("tcp", net.JoinHostPort(testnet.RoutableAddr(t), "0"))
-	require.NoError(t, err)
-	srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := testnet.Serve(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		f.mu.Lock()
 		defer f.mu.Unlock()
 		if r.Method == http.MethodGet && r.URL.Path == "/ScheduledTasks" {
@@ -51,10 +47,6 @@ func (f *fakeJellyfinTasks) client(t *testing.T) *jellyfinclient.Client {
 		}
 		w.WriteHeader(http.StatusNotFound)
 	}))
-	_ = srv.Listener.Close()
-	srv.Listener = ln
-	srv.Start()
-	t.Cleanup(srv.Close)
 	hc, err := engine.NewHTTPClient(srv.URL, engine.AuthNone, engine.WithAppLabel("jellyfin"))
 	require.NoError(t, err)
 	return jellyfinclient.NewClient(hc)

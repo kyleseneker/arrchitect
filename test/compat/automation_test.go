@@ -66,7 +66,7 @@ func TestAutobrr(t *testing.T) {
 		},
 		newObj: func() ctrlcommon.ConfigResource { return &automationv1alpha1.Autobrr{} },
 		reconciler: func(c client.Client) reconcile.Reconciler {
-			return &automation.AutobrrReconciler{Client: c, Scheme: c.Scheme(), Recorder: events.NewFakeRecorder(100)}
+			return &automation.AutobrrReconciler{Client: c, Recorder: events.NewFakeRecorder(100)}
 		},
 		proxy:   proxy,
 		observe: true,

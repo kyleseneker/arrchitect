@@ -52,7 +52,7 @@ func (in Integration[T, C]) Reconcile(
 	lifecycle := Lifecycle{Prune: in.Prune}
 	if in.Cleanup != nil {
 		lifecycle.Remove = func(ctx context.Context) error {
-			owned := engine.NewOwnership(in.App, obj.GetManagedResources())
+			owned := engine.NewOwnership(in.App, obj.GetConfigStatus().GetManagedResources())
 			if in.Deletable != nil && !in.Deletable(owned) {
 				return nil
 			}
@@ -83,7 +83,7 @@ func (in Integration[T, C]) Reconcile(
 	Reached(obj)
 
 	rc := obj.GetReconcileConfig()
-	pass := engine.NewPass(in.App, Policy(rc), obj.GetManagedResources())
+	pass := engine.NewPass(in.App, Policy(rc), obj.GetConfigStatus().GetManagedResources())
 	problems := in.Sync(ctx, conn, obj, pass)
 	UpdateStatusManaged(obj, pass.Owned.Managed())
 	EmitPruneEvents(recorder, obj, pass.Owned.Pruned())
@@ -103,7 +103,7 @@ func (in Integration[T, C]) Reconcile(
 func Classify(err error) (string, time.Duration) {
 	_, invalidRef := errors.AsType[*invalidAppRefError](err)
 	switch {
-	case IsAppRefNotFound(err):
+	case isAppRefNotFound(err):
 		return engine.ReasonReferenceNotFound, 30 * time.Second
 	case invalidRef, engine.IsConfigError(err):
 		return engine.ReasonInvalidConfig, 0

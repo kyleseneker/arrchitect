@@ -56,12 +56,12 @@ func TestSplitURL(t *testing.T) {
 		{"http://[fd00::1]:8080/base", Address{Host: "fd00::1", Port: 8080, Base: "/base"}},
 	}
 	for _, tt := range tests {
-		got, err := SplitURL(tt.raw)
+		got, err := splitURL(tt.raw)
 		require.NoError(t, err, tt.raw)
 		assert.Equal(t, tt.want, got, tt.raw)
 	}
 	for _, raw := range []string{"", "sonarr:8989", "http://", "http://sonarr:0", "http://sonarr:65536", "://bad"} {
-		_, err := SplitURL(raw)
+		_, err := splitURL(raw)
 		assert.Error(t, err, raw)
 	}
 }

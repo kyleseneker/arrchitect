@@ -74,7 +74,7 @@ func TestJellyfin(t *testing.T) {
 		secrets: map[string]string{"username": jellyfinAdmin, "password": password},
 		newObj:  func() ctrlcommon.ConfigResource { return &mediaserversv1alpha1.Jellyfin{} },
 		reconciler: func(c client.Client) reconcile.Reconciler {
-			return &mediaservers.JellyfinReconciler{Client: c, Scheme: c.Scheme(), Recorder: events.NewFakeRecorder(100)}
+			return &mediaservers.JellyfinReconciler{Client: c, Recorder: events.NewFakeRecorder(100)}
 		},
 		proxy: proxy,
 		// Signing in is a POST that changes nothing.
@@ -187,7 +187,7 @@ func checkJellyfinAPIKey(t *testing.T, base, password string, proxy *recordingPr
 		[]byte(`{"spec":{"connection":{"apiKeySecretRef":{"name":"compat-credentials","key":"jellyfin-api-key"}}}}`))))
 
 	proxy.reset()
-	r := &mediaservers.JellyfinReconciler{Client: k8s, Scheme: k8s.Scheme(), Recorder: events.NewFakeRecorder(100)}
+	r := &mediaservers.JellyfinReconciler{Client: k8s, Recorder: events.NewFakeRecorder(100)}
 	obj := reconcileUntilCurrent(t, r, client.ObjectKeyFromObject(cfg), func() ctrlcommon.ConfigResource {
 		return &mediaserversv1alpha1.Jellyfin{}
 	})
@@ -249,7 +249,7 @@ func TestPlex(t *testing.T) {
 		secrets: map[string]string{"token": "unclaimed"},
 		newObj:  func() ctrlcommon.ConfigResource { return &mediaserversv1alpha1.Plex{} },
 		reconciler: func(c client.Client) reconcile.Reconciler {
-			return &mediaservers.PlexReconciler{Client: c, Scheme: c.Scheme(), Recorder: events.NewFakeRecorder(100)}
+			return &mediaservers.PlexReconciler{Client: c, Recorder: events.NewFakeRecorder(100)}
 		},
 		proxy:   proxy,
 		observe: true,

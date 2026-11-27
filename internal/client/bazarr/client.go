@@ -13,6 +13,11 @@ import (
 	"github.com/kyleseneker/arrchitect/internal/engine"
 )
 
+// HTTPOptions are what every client for Bazarr takes.
+func HTTPOptions() []engine.HTTPClientOption {
+	return []engine.HTTPClientOption{engine.WithAPIKeyHeader("X-API-KEY"), engine.WithAppLabel("bazarr")}
+}
+
 // Client wraps engine.HTTPClient for Bazarr's form-encoded API.
 type Client struct {
 	hc *engine.HTTPClient

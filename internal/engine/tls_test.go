@@ -50,7 +50,7 @@ func TestNewHTTPTransport(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			transport := NewHTTPTransport(tt.tlsCfg)
+			transport := newHTTPTransport(tt.tlsCfg)
 			assert.NotNil(t, transport)
 			assert.NotNil(t, transport.DialContext, "should have SSRF-safe dialer")
 			if tt.tlsCfg != nil {

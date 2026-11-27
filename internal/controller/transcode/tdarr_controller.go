@@ -29,7 +29,6 @@ import (
 // TdarrReconciler reconciles a Tdarr object.
 type TdarrReconciler struct {
 	client.Client
-	Scheme   *runtime.Scheme
 	Recorder events.EventRecorder
 }
 
@@ -61,9 +60,8 @@ func (r *TdarrReconciler) connect(ctx context.Context, config *transcodev1alpha1
 	if err != nil {
 		return nil, err
 	}
-	hc, err := engine.NewHTTPClient(config.Spec.Connection.URL, engine.AuthAPIKey, engine.WithAPIKey(apiKey),
-		engine.WithAPIKeyHeader("x-api-key"), engine.WithTLSConfig(tlsCfg), engine.WithAppLabel("tdarr"),
-		engine.WithTimeout(3*time.Minute))
+	hc, err := engine.NewHTTPClient(config.Spec.Connection.URL, engine.AuthAPIKey,
+		append(tdarrclient.HTTPOptions(), engine.WithAPIKey(apiKey), engine.WithTLSConfig(tlsCfg))...)
 	if err != nil {
 		return nil, err
 	}

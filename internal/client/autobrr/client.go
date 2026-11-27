@@ -13,6 +13,12 @@ import (
 	"github.com/kyleseneker/arrchitect/internal/engine"
 )
 
+// HTTPOptions are what every client for Autobrr takes. Autobrr reads only
+// X-API-Token and answers any other header with 403.
+func HTTPOptions() []engine.HTTPClientOption {
+	return []engine.HTTPClientOption{engine.WithAPIKeyHeader("X-API-Token"), engine.WithAppLabel("autobrr")}
+}
+
 // Client wraps engine.HTTPClient with Autobrr-specific API methods.
 // FilterFields maps the AutobrrFilter fields Autobrr stores as given to its keys.
 var FilterFields = map[string]string{
@@ -128,6 +134,13 @@ var Types = map[string]string{
 
 // IRCAuthMechanisms maps Autobrr's IRC auth mechanisms to Autobrr's constants.
 var IRCAuthMechanisms = map[string]string{"None": "NONE", "NickServ": "NICKSERV", "SASL_PLAIN": "SASL_PLAIN"}
+
+// ListFields maps the AutobrrTitleList fields Autobrr stores as given to its keys.
+var ListFields = map[string]string{
+	"url": "url", "matchRelease": "match_release", "tagsIncluded": "tags_included", "tagsExcluded": "tags_excluded",
+	"includeUnmonitored": "include_unmonitored", "includeAlternateTitles": "include_alternate_titles",
+	"includeYear": "include_year", "skipCleanSanitize": "skip_clean_sanitize",
+}
 
 // RuleFields maps the AutobrrDownloadClientRules fields Autobrr stores as given to its keys.
 var RuleFields = map[string]string{
@@ -284,22 +297,22 @@ func (c *Client) UpdateAction(ctx context.Context, id int, action map[string]any
 
 // DeleteDownloadClient removes a download client.
 func (c *Client) DeleteDownloadClient(ctx context.Context, id int) error {
-	return c.hc.DeleteJSON(ctx, fmt.Sprintf("%s/%d", c.downloaders, id))
+	return c.hc.Delete(ctx, fmt.Sprintf("%s/%d", c.downloaders, id))
 }
 
 // DeleteIndexer removes an indexer.
 func (c *Client) DeleteIndexer(ctx context.Context, id int) error {
-	return c.hc.DeleteJSON(ctx, fmt.Sprintf("/api/indexer/%d", id))
+	return c.hc.Delete(ctx, fmt.Sprintf("/api/indexer/%d", id))
 }
 
 // DeleteIRCNetwork removes an IRC network.
 func (c *Client) DeleteIRCNetwork(ctx context.Context, id int) error {
-	return c.hc.DeleteJSON(ctx, fmt.Sprintf("/api/irc/network/%d", id))
+	return c.hc.Delete(ctx, fmt.Sprintf("/api/irc/network/%d", id))
 }
 
 // DeleteFeed removes a feed.
 func (c *Client) DeleteFeed(ctx context.Context, id int) error {
-	return c.hc.DeleteJSON(ctx, fmt.Sprintf("/api/feeds/%d", id))
+	return c.hc.Delete(ctx, fmt.Sprintf("/api/feeds/%d", id))
 }
 
 // --- Lists and proxies ---
@@ -317,7 +330,7 @@ func (c *Client) UpdateList(ctx context.Context, id int, list map[string]any) er
 }
 
 func (c *Client) DeleteList(ctx context.Context, id int) error {
-	return c.hc.DeleteJSON(ctx, fmt.Sprintf("/api/lists/%d", id))
+	return c.hc.Delete(ctx, fmt.Sprintf("/api/lists/%d", id))
 }
 
 func (c *Client) ListProxies(ctx context.Context) ([]map[string]any, error) {
@@ -333,7 +346,7 @@ func (c *Client) UpdateProxy(ctx context.Context, id int, proxy map[string]any) 
 }
 
 func (c *Client) DeleteProxy(ctx context.Context, id int) error {
-	return c.hc.DeleteJSON(ctx, fmt.Sprintf("/api/proxy/%d", id))
+	return c.hc.Delete(ctx, fmt.Sprintf("/api/proxy/%d", id))
 }
 
 // --- Notifications ---
@@ -386,15 +399,15 @@ func (c *Client) UpdateNotification(ctx context.Context, id int, notification ma
 }
 
 func (c *Client) DeleteNotification(ctx context.Context, id int) error {
-	return c.hc.DeleteJSON(ctx, fmt.Sprintf("/api/notification/%d", id))
+	return c.hc.Delete(ctx, fmt.Sprintf("/api/notification/%d", id))
 }
 
 // DeleteFilter removes a filter and its actions.
 func (c *Client) DeleteFilter(ctx context.Context, id int) error {
-	return c.hc.DeleteJSON(ctx, fmt.Sprintf("/api/filters/%d", id))
+	return c.hc.Delete(ctx, fmt.Sprintf("/api/filters/%d", id))
 }
 
 // DeleteAction removes a filter action.
 func (c *Client) DeleteAction(ctx context.Context, id int) error {
-	return c.hc.DeleteJSON(ctx, fmt.Sprintf("/api/actions/%d", id))
+	return c.hc.Delete(ctx, fmt.Sprintf("/api/actions/%d", id))
 }

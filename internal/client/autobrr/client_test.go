@@ -151,7 +151,7 @@ func TestListIRCNetworks(t *testing.T) {
 	assert.Empty(t, nets)
 }
 
-func TestEveryFilterAndActionFieldReachesAutobrr(t *testing.T) {
+func TestEveryMappedFieldReachesAutobrr(t *testing.T) {
 	for _, tc := range []struct {
 		typ     reflect.Type
 		table   map[string]string
@@ -159,6 +159,7 @@ func TestEveryFilterAndActionFieldReachesAutobrr(t *testing.T) {
 	}{
 		{reflect.TypeFor[automationv1alpha1.AutobrrFilter](), FilterFields, []string{"name", "enabled", "tags", "exceptTags", "indexers", "actions"}},
 		{reflect.TypeFor[automationv1alpha1.AutobrrFilterAction](), ActionFields, []string{"name", "enabled", "type", "downloadClientName"}},
+		{reflect.TypeFor[automationv1alpha1.AutobrrTitleList](), ListFields, []string{"name", "type", "enabled", "downloadClientName", "apiKeySecretRef", "filters"}},
 	} {
 		for field := range tc.typ.Fields() {
 			name, _, _ := strings.Cut(field.Tag.Get("json"), ",")

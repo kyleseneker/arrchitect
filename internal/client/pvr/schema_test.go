@@ -34,28 +34,28 @@ func qbitSchema() []map[string]any {
 }
 
 func TestValidateFieldNamesAcceptsKnownFields(t *testing.T) {
-	assert.NoError(t, ValidateFieldNames(qbitSchema(), "QBittorrent", []string{"host", "tvCategory"}), "valid fields rejected")
+	assert.NoError(t, validateFieldNames(qbitSchema(), "QBittorrent", []string{"host", "tvCategory"}), "valid fields rejected")
 }
 
 // The apps store an unknown field and answer 2xx, so a typo has to be caught here
 // or it is silently inert.
 func TestValidateFieldNamesRejectsTypos(t *testing.T) {
-	err := ValidateFieldNames(qbitSchema(), "QBittorrent", []string{"tvCatagory"})
+	err := validateFieldNames(qbitSchema(), "QBittorrent", []string{"tvCatagory"})
 	require.Error(t, err, "a misspelled field was accepted")
 	assert.ErrorContains(t, err, "tvCatagory", "error does not name the offending field")
 	assert.ErrorContains(t, err, "tvCategory", "error does not list the accepted names, so it is not actionable")
 }
 
 func TestValidateFieldNamesIsCaseInsensitiveOnImplementation(t *testing.T) {
-	assert.Error(t, ValidateFieldNames(qbitSchema(), "qbittorrent", []string{"nope"}),
+	assert.Error(t, validateFieldNames(qbitSchema(), "qbittorrent", []string{"nope"}),
 		"implementation lookup should not be case sensitive")
 }
 
 // An unknown implementation or unreadable schema must not block a write, since the
 // operator cannot tell a bad field from an app it does not have a schema for.
 func TestValidateFieldNamesSkipsWhenSchemaUnknown(t *testing.T) {
-	assert.NoError(t, ValidateFieldNames(qbitSchema(), "Deluge", []string{"anything"}), "unknown implementation should skip validation")
-	assert.NoError(t, ValidateFieldNames(nil, "QBittorrent", []string{"anything"}), "absent schema should skip validation")
+	assert.NoError(t, validateFieldNames(qbitSchema(), "Deluge", []string{"anything"}), "unknown implementation should skip validation")
+	assert.NoError(t, validateFieldNames(nil, "QBittorrent", []string{"anything"}), "absent schema should skip validation")
 }
 
 func TestSchemaConfigContractComesFromTheAppSchema(t *testing.T) {
@@ -63,25 +63,25 @@ func TestSchemaConfigContractComesFromTheAppSchema(t *testing.T) {
 		{"implementation": "CustomImport", "configContract": "CustomSettings"},
 		{"implementation": "TraktPopularImport", "configContract": "TraktPopularSettings"},
 	}
-	assert.Equal(t, "CustomSettings", SchemaConfigContract(schema, "customimport", ""),
+	assert.Equal(t, "CustomSettings", schemaConfigContract(schema, "customimport", ""),
 		"the implementation+Settings guess is not what the app expects")
-	assert.Equal(t, "Declared", SchemaConfigContract(schema, "CustomImport", "Declared"), "a declared contract must win")
-	assert.Empty(t, SchemaConfigContract(nil, "CustomImport", ""), "an unreadable schema must leave the builder's fallback")
+	assert.Equal(t, "Declared", schemaConfigContract(schema, "CustomImport", "Declared"), "a declared contract must win")
+	assert.Empty(t, schemaConfigContract(nil, "CustomImport", ""), "an unreadable schema must leave the builder's fallback")
 }
 
 func TestSchemaProtocolUsesTheAppsSpelling(t *testing.T) {
 	schema := []map[string]any{{"implementation": "QBittorrent", "protocol": "TorrentDownloadProtocol"}}
-	assert.Equal(t, "TorrentDownloadProtocol", SchemaProtocol(schema, "qbittorrent", "torrent"),
+	assert.Equal(t, "TorrentDownloadProtocol", schemaProtocol(schema, "qbittorrent", "torrent"),
 		"Lidarr reads torrent back as TorrentDownloadProtocol and rewrites it forever")
-	assert.Equal(t, "torrent", SchemaProtocol(nil, "QBittorrent", "torrent"), "an unreadable schema must keep the declared protocol")
+	assert.Equal(t, "torrent", schemaProtocol(nil, "QBittorrent", "torrent"), "an unreadable schema must keep the declared protocol")
 }
 
 func TestUnsupportedEventsAreTheOnesTheImplementationLacks(t *testing.T) {
 	schema := []map[string]any{{"implementation": "Webhook", "onGrab": false, "onReleaseImport": false, "includeHealthWarnings": false}}
 	payload := map[string]any{"name": "hook", "onGrab": true, "onDownload": true, "onHealthRestored": true, "includeHealthWarnings": true}
-	got := UnsupportedEvents(schema, "Webhook", payload)
+	got := unsupportedEvents(schema, "Webhook", payload)
 	assert.Equal(t, []string{"onDownload", "onHealthRestored"}, got)
-	assert.Nil(t, UnsupportedEvents(nil, "Webhook", payload), "an unreadable schema must not reject events")
+	assert.Nil(t, unsupportedEvents(nil, "Webhook", payload), "an unreadable schema must not reject events")
 }
 
 // schemaServer serves only the schema endpoints, so a request for anything else
@@ -111,7 +111,7 @@ func TestValidateOptionFieldsReportsTypedFieldName(t *testing.T) {
 		Fields: []commonv1alpha1.ConfigField{{Name: "tvCatagory"}},
 	}}}
 
-	problems := ValidateOptionFields(context.Background(), schemaServer(t), "v3", opts)
+	problems := validateOptionFields(context.Background(), schemaServer(t), "v3", opts)
 	require.Len(t, problems, 1, "expected one problem")
 	assert.Contains(t, problems[0], "qbit", "problem does not identify the resource")
 	assert.Contains(t, problems[0], "tvCatagory", "problem does not identify the field")
@@ -123,7 +123,7 @@ func TestValidateOptionFieldsPassesKnownFields(t *testing.T) {
 		Fields: []commonv1alpha1.ConfigField{{Name: "tvCategory"}},
 	}}}
 
-	problems := ValidateOptionFields(context.Background(), schemaServer(t), "v3", opts)
+	problems := validateOptionFields(context.Background(), schemaServer(t), "v3", opts)
 	assert.Empty(t, problems, "valid field reported as a problem")
 }
 
@@ -134,6 +134,6 @@ func TestValidateOptionFieldsSkipsWithoutSchema(t *testing.T) {
 		Fields: []commonv1alpha1.ConfigField{{Name: "whatever"}},
 	}}}
 
-	problems := ValidateOptionFields(context.Background(), schemaServer(t), "v3", opts)
+	problems := validateOptionFields(context.Background(), schemaServer(t), "v3", opts)
 	assert.Empty(t, problems, "missing schema should skip validation")
 }

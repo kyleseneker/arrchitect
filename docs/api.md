@@ -532,10 +532,10 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#condition-v1-meta) array_ | conditions represent the current state of the Autobrr resource. |  | Optional: \{\} <br /> |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#condition-v1-meta) array_ | conditions represent the current state of the resource. |  | Optional: \{\} <br /> |
 | `observedGeneration` _integer_ | observedGeneration is the most recent generation observed. |  | Minimum: 1 <br />Optional: \{\} <br /> |
 | `lastSyncTime` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#time-v1-meta)_ | lastSyncTime is the timestamp of the last successful reconciliation. |  | Optional: \{\} <br /> |
-| `managedResources` _[ManagedResource](#managedresource) array_ | managedResources records the resources this operator created, keyed by<br />resource type. Prune only removes entries listed here, so resources<br />created outside the operator are never deleted. |  | Optional: \{\} <br /> |
+| `managedResources` _[ManagedResource](#managedresource) array_ | managedResources records the items the operator created, keyed by<br />resource type. Prune and deletion only remove items listed here, so<br />items created outside the operator are never deleted. |  | Optional: \{\} <br /> |
 
 
 #### Bazarr
@@ -816,10 +816,10 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#condition-v1-meta) array_ | conditions represent the current state of the Bazarr resource. |  | Optional: \{\} <br /> |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#condition-v1-meta) array_ | conditions represent the current state of the resource. |  | Optional: \{\} <br /> |
 | `observedGeneration` _integer_ | observedGeneration is the most recent generation observed. |  | Minimum: 1 <br />Optional: \{\} <br /> |
 | `lastSyncTime` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#time-v1-meta)_ | lastSyncTime is the timestamp of the last successful reconciliation. |  | Optional: \{\} <br /> |
-| `managedResources` _[ManagedResource](#managedresource) array_ | managedResources records the resources this operator created, keyed by<br />resource type. Prune only removes entries listed here, so resources<br />created outside the operator are never deleted. |  | Optional: \{\} <br /> |
+| `managedResources` _[ManagedResource](#managedresource) array_ | managedResources records the items the operator created, keyed by<br />resource type. Prune and deletion only remove items listed here, so<br />items created outside the operator are never deleted. |  | Optional: \{\} <br /> |
 
 
 #### BazarrSubSync
@@ -879,6 +879,47 @@ _Appears in:_
 | `name` _string_ | name is the field name. |  | MinLength: 1 <br />Required: \{\} <br /> |
 | `value` _[FieldValue](#fieldvalue)_ | value is the field value: a string, number, boolean or list. |  | Type:  <br />Optional: \{\} <br /> |
 | `valueFrom` _[ValueSource](#valuesource)_ | valueFrom reads the field value from a source. |  | Optional: \{\} <br /> |
+
+
+#### ConfigStatus
+
+
+
+ConfigStatus holds the status fields every resource reports.
+
+
+
+_Appears in:_
+- [AutobrrStatus](#autobrrstatus)
+- [BazarrStatus](#bazarrstatus)
+- [FlareSolverrStatus](#flaresolverrstatus)
+- [JellyfinStatus](#jellyfinstatus)
+- [LidarrDownloadClientStatus](#lidarrdownloadclientstatus)
+- [LidarrIndexerStatus](#lidarrindexerstatus)
+- [LidarrStatus](#lidarrstatus)
+- [MaintainerrStatus](#maintainerrstatus)
+- [PlexStatus](#plexstatus)
+- [ProwlarrStatus](#prowlarrstatus)
+- [QBittorrentStatus](#qbittorrentstatus)
+- [RadarrDownloadClientStatus](#radarrdownloadclientstatus)
+- [RadarrIndexerStatus](#radarrindexerstatus)
+- [RadarrStatus](#radarrstatus)
+- [ReadarrDownloadClientStatus](#readarrdownloadclientstatus)
+- [ReadarrIndexerStatus](#readarrindexerstatus)
+- [ReadarrStatus](#readarrstatus)
+- [SabnzbdStatus](#sabnzbdstatus)
+- [SeerrStatus](#seerrstatus)
+- [SonarrDownloadClientStatus](#sonarrdownloadclientstatus)
+- [SonarrIndexerStatus](#sonarrindexerstatus)
+- [SonarrStatus](#sonarrstatus)
+- [TdarrStatus](#tdarrstatus)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#condition-v1-meta) array_ | conditions represent the current state of the resource. |  | Optional: \{\} <br /> |
+| `observedGeneration` _integer_ | observedGeneration is the most recent generation observed. |  | Minimum: 1 <br />Optional: \{\} <br /> |
+| `lastSyncTime` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#time-v1-meta)_ | lastSyncTime is the timestamp of the last successful reconciliation. |  | Optional: \{\} <br /> |
+| `managedResources` _[ManagedResource](#managedresource) array_ | managedResources records the items the operator created, keyed by<br />resource type. Prune and deletion only remove items listed here, so<br />items created outside the operator are never deleted. |  | Optional: \{\} <br /> |
 
 
 #### CustomFormat
@@ -1107,11 +1148,11 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#condition-v1-meta) array_ | conditions represent the current state of the FlareSolverr resource. |  | Optional: \{\} <br /> |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#condition-v1-meta) array_ | conditions represent the current state of the resource. |  | Optional: \{\} <br /> |
 | `observedGeneration` _integer_ | observedGeneration is the most recent generation observed. |  | Minimum: 1 <br />Optional: \{\} <br /> |
 | `lastSyncTime` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#time-v1-meta)_ | lastSyncTime is the timestamp of the last successful reconciliation. |  | Optional: \{\} <br /> |
+| `managedResources` _[ManagedResource](#managedresource) array_ | managedResources records the items the operator created, keyed by<br />resource type. Prune and deletion only remove items listed here, so<br />items created outside the operator are never deleted. |  | Optional: \{\} <br /> |
 | `activeSessions` _integer_ | activeSessions is the number of active sessions managed by this resource. |  | Minimum: 1 <br />Optional: \{\} <br /> |
-| `managedResources` _[ManagedResource](#managedresource) array_ | managedResources records the resources this operator created, keyed by<br />resource type. Prune only removes entries listed here, so resources<br />created outside the operator are never deleted. |  | Optional: \{\} <br /> |
 
 
 #### Indexer
@@ -1451,11 +1492,11 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#condition-v1-meta) array_ | conditions represent the current state of the Jellyfin resource. |  | Optional: \{\} <br /> |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#condition-v1-meta) array_ | conditions represent the current state of the resource. |  | Optional: \{\} <br /> |
 | `observedGeneration` _integer_ | observedGeneration is the most recent generation observed. |  | Minimum: 1 <br />Optional: \{\} <br /> |
 | `lastSyncTime` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#time-v1-meta)_ | lastSyncTime is the timestamp of the last successful reconciliation. |  | Optional: \{\} <br /> |
+| `managedResources` _[ManagedResource](#managedresource) array_ | managedResources records the items the operator created, keyed by<br />resource type. Prune and deletion only remove items listed here, so<br />items created outside the operator are never deleted. |  | Optional: \{\} <br /> |
 | `initialized` _boolean_ | initialized indicates whether the Jellyfin setup wizard has been completed. |  | Optional: \{\} <br /> |
-| `managedResources` _[ManagedResource](#managedresource) array_ | managedResources records the resources this operator created, keyed by<br />resource type. Prune only removes entries listed here, so resources<br />created outside the operator are never deleted. |  | Optional: \{\} <br /> |
 
 
 #### JellyfinTaskTrigger
@@ -1632,11 +1673,11 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#condition-v1-meta) array_ | conditions represent the current state of the download client. |  | Optional: \{\} <br /> |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#condition-v1-meta) array_ | conditions represent the current state of the resource. |  | Optional: \{\} <br /> |
 | `observedGeneration` _integer_ | observedGeneration is the most recent generation observed. |  | Minimum: 1 <br />Optional: \{\} <br /> |
 | `lastSyncTime` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#time-v1-meta)_ | lastSyncTime is the timestamp of the last successful reconciliation. |  | Optional: \{\} <br /> |
+| `managedResources` _[ManagedResource](#managedresource) array_ | managedResources records the items the operator created, keyed by<br />resource type. Prune and deletion only remove items listed here, so<br />items created outside the operator are never deleted. |  | Optional: \{\} <br /> |
 | `id` _integer_ | id is the download client's ID in Lidarr. |  | Minimum: 1 <br />Optional: \{\} <br /> |
-| `managedResources` _[ManagedResource](#managedresource) array_ | managedResources records what the operator created for this resource,<br />so deletion only removes what it created. |  | Optional: \{\} <br /> |
 
 
 #### LidarrIndexer
@@ -1720,11 +1761,11 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#condition-v1-meta) array_ | conditions represent the current state of the indexer. |  | Optional: \{\} <br /> |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#condition-v1-meta) array_ | conditions represent the current state of the resource. |  | Optional: \{\} <br /> |
 | `observedGeneration` _integer_ | observedGeneration is the most recent generation observed. |  | Minimum: 1 <br />Optional: \{\} <br /> |
 | `lastSyncTime` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#time-v1-meta)_ | lastSyncTime is the timestamp of the last successful reconciliation. |  | Optional: \{\} <br /> |
+| `managedResources` _[ManagedResource](#managedresource) array_ | managedResources records the items the operator created, keyed by<br />resource type. Prune and deletion only remove items listed here, so<br />items created outside the operator are never deleted. |  | Optional: \{\} <br /> |
 | `id` _integer_ | id is the indexer's ID in Lidarr. |  | Minimum: 1 <br />Optional: \{\} <br /> |
-| `managedResources` _[ManagedResource](#managedresource) array_ | managedResources records what the operator created for this resource,<br />so deletion only removes what it created. |  | Optional: \{\} <br /> |
 
 
 #### LidarrMediaManagement
@@ -1873,10 +1914,10 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#condition-v1-meta) array_ | conditions represent the current state of the Lidarr resource. |  | Optional: \{\} <br /> |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#condition-v1-meta) array_ | conditions represent the current state of the resource. |  | Optional: \{\} <br /> |
 | `observedGeneration` _integer_ | observedGeneration is the most recent generation observed. |  | Minimum: 1 <br />Optional: \{\} <br /> |
 | `lastSyncTime` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#time-v1-meta)_ | lastSyncTime is the timestamp of the last successful reconciliation. |  | Optional: \{\} <br /> |
-| `managedResources` _[ManagedResource](#managedresource) array_ | managedResources records the resources this operator created, keyed by<br />resource type. Prune only removes entries listed here, so resources<br />created outside the operator are never deleted. |  | Optional: \{\} <br /> |
+| `managedResources` _[ManagedResource](#managedresource) array_ | managedResources records the items the operator created, keyed by<br />resource type. Prune and deletion only remove items listed here, so<br />items created outside the operator are never deleted. |  | Optional: \{\} <br /> |
 
 
 #### LidarrUI
@@ -2251,10 +2292,10 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#condition-v1-meta) array_ | conditions represent the current state of the Maintainerr resource. |  | Optional: \{\} <br /> |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#condition-v1-meta) array_ | conditions represent the current state of the resource. |  | Optional: \{\} <br /> |
 | `observedGeneration` _integer_ | observedGeneration is the most recent generation observed. |  | Minimum: 1 <br />Optional: \{\} <br /> |
 | `lastSyncTime` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#time-v1-meta)_ | lastSyncTime is the timestamp of the last successful reconciliation. |  | Optional: \{\} <br /> |
-| `managedResources` _[ManagedResource](#managedresource) array_ | managedResources records the resources this operator created, keyed by<br />resource type. Prune only removes entries listed here, so resources<br />created outside the operator are never deleted. |  | Optional: \{\} <br /> |
+| `managedResources` _[ManagedResource](#managedresource) array_ | managedResources records the items the operator created, keyed by<br />resource type. Prune and deletion only remove items listed here, so<br />items created outside the operator are never deleted. |  | Optional: \{\} <br /> |
 
 
 #### ManagedResource
@@ -2268,6 +2309,7 @@ ManagedResource lists the items of one type the operator created.
 _Appears in:_
 - [AutobrrStatus](#autobrrstatus)
 - [BazarrStatus](#bazarrstatus)
+- [ConfigStatus](#configstatus)
 - [FlareSolverrStatus](#flaresolverrstatus)
 - [JellyfinStatus](#jellyfinstatus)
 - [LidarrDownloadClientStatus](#lidarrdownloadclientstatus)
@@ -2554,10 +2596,10 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#condition-v1-meta) array_ | conditions represent the current state of the Plex resource. |  | Optional: \{\} <br /> |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#condition-v1-meta) array_ | conditions represent the current state of the resource. |  | Optional: \{\} <br /> |
 | `observedGeneration` _integer_ | observedGeneration is the most recent generation observed. |  | Minimum: 1 <br />Optional: \{\} <br /> |
 | `lastSyncTime` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#time-v1-meta)_ | lastSyncTime is the timestamp of the last successful reconciliation. |  | Optional: \{\} <br /> |
-| `managedResources` _[ManagedResource](#managedresource) array_ | managedResources records the resources this operator created, keyed by<br />resource type. Prune only removes entries listed here, so resources<br />created outside the operator are never deleted. |  | Optional: \{\} <br /> |
+| `managedResources` _[ManagedResource](#managedresource) array_ | managedResources records the items the operator created, keyed by<br />resource type. Prune and deletion only remove items listed here, so<br />items created outside the operator are never deleted. |  | Optional: \{\} <br /> |
 
 
 #### PlexTranscoder
@@ -2781,10 +2823,10 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#condition-v1-meta) array_ | conditions represent the current state of the Prowlarr resource. |  | Optional: \{\} <br /> |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#condition-v1-meta) array_ | conditions represent the current state of the resource. |  | Optional: \{\} <br /> |
 | `observedGeneration` _integer_ | observedGeneration is the most recent generation observed. |  | Minimum: 1 <br />Optional: \{\} <br /> |
 | `lastSyncTime` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#time-v1-meta)_ | lastSyncTime is the timestamp of the last successful reconciliation. |  | Optional: \{\} <br /> |
-| `managedResources` _[ManagedResource](#managedresource) array_ | managedResources records the resources this operator created, keyed by<br />resource type. Prune only removes entries listed here, so resources<br />created outside the operator are never deleted. |  | Optional: \{\} <br /> |
+| `managedResources` _[ManagedResource](#managedresource) array_ | managedResources records the items the operator created, keyed by<br />resource type. Prune and deletion only remove items listed here, so<br />items created outside the operator are never deleted. |  | Optional: \{\} <br /> |
 
 
 #### QBittorrent
@@ -3059,10 +3101,10 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#condition-v1-meta) array_ | conditions represent the current state of the QBittorrent resource. |  | Optional: \{\} <br /> |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#condition-v1-meta) array_ | conditions represent the current state of the resource. |  | Optional: \{\} <br /> |
 | `observedGeneration` _integer_ | observedGeneration is the most recent generation observed. |  | Minimum: 1 <br />Optional: \{\} <br /> |
 | `lastSyncTime` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#time-v1-meta)_ | lastSyncTime is the timestamp of the last successful reconciliation. |  | Optional: \{\} <br /> |
-| `managedResources` _[ManagedResource](#managedresource) array_ | managedResources records the resources this operator created, keyed by<br />resource type. Prune only removes entries listed here, so resources<br />created outside the operator are never deleted. |  | Optional: \{\} <br /> |
+| `managedResources` _[ManagedResource](#managedresource) array_ | managedResources records the items the operator created, keyed by<br />resource type. Prune and deletion only remove items listed here, so<br />items created outside the operator are never deleted. |  | Optional: \{\} <br /> |
 
 
 #### QualityDefinition
@@ -3299,11 +3341,11 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#condition-v1-meta) array_ | conditions represent the current state of the download client. |  | Optional: \{\} <br /> |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#condition-v1-meta) array_ | conditions represent the current state of the resource. |  | Optional: \{\} <br /> |
 | `observedGeneration` _integer_ | observedGeneration is the most recent generation observed. |  | Minimum: 1 <br />Optional: \{\} <br /> |
 | `lastSyncTime` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#time-v1-meta)_ | lastSyncTime is the timestamp of the last successful reconciliation. |  | Optional: \{\} <br /> |
+| `managedResources` _[ManagedResource](#managedresource) array_ | managedResources records the items the operator created, keyed by<br />resource type. Prune and deletion only remove items listed here, so<br />items created outside the operator are never deleted. |  | Optional: \{\} <br /> |
 | `id` _integer_ | id is the download client's ID in Radarr. |  | Minimum: 1 <br />Optional: \{\} <br /> |
-| `managedResources` _[ManagedResource](#managedresource) array_ | managedResources records what the operator created for this resource,<br />so deletion only removes what it created. |  | Optional: \{\} <br /> |
 
 
 #### RadarrImportListConfig
@@ -3407,11 +3449,11 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#condition-v1-meta) array_ | conditions represent the current state of the indexer. |  | Optional: \{\} <br /> |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#condition-v1-meta) array_ | conditions represent the current state of the resource. |  | Optional: \{\} <br /> |
 | `observedGeneration` _integer_ | observedGeneration is the most recent generation observed. |  | Minimum: 1 <br />Optional: \{\} <br /> |
 | `lastSyncTime` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#time-v1-meta)_ | lastSyncTime is the timestamp of the last successful reconciliation. |  | Optional: \{\} <br /> |
+| `managedResources` _[ManagedResource](#managedresource) array_ | managedResources records the items the operator created, keyed by<br />resource type. Prune and deletion only remove items listed here, so<br />items created outside the operator are never deleted. |  | Optional: \{\} <br /> |
 | `id` _integer_ | id is the indexer's ID in Radarr. |  | Minimum: 1 <br />Optional: \{\} <br /> |
-| `managedResources` _[ManagedResource](#managedresource) array_ | managedResources records what the operator created for this resource,<br />so deletion only removes what it created. |  | Optional: \{\} <br /> |
 
 
 #### RadarrMediaManagement
@@ -3536,10 +3578,10 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#condition-v1-meta) array_ | conditions represent the current state of the Radarr resource. |  | Optional: \{\} <br /> |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#condition-v1-meta) array_ | conditions represent the current state of the resource. |  | Optional: \{\} <br /> |
 | `observedGeneration` _integer_ | observedGeneration is the most recent generation observed. |  | Minimum: 1 <br />Optional: \{\} <br /> |
 | `lastSyncTime` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#time-v1-meta)_ | lastSyncTime is the timestamp of the last successful reconciliation. |  | Optional: \{\} <br /> |
-| `managedResources` _[ManagedResource](#managedresource) array_ | managedResources records the resources this operator created, keyed by<br />resource type. Prune only removes entries listed here, so resources<br />created outside the operator are never deleted. |  | Optional: \{\} <br /> |
+| `managedResources` _[ManagedResource](#managedresource) array_ | managedResources records the items the operator created, keyed by<br />resource type. Prune and deletion only remove items listed here, so<br />items created outside the operator are never deleted. |  | Optional: \{\} <br /> |
 
 
 #### RadarrUI
@@ -3691,11 +3733,11 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#condition-v1-meta) array_ | conditions represent the current state of the download client. |  | Optional: \{\} <br /> |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#condition-v1-meta) array_ | conditions represent the current state of the resource. |  | Optional: \{\} <br /> |
 | `observedGeneration` _integer_ | observedGeneration is the most recent generation observed. |  | Minimum: 1 <br />Optional: \{\} <br /> |
 | `lastSyncTime` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#time-v1-meta)_ | lastSyncTime is the timestamp of the last successful reconciliation. |  | Optional: \{\} <br /> |
+| `managedResources` _[ManagedResource](#managedresource) array_ | managedResources records the items the operator created, keyed by<br />resource type. Prune and deletion only remove items listed here, so<br />items created outside the operator are never deleted. |  | Optional: \{\} <br /> |
 | `id` _integer_ | id is the download client's ID in Readarr. |  | Minimum: 1 <br />Optional: \{\} <br /> |
-| `managedResources` _[ManagedResource](#managedresource) array_ | managedResources records what the operator created for this resource,<br />so deletion only removes what it created. |  | Optional: \{\} <br /> |
 
 
 #### ReadarrIndexer
@@ -3779,11 +3821,11 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#condition-v1-meta) array_ | conditions represent the current state of the indexer. |  | Optional: \{\} <br /> |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#condition-v1-meta) array_ | conditions represent the current state of the resource. |  | Optional: \{\} <br /> |
 | `observedGeneration` _integer_ | observedGeneration is the most recent generation observed. |  | Minimum: 1 <br />Optional: \{\} <br /> |
 | `lastSyncTime` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#time-v1-meta)_ | lastSyncTime is the timestamp of the last successful reconciliation. |  | Optional: \{\} <br /> |
+| `managedResources` _[ManagedResource](#managedresource) array_ | managedResources records the items the operator created, keyed by<br />resource type. Prune and deletion only remove items listed here, so<br />items created outside the operator are never deleted. |  | Optional: \{\} <br /> |
 | `id` _integer_ | id is the indexer's ID in Readarr. |  | Minimum: 1 <br />Optional: \{\} <br /> |
-| `managedResources` _[ManagedResource](#managedresource) array_ | managedResources records what the operator created for this resource,<br />so deletion only removes what it created. |  | Optional: \{\} <br /> |
 
 
 #### ReadarrMediaManagement
@@ -3932,10 +3974,10 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#condition-v1-meta) array_ | conditions represent the current state of the Readarr resource. |  | Optional: \{\} <br /> |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#condition-v1-meta) array_ | conditions represent the current state of the resource. |  | Optional: \{\} <br /> |
 | `observedGeneration` _integer_ | observedGeneration is the most recent generation observed. |  | Minimum: 1 <br />Optional: \{\} <br /> |
 | `lastSyncTime` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#time-v1-meta)_ | lastSyncTime is the timestamp of the last successful reconciliation. |  | Optional: \{\} <br /> |
-| `managedResources` _[ManagedResource](#managedresource) array_ | managedResources records the resources this operator created, keyed by<br />resource type. Prune only removes entries listed here, so resources<br />created outside the operator are never deleted. |  | Optional: \{\} <br /> |
+| `managedResources` _[ManagedResource](#managedresource) array_ | managedResources records the items the operator created, keyed by<br />resource type. Prune and deletion only remove items listed here, so<br />items created outside the operator are never deleted. |  | Optional: \{\} <br /> |
 
 
 #### ReadarrUI
@@ -4299,10 +4341,10 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#condition-v1-meta) array_ | conditions represent the current state of the Sabnzbd resource. |  | Optional: \{\} <br /> |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#condition-v1-meta) array_ | conditions represent the current state of the resource. |  | Optional: \{\} <br /> |
 | `observedGeneration` _integer_ | observedGeneration is the most recent generation observed. |  | Minimum: 1 <br />Optional: \{\} <br /> |
 | `lastSyncTime` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#time-v1-meta)_ | lastSyncTime is the timestamp of the last successful reconciliation. |  | Optional: \{\} <br /> |
-| `managedResources` _[ManagedResource](#managedresource) array_ | managedResources records the resources this operator created, keyed by<br />resource type. Prune only removes entries listed here, so resources<br />created outside the operator are never deleted. |  | Optional: \{\} <br /> |
+| `managedResources` _[ManagedResource](#managedresource) array_ | managedResources records the items the operator created, keyed by<br />resource type. Prune and deletion only remove items listed here, so<br />items created outside the operator are never deleted. |  | Optional: \{\} <br /> |
 
 
 #### SecretKeyRef
@@ -4665,11 +4707,11 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#condition-v1-meta) array_ | conditions represent the current state of the Seerr resource. |  | Optional: \{\} <br /> |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#condition-v1-meta) array_ | conditions represent the current state of the resource. |  | Optional: \{\} <br /> |
 | `observedGeneration` _integer_ | observedGeneration is the most recent generation observed. |  | Minimum: 1 <br />Optional: \{\} <br /> |
 | `lastSyncTime` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#time-v1-meta)_ | lastSyncTime is the timestamp of the last successful reconciliation. |  | Optional: \{\} <br /> |
+| `managedResources` _[ManagedResource](#managedresource) array_ | managedResources records the items the operator created, keyed by<br />resource type. Prune and deletion only remove items listed here, so<br />items created outside the operator are never deleted. |  | Optional: \{\} <br /> |
 | `initialized` _boolean_ | initialized indicates whether the Seerr initial setup has been completed. |  | Optional: \{\} <br /> |
-| `managedResources` _[ManagedResource](#managedresource) array_ | managedResources records the resources this operator created, keyed by<br />resource type. Prune only removes entries listed here, so resources<br />created outside the operator are never deleted. |  | Optional: \{\} <br /> |
 
 
 #### Sonarr
@@ -4779,11 +4821,11 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#condition-v1-meta) array_ | conditions represent the current state of the download client. |  | Optional: \{\} <br /> |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#condition-v1-meta) array_ | conditions represent the current state of the resource. |  | Optional: \{\} <br /> |
 | `observedGeneration` _integer_ | observedGeneration is the most recent generation observed. |  | Minimum: 1 <br />Optional: \{\} <br /> |
 | `lastSyncTime` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#time-v1-meta)_ | lastSyncTime is the timestamp of the last successful reconciliation. |  | Optional: \{\} <br /> |
+| `managedResources` _[ManagedResource](#managedresource) array_ | managedResources records the items the operator created, keyed by<br />resource type. Prune and deletion only remove items listed here, so<br />items created outside the operator are never deleted. |  | Optional: \{\} <br /> |
 | `id` _integer_ | id is the download client's ID in Sonarr. |  | Minimum: 1 <br />Optional: \{\} <br /> |
-| `managedResources` _[ManagedResource](#managedresource) array_ | managedResources records what the operator created for this resource,<br />so deletion only removes what it created. |  | Optional: \{\} <br /> |
 
 
 #### SonarrImportListConfig
@@ -4884,11 +4926,11 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#condition-v1-meta) array_ | conditions represent the current state of the indexer. |  | Optional: \{\} <br /> |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#condition-v1-meta) array_ | conditions represent the current state of the resource. |  | Optional: \{\} <br /> |
 | `observedGeneration` _integer_ | observedGeneration is the most recent generation observed. |  | Minimum: 1 <br />Optional: \{\} <br /> |
 | `lastSyncTime` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#time-v1-meta)_ | lastSyncTime is the timestamp of the last successful reconciliation. |  | Optional: \{\} <br /> |
+| `managedResources` _[ManagedResource](#managedresource) array_ | managedResources records the items the operator created, keyed by<br />resource type. Prune and deletion only remove items listed here, so<br />items created outside the operator are never deleted. |  | Optional: \{\} <br /> |
 | `id` _integer_ | id is the indexer's ID in Sonarr. |  | Minimum: 1 <br />Optional: \{\} <br /> |
-| `managedResources` _[ManagedResource](#managedresource) array_ | managedResources records what the operator created for this resource,<br />so deletion only removes what it created. |  | Optional: \{\} <br /> |
 
 
 #### SonarrMediaManagement
@@ -5001,10 +5043,10 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#condition-v1-meta) array_ | conditions represent the current state of the Sonarr resource. |  | Optional: \{\} <br /> |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#condition-v1-meta) array_ | conditions represent the current state of the resource. |  | Optional: \{\} <br /> |
 | `observedGeneration` _integer_ | observedGeneration is the most recent generation observed. |  | Minimum: 1 <br />Optional: \{\} <br /> |
 | `lastSyncTime` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#time-v1-meta)_ | lastSyncTime is the timestamp of the last successful reconciliation. |  | Optional: \{\} <br /> |
-| `managedResources` _[ManagedResource](#managedresource) array_ | managedResources records the resources this operator created, keyed by<br />resource type. Prune only removes entries listed here, so resources<br />created outside the operator are never deleted. |  | Optional: \{\} <br /> |
+| `managedResources` _[ManagedResource](#managedresource) array_ | managedResources records the items the operator created, keyed by<br />resource type. Prune and deletion only remove items listed here, so<br />items created outside the operator are never deleted. |  | Optional: \{\} <br /> |
 
 
 #### SonarrUI
@@ -5235,10 +5277,10 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#condition-v1-meta) array_ | conditions represent the current state of the Tdarr resource. |  | Optional: \{\} <br /> |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#condition-v1-meta) array_ | conditions represent the current state of the resource. |  | Optional: \{\} <br /> |
 | `observedGeneration` _integer_ | observedGeneration is the most recent generation observed. |  | Minimum: 1 <br />Optional: \{\} <br /> |
 | `lastSyncTime` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#time-v1-meta)_ | lastSyncTime is the timestamp of the last successful reconciliation. |  | Optional: \{\} <br /> |
-| `managedResources` _[ManagedResource](#managedresource) array_ | managedResources records the resources this operator created, keyed by<br />resource type. Prune only removes entries listed here, so resources<br />created outside the operator are never deleted. |  | Optional: \{\} <br /> |
+| `managedResources` _[ManagedResource](#managedresource) array_ | managedResources records the items the operator created, keyed by<br />resource type. Prune and deletion only remove items listed here, so<br />items created outside the operator are never deleted. |  | Optional: \{\} <br /> |
 
 
 #### TdarrWorkers

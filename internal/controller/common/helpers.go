@@ -24,7 +24,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
-	pvrclient "github.com/kyleseneker/arrchitect/internal/client/pvr"
 	"github.com/kyleseneker/arrchitect/internal/engine"
 	"github.com/kyleseneker/arrchitect/internal/metrics"
 	"github.com/kyleseneker/arrchitect/internal/reconciler"
@@ -33,8 +32,6 @@ import (
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 // +kubebuilder:rbac:groups=events.k8s.io,resources=events,verbs=create;patch
 
-const DefaultReconcileInterval = engine.DefaultReconcileInterval
-
 const DriftPolicyObserve = "observe"
 
 // ReconcileInterval returns the configured interval or the default.
@@ -42,7 +39,7 @@ func ReconcileInterval(rc *commonv1alpha1.ReconcileConfig) time.Duration {
 	if rc != nil && rc.IntervalSeconds != 0 {
 		return time.Duration(rc.IntervalSeconds) * time.Second
 	}
-	return DefaultReconcileInterval
+	return engine.DefaultReconcileInterval
 }
 
 // PruneEnabled returns whether resource pruning is enabled.
@@ -119,7 +116,7 @@ func UpdateStatusManaged(obj ConfigResource, managed map[string][]string) {
 	if managed == nil {
 		return
 	}
-	obj.SetManagedResources(managed)
+	obj.GetConfigStatus().SetManagedResources(managed)
 }
 
 // recordManaged sets the managed_resources series from the ownership obj's
@@ -128,7 +125,7 @@ func UpdateStatusManaged(obj ConfigResource, managed map[string][]string) {
 func recordManaged(obj ConfigResource) {
 	labels := resourceLabels(obj.GetNamespace(), obj.GetName(), obj)
 	metrics.ManagedResources.DeletePartialMatch(labels)
-	for resourceType, names := range obj.GetManagedResources() {
+	for resourceType, names := range obj.GetConfigStatus().GetManagedResources() {
 		if len(names) > 0 {
 			metrics.ManagedResources.WithLabelValues(labels["kind"], labels["namespace"], labels["name"], resourceType).Set(float64(len(names)))
 		}
@@ -154,26 +151,27 @@ var stalledReasons = map[string]bool{
 // GitOps tools read, and Stalled marks a failure no retry fixes. Each change
 // of Ready is recorded as an event.
 func UpdateStatus(ctx context.Context, c client.Client, recorder events.EventRecorder, obj ConfigResource, synced bool, reason, message string) {
+	cs := obj.GetConfigStatus()
 	status := metav1.ConditionFalse
 	if synced {
 		status = metav1.ConditionTrue
 		now := metav1.Now()
-		*obj.GetLastSyncTime() = &now
+		cs.LastSyncTime = &now
 	}
 	generation := obj.GetGeneration()
-	conditions := obj.GetConditions()
+	conditions := &cs.Conditions
 	var before *metav1.Condition
 	if previous := meta.FindStatusCondition(*conditions, engine.ConditionReady); previous != nil {
 		before = previous.DeepCopy()
 	}
-	reconciler.SetCondition(conditions, generation, engine.ConditionSynced, string(status), reason, message)
-	reconciler.SetCondition(conditions, generation, engine.ConditionReady, string(status), reason, message)
+	reconciler.SetCondition(conditions, generation, engine.ConditionSynced, status, reason, message)
+	reconciler.SetCondition(conditions, generation, engine.ConditionReady, status, reason, message)
 	if !synced && stalledReasons[reason] {
-		reconciler.SetCondition(conditions, generation, engine.ConditionStalled, string(metav1.ConditionTrue), reason, message)
+		reconciler.SetCondition(conditions, generation, engine.ConditionStalled, metav1.ConditionTrue, reason, message)
 	} else {
 		meta.RemoveStatusCondition(conditions, engine.ConditionStalled)
 	}
-	*obj.GetObservedGeneration() = generation
+	cs.ObservedGeneration = generation
 	recordSynced(obj, synced)
 	recordManaged(obj)
 	if writeStatus(ctx, c, obj) {
@@ -299,38 +297,6 @@ func configsForSecret(c client.Client, list client.ObjectList) handler.MapFunc {
 	return secretReferrers(c, nil, list, func(client.Object) []commonv1alpha1.AppRef { return nil })
 }
 
-// ResolveDownloadClientSecrets resolves all secret references for a list of download clients.
-// Returns a map keyed by download client name.
-func ResolveDownloadClientSecrets(ctx context.Context, c client.Reader, namespace string, downloadClients []commonv1alpha1.DownloadClient) (map[string]pvrclient.DownloadClientResolvedSecrets, error) {
-	resolved := make(map[string]pvrclient.DownloadClientResolvedSecrets, len(downloadClients))
-	for _, dc := range downloadClients {
-		var s pvrclient.DownloadClientResolvedSecrets
-		if dc.UsernameSecretRef != (commonv1alpha1.SecretKeyRef{}) {
-			val, err := reconciler.ResolveSecretKeyRef(ctx, c, namespace, dc.UsernameSecretRef)
-			if err != nil {
-				return nil, fmt.Errorf("download client %q username: %w", dc.Name, err)
-			}
-			s.Username = val
-		}
-		if dc.PasswordSecretRef != (commonv1alpha1.SecretKeyRef{}) {
-			val, err := reconciler.ResolveSecretKeyRef(ctx, c, namespace, dc.PasswordSecretRef)
-			if err != nil {
-				return nil, fmt.Errorf("download client %q password: %w", dc.Name, err)
-			}
-			s.Password = val
-		}
-		if dc.APIKeySecretRef != (commonv1alpha1.SecretKeyRef{}) {
-			val, err := reconciler.ResolveSecretKeyRef(ctx, c, namespace, dc.APIKeySecretRef)
-			if err != nil {
-				return nil, fmt.Errorf("download client %q apiKey: %w", dc.Name, err)
-			}
-			s.APIKey = val
-		}
-		resolved[dc.Name] = s
-	}
-	return resolved, nil
-}
-
 // ResolveConfigFields returns a copy of fields with any valueFrom reference
 // resolved into a literal value, so secrets stay out of the CR.
 func ResolveConfigFields(ctx context.Context, c client.Reader, namespace, owner string, fields []commonv1alpha1.ConfigField) ([]commonv1alpha1.ConfigField, error) {
@@ -376,55 +342,53 @@ func FieldValues(ctx context.Context, c client.Reader, namespace, owner string, 
 	return out, nil
 }
 
-// ResolveIndexerSecrets returns indexers with their field secret references resolved.
-func ResolveIndexerSecrets(ctx context.Context, c client.Reader, namespace string, in []commonv1alpha1.Indexer) ([]commonv1alpha1.Indexer, error) {
-	out := make([]commonv1alpha1.Indexer, len(in))
-	copy(out, in)
+// ResolveItemFields returns a copy of items with each item's field Secret
+// references resolved. what names the kind of item in errors, and fields
+// returns an item's name and its fields.
+func ResolveItemFields[T any](
+	ctx context.Context, c client.Reader, namespace, what string, items []T,
+	fields func(*T) (string, *[]commonv1alpha1.ConfigField),
+) ([]T, error) {
+	out := slices.Clone(items)
 	for i := range out {
-		f, err := ResolveConfigFields(ctx, c, namespace, "indexer "+out[i].Name, out[i].Fields)
+		name, f := fields(&out[i])
+		resolved, err := ResolveConfigFields(ctx, c, namespace, what+" "+name, *f)
 		if err != nil {
 			return nil, err
 		}
-		out[i].Fields = f
+		*f = resolved
 	}
 	return out, nil
+}
+
+// ResolveIndexerSecrets returns indexers with their field secret references resolved.
+func ResolveIndexerSecrets(ctx context.Context, c client.Reader, namespace string, in []commonv1alpha1.Indexer) ([]commonv1alpha1.Indexer, error) {
+	return ResolveItemFields(ctx, c, namespace, "indexer", in, func(i *commonv1alpha1.Indexer) (string, *[]commonv1alpha1.ConfigField) {
+		return i.Name, &i.Fields
+	})
 }
 
 // ResolveNotificationSecrets returns notifications with their field secret references resolved.
 func ResolveNotificationSecrets(ctx context.Context, c client.Reader, namespace string, in []commonv1alpha1.Notification) ([]commonv1alpha1.Notification, error) {
-	out := make([]commonv1alpha1.Notification, len(in))
-	copy(out, in)
-	for i := range out {
-		f, err := ResolveConfigFields(ctx, c, namespace, "notification "+out[i].Name, out[i].Fields)
-		if err != nil {
-			return nil, err
-		}
-		out[i].Fields = f
-	}
-	return out, nil
+	return ResolveItemFields(ctx, c, namespace, "notification", in, func(n *commonv1alpha1.Notification) (string, *[]commonv1alpha1.ConfigField) {
+		return n.Name, &n.Fields
+	})
 }
 
 // ResolveImportListSecrets returns import lists with their field secret references resolved.
 func ResolveImportListSecrets(ctx context.Context, c client.Reader, namespace string, in []commonv1alpha1.ImportList) ([]commonv1alpha1.ImportList, error) {
-	out := make([]commonv1alpha1.ImportList, len(in))
-	copy(out, in)
-	for i := range out {
-		f, err := ResolveConfigFields(ctx, c, namespace, "import list "+out[i].Name, out[i].Fields)
-		if err != nil {
-			return nil, err
-		}
-		out[i].Fields = f
-	}
-	return out, nil
+	return ResolveItemFields(ctx, c, namespace, "import list", in, func(il *commonv1alpha1.ImportList) (string, *[]commonv1alpha1.ConfigField) {
+		return il.Name, &il.Fields
+	})
 }
 
 var secretKeyRefType = reflect.TypeFor[commonv1alpha1.SecretKeyRef]()
 
-// ReferencesSecret reports whether a config refers to the named Secret
+// referencesSecret reports whether a config refers to the named Secret
 // anywhere. Every Secret reference in the API is a SecretKeyRef, so walking
 // the config finds new ones as fields are added rather than relying on a list
 // kept by hand.
-func ReferencesSecret(config any, name string) bool {
+func referencesSecret(config any, name string) bool {
 	return slices.ContainsFunc(SecretKeyRefs(config), func(ref commonv1alpha1.SecretKeyRef) bool { return ref.Name == name })
 }
 

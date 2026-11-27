@@ -2,9 +2,7 @@ package downloads
 
 import (
 	"encoding/json"
-	"net"
 	"net/http"
-	"net/http/httptest"
 	"strings"
 	"sync"
 	"testing"
@@ -43,9 +41,7 @@ func (f *fakeQBRSS) serve(t *testing.T) string {
 	if f.rules == nil {
 		f.rules = map[string]map[string]any{}
 	}
-	ln, err := net.Listen("tcp", net.JoinHostPort(testnet.RoutableAddr(t), "0"))
-	require.NoError(t, err)
-	srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := testnet.Serve(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		f.mu.Lock()
 		defer f.mu.Unlock()
 		if r.Method == http.MethodPost {
@@ -108,10 +104,6 @@ func (f *fakeQBRSS) serve(t *testing.T) string {
 			delete(f.rules, r.Form.Get("ruleName"))
 		}
 	}))
-	_ = srv.Listener.Close()
-	srv.Listener = ln
-	srv.Start()
-	t.Cleanup(srv.Close)
 	return srv.URL
 }
 
@@ -158,7 +150,7 @@ func TestQBAddsRSSFeedsWithTheirFoldersAndOwnsThem(t *testing.T) {
 	assert.Equal(t, []string{"addFolder", "addFeed"}, app.writes)
 	assert.True(t, app.folders["Anime"])
 	assert.Equal(t, "https://subsplease.example/rss", app.feeds[`Anime\SubsPlease`])
-	assert.Equal(t, []string{`Anime\SubsPlease`}, got.GetManagedResources()["rssFeeds"], "an adopted feed isn't the operator's")
+	assert.Equal(t, []string{`Anime\SubsPlease`}, got.Status.GetManagedResources()["rssFeeds"], "an adopted feed isn't the operator's")
 
 	runQB(t, got)
 	assert.Len(t, app.writes, 2, "second pass must not write")
@@ -186,13 +178,13 @@ func TestQBPrunesARenamedRSSFeedBeforeAddingItsNewName(t *testing.T) {
 	cfg := qbConfig(app.serve(t))
 	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{Prune: new(true)}
 	cfg.Spec.RSSFeeds = []downloadsv1alpha1.QBittorrentRSSFeed{{Name: "New name", URL: "https://feed.example/rss"}}
-	cfg.SetManagedResources(map[string][]string{"rssFeeds": {"Old name"}})
+	cfg.Status.SetManagedResources(map[string][]string{"rssFeeds": {"Old name"}})
 
 	got := runQB(t, cfg)
 
 	assert.Equal(t, []string{"removeItem", "addFeed"}, app.writes)
 	assert.Equal(t, map[string]string{"New name": "https://feed.example/rss"}, app.feeds)
-	assert.Equal(t, []string{"New name"}, got.GetManagedResources()["rssFeeds"])
+	assert.Equal(t, []string{"New name"}, got.Status.GetManagedResources()["rssFeeds"])
 }
 
 // Observe mode plans as enforce mode would act: the rename frees the old
@@ -202,7 +194,7 @@ func TestQBObservePlansARenamedRSSFeedLikeEnforce(t *testing.T) {
 	cfg := qbConfig(app.serve(t))
 	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{Prune: new(true), DriftPolicy: "observe"}
 	cfg.Spec.RSSFeeds = []downloadsv1alpha1.QBittorrentRSSFeed{{Name: "New name", URL: "https://feed.example/rss"}}
-	cfg.SetManagedResources(map[string][]string{"rssFeeds": {"Old name"}})
+	cfg.Status.SetManagedResources(map[string][]string{"rssFeeds": {"Old name"}})
 
 	got := runQB(t, cfg)
 
@@ -219,7 +211,7 @@ func TestQBPrunesNoRSSFeedWhenADeclaredURLIsTaken(t *testing.T) {
 	cfg := qbConfig(app.serve(t))
 	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{Prune: new(true)}
 	cfg.Spec.RSSFeeds = []downloadsv1alpha1.QBittorrentRSSFeed{{Name: "New", URL: "https://feed.example/rss"}}
-	cfg.SetManagedResources(map[string][]string{"rssFeeds": {"Stale"}})
+	cfg.Status.SetManagedResources(map[string][]string{"rssFeeds": {"Stale"}})
 
 	got := runQB(t, cfg)
 
@@ -259,7 +251,7 @@ func TestQBRSSRuleUpdatesKeepItsMatchHistory(t *testing.T) {
 	assert.Equal(t, []any{"anime", "rss"}, params["tags"], "qBittorrent keeps tags sorted")
 	assert.Equal(t, "AutoManaged", params["operating_mode"])
 	assert.Equal(t, false, app.rules["New"]["enabled"])
-	assert.Equal(t, []string{"New"}, got.GetManagedResources()["rssRules"])
+	assert.Equal(t, []string{"New"}, got.Status.GetManagedResources()["rssRules"])
 
 	runQB(t, got)
 	assert.Len(t, app.writes, 2, "second pass must not write")
@@ -274,7 +266,7 @@ func TestQBObserveReportsRSSDifferences(t *testing.T) {
 	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{Prune: new(true), DriftPolicy: "observe"}
 	cfg.Spec.RSSFeeds = []downloadsv1alpha1.QBittorrentRSSFeed{{Name: "Shows", URL: "https://new.example/rss"}}
 	cfg.Spec.RSSRules = []downloadsv1alpha1.QBittorrentRSSRule{{Name: "Show", MustContain: new("1080p")}}
-	cfg.SetManagedResources(map[string][]string{"rssFeeds": {"Gone"}})
+	cfg.Status.SetManagedResources(map[string][]string{"rssFeeds": {"Gone"}})
 
 	got := runQB(t, cfg)
 
@@ -294,7 +286,7 @@ func TestQBDeletionPolicyRemovesTheRSSItCreated(t *testing.T) {
 	}
 	cfg := qbConfig(app.serve(t))
 	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{DeletionPolicy: ctrlcommon.DeletionPolicyDelete}
-	cfg.SetManagedResources(map[string][]string{"rssFeeds": {"Ours"}, "rssRules": {"Ours"}})
+	cfg.Status.SetManagedResources(map[string][]string{"rssFeeds": {"Ours"}, "rssRules": {"Ours"}})
 	now := metav1.NewTime(time.Now())
 	cfg.DeletionTimestamp = &now
 	cfg.Finalizers = []string{ctrlcommon.Finalizer}

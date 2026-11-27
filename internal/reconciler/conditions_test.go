@@ -11,7 +11,7 @@ import (
 
 func TestSetCondition(t *testing.T) {
 	var conditions []metav1.Condition
-	SetCondition(&conditions, 1, "Synced", "True", "Synced", "all good")
+	SetCondition(&conditions, 1, "Synced", metav1.ConditionTrue, "Synced", "all good")
 
 	require.Len(t, conditions, 1)
 	assert.Equal(t, "Synced", conditions[0].Type)
@@ -33,7 +33,7 @@ func TestSetCondition_UpdateExisting(t *testing.T) {
 		},
 	}
 
-	SetCondition(&conditions, 2, "Synced", "False", "SyncFailed", "something broke")
+	SetCondition(&conditions, 2, "Synced", metav1.ConditionFalse, "SyncFailed", "something broke")
 
 	require.Len(t, conditions, 1)
 	assert.Equal(t, metav1.ConditionStatus("False"), conditions[0].Status)
@@ -44,7 +44,7 @@ func TestSetCondition_UpdateExisting(t *testing.T) {
 
 func TestSetConditionKeepsTheMessageWithinWhatTheAPIServerAccepts(t *testing.T) {
 	var conditions []metav1.Condition
-	SetCondition(&conditions, 1, "Synced", "False", "SyncFailed", strings.Repeat("x", maxConditionMessage+10))
+	SetCondition(&conditions, 1, "Synced", metav1.ConditionFalse, "SyncFailed", strings.Repeat("x", maxConditionMessage+10))
 	assert.Len(t, []rune(conditions[0].Message), maxConditionMessage)
 	assert.True(t, strings.HasSuffix(conditions[0].Message, "..."))
 }

@@ -75,7 +75,7 @@ func TestBazarr(t *testing.T) {
 		},
 		newObj: func() ctrlcommon.ConfigResource { return &subtitlesv1alpha1.Bazarr{} },
 		reconciler: func(c client.Client) reconcile.Reconciler {
-			return &subtitles.BazarrReconciler{Client: c, Scheme: c.Scheme(), Recorder: events.NewFakeRecorder(100)}
+			return &subtitles.BazarrReconciler{Client: c, Recorder: events.NewFakeRecorder(100)}
 		},
 		proxy:   proxy,
 		observe: true,

@@ -33,7 +33,8 @@ func pvrIntegration[T ctrlcommon.ConfigResource](
 		Check: func(ctx context.Context, hc *engine.HTTPClient, _ T) error { return pingPVR(ctx, hc, app) },
 		Sync: func(ctx context.Context, hc *engine.HTTPClient, obj T, pass *engine.Pass) []string {
 			cfg, namespace := describe(obj), obj.GetNamespace()
-			opts := withApp(cfg.options, app)
+			opts := cfg.options
+			opts.App = app
 			// A kind whose items name a Secret that can't be read is left out of
 			// the pass, neither written nor pruned, and reported; the rest still
 			// syncs.
@@ -47,12 +48,12 @@ func pvrIntegration[T ctrlcommon.ConfigResource](
 			if opts.ImportLists, err = ctrlcommon.ResolveImportListSecrets(ctx, c, namespace, opts.ImportLists); err != nil {
 				unresolved = append(unresolved, fmt.Sprintf("importLists: %v", err))
 			}
-			return append(unresolved, pvrclient.Reconcile(ctx, hc, app.APIVersion, cfg.spec, opts, pass)...)
+			return append(unresolved, pvrclient.Reconcile(ctx, hc, cfg.spec, opts, pass)...)
 		},
 		Cleanup: func(ctx context.Context, hc *engine.HTTPClient, owned *engine.Ownership) error {
-			return engine.DeleteManagedResources(ctx, hc, pvrclient.Definition(app.APIVersion), owned)
+			return engine.DeleteManagedResources(ctx, hc, pvrclient.Definition(app), owned)
 		},
-		Deletable: pvrclient.Definition(app.APIVersion).Deletable,
+		Deletable: pvrclient.Definition(app).Deletable,
 		Prune:     true,
 	}
 }
@@ -66,16 +67,6 @@ func notificationAppRefs(notifications []commonv1alpha1.Notification) []commonv1
 		}
 	}
 	return refs
-}
-
-// withApp fills in what the options take from the app itself.
-func withApp(opts pvrclient.Options, app pvrclient.App) pvrclient.Options {
-	opts.CategoryField = app.CategoryField
-	opts.ImportListFields = app.ImportListFields
-	opts.MetadataProfiles = app.MetadataProfiles
-	opts.Choices = app.Choices
-	opts.Sections = app.Sections
-	return opts
 }
 
 // connectPVR builds the client for an app's connection.

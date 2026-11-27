@@ -38,11 +38,11 @@ func SchemaFieldNames(schema []map[string]any, implementation string) (map[strin
 	return nil, false
 }
 
-// SchemaConfigContract keeps a declared contract, otherwise takes the one the
+// schemaConfigContract keeps a declared contract, otherwise takes the one the
 // app's schema lists for the implementation. Contracts follow no single naming
 // rule (Sonarr's CustomImport takes CustomSettings), so a guessed name fails the
 // write. An empty result leaves the payload builders' guess in place.
-func SchemaConfigContract(schema []map[string]any, implementation, declared string) string {
+func schemaConfigContract(schema []map[string]any, implementation, declared string) string {
 	if declared != "" {
 		return declared
 	}
@@ -57,11 +57,11 @@ func SchemaConfigContract(schema []map[string]any, implementation, declared stri
 	return ""
 }
 
-// SchemaProtocol returns the protocol the app's schema gives an implementation.
+// schemaProtocol returns the protocol the app's schema gives an implementation.
 // Each implementation has exactly one, and the apps spell it differently
 // (Lidarr: TorrentDownloadProtocol, the others: torrent), so the declared value
 // is used only when the schema cannot be read.
-func SchemaProtocol(schema []map[string]any, implementation, declared string) string {
+func schemaProtocol(schema []map[string]any, implementation, declared string) string {
 	if def := schemaDefinition(schema, implementation); def != nil {
 		if protocol, _ := def["protocol"].(string); protocol != "" {
 			return protocol
@@ -70,10 +70,10 @@ func SchemaProtocol(schema []map[string]any, implementation, declared string) st
 	return declared
 }
 
-// UnsupportedEvents lists the event switches in a notification payload that the
+// unsupportedEvents lists the event switches in a notification payload that the
 // implementation's schema lacks. The app drops them, so they would read back
 // missing and be rewritten on every pass.
-func UnsupportedEvents(schema []map[string]any, implementation string, payload map[string]any) []string {
+func unsupportedEvents(schema []map[string]any, implementation string, payload map[string]any) []string {
 	def := schemaDefinition(schema, implementation)
 	if def == nil {
 		return nil
@@ -100,10 +100,10 @@ func schemaDefinition(schema []map[string]any, implementation string) map[string
 	return nil
 }
 
-// ValidateFieldNames reports field names the implementation does not accept. These
+// validateFieldNames reports field names the implementation does not accept. These
 // apps store an unknown field and answer 2xx, so an unvalidated typo is inert
 // rather than an error.
-func ValidateFieldNames(schema []map[string]any, implementation string, fieldNames []string) error {
+func validateFieldNames(schema []map[string]any, implementation string, fieldNames []string) error {
 	valid, ok := SchemaFieldNames(schema, implementation)
 	if !ok {
 		return nil
@@ -130,9 +130,9 @@ func ValidateFieldNames(schema []map[string]any, implementation string, fieldNam
 		implementation, strings.Join(unknown, ", "), strings.Join(accepted, ", "))
 }
 
-// FetchSchema reads the schema listing for a kind. A schema that cannot be read
+// fetchSchema reads the schema listing for a kind. A schema that cannot be read
 // yields no definitions, so validation is skipped rather than blocking a write.
-func FetchSchema(ctx context.Context, client *engine.HTTPClient, apiVersion, kind string) []map[string]any {
+func fetchSchema(ctx context.Context, client *engine.HTTPClient, apiVersion, kind string) []map[string]any {
 	schema, err := client.GetJSONList(ctx, fmt.Sprintf("/api/%s/%s/schema", apiVersion, kind))
 	if err != nil {
 		return nil
@@ -140,10 +140,10 @@ func FetchSchema(ctx context.Context, client *engine.HTTPClient, apiVersion, kin
 	return schema
 }
 
-// ValidateOptionFields checks each resource's free-form fields against the app's
+// validateOptionFields checks each resource's free-form fields against the app's
 // own schema. Failures are returned as messages rather than an error, so one bad
 // field does not abandon the rest of the reconcile.
-func ValidateOptionFields(ctx context.Context, client *engine.HTTPClient, apiVersion string, opts Options) []string {
+func validateOptionFields(ctx context.Context, client *engine.HTTPClient, apiVersion string, opts Options) []string {
 	var problems []string
 
 	check := func(kind, name, implementation string, fields []commonv1alpha1.ConfigField, schema []map[string]any) {
@@ -154,7 +154,7 @@ func ValidateOptionFields(ctx context.Context, client *engine.HTTPClient, apiVer
 		for _, f := range fields {
 			names = append(names, f.Name)
 		}
-		if err := ValidateFieldNames(schema, implementation, names); err != nil {
+		if err := validateFieldNames(schema, implementation, names); err != nil {
 			problems = append(problems, fmt.Sprintf("%s(%s): %v", kind, name, err))
 		}
 	}
@@ -175,7 +175,7 @@ func ValidateOptionFields(ctx context.Context, client *engine.HTTPClient, apiVer
 		schema := opts.schema(ctx, client, apiVersion, "notification")
 		for _, n := range opts.Notifications {
 			check("notification", n.Name, n.Implementation, n.Fields, schema)
-			if events := UnsupportedEvents(schema, n.Implementation, BuildNotificationPayload(n, nil)); len(events) > 0 {
+			if events := unsupportedEvents(schema, n.Implementation, BuildNotificationPayload(n, nil)); len(events) > 0 {
 				problems = append(problems, fmt.Sprintf("notification(%s): %s has no %s event; it was not sent",
 					n.Name, n.Implementation, strings.Join(events, ", ")))
 			}
@@ -202,7 +202,7 @@ func withSchemas(ctx context.Context, client *engine.HTTPClient, apiVersion stri
 		"importlist":     len(opts.ImportLists) > 0,
 	} {
 		if used {
-			opts.schemas[kind] = FetchSchema(ctx, client, apiVersion, kind)
+			opts.schemas[kind] = fetchSchema(ctx, client, apiVersion, kind)
 		}
 	}
 	return opts
