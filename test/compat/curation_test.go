@@ -19,8 +19,8 @@ import (
 
 	curationv1alpha1 "github.com/kyleseneker/arrchitect/api/curation/v1alpha1"
 	jellyfinclient "github.com/kyleseneker/arrchitect/internal/client/jellyfin"
-	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
 	"github.com/kyleseneker/arrchitect/internal/controller/curation"
+	"github.com/kyleseneker/arrchitect/internal/controller/reconciler"
 	"github.com/kyleseneker/arrchitect/internal/httpapi"
 	"github.com/kyleseneker/arrchitect/internal/testnet"
 )
@@ -65,7 +65,7 @@ func TestMaintainerr(t *testing.T) {
 			"jellyfin-api-key": jellyfinKey, "radarr-api-key": radarrKey, "seerr-api-key": randomKey(),
 			"webhook-url": "http://webhook.invalid/maintainerr",
 		},
-		newObj: func() ctrlcommon.ConfigResource { return &curationv1alpha1.Maintainerr{} },
+		newObj: func() reconciler.ConfigResource { return &curationv1alpha1.Maintainerr{} },
 		reconciler: func(c client.Client) reconcile.Reconciler {
 			return &curation.MaintainerrReconciler{Client: c, Recorder: events.NewFakeRecorder(100)}
 		},

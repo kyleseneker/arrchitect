@@ -25,8 +25,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
+	mediaserversv1alpha1 "github.com/kyleseneker/arrchitect/api/mediaservers/v1alpha1"
 	pvrv1alpha1 "github.com/kyleseneker/arrchitect/api/pvr/v1alpha1"
-	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
+	"github.com/kyleseneker/arrchitect/internal/controller/reconciler"
+	"github.com/kyleseneker/arrchitect/internal/failure"
 	"github.com/kyleseneker/arrchitect/internal/testnet"
 )
 
@@ -49,8 +51,8 @@ type buildOpts struct {
 type pvrApp struct {
 	name   string
 	apiVer string
-	build  func(url string, o buildOpts) ctrlcommon.ConfigResource
-	empty  func() ctrlcommon.ConfigResource
+	build  func(url string, o buildOpts) reconciler.ConfigResource
+	empty  func() reconciler.ConfigResource
 	newRec func(c client.Client, s *runtime.Scheme) reconcile.Reconciler
 }
 
@@ -85,11 +87,11 @@ func meta() metav1.ObjectMeta {
 var pvrApps = []pvrApp{
 	{
 		name: "sonarr", apiVer: "v3",
-		empty: func() ctrlcommon.ConfigResource { return &pvrv1alpha1.Sonarr{} },
+		empty: func() reconciler.ConfigResource { return &pvrv1alpha1.Sonarr{} },
 		newRec: func(c client.Client, s *runtime.Scheme) reconcile.Reconciler {
 			return &SonarrReconciler{Client: c, Recorder: events.NewFakeRecorder(50)}
 		},
-		build: func(url string, o buildOpts) ctrlcommon.ConfigResource {
+		build: func(url string, o buildOpts) reconciler.ConfigResource {
 			conn, roots, notifications, rec := baseSpec(o)
 			conn.URL = url
 			c := &pvrv1alpha1.Sonarr{ObjectMeta: meta(), Spec: pvrv1alpha1.SonarrSpec{
@@ -105,11 +107,11 @@ var pvrApps = []pvrApp{
 	},
 	{
 		name: "radarr", apiVer: "v3",
-		empty: func() ctrlcommon.ConfigResource { return &pvrv1alpha1.Radarr{} },
+		empty: func() reconciler.ConfigResource { return &pvrv1alpha1.Radarr{} },
 		newRec: func(c client.Client, s *runtime.Scheme) reconcile.Reconciler {
 			return &RadarrReconciler{Client: c, Recorder: events.NewFakeRecorder(50)}
 		},
-		build: func(url string, o buildOpts) ctrlcommon.ConfigResource {
+		build: func(url string, o buildOpts) reconciler.ConfigResource {
 			conn, roots, notifications, rec := baseSpec(o)
 			conn.URL = url
 			c := &pvrv1alpha1.Radarr{ObjectMeta: meta(), Spec: pvrv1alpha1.RadarrSpec{
@@ -125,11 +127,11 @@ var pvrApps = []pvrApp{
 	},
 	{
 		name: "lidarr", apiVer: "v1",
-		empty: func() ctrlcommon.ConfigResource { return &pvrv1alpha1.Lidarr{} },
+		empty: func() reconciler.ConfigResource { return &pvrv1alpha1.Lidarr{} },
 		newRec: func(c client.Client, s *runtime.Scheme) reconcile.Reconciler {
 			return &LidarrReconciler{Client: c, Recorder: events.NewFakeRecorder(50)}
 		},
-		build: func(url string, o buildOpts) ctrlcommon.ConfigResource {
+		build: func(url string, o buildOpts) reconciler.ConfigResource {
 			conn, roots, notifications, rec := baseSpec(o)
 			conn.URL = url
 			c := &pvrv1alpha1.Lidarr{ObjectMeta: meta(), Spec: pvrv1alpha1.LidarrSpec{
@@ -145,11 +147,11 @@ var pvrApps = []pvrApp{
 	},
 	{
 		name: "readarr", apiVer: "v1",
-		empty: func() ctrlcommon.ConfigResource { return &pvrv1alpha1.Readarr{} },
+		empty: func() reconciler.ConfigResource { return &pvrv1alpha1.Readarr{} },
 		newRec: func(c client.Client, s *runtime.Scheme) reconcile.Reconciler {
 			return &ReadarrReconciler{Client: c, Recorder: events.NewFakeRecorder(50)}
 		},
-		build: func(url string, o buildOpts) ctrlcommon.ConfigResource {
+		build: func(url string, o buildOpts) reconciler.ConfigResource {
 			conn, roots, notifications, rec := baseSpec(o)
 			conn.URL = url
 			c := &pvrv1alpha1.Readarr{ObjectMeta: meta(), Spec: pvrv1alpha1.ReadarrSpec{
@@ -419,7 +421,7 @@ func TestDeletePolicyCleansOwnedResourcesAcrossPVRControllers(t *testing.T) {
 			cfg := app.build(url, buildOpts{prune: true, managed: map[string][]string{"notifications": {"owned"}, "tags": {"shared"}, "rootFolders": {"/media"}}})
 			policy := "delete"
 			cfg.GetReconcileConfig().DeletionPolicy = policy
-			cfg.SetFinalizers([]string{ctrlcommon.Finalizer})
+			cfg.SetFinalizers([]string{reconciler.Finalizer})
 			now := metav1.Now()
 			cfg.SetDeletionTimestamp(&now)
 			c := run(t, app, apiKeySecret(), cfg)
@@ -456,7 +458,7 @@ func TestRemoteMappingsReachEveryPVRController(t *testing.T) {
 	}
 }
 
-func withReleaseProfiles(cfg ctrlcommon.ConfigResource, profiles []commonv1alpha1.ReleaseProfile) bool {
+func withReleaseProfiles(cfg reconciler.ConfigResource, profiles []commonv1alpha1.ReleaseProfile) bool {
 	switch c := cfg.(type) {
 	case *pvrv1alpha1.Sonarr:
 		c.Spec.ReleaseProfiles = profiles
@@ -506,4 +508,77 @@ func TestReleaseProfileNamingAMissingIndexerIsNotWritten(t *testing.T) {
 	assert.False(t, fa.saw("POST", fa.path("releaseprofile")), "wrote a profile whose indexer doesn't exist")
 	assert.True(t, fa.saw("POST", fa.path("notification")), "the other kinds were held back too")
 	assert.Equal(t, "False", conditionStatus(t, c, pvrApps[0], "Synced"))
+}
+
+func TestResolveNotificationsFillsInTheMediaServer(t *testing.T) {
+	s := runtime.NewScheme()
+	require.NoError(t, pvrv1alpha1.AddToScheme(s))
+	require.NoError(t, mediaserversv1alpha1.AddToScheme(s))
+	ref := func(name, key string) *commonv1alpha1.SecretKeyRef {
+		return &commonv1alpha1.SecretKeyRef{Name: name, Key: key}
+	}
+	c := fake.NewClientBuilder().WithScheme(s).WithObjects(
+		&mediaserversv1alpha1.Jellyfin{Name: "jellyfin", Namespace: "media", Spec: mediaserversv1alpha1.JellyfinSpec{
+			Connection: mediaserversv1alpha1.JellyfinConnection{URL: "http://jellyfin:8096", APIKeySecretRef: ref("keys", "jellyfin")},
+		}},
+		&mediaserversv1alpha1.Jellyfin{Name: "nokey", Namespace: "media", Spec: mediaserversv1alpha1.JellyfinSpec{
+			Connection: mediaserversv1alpha1.JellyfinConnection{URL: "http://nokey:8096"},
+		}},
+		&mediaserversv1alpha1.Plex{Name: "plex", Namespace: "media", Spec: mediaserversv1alpha1.PlexSpec{
+			Connection: mediaserversv1alpha1.PlexConnection{URL: "https://plex.example.com/plex/", TokenSecretRef: *ref("keys", "plex")},
+		}},
+		&pvrv1alpha1.Sonarr{Name: "sonarr", Namespace: "media", Spec: pvrv1alpha1.SonarrSpec{
+			Connection: commonv1alpha1.AppConnection{URL: "http://sonarr:8989"},
+		}},
+	).Build()
+	updateLibrary := commonv1alpha1.ConfigField{Name: "updateLibrary", Value: &commonv1alpha1.FieldValue{Raw: []byte("true")}}
+	in := []commonv1alpha1.Notification{
+		{Name: "Discord", Implementation: "Discord"},
+		{Name: "Jellyfin", AppRef: commonv1alpha1.AppRef{Kind: "Jellyfin", Name: "jellyfin"},
+			Fields: []commonv1alpha1.ConfigField{updateLibrary}},
+		{Name: "Plex", AppRef: commonv1alpha1.AppRef{Kind: "Plex", Name: "plex"}},
+	}
+	out, err := resolveNotifications(context.Background(), c, nil, "media", in)
+	require.NoError(t, err)
+	assert.Equal(t, in[0], out[0])
+	assert.NotZero(t, in[1].AppRef, "the resource's own notifications are left alone")
+
+	fields := func(n commonv1alpha1.Notification) map[string]string {
+		got := map[string]string{}
+		for _, f := range n.Fields {
+			if f.Value != nil {
+				got[f.Name] = string(f.Value.Raw)
+			} else {
+				got[f.Name] = f.ValueFrom.SecretKeyRef.Name + "/" + f.ValueFrom.SecretKeyRef.Key
+			}
+		}
+		return got
+	}
+	assert.Zero(t, out[1].AppRef)
+	assert.Equal(t, "MediaBrowser", out[1].Implementation)
+	assert.Equal(t, map[string]string{"updateLibrary": "true", "host": `"jellyfin"`, "port": "8096", "useSsl": "false",
+		"apiKey": "keys/jellyfin"}, fields(out[1]), "no urlBase for a server at the root")
+	assert.Equal(t, "PlexServer", out[2].Implementation)
+	assert.Equal(t, map[string]string{"host": `"plex.example.com"`, "port": "443", "useSsl": "true", "urlBase": `"/plex"`,
+		"authToken": "keys/plex"}, fields(out[2]))
+
+	for _, tt := range []struct {
+		n       commonv1alpha1.Notification
+		want    string
+		invalid bool
+	}{
+		{commonv1alpha1.Notification{Name: "Jellyfin", AppRef: commonv1alpha1.AppRef{Kind: "Jellyfin", Name: "jellyfin"},
+			Fields: []commonv1alpha1.ConfigField{{Name: "host", Value: &commonv1alpha1.FieldValue{Raw: []byte(`"x"`)}}}},
+			`notification "Jellyfin": appRef fills in host, so leave that field out`, true},
+		{commonv1alpha1.Notification{Name: "NoKey", AppRef: commonv1alpha1.AppRef{Kind: "Jellyfin", Name: "nokey"}},
+			`notification "NoKey" appRef: Jellyfin "nokey" sets no API key Secret`, true},
+		{commonv1alpha1.Notification{Name: "Sonarr", AppRef: commonv1alpha1.AppRef{Kind: "Sonarr", Name: "sonarr"}},
+			`notification "Sonarr" appRef: Sonarr isn't a media server`, true},
+		{commonv1alpha1.Notification{Name: "Gone", AppRef: commonv1alpha1.AppRef{Kind: "Plex", Name: "gone"}},
+			`notification "Gone" appRef: Plex "gone" not found`, false},
+	} {
+		_, err := resolveNotifications(context.Background(), c, nil, "media", []commonv1alpha1.Notification{tt.n})
+		require.EqualError(t, err, tt.want)
+		assert.Equal(t, tt.invalid, failure.IsConfigError(err), "only a spec change fixes it: %v", err)
+	}
 }

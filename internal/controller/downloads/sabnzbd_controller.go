@@ -11,7 +11,6 @@ import (
 	"strconv"
 	"strings"
 
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -21,7 +20,8 @@ import (
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
 	downloadsv1alpha1 "github.com/kyleseneker/arrchitect/api/downloads/v1alpha1"
 	sabnzbdclient "github.com/kyleseneker/arrchitect/internal/client/sabnzbd"
-	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
+	"github.com/kyleseneker/arrchitect/internal/controller/reconciler"
+	"github.com/kyleseneker/arrchitect/internal/controller/secretref"
 	"github.com/kyleseneker/arrchitect/internal/engine"
 	"github.com/kyleseneker/arrchitect/internal/failure"
 	"github.com/kyleseneker/arrchitect/internal/httpapi"
@@ -40,7 +40,7 @@ type SabnzbdReconciler struct {
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
 
 func (r *SabnzbdReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	integration := ctrlcommon.Integration[*downloadsv1alpha1.Sabnzbd, *sabnzbdclient.Client]{
+	integration := reconciler.Integration[*downloadsv1alpha1.Sabnzbd, *sabnzbdclient.Client]{
 		App:     "sabnzbd",
 		Connect: r.connect,
 		Check:   r.check,
@@ -56,7 +56,7 @@ func (r *SabnzbdReconciler) connect(ctx context.Context, config *downloadsv1alph
 	if err != nil {
 		return nil, err
 	}
-	tlsCfg, err := ctrlcommon.ResolveTLSConfig(ctx, r.Client, config.Namespace, config.Spec.Connection.TLS)
+	tlsCfg, err := reconciler.ResolveTLSConfig(ctx, r.Client, config.Namespace, config.Spec.Connection.TLS)
 	if err != nil {
 		return nil, err
 	}
@@ -122,11 +122,13 @@ func (r *SabnzbdReconciler) sync(ctx context.Context, sc *sabnzbdclient.Client, 
 }
 
 func (r *SabnzbdReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
-		For(&downloadsv1alpha1.Sabnzbd{}, builder.WithPredicates(ctrlcommon.ConfigChangedPredicate())).
-		WatchesMetadata(&corev1.Secret{}, ctrlcommon.EnqueueForSecret(r.Client, &downloadsv1alpha1.SabnzbdList{})).
-		Named("sabnzbd").
-		Complete(r)
+	b := ctrl.NewControllerManagedBy(mgr).
+		For(&downloadsv1alpha1.Sabnzbd{}, builder.WithPredicates(reconciler.ConfigChangedPredicate()))
+	b, err := secretref.Watch(mgr, b, &downloadsv1alpha1.Sabnzbd{}, &downloadsv1alpha1.SabnzbdList{})
+	if err != nil {
+		return err
+	}
+	return b.Named("sabnzbd").Complete(r)
 }
 
 func buildSabnzbdFolderValues(f *downloadsv1alpha1.SabnzbdFolders) map[string]string {
@@ -163,7 +165,7 @@ func sabnzbdValues(section any) map[string]string {
 			vals[key] = field.String()
 		}
 		if key, ok := sabnzbdclient.Switches[name]; ok {
-			vals[key] = ctrlcommon.BoolTo01(field.Elem().Bool())
+			vals[key] = boolTo01(field.Elem().Bool())
 		}
 		if key, ok := sabnzbdclient.Texts[name]; ok {
 			vals[key] = field.String()
@@ -207,7 +209,7 @@ func sabnzbdServerValues(srv downloadsv1alpha1.SabnzbdServer) map[string]string 
 	}
 	for key, value := range map[string]*bool{"ssl": srv.SSL, "enable": srv.Enable, "optional": srv.Optional, "required": srv.Required} {
 		if value != nil {
-			vals[key] = ctrlcommon.BoolTo01(*value)
+			vals[key] = boolTo01(*value)
 		}
 	}
 	for key, value := range map[string]*int32{
@@ -244,7 +246,7 @@ func sabnzbdQuotaValues(q downloadsv1alpha1.SabnzbdQuota) map[string]string {
 		vals["quota_day"] = strings.TrimSpace(fmt.Sprintf("%d %s", max(q.ResetDay, 1), q.ResetTime))
 	}
 	if q.Resume != nil {
-		vals["quota_resume"] = ctrlcommon.BoolTo01(*q.Resume)
+		vals["quota_resume"] = boolTo01(*q.Resume)
 	}
 	return vals
 }
@@ -402,7 +404,7 @@ func planKeywords(current map[string]any, section string, values map[string]stri
 		value := stored[key]
 		switch v := value.(type) {
 		case bool:
-			value = ctrlcommon.BoolTo01(v)
+			value = boolTo01(v)
 		case []any:
 			items := make([]string, 0, len(v))
 			for _, item := range v {
@@ -425,14 +427,14 @@ func (r *SabnzbdReconciler) sabnzbdAppriseValues(ctx context.Context, config *do
 	a := config.Spec.Apprise
 	values := map[string]string{}
 	if a.Enable != nil {
-		values["apprise_enable"] = ctrlcommon.BoolTo01(*a.Enable)
+		values["apprise_enable"] = boolTo01(*a.Enable)
 	}
 	if a.Categories != nil {
 		values["apprise_cats"] = strings.Join(a.Categories, ",")
 	}
 	if a.Events != nil {
 		for event, name := range sabnzbdclient.AppriseEvents {
-			values["apprise_target_"+name+"_enable"] = ctrlcommon.BoolTo01(slices.Contains(a.Events, event))
+			values["apprise_target_"+name+"_enable"] = boolTo01(slices.Contains(a.Events, event))
 		}
 	}
 	if a.URLsSecretRef != nil {
@@ -503,7 +505,7 @@ func planSabnzbd(
 	current map[string]any, spec downloadsv1alpha1.SabnzbdSpec, servers map[string]map[string]string, owner string,
 ) []sabWrite {
 	var writes []sabWrite
-	observe := ctrlcommon.ObserveOnly(spec.Reconcile)
+	observe := reconciler.ObserveOnly(spec.Reconcile)
 
 	// Folders go first: SABnzbd takes a script only once script_dir holds it.
 	if spec.Folders != nil {
@@ -597,4 +599,12 @@ func sabnzbdCategoryValues(cat downloadsv1alpha1.SabnzbdCategory) map[string]str
 		vals["pp"] = sabnzbdclient.PostProcessing[cat.PostProcessing]
 	}
 	return vals
+}
+
+// boolTo01 writes b the way SABnzbd's API takes a boolean, as "1" or "0".
+func boolTo01(b bool) string {
+	if b {
+		return "1"
+	}
+	return "0"
 }

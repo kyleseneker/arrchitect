@@ -2,13 +2,17 @@ package pvr
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"slices"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
 	pvrclient "github.com/kyleseneker/arrchitect/internal/client/pvr"
-	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
+	"github.com/kyleseneker/arrchitect/internal/controller/appref"
+	"github.com/kyleseneker/arrchitect/internal/controller/reconciler"
+	"github.com/kyleseneker/arrchitect/internal/controller/secretref"
 	"github.com/kyleseneker/arrchitect/internal/engine"
 	"github.com/kyleseneker/arrchitect/internal/httpapi"
 	"github.com/kyleseneker/arrchitect/internal/secrets"
@@ -23,10 +27,10 @@ type pvrConfig struct {
 
 // pvrIntegration is the Integration every PVR app's resource runs on. describe
 // reads what the pipeline takes from a resource.
-func pvrIntegration[T ctrlcommon.ConfigResource](
-	c client.Client, apps ctrlcommon.Apps, app pvrclient.App, describe func(T) pvrConfig,
-) ctrlcommon.Integration[T, *httpapi.HTTPClient] {
-	return ctrlcommon.Integration[T, *httpapi.HTTPClient]{
+func pvrIntegration[T reconciler.ConfigResource](
+	c client.Client, apps appref.Apps, app pvrclient.App, describe func(T) pvrConfig,
+) reconciler.Integration[T, *httpapi.HTTPClient] {
+	return reconciler.Integration[T, *httpapi.HTTPClient]{
 		App: app.Name,
 		Connect: func(ctx context.Context, obj T) (*httpapi.HTTPClient, error) {
 			return connectPVR(ctx, c, obj, describe(obj).connection, app)
@@ -41,12 +45,16 @@ func pvrIntegration[T ctrlcommon.ConfigResource](
 			// syncs.
 			var unresolved []error
 			var err error
-			if opts.Notifications, err = ctrlcommon.ResolveNotifications(ctx, c, apps, namespace, opts.Notifications); err != nil {
+			if opts.Notifications, err = resolveNotifications(ctx, c, apps, namespace, opts.Notifications); err != nil {
 				unresolved = append(unresolved, fmt.Errorf("notifications: %w", err))
-			} else if opts.Notifications, err = ctrlcommon.ResolveNotificationSecrets(ctx, c, namespace, opts.Notifications); err != nil {
+			} else if opts.Notifications, err = secretref.ResolveItemFields(ctx, c, namespace, "notification", opts.Notifications,
+				func(n *commonv1alpha1.Notification) (string, *[]commonv1alpha1.ConfigField) { return n.Name, &n.Fields }); err != nil {
 				unresolved = append(unresolved, fmt.Errorf("notifications: %w", err))
 			}
-			if opts.ImportLists, err = ctrlcommon.ResolveImportListSecrets(ctx, c, namespace, opts.ImportLists); err != nil {
+			if opts.ImportLists, err = secretref.ResolveItemFields(ctx, c, namespace, "import list", opts.ImportLists,
+				func(il *commonv1alpha1.ImportList) (string, *[]commonv1alpha1.ConfigField) {
+					return il.Name, &il.Fields
+				}); err != nil {
 				unresolved = append(unresolved, fmt.Errorf("importLists: %w", err))
 			}
 			return append(unresolved, pvrclient.Reconcile(ctx, hc, cfg.spec, opts, pass)...)
@@ -70,16 +78,66 @@ func notificationAppRefs(notifications []commonv1alpha1.Notification) []commonv1
 	return refs
 }
 
+// notificationAddressFields are the fields a notification's appRef fills in.
+var notificationAddressFields = []string{"host", "port", "useSsl", "urlBase", "apiKey", "authToken"}
+
+// resolveNotifications returns notifications with each appRef replaced by the
+// media server's notification type, address and key.
+func resolveNotifications(
+	ctx context.Context, c client.Reader, apps appref.Apps, namespace string, in []commonv1alpha1.Notification,
+) ([]commonv1alpha1.Notification, error) {
+	out := slices.Clone(in)
+	for i, n := range out {
+		if n.AppRef == (commonv1alpha1.AppRef{}) {
+			continue
+		}
+		for _, f := range n.Fields {
+			if slices.Contains(notificationAddressFields, f.Name) {
+				return nil, appref.Invalid("notification %q: appRef fills in %s, so leave that field out", n.Name, f.Name)
+			}
+		}
+		app, addr, err := appref.ResolveAddress(ctx, c, apps, namespace, n.AppRef)
+		if err != nil {
+			return nil, fmt.Errorf("notification %q appRef: %w", n.Name, err)
+		}
+		key := commonv1alpha1.ConfigField{Name: "authToken"}
+		switch app.Kind {
+		case "Jellyfin":
+			if app.APIKeySecretRef == nil {
+				return nil, appref.Invalid("notification %q appRef: Jellyfin %q sets no API key Secret", n.Name, n.AppRef.Name)
+			}
+			n.Implementation, key.Name, key.ValueFrom.SecretKeyRef = "MediaBrowser", "apiKey", *app.APIKeySecretRef
+		case "Plex":
+			n.Implementation, key.ValueFrom.SecretKeyRef = "PlexServer", *app.TokenSecretRef
+		default:
+			return nil, appref.Invalid("notification %q appRef: %s isn't a media server", n.Name, app.Kind)
+		}
+		n.Fields = append(slices.Clone(n.Fields),
+			fieldValue("host", addr.Host), fieldValue("port", addr.Port), fieldValue("useSsl", addr.TLS), key)
+		if addr.Base != "" {
+			n.Fields = append(n.Fields, fieldValue("urlBase", addr.Base))
+		}
+		n.AppRef = commonv1alpha1.AppRef{}
+		out[i] = n
+	}
+	return out, nil
+}
+
+func fieldValue(name string, v any) commonv1alpha1.ConfigField {
+	raw, _ := json.Marshal(v)
+	return commonv1alpha1.ConfigField{Name: name, Value: &commonv1alpha1.FieldValue{Raw: raw}}
+}
+
 // connectPVR builds the client for an app's connection.
 func connectPVR(
-	ctx context.Context, c client.Reader, obj ctrlcommon.ConfigResource, conn commonv1alpha1.AppConnection, app pvrclient.App,
+	ctx context.Context, c client.Reader, obj reconciler.ConfigResource, conn commonv1alpha1.AppConnection, app pvrclient.App,
 ) (*httpapi.HTTPClient, error) {
 	namespace := obj.GetNamespace()
 	apiKey, err := secrets.ResolveSecretKeyRef(ctx, c, namespace, conn.APIKeySecretRef)
 	if err != nil {
 		return nil, err
 	}
-	tlsCfg, err := ctrlcommon.ResolveTLSConfig(ctx, c, namespace, conn.TLS)
+	tlsCfg, err := reconciler.ResolveTLSConfig(ctx, c, namespace, conn.TLS)
 	if err != nil {
 		return nil, err
 	}

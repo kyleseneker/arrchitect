@@ -9,7 +9,6 @@ import (
 	"slices"
 	"strings"
 
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -19,7 +18,9 @@ import (
 	automationv1alpha1 "github.com/kyleseneker/arrchitect/api/automation/v1alpha1"
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
 	autobrrclient "github.com/kyleseneker/arrchitect/internal/client/autobrr"
-	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
+	"github.com/kyleseneker/arrchitect/internal/controller/appref"
+	"github.com/kyleseneker/arrchitect/internal/controller/reconciler"
+	"github.com/kyleseneker/arrchitect/internal/controller/secretref"
 	"github.com/kyleseneker/arrchitect/internal/engine"
 	"github.com/kyleseneker/arrchitect/internal/httpapi"
 	"github.com/kyleseneker/arrchitect/internal/jsondiff"
@@ -30,7 +31,7 @@ import (
 type AutobrrReconciler struct {
 	client.Client
 	Recorder events.EventRecorder
-	Apps     ctrlcommon.Apps
+	Apps     appref.Apps
 }
 
 // +kubebuilder:rbac:groups=arrchitect.dev,resources=autobrrs,verbs=get;list;watch;update;patch
@@ -40,7 +41,7 @@ type AutobrrReconciler struct {
 // +kubebuilder:rbac:groups=arrchitect.dev,resources=qbittorrents;sabnzbds;sonarrs;radarrs;lidarrs;readarrs,verbs=get;list;watch
 
 func (r *AutobrrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	integration := ctrlcommon.Integration[*automationv1alpha1.Autobrr, *autobrrclient.Client]{
+	integration := reconciler.Integration[*automationv1alpha1.Autobrr, *autobrrclient.Client]{
 		App:     "autobrr",
 		Connect: r.connect,
 		Check: func(ctx context.Context, ac *autobrrclient.Client, _ *automationv1alpha1.Autobrr) error {
@@ -65,7 +66,7 @@ func (r *AutobrrReconciler) connect(ctx context.Context, config *automationv1alp
 	if err != nil {
 		return nil, err
 	}
-	tlsCfg, err := ctrlcommon.ResolveTLSConfig(ctx, r.Client, config.Namespace, config.Spec.Connection.TLS)
+	tlsCfg, err := reconciler.ResolveTLSConfig(ctx, r.Client, config.Namespace, config.Spec.Connection.TLS)
 	if err != nil {
 		return nil, err
 	}
@@ -82,7 +83,7 @@ func (r *AutobrrReconciler) connect(ctx context.Context, config *automationv1alp
 type autobrrSync struct {
 	*engine.Pass
 	c         client.Reader
-	apps      ctrlcommon.Apps
+	apps      appref.Apps
 	ac        *autobrrclient.Client
 	namespace string
 	// declared names the indexers and download clients the spec declares, which
@@ -193,7 +194,7 @@ func (s *autobrrSync) resolveDownloadClient(
 	if dc.AppRef == nil {
 		return dc, nil
 	}
-	app, addr, err := ctrlcommon.ResolveAppAddress(ctx, s.c, s.apps, s.namespace, *dc.AppRef)
+	app, addr, err := appref.ResolveAddress(ctx, s.c, s.apps, s.namespace, *dc.AppRef)
 	if err != nil {
 		return dc, fmt.Errorf("appRef: %w", err)
 	}
@@ -429,7 +430,7 @@ func (s *autobrrSync) definition(ctx context.Context, identifier string) (map[st
 }
 
 func (s *autobrrSync) indexerSettings(ctx context.Context, idx automationv1alpha1.AutobrrIndexer) (map[string]any, error) {
-	fields, err := ctrlcommon.ResolveConfigFields(ctx, s.c, s.namespace, "indexer "+idx.Name, idx.Settings)
+	fields, err := secretref.ResolveConfigFields(ctx, s.c, s.namespace, "indexer "+idx.Name, idx.Settings)
 	if err != nil {
 		return nil, err
 	}
@@ -807,7 +808,7 @@ func (s *autobrrSync) titleList(ctx context.Context, l automationv1alpha1.Autobr
 }
 
 func (s *autobrrSync) notification(ctx context.Context, n automationv1alpha1.AutobrrNotification) error {
-	options, err := ctrlcommon.FieldValues(ctx, s.c, s.namespace, "notification "+n.Name, n.Options)
+	options, err := secretref.FieldValues(ctx, s.c, s.namespace, "notification "+n.Name, n.Options)
 	if err != nil {
 		return err
 	}
@@ -986,9 +987,12 @@ func (s *autobrrSync) actions(
 // SetupWithManager sets up the controller with the Manager.
 func (r *AutobrrReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	b := ctrl.NewControllerManagedBy(mgr).
-		For(&automationv1alpha1.Autobrr{}, builder.WithPredicates(ctrlcommon.ConfigChangedPredicate())).
-		WatchesMetadata(&corev1.Secret{}, ctrlcommon.EnqueueForSecretThroughRefs(r.Client, r.Apps, &automationv1alpha1.AutobrrList{}, autobrrAppRefs))
-	b, err := ctrlcommon.WatchAppRefs(mgr, b, r.Apps, &automationv1alpha1.Autobrr{}, &automationv1alpha1.AutobrrList{}, autobrrAppRefs,
+		For(&automationv1alpha1.Autobrr{}, builder.WithPredicates(reconciler.ConfigChangedPredicate()))
+	b, err := secretref.Watch(mgr, b, &automationv1alpha1.Autobrr{}, &automationv1alpha1.AutobrrList{})
+	if err != nil {
+		return err
+	}
+	b, err = appref.Watch(mgr, b, r.Apps, &automationv1alpha1.Autobrr{}, &automationv1alpha1.AutobrrList{}, autobrrAppRefs,
 		"QBittorrent", "Sabnzbd", "Sonarr", "Radarr", "Lidarr", "Readarr")
 	if err != nil {
 		return err

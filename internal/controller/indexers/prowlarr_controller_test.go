@@ -26,7 +26,7 @@ import (
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
 	indexersv1alpha1 "github.com/kyleseneker/arrchitect/api/indexers/v1alpha1"
 	pvrv1alpha1 "github.com/kyleseneker/arrchitect/api/pvr/v1alpha1"
-	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
+	"github.com/kyleseneker/arrchitect/internal/controller/reconciler"
 	"github.com/kyleseneker/arrchitect/internal/testnet"
 )
 
@@ -226,7 +226,7 @@ func TestProwlarrDeletePolicyCleansTrackedResources(t *testing.T) {
 	policy := "delete"
 	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{DeletionPolicy: policy}
 	cfg.Status.SetManagedResources(map[string][]string{"indexers": {"owned"}})
-	cfg.Finalizers = []string{ctrlcommon.Finalizer}
+	cfg.Finalizers = []string{reconciler.Finalizer}
 	now := metav1.Now()
 	cfg.DeletionTimestamp = &now
 	c := runProwlarr(t, cfg, prowlarrSecret())
@@ -483,8 +483,8 @@ func TestProwlarrClientSaysWhyItCantConnect(t *testing.T) {
 		secret    bool
 		reason    string
 	}{
-		{"missing API key Secret", "http://prowlarr:9696", false, ctrlcommon.ReasonSecretNotFound},
-		{"unusable URL", "ftp://prowlarr", true, ctrlcommon.ReasonInvalidConfig},
+		{"missing API key Secret", "http://prowlarr:9696", false, reconciler.ReasonSecretNotFound},
+		{"unusable URL", "ftp://prowlarr", true, reconciler.ReasonInvalidConfig},
 		{"connects", "http://prowlarr:9696", true, ""},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -499,7 +499,7 @@ func TestProwlarrClientSaysWhyItCantConnect(t *testing.T) {
 				return
 			}
 			require.Error(t, err)
-			reason, _ := ctrlcommon.Classify(err)
+			reason, _ := reconciler.Classify(err)
 			assert.Equal(t, tc.reason, reason)
 		})
 	}

@@ -1,8 +1,7 @@
-package common
+package reconciler
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -14,7 +13,6 @@ import (
 	dto "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -25,72 +23,15 @@ import (
 	"k8s.io/client-go/tools/events"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
-	"sigs.k8s.io/controller-runtime/pkg/event"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
-	downloadsv1alpha1 "github.com/kyleseneker/arrchitect/api/downloads/v1alpha1"
-	indexersv1alpha1 "github.com/kyleseneker/arrchitect/api/indexers/v1alpha1"
 	pvrv1alpha1 "github.com/kyleseneker/arrchitect/api/pvr/v1alpha1"
-	subtitlesv1alpha1 "github.com/kyleseneker/arrchitect/api/subtitles/v1alpha1"
 	"github.com/kyleseneker/arrchitect/internal/engine"
 	"github.com/kyleseneker/arrchitect/internal/failure"
 	"github.com/kyleseneker/arrchitect/internal/httpapi"
 	"github.com/kyleseneker/arrchitect/internal/metrics"
 	"github.com/kyleseneker/arrchitect/internal/secrets"
 )
-
-func TestReconcileInterval(t *testing.T) {
-	tests := []struct {
-		name string
-		rc   *commonv1alpha1.ReconcileConfig
-		want time.Duration
-	}{
-		{"nil config", nil, DefaultReconcileInterval},
-		{"nil interval", &commonv1alpha1.ReconcileConfig{}, DefaultReconcileInterval},
-		{"30s", &commonv1alpha1.ReconcileConfig{IntervalSeconds: int32(30)}, 30 * time.Second},
-		{"10m", &commonv1alpha1.ReconcileConfig{IntervalSeconds: int32(600)}, 10 * time.Minute},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, ReconcileInterval(tt.rc))
-		})
-	}
-}
-
-func TestPruneEnabled(t *testing.T) {
-	tests := []struct {
-		name string
-		rc   *commonv1alpha1.ReconcileConfig
-		want bool
-	}{
-		{"nil config", nil, false},
-		{"nil prune", &commonv1alpha1.ReconcileConfig{}, false},
-		{"false", &commonv1alpha1.ReconcileConfig{Prune: new(false)}, false},
-		{"true", &commonv1alpha1.ReconcileConfig{Prune: new(true)}, true},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, PruneEnabled(tt.rc))
-		})
-	}
-}
-
-func TestBoolTo01(t *testing.T) {
-	tests := []struct {
-		name string
-		b    bool
-		want string
-	}{
-		{"true", true, "1"},
-		{"false", false, "0"},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, BoolTo01(tt.b))
-		})
-	}
-}
 
 func TestEmitPruneEvents(t *testing.T) {
 	recorder := events.NewFakeRecorder(2)
@@ -310,124 +251,6 @@ func TestReportResultNamesTheFirstTenFailures(t *testing.T) {
 	require.NotNil(t, condition)
 	assert.True(t, strings.HasSuffix(condition.Message, " and 490 more"), condition.Message)
 	assert.Less(t, len(condition.Message), 32768)
-}
-
-func TestConfigChangedPredicate(t *testing.T) {
-	old := newConfig("", 0)
-	old.Generation = 1
-	cases := []struct {
-		name   string
-		change func(*pvrv1alpha1.Sonarr)
-		want   bool
-	}{
-		{"status", func(c *pvrv1alpha1.Sonarr) { now := metav1.Now(); c.Status.LastSyncTime = &now }, false},
-		{"resource version", func(c *pvrv1alpha1.Sonarr) { c.ResourceVersion = "2" }, false},
-		{"spec", func(c *pvrv1alpha1.Sonarr) { c.Generation++ }, true},
-		{"deletion", func(c *pvrv1alpha1.Sonarr) { now := metav1.Now(); c.DeletionTimestamp = &now }, true},
-		{"finalizers", func(c *pvrv1alpha1.Sonarr) { c.Finalizers = nil }, true},
-		{"annotation", func(c *pvrv1alpha1.Sonarr) { c.Annotations = map[string]string{"reconcile": "now"} }, true},
-	}
-	p := ConfigChangedPredicate()
-	for _, tt := range cases {
-		t.Run(tt.name, func(t *testing.T) {
-			next := old.DeepCopy()
-			tt.change(next)
-			assert.Equal(t, tt.want, p.Update(event.UpdateEvent{ObjectOld: old, ObjectNew: next}))
-		})
-	}
-	assert.False(t, p.Update(event.UpdateEvent{ObjectOld: old}))
-	assert.False(t, p.Update(event.UpdateEvent{ObjectNew: old}))
-	assert.True(t, p.Create(event.CreateEvent{Object: old}))
-	assert.True(t, p.Delete(event.DeleteEvent{Object: old}))
-	assert.True(t, p.Generic(event.GenericEvent{Object: old}))
-}
-
-func TestReferencesSecretFindsEveryReference(t *testing.T) {
-	ref := commonv1alpha1.SecretKeyRef{Name: "target", Key: "k"}
-	for name, config := range map[string]any{
-		"an optional TLS CA": &pvrv1alpha1.Sonarr{Spec: pvrv1alpha1.SonarrSpec{
-			Connection: commonv1alpha1.AppConnection{TLS: &commonv1alpha1.TLSConfig{CASecretRef: ref}},
-		}},
-		"a download client password": pvrv1alpha1.SonarrDownloadClientSpec{
-			DownloadClient: commonv1alpha1.DownloadClient{Name: "q", PasswordSecretRef: ref},
-		},
-		"a field read from a Secret": indexersv1alpha1.ProwlarrSpec{
-			Indexers: []indexersv1alpha1.ProwlarrIndexer{{Name: "x", Fields: []commonv1alpha1.ConfigField{{Name: "apiKey", ValueFrom: commonv1alpha1.ValueSource{SecretKeyRef: ref}}}}},
-		},
-		"a Usenet server password": downloadsv1alpha1.SabnzbdSpec{
-			Servers: []downloadsv1alpha1.SabnzbdServer{{Name: "s", PasswordSecretRef: &ref}},
-		},
-		"a map value": map[string]commonv1alpha1.SecretKeyRef{"x": ref},
-		"a Bazarr provider setting": subtitlesv1alpha1.BazarrSpec{
-			Providers: []subtitlesv1alpha1.BazarrProvider{{Name: "opensubtitlescom", Settings: []commonv1alpha1.ConfigField{
-				{Name: "password", ValueFrom: commonv1alpha1.ValueSource{SecretKeyRef: ref}},
-			}}},
-		},
-	} {
-		assert.True(t, referencesSecret(config, "target"), name)
-		assert.False(t, referencesSecret(config, "other"), name)
-	}
-}
-
-func TestEnqueueForSecretQueuesOnlyConfigsThatReferToIt(t *testing.T) {
-	s := runtime.NewScheme()
-	require.NoError(t, scheme.AddToScheme(s))
-	require.NoError(t, pvrv1alpha1.AddToScheme(s))
-	withCA := func(name, namespace string) *pvrv1alpha1.Sonarr {
-		return &pvrv1alpha1.Sonarr{Name: name, Namespace: namespace, Spec: pvrv1alpha1.SonarrSpec{
-			Connection: commonv1alpha1.AppConnection{TLS: &commonv1alpha1.TLSConfig{CASecretRef: commonv1alpha1.SecretKeyRef{Name: "ca", Key: "ca.crt"}}},
-		}}
-	}
-	c := fake.NewClientBuilder().WithScheme(s).WithObjects(
-		withCA("uses", "media"), withCA("elsewhere", "other"),
-		&pvrv1alpha1.Sonarr{Name: "unrelated", Namespace: "media"},
-	).Build()
-	configs := configsForSecret(c, &pvrv1alpha1.SonarrList{})
-
-	reqs := configs(context.Background(), &metav1.PartialObjectMetadata{Name: "ca", Namespace: "media"})
-	assert.Equal(t, []reconcile.Request{{Name: "uses", Namespace: "media"}}, reqs, "Secrets are watched by metadata only")
-}
-
-func newSecretClient() *fake.ClientBuilder {
-	return fake.NewClientBuilder().WithScheme(scheme.Scheme).WithObjects(&corev1.Secret{
-		Name: "tracker", Namespace: "arr",
-		Data: map[string][]byte{"passkey": []byte("s3cr3t")},
-	})
-}
-
-func TestResolveConfigFieldsFromSecret(t *testing.T) {
-	c := newSecretClient().Build()
-	fields := []commonv1alpha1.ConfigField{
-		{Name: "apiKey", ValueFrom: commonv1alpha1.ValueSource{SecretKeyRef: commonv1alpha1.SecretKeyRef{Name: "tracker", Key: "passkey"}}},
-	}
-	out, err := ResolveConfigFields(context.Background(), c, "arr", "indexer x", fields)
-	require.NoError(t, err)
-	assert.Zero(t, out[0].ValueFrom, "valueFrom should be cleared after resolution")
-	b, _ := json.Marshal(out[0].Value)
-	assert.Equal(t, `"s3cr3t"`, string(b), "expected quoted secret value")
-	assert.Nil(t, fields[0].Value, "input slice was mutated")
-}
-
-func TestResolveConfigFieldsRejectsBothValueAndValueFrom(t *testing.T) {
-	c := newSecretClient().Build()
-	raw, _ := json.Marshal("literal")
-	fields := []commonv1alpha1.ConfigField{{
-		Name:      "apiKey",
-		Value:     &commonv1alpha1.FieldValue{Raw: raw},
-		ValueFrom: commonv1alpha1.ValueSource{SecretKeyRef: commonv1alpha1.SecretKeyRef{Name: "tracker", Key: "passkey"}},
-	}}
-	_, err := ResolveConfigFields(context.Background(), c, "arr", "indexer x", fields)
-	require.Error(t, err, "expected an error when both value and valueFrom are set")
-	assert.True(t, failure.IsConfigError(err), "only a spec change fixes it")
-}
-
-func TestResolveConfigFieldsMissingSecret(t *testing.T) {
-	c := newSecretClient().Build()
-	fields := []commonv1alpha1.ConfigField{
-		{Name: "apiKey", ValueFrom: commonv1alpha1.ValueSource{SecretKeyRef: commonv1alpha1.SecretKeyRef{Name: "nope", Key: "passkey"}}},
-	}
-	_, err := ResolveConfigFields(context.Background(), c, "arr", "indexer x", fields)
-	require.Error(t, err, "expected an error for a missing secret")
 }
 
 func TestConfigSyncedGaugeTracksOutcome(t *testing.T) {

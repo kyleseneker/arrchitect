@@ -7,7 +7,6 @@ import (
 	"slices"
 	"strings"
 
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -17,7 +16,9 @@ import (
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
 	curationv1alpha1 "github.com/kyleseneker/arrchitect/api/curation/v1alpha1"
 	maintainerrclient "github.com/kyleseneker/arrchitect/internal/client/maintainerr"
-	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
+	"github.com/kyleseneker/arrchitect/internal/controller/appref"
+	"github.com/kyleseneker/arrchitect/internal/controller/reconciler"
+	"github.com/kyleseneker/arrchitect/internal/controller/secretref"
 	"github.com/kyleseneker/arrchitect/internal/engine"
 	"github.com/kyleseneker/arrchitect/internal/failure"
 	"github.com/kyleseneker/arrchitect/internal/httpapi"
@@ -35,7 +36,7 @@ const (
 type MaintainerrReconciler struct {
 	client.Client
 	Recorder events.EventRecorder
-	Apps     ctrlcommon.Apps
+	Apps     appref.Apps
 }
 
 // +kubebuilder:rbac:groups=arrchitect.dev,resources=maintainerrs,verbs=get;list;watch;update;patch
@@ -45,7 +46,7 @@ type MaintainerrReconciler struct {
 // +kubebuilder:rbac:groups=arrchitect.dev,resources=sonarrs;radarrs;seerrs;plexes;jellyfins,verbs=get;list;watch
 
 func (r *MaintainerrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	integration := ctrlcommon.Integration[*curationv1alpha1.Maintainerr, *maintainerrclient.Client]{
+	integration := reconciler.Integration[*curationv1alpha1.Maintainerr, *maintainerrclient.Client]{
 		App:     maintainerrApp,
 		Connect: r.connect,
 		Check: func(ctx context.Context, mc *maintainerrclient.Client, _ *curationv1alpha1.Maintainerr) error {
@@ -64,7 +65,7 @@ func (r *MaintainerrReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 }
 
 func (r *MaintainerrReconciler) connect(ctx context.Context, config *curationv1alpha1.Maintainerr) (*maintainerrclient.Client, error) {
-	tlsCfg, err := ctrlcommon.ResolveTLSConfig(ctx, r.Client, config.Namespace, config.Spec.Connection.TLS)
+	tlsCfg, err := reconciler.ResolveTLSConfig(ctx, r.Client, config.Namespace, config.Spec.Connection.TLS)
 	if err != nil {
 		return nil, err
 	}
@@ -84,7 +85,7 @@ func (r *MaintainerrReconciler) connect(ctx context.Context, config *curationv1a
 type maintainerrSync struct {
 	*engine.Pass
 	c         client.Reader
-	apps      ctrlcommon.Apps
+	apps      appref.Apps
 	mc        *maintainerrclient.Client
 	namespace string
 }
@@ -193,7 +194,7 @@ func (s *maintainerrSync) mediaServer(ctx context.Context, ms *curationv1alpha1.
 	}
 	plex := ms.Plex
 	if plex.AppRef != nil {
-		app, addr, err := ctrlcommon.ResolveAppAddress(ctx, s.c, s.apps, s.namespace, *plex.AppRef)
+		app, addr, err := appref.ResolveAddress(ctx, s.c, s.apps, s.namespace, *plex.AppRef)
 		if err != nil {
 			return fmt.Errorf("Plex appRef: %w", err)
 		}
@@ -204,12 +205,12 @@ func (s *maintainerrSync) mediaServer(ctx context.Context, ms *curationv1alpha1.
 
 func (s *maintainerrSync) jellyfin(ctx context.Context, jf *curationv1alpha1.MaintainerrJellyfin) error {
 	if jf.AppRef != nil {
-		app, err := ctrlcommon.ResolveAppRef(ctx, s.c, s.apps, s.namespace, *jf.AppRef)
+		app, err := appref.Resolve(ctx, s.c, s.apps, s.namespace, *jf.AppRef)
 		if err != nil {
 			return fmt.Errorf("Jellyfin appRef: %w", err)
 		}
 		if app.APIKeySecretRef == nil {
-			return ctrlcommon.InvalidAppRef("Jellyfin appRef: Jellyfin %q sets no API key Secret", jf.AppRef.Name)
+			return appref.Invalid("Jellyfin appRef: Jellyfin %q sets no API key Secret", jf.AppRef.Name)
 		}
 		resolved := *jf
 		resolved.URL, resolved.APIKeySecretRef = app.URL, app.APIKeySecretRef
@@ -332,7 +333,7 @@ func (s *maintainerrSync) arrServer(
 	ctx context.Context, kind maintainerrclient.Arr, server curationv1alpha1.MaintainerrArrServer, stored []map[string]any,
 ) (bool, error) {
 	if server.AppRef != nil {
-		app, err := ctrlcommon.ResolveAppRef(ctx, s.c, s.apps, s.namespace, *server.AppRef)
+		app, err := appref.Resolve(ctx, s.c, s.apps, s.namespace, *server.AppRef)
 		if err != nil {
 			return false, fmt.Errorf("appRef: %w", err)
 		}
@@ -404,12 +405,12 @@ func (s *maintainerrSync) seerrConnection(
 	ctx context.Context, conn curationv1alpha1.MaintainerrSeerrConnection,
 ) (curationv1alpha1.MaintainerrServiceConnection, error) {
 	if conn.AppRef != nil {
-		app, err := ctrlcommon.ResolveAppRef(ctx, s.c, s.apps, s.namespace, *conn.AppRef)
+		app, err := appref.Resolve(ctx, s.c, s.apps, s.namespace, *conn.AppRef)
 		if err != nil {
 			return curationv1alpha1.MaintainerrServiceConnection{}, fmt.Errorf("appRef: %w", err)
 		}
 		if app.APIKeySecretRef == nil {
-			return curationv1alpha1.MaintainerrServiceConnection{}, ctrlcommon.InvalidAppRef("appRef: Seerr %q sets no API key Secret", conn.AppRef.Name)
+			return curationv1alpha1.MaintainerrServiceConnection{}, appref.Invalid("appRef: Seerr %q sets no API key Secret", conn.AppRef.Name)
 		}
 		conn.URL, conn.APIKeySecretRef = app.URL, app.APIKeySecretRef
 	}
@@ -468,9 +469,12 @@ func serviceURL(url string) string {
 // SetupWithManager sets up the controller with the Manager.
 func (r *MaintainerrReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	b := ctrl.NewControllerManagedBy(mgr).
-		For(&curationv1alpha1.Maintainerr{}, builder.WithPredicates(ctrlcommon.ConfigChangedPredicate())).
-		WatchesMetadata(&corev1.Secret{}, ctrlcommon.EnqueueForSecretThroughRefs(r.Client, r.Apps, &curationv1alpha1.MaintainerrList{}, maintainerrAppRefs))
-	b, err := ctrlcommon.WatchAppRefs(mgr, b, r.Apps, &curationv1alpha1.Maintainerr{}, &curationv1alpha1.MaintainerrList{}, maintainerrAppRefs, "Sonarr", "Radarr", "Seerr", "Plex", "Jellyfin")
+		For(&curationv1alpha1.Maintainerr{}, builder.WithPredicates(reconciler.ConfigChangedPredicate()))
+	b, err := secretref.Watch(mgr, b, &curationv1alpha1.Maintainerr{}, &curationv1alpha1.MaintainerrList{})
+	if err != nil {
+		return err
+	}
+	b, err = appref.Watch(mgr, b, r.Apps, &curationv1alpha1.Maintainerr{}, &curationv1alpha1.MaintainerrList{}, maintainerrAppRefs, "Sonarr", "Radarr", "Seerr", "Plex", "Jellyfin")
 	if err != nil {
 		return err
 	}

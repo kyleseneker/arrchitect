@@ -22,8 +22,8 @@ import (
 
 	pvrv1alpha1 "github.com/kyleseneker/arrchitect/api/pvr/v1alpha1"
 	pvrclient "github.com/kyleseneker/arrchitect/internal/client/pvr"
-	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
 	"github.com/kyleseneker/arrchitect/internal/controller/pvr"
+	"github.com/kyleseneker/arrchitect/internal/controller/reconciler"
 	"github.com/kyleseneker/arrchitect/internal/httpapi"
 	"github.com/kyleseneker/arrchitect/internal/testnet"
 )
@@ -74,19 +74,19 @@ func TestSonarr(t *testing.T) {
 			"api-key": key, "qbittorrent-username": qbittorrentUser, "qbittorrent-password": qbitPassword,
 			"jellyfin-api-key": "compat-jellyfin-key", "plex-token": "compat-plex-token",
 		},
-		newObj: func() ctrlcommon.ConfigResource { return &pvrv1alpha1.Sonarr{} },
+		newObj: func() reconciler.ConfigResource { return &pvrv1alpha1.Sonarr{} },
 		reconciler: func(c client.Client) reconcile.Reconciler {
 			return &pvr.SonarrReconciler{Client: c, Recorder: events.NewFakeRecorder(100)}
 		},
 		objects: map[string]compatKind{
 			"SonarrIndexer": {
-				newObj: func() ctrlcommon.ConfigResource { return &pvrv1alpha1.SonarrIndexer{} },
+				newObj: func() reconciler.ConfigResource { return &pvrv1alpha1.SonarrIndexer{} },
 				reconciler: func(c client.Client) reconcile.Reconciler {
 					return pvr.NewObjectReconciler(pvr.SonarrIndexers, c, events.NewFakeRecorder(100), nil)
 				},
 			},
 			"SonarrDownloadClient": {
-				newObj: func() ctrlcommon.ConfigResource { return &pvrv1alpha1.SonarrDownloadClient{} },
+				newObj: func() reconciler.ConfigResource { return &pvrv1alpha1.SonarrDownloadClient{} },
 				reconciler: func(c client.Client) reconcile.Reconciler {
 					return pvr.NewObjectReconciler(pvr.SonarrDownloadClients, c, events.NewFakeRecorder(100), nil)
 				},
@@ -175,19 +175,19 @@ func TestRadarr(t *testing.T) {
 			"api-key": key, "qbittorrent-username": qbittorrentUser, "qbittorrent-password": qbitPassword,
 			"jellyfin-api-key": "compat-jellyfin-key", "plex-token": "compat-plex-token",
 		},
-		newObj: func() ctrlcommon.ConfigResource { return &pvrv1alpha1.Radarr{} },
+		newObj: func() reconciler.ConfigResource { return &pvrv1alpha1.Radarr{} },
 		reconciler: func(c client.Client) reconcile.Reconciler {
 			return &pvr.RadarrReconciler{Client: c, Recorder: events.NewFakeRecorder(100)}
 		},
 		objects: map[string]compatKind{
 			"RadarrIndexer": {
-				newObj: func() ctrlcommon.ConfigResource { return &pvrv1alpha1.RadarrIndexer{} },
+				newObj: func() reconciler.ConfigResource { return &pvrv1alpha1.RadarrIndexer{} },
 				reconciler: func(c client.Client) reconcile.Reconciler {
 					return pvr.NewObjectReconciler(pvr.RadarrIndexers, c, events.NewFakeRecorder(100), nil)
 				},
 			},
 			"RadarrDownloadClient": {
-				newObj: func() ctrlcommon.ConfigResource { return &pvrv1alpha1.RadarrDownloadClient{} },
+				newObj: func() reconciler.ConfigResource { return &pvrv1alpha1.RadarrDownloadClient{} },
 				reconciler: func(c client.Client) reconcile.Reconciler {
 					return pvr.NewObjectReconciler(pvr.RadarrDownloadClients, c, events.NewFakeRecorder(100), nil)
 				},
@@ -265,19 +265,19 @@ func TestLidarr(t *testing.T) {
 			"api-key": key, "qbittorrent-username": qbittorrentUser, "qbittorrent-password": qbitPassword,
 			"jellyfin-api-key": "compat-jellyfin-key", "plex-token": "compat-plex-token",
 		},
-		newObj: func() ctrlcommon.ConfigResource { return &pvrv1alpha1.Lidarr{} },
+		newObj: func() reconciler.ConfigResource { return &pvrv1alpha1.Lidarr{} },
 		reconciler: func(c client.Client) reconcile.Reconciler {
 			return &pvr.LidarrReconciler{Client: c, Recorder: events.NewFakeRecorder(100)}
 		},
 		objects: map[string]compatKind{
 			"LidarrIndexer": {
-				newObj: func() ctrlcommon.ConfigResource { return &pvrv1alpha1.LidarrIndexer{} },
+				newObj: func() reconciler.ConfigResource { return &pvrv1alpha1.LidarrIndexer{} },
 				reconciler: func(c client.Client) reconcile.Reconciler {
 					return pvr.NewObjectReconciler(pvr.LidarrIndexers, c, events.NewFakeRecorder(100), nil)
 				},
 			},
 			"LidarrDownloadClient": {
-				newObj: func() ctrlcommon.ConfigResource { return &pvrv1alpha1.LidarrDownloadClient{} },
+				newObj: func() reconciler.ConfigResource { return &pvrv1alpha1.LidarrDownloadClient{} },
 				reconciler: func(c client.Client) reconcile.Reconciler {
 					return pvr.NewObjectReconciler(pvr.LidarrDownloadClients, c, events.NewFakeRecorder(100), nil)
 				},
@@ -357,19 +357,19 @@ func TestReadarr(t *testing.T) {
 		export:  "readarr",
 		vars:    map[string]string{"URL": proxy.url(), "HOST": hostIP, "FAKES": fakes},
 		secrets: map[string]string{"api-key": key, "plex-token": "compat-plex-token"},
-		newObj:  func() ctrlcommon.ConfigResource { return &pvrv1alpha1.Readarr{} },
+		newObj:  func() reconciler.ConfigResource { return &pvrv1alpha1.Readarr{} },
 		reconciler: func(c client.Client) reconcile.Reconciler {
 			return &pvr.ReadarrReconciler{Client: c, Recorder: events.NewFakeRecorder(100)}
 		},
 		objects: map[string]compatKind{
 			"ReadarrIndexer": {
-				newObj: func() ctrlcommon.ConfigResource { return &pvrv1alpha1.ReadarrIndexer{} },
+				newObj: func() reconciler.ConfigResource { return &pvrv1alpha1.ReadarrIndexer{} },
 				reconciler: func(c client.Client) reconcile.Reconciler {
 					return pvr.NewObjectReconciler(pvr.ReadarrIndexers, c, events.NewFakeRecorder(100), nil)
 				},
 			},
 			"ReadarrDownloadClient": {
-				newObj: func() ctrlcommon.ConfigResource { return &pvrv1alpha1.ReadarrDownloadClient{} },
+				newObj: func() reconciler.ConfigResource { return &pvrv1alpha1.ReadarrDownloadClient{} },
 				reconciler: func(c client.Client) reconcile.Reconciler {
 					return pvr.NewObjectReconciler(pvr.ReadarrDownloadClients, c, events.NewFakeRecorder(100), nil)
 				},

@@ -35,12 +35,12 @@ import (
 	subtitlesv1alpha1 "github.com/kyleseneker/arrchitect/api/subtitles/v1alpha1"
 	transcodev1alpha1 "github.com/kyleseneker/arrchitect/api/transcode/v1alpha1"
 	"github.com/kyleseneker/arrchitect/internal/controller/automation"
-	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
 	"github.com/kyleseneker/arrchitect/internal/controller/curation"
 	"github.com/kyleseneker/arrchitect/internal/controller/downloads"
 	"github.com/kyleseneker/arrchitect/internal/controller/indexers"
 	"github.com/kyleseneker/arrchitect/internal/controller/mediaservers"
 	"github.com/kyleseneker/arrchitect/internal/controller/pvr"
+	"github.com/kyleseneker/arrchitect/internal/controller/reconciler"
 	"github.com/kyleseneker/arrchitect/internal/controller/requests"
 	"github.com/kyleseneker/arrchitect/internal/controller/subtitles"
 	"github.com/kyleseneker/arrchitect/internal/controller/transcode"
@@ -513,7 +513,7 @@ func TestControllersPersistStatusAndReleaseOnDelete(t *testing.T) {
 			conditions := got.(interface {
 				GetConfigStatus() *commonv1alpha1.ConfigStatus
 			}).GetConfigStatus().Conditions
-			assert.NotNil(t, apimeta.FindStatusCondition(conditions, ctrlcommon.ConditionReady),
+			assert.NotNil(t, apimeta.FindStatusCondition(conditions, reconciler.ConditionReady),
 				"no Ready condition persisted; the status subresource write did not land")
 			require.Empty(t, got.GetFinalizers(), "an orphan resource must not wait on the operator to be deleted")
 
@@ -558,13 +558,13 @@ func TestSecretChangeReconcilesTheConfigReferringToIt(t *testing.T) {
 			return ""
 		}
 		for _, cond := range got.Status.Conditions {
-			if cond.Type == ctrlcommon.ConditionSynced {
+			if cond.Type == reconciler.ConditionSynced {
 				return cond.Reason
 			}
 		}
 		return ""
 	}
-	require.Eventually(t, func() bool { return syncedReason() == ctrlcommon.ReasonSecretNotFound },
+	require.Eventually(t, func() bool { return syncedReason() == reconciler.ReasonSecretNotFound },
 		10*time.Second, 100*time.Millisecond, "the missing CA was never reported")
 
 	caPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: app.Certificate().Raw})
@@ -574,7 +574,7 @@ func TestSecretChangeReconcilesTheConfigReferringToIt(t *testing.T) {
 	// Well inside the 30-second requeue for a missing Secret.
 	require.Eventually(t, func() bool {
 		reason := syncedReason()
-		return reason != "" && reason != ctrlcommon.ReasonSecretNotFound
+		return reason != "" && reason != reconciler.ReasonSecretNotFound
 	}, 10*time.Second, 100*time.Millisecond, "creating the CA Secret did not re-reconcile the config")
 }
 
@@ -643,12 +643,12 @@ func TestInstanceCreationReconcilesItsObjects(t *testing.T) {
 		if c.Get(ctx, client.ObjectKeyFromObject(dc), &got) != nil {
 			return ""
 		}
-		if cond := apimeta.FindStatusCondition(got.Status.Conditions, ctrlcommon.ConditionSynced); cond != nil {
+		if cond := apimeta.FindStatusCondition(got.Status.Conditions, reconciler.ConditionSynced); cond != nil {
 			return cond.Reason
 		}
 		return ""
 	}
-	require.Eventually(t, func() bool { return syncedReason() == ctrlcommon.ReasonReferenceNotFound },
+	require.Eventually(t, func() bool { return syncedReason() == reconciler.ReasonReferenceNotFound },
 		10*time.Second, 100*time.Millisecond, "the missing Sonarr was never reported")
 
 	require.NoError(t, c.Create(ctx, &pvrv1alpha1.Sonarr{
@@ -657,7 +657,7 @@ func TestInstanceCreationReconcilesItsObjects(t *testing.T) {
 	// Well inside the 30-second requeue for a missing instance.
 	require.Eventually(t, func() bool {
 		reason := syncedReason()
-		return reason != "" && reason != ctrlcommon.ReasonReferenceNotFound
+		return reason != "" && reason != reconciler.ReasonReferenceNotFound
 	}, 10*time.Second, 100*time.Millisecond, "creating the Sonarr did not reconcile the download client")
 }
 
@@ -696,7 +696,7 @@ func TestAppRefChangesReconcileTheReferrer(t *testing.T) {
 		if c.Get(ctx, client.ObjectKeyFromObject(prowlarr), &got) != nil {
 			return ""
 		}
-		if cond := apimeta.FindStatusCondition(got.Status.Conditions, ctrlcommon.ConditionSynced); cond != nil {
+		if cond := apimeta.FindStatusCondition(got.Status.Conditions, reconciler.ConditionSynced); cond != nil {
 			return cond.Message
 		}
 		return ""
@@ -751,7 +751,7 @@ func TestNotificationAppRefChangesReconcileTheSonarr(t *testing.T) {
 		if c.Get(ctx, client.ObjectKeyFromObject(sonarr), &got) != nil {
 			return ""
 		}
-		if cond := apimeta.FindStatusCondition(got.Status.Conditions, ctrlcommon.ConditionSynced); cond != nil {
+		if cond := apimeta.FindStatusCondition(got.Status.Conditions, reconciler.ConditionSynced); cond != nil {
 			return cond.Message
 		}
 		return ""
@@ -815,7 +815,7 @@ func TestBazarrJellyfinAppRefChangesReconcileTheBazarr(t *testing.T) {
 		if c.Get(ctx, client.ObjectKeyFromObject(bazarr), &got) != nil {
 			return ""
 		}
-		if cond := apimeta.FindStatusCondition(got.Status.Conditions, ctrlcommon.ConditionSynced); cond != nil {
+		if cond := apimeta.FindStatusCondition(got.Status.Conditions, reconciler.ConditionSynced); cond != nil {
 			return cond.Message
 		}
 		return ""

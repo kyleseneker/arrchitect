@@ -9,7 +9,6 @@ import (
 	"strconv"
 	"strings"
 
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -18,7 +17,8 @@ import (
 
 	mediaserversv1alpha1 "github.com/kyleseneker/arrchitect/api/mediaservers/v1alpha1"
 	plexclient "github.com/kyleseneker/arrchitect/internal/client/plex"
-	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
+	"github.com/kyleseneker/arrchitect/internal/controller/reconciler"
+	"github.com/kyleseneker/arrchitect/internal/controller/secretref"
 	"github.com/kyleseneker/arrchitect/internal/engine"
 	"github.com/kyleseneker/arrchitect/internal/httpapi"
 	"github.com/kyleseneker/arrchitect/internal/secrets"
@@ -35,7 +35,7 @@ type PlexReconciler struct {
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
 
 func (r *PlexReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	integration := ctrlcommon.Integration[*mediaserversv1alpha1.Plex, *plexclient.Client]{
+	integration := reconciler.Integration[*mediaserversv1alpha1.Plex, *plexclient.Client]{
 		App:     "plex",
 		Connect: r.connect,
 		Check: func(ctx context.Context, pc *plexclient.Client, _ *mediaserversv1alpha1.Plex) error {
@@ -56,7 +56,7 @@ func (r *PlexReconciler) connect(ctx context.Context, config *mediaserversv1alph
 	if err != nil {
 		return nil, err
 	}
-	tlsCfg, err := ctrlcommon.ResolveTLSConfig(ctx, r.Client, config.Namespace, config.Spec.Connection.TLS)
+	tlsCfg, err := reconciler.ResolveTLSConfig(ctx, r.Client, config.Namespace, config.Spec.Connection.TLS)
 	if err != nil {
 		return nil, err
 	}
@@ -172,11 +172,13 @@ func plexLibraryDefaults(lib mediaserversv1alpha1.PlexLibrary) (agent, scanner, 
 }
 
 func (r *PlexReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
-		For(&mediaserversv1alpha1.Plex{}, builder.WithPredicates(ctrlcommon.ConfigChangedPredicate())).
-		WatchesMetadata(&corev1.Secret{}, ctrlcommon.EnqueueForSecret(r.Client, &mediaserversv1alpha1.PlexList{})).
-		Named("plex").
-		Complete(r)
+	b := ctrl.NewControllerManagedBy(mgr).
+		For(&mediaserversv1alpha1.Plex{}, builder.WithPredicates(reconciler.ConfigChangedPredicate()))
+	b, err := secretref.Watch(mgr, b, &mediaserversv1alpha1.Plex{}, &mediaserversv1alpha1.PlexList{})
+	if err != nil {
+		return err
+	}
+	return b.Named("plex").Complete(r)
 }
 
 func buildPlexPreferences(spec mediaserversv1alpha1.PlexSpec) map[string]string {
@@ -199,7 +201,7 @@ func buildPlexPreferences(spec mediaserversv1alpha1.PlexSpec) map[string]string 
 			case fv.Kind() == reflect.Pointer && !fv.IsNil() && fv.Elem().Kind() == reflect.String:
 				prefs[id] = fv.Elem().String()
 			case fv.Kind() == reflect.Pointer && !fv.IsNil() && fv.Elem().Kind() == reflect.Bool:
-				prefs[id] = ctrlcommon.BoolTo01(fv.Elem().Bool())
+				prefs[id] = boolTo01(fv.Elem().Bool())
 			case fv.Kind() == reflect.Pointer && !fv.IsNil() && fv.Elem().CanInt():
 				prefs[id] = strconv.Itoa(int(fv.Elem().Int()))
 			case fv.CanInt() && fv.Int() != 0:
@@ -272,4 +274,12 @@ func reconcilePlexPreferences(
 	}
 
 	return syncErrors
+}
+
+// boolTo01 writes b the way Plex's API takes a boolean, as "1" or "0".
+func boolTo01(b bool) string {
+	if b {
+		return "1"
+	}
+	return "0"
 }

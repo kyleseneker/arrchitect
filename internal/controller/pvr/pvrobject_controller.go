@@ -3,6 +3,7 @@ package pvr
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -11,6 +12,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -18,14 +20,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"strings"
-
-	"sigs.k8s.io/controller-runtime/pkg/builder"
-
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
 	pvrv1alpha1 "github.com/kyleseneker/arrchitect/api/pvr/v1alpha1"
 	pvrclient "github.com/kyleseneker/arrchitect/internal/client/pvr"
-	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
+	"github.com/kyleseneker/arrchitect/internal/controller/appref"
+	"github.com/kyleseneker/arrchitect/internal/controller/reconciler"
+	"github.com/kyleseneker/arrchitect/internal/controller/secretref"
 	"github.com/kyleseneker/arrchitect/internal/engine"
 	"github.com/kyleseneker/arrchitect/internal/httpapi"
 	"github.com/kyleseneker/arrchitect/internal/secrets"
@@ -45,7 +45,7 @@ type pvrInstance struct {
 // the instance it names.
 type pvrObject struct {
 	app pvrclient.App
-	obj ctrlcommon.ConfigResource
+	obj reconciler.ConfigResource
 	// instanceKind and instanceName name the instance for status messages.
 	instanceKind, instanceName string
 	instance                   func(context.Context) (pvrInstance, error)
@@ -61,6 +61,27 @@ type pvrObject struct {
 	setID   func(int32)
 }
 
+// cleanupPVR deletes what obj owns in the app behind conn, for deletionPolicy
+// delete. It reads only the connection's Secrets, and none when there's
+// nothing to delete.
+func cleanupPVR(
+	ctx context.Context, c client.Reader, recorder events.EventRecorder, obj reconciler.ConfigResource,
+	conn commonv1alpha1.AppConnection, app pvrclient.App,
+) error {
+	def := pvrclient.Definition(app)
+	owned := engine.NewOwnership(app.Name, obj.GetConfigStatus().GetManagedResources())
+	if !def.Deletable(owned) {
+		return nil
+	}
+	hc, err := connectPVR(ctx, c, obj, conn, app)
+	if err != nil {
+		return err
+	}
+	err = engine.DeleteManagedResources(ctx, hc, def, owned)
+	reconciler.EmitPruneEvents(recorder, obj, owned.Pruned())
+	return err
+}
+
 func reconcilePVRObject(ctx context.Context, c client.Client, recorder events.EventRecorder, o pvrObject) (ctrl.Result, error) {
 	obj := o.obj
 	instance, err := o.instance(ctx)
@@ -71,19 +92,19 @@ func reconcilePVRObject(ctx context.Context, c client.Client, recorder events.Ev
 
 	cleanup := func(ctx context.Context) error {
 		if missing {
-			recorder.Eventf(obj, nil, corev1.EventTypeWarning, ctrlcommon.ReasonInstanceMissing, "Delete",
+			recorder.Eventf(obj, nil, corev1.EventTypeWarning, reconciler.ReasonInstanceMissing, "Delete",
 				"%s %q is gone, so nothing was removed from it", o.instanceKind, o.instanceName)
 			return nil
 		}
-		return ctrlcommon.CleanupApp(ctx, c, recorder, obj, instance.connection, pvrclient.Definition(o.app), o.app.Name)
+		return cleanupPVR(ctx, c, recorder, obj, instance.connection, o.app)
 	}
-	if done, after := ctrlcommon.HandleLifecycle(ctx, c, recorder, obj, ctrlcommon.Lifecycle{Remove: cleanup, Observe: ctrlcommon.Policy(instance.policy).Observe}); done {
+	if done, after := reconciler.HandleLifecycle(ctx, c, recorder, obj, reconciler.Lifecycle{Remove: cleanup, Observe: reconciler.Policy(instance.policy).Observe}); done {
 		return ctrl.Result{RequeueAfter: after}, nil
 	}
 	if missing {
-		ctrlcommon.UpdateStatus(ctx, c, recorder, obj, false, ctrlcommon.ReasonReferenceNotFound,
+		reconciler.UpdateStatus(ctx, c, recorder, obj, false, reconciler.ReasonReferenceNotFound,
 			fmt.Sprintf("%s %q not found", o.instanceKind, o.instanceName))
-		return ctrl.Result{RequeueAfter: ctrlcommon.RetryAfter(obj, 30*time.Second)}, nil
+		return ctrl.Result{RequeueAfter: reconciler.RetryAfter(obj, 30*time.Second)}, nil
 	}
 
 	claimant, err := olderClaim(ctx, c, o)
@@ -91,9 +112,9 @@ func reconcilePVRObject(ctx context.Context, c client.Client, recorder events.Ev
 		return ctrl.Result{}, err
 	}
 	if claimant != "" {
-		ctrlcommon.UpdateStatus(ctx, c, recorder, obj, false, ctrlcommon.ReasonNameConflict,
+		reconciler.UpdateStatus(ctx, c, recorder, obj, false, reconciler.ReasonNameConflict,
 			fmt.Sprintf("%q already configures %q in %s %q", claimant, o.name, o.instanceKind, o.instanceName))
-		return ctrl.Result{RequeueAfter: ctrlcommon.RetryAfter(obj, 30*time.Second)}, nil
+		return ctrl.Result{RequeueAfter: reconciler.RetryAfter(obj, 30*time.Second)}, nil
 	}
 
 	hc, err := connectPVR(ctx, c, obj, instance.connection, o.app)
@@ -101,35 +122,35 @@ func reconcilePVRObject(ctx context.Context, c client.Client, recorder events.Ev
 		err = pingPVR(ctx, hc, o.app)
 	}
 	if err != nil {
-		reason, base := ctrlcommon.Classify(err)
-		after := ctrlcommon.RetryAfter(obj, base)
+		reason, base := reconciler.Classify(err)
+		after := reconciler.RetryAfter(obj, base)
 		log.FromContext(ctx).Info("Couldn't reach "+o.instanceKind, "reason", reason, "error", err.Error(), "retryAfter", after)
-		ctrlcommon.UpdateStatus(ctx, c, recorder, obj, false, reason, err.Error())
+		reconciler.UpdateStatus(ctx, c, recorder, obj, false, reason, err.Error())
 		return ctrl.Result{RequeueAfter: after}, nil
 	}
 	opts, err := o.options(ctx)
 	if err != nil {
-		reason, base := ctrlcommon.AppRefFailure(err)
-		ctrlcommon.UpdateStatus(ctx, c, recorder, obj, false, reason, err.Error())
-		return ctrl.Result{RequeueAfter: ctrlcommon.RetryAfter(obj, base)}, nil
+		reason, base := reconciler.AppRefFailure(err)
+		reconciler.UpdateStatus(ctx, c, recorder, obj, false, reason, err.Error())
+		return ctrl.Result{RequeueAfter: reconciler.RetryAfter(obj, base)}, nil
 	}
-	ctrlcommon.Reached(obj)
+	reconciler.Reached(obj)
 	opts.App = o.app
 
-	policy := ctrlcommon.Policy(instance.policy)
+	policy := reconciler.Policy(instance.policy)
 	// The object owns only the item it names, so prune replaces it on a rename.
 	policy.Prune = true
-	pass := engine.NewPass(o.app.Name, ctrlcommon.OwnerKey(obj), policy, obj.GetConfigStatus().GetManagedResources())
+	pass := engine.NewPass(o.app.Name, reconciler.OwnerKey(obj), policy, obj.GetConfigStatus().GetManagedResources())
 	problems := pvrclient.Reconcile(ctx, hc, nil, opts, pass)
 	if id, ok := idOf(ctx, hc, "/api/"+o.app.APIVersion+o.path, o.name); ok {
 		o.setID(id)
 	}
-	ctrlcommon.UpdateStatusManaged(obj, pass.Owned.Managed())
-	ctrlcommon.EmitPruneEvents(recorder, obj, pass.Owned.Pruned())
-	retry := ctrlcommon.ReportResult(ctx, c, recorder, obj, policy.Observe, ctrlcommon.Result{
+	reconciler.UpdateStatusManaged(obj, pass.Owned.Managed())
+	reconciler.EmitPruneEvents(recorder, obj, pass.Owned.Pruned())
+	retry := reconciler.ReportResult(ctx, c, recorder, obj, policy.Observe, reconciler.Result{
 		Synced: pass.SyncedItems(), Errors: problems, Drift: pass.Drift(),
 	})
-	after := ctrlcommon.NextSync(instance.policy)
+	after := reconciler.NextSync(instance.policy)
 	if retry > 0 && retry < after {
 		after = retry
 	}
@@ -230,11 +251,11 @@ func instanceChanged() predicate.Predicate {
 }
 
 func syncedStatus(obj client.Object) metav1.ConditionStatus {
-	cr, ok := obj.(ctrlcommon.ConfigResource)
+	cr, ok := obj.(reconciler.ConfigResource)
 	if !ok {
 		return ""
 	}
-	if cond := apimeta.FindStatusCondition(cr.GetConfigStatus().Conditions, ctrlcommon.ConditionSynced); cond != nil {
+	if cond := apimeta.FindStatusCondition(cr.GetConfigStatus().Conditions, reconciler.ConditionSynced); cond != nil {
 		return cond.Status
 	}
 	return ""
@@ -251,7 +272,7 @@ func syncedStatus(obj client.Object) metav1.ConditionStatus {
 // objectResource is a resource that configures one item, an indexer or a
 // download client, in one PVR app.
 type objectResource interface {
-	ctrlcommon.ConfigResource
+	reconciler.ConfigResource
 	InstanceName() string
 	ItemName() string
 	SetItemID(int32)
@@ -277,7 +298,7 @@ type ObjectKind[O objectResource] struct {
 	newList  func() client.ObjectList
 	instance client.Object
 	lookup   instanceLookup
-	options  func(ctx context.Context, c client.Client, apps ctrlcommon.Apps, obj O) (pvrclient.Options, error)
+	options  func(ctx context.Context, c client.Client, apps appref.Apps, obj O) (pvrclient.Options, error)
 	// appRefKinds are the kinds an object's appRef may name.
 	appRefKinds []string
 }
@@ -305,8 +326,9 @@ func indexerKind[T, L any, O interface {
 		app: app, path: "/indexer", instance: instance, lookup: lookup,
 		newObj:  func() O { return O(new(T)) },
 		newList: func() client.ObjectList { return PL(new(L)) },
-		options: func(ctx context.Context, c client.Client, _ ctrlcommon.Apps, obj O) (pvrclient.Options, error) {
-			indexers, err := ctrlcommon.ResolveIndexerSecrets(ctx, c, obj.GetNamespace(), []commonv1alpha1.Indexer{obj.Item()})
+		options: func(ctx context.Context, c client.Client, _ appref.Apps, obj O) (pvrclient.Options, error) {
+			indexers, err := secretref.ResolveItemFields(ctx, c, obj.GetNamespace(), "indexer", []commonv1alpha1.Indexer{obj.Item()},
+				func(i *commonv1alpha1.Indexer) (string, *[]commonv1alpha1.ConfigField) { return i.Name, &i.Fields })
 			return pvrclient.Options{Indexers: indexers}, err
 		},
 	}
@@ -324,8 +346,8 @@ func downloadClientKind[T, L any, O interface {
 		newObj:      func() O { return O(new(T)) },
 		newList:     func() client.ObjectList { return PL(new(L)) },
 		appRefKinds: []string{"QBittorrent", "Sabnzbd"},
-		options: func(ctx context.Context, c client.Client, apps ctrlcommon.Apps, obj O) (pvrclient.Options, error) {
-			dc, err := ctrlcommon.ResolveDownloadClient(ctx, c, apps, obj.GetNamespace(), obj.Item())
+		options: func(ctx context.Context, c client.Client, apps appref.Apps, obj O) (pvrclient.Options, error) {
+			dc, err := resolveDownloadClient(ctx, c, apps, obj.GetNamespace(), obj.Item())
 			if err != nil {
 				return pvrclient.Options{}, err
 			}
@@ -340,19 +362,19 @@ func downloadClientKind[T, L any, O interface {
 type ObjectReconciler[O objectResource] struct {
 	client.Client
 	Recorder events.EventRecorder
-	Apps     ctrlcommon.Apps
+	Apps     appref.Apps
 	kind     ObjectKind[O]
 }
 
 // NewObjectReconciler returns the reconciler for an object kind.
-func NewObjectReconciler[O objectResource](kind ObjectKind[O], c client.Client, recorder events.EventRecorder, apps ctrlcommon.Apps) *ObjectReconciler[O] {
+func NewObjectReconciler[O objectResource](kind ObjectKind[O], c client.Client, recorder events.EventRecorder, apps appref.Apps) *ObjectReconciler[O] {
 	return &ObjectReconciler[O]{Client: c, Recorder: recorder, Apps: apps, kind: kind}
 }
 
 func (r *ObjectReconciler[O]) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	obj := r.kind.newObj()
 	if err := r.Get(ctx, req.NamespacedName, obj); err != nil {
-		return ctrl.Result{}, ctrlcommon.IgnoreDeleted(obj, req.NamespacedName, err)
+		return ctrl.Result{}, reconciler.IgnoreDeleted(obj, req.NamespacedName, err)
 	}
 	ref := commonv1alpha1.LocalObjectReference{Name: obj.InstanceName()}
 	return reconcilePVRObject(ctx, r.Client, r.Recorder, pvrObject{
@@ -382,13 +404,13 @@ func (r *ObjectReconciler[O]) SetupWithManager(mgr ctrl.Manager) error {
 		return err
 	}
 	b := ctrl.NewControllerManagedBy(mgr).
-		For(k.newObj(), builder.WithPredicates(ctrlcommon.ConfigChangedPredicate())).
+		For(k.newObj(), builder.WithPredicates(reconciler.ConfigChangedPredicate())).
 		Watches(k.instance, handler.EnqueueRequestsFromMapFunc(objectsOf(r.Client, k.newList())), builder.WithPredicates(instanceChanged()))
-	if len(k.appRefKinds) == 0 {
-		b = b.WatchesMetadata(&corev1.Secret{}, ctrlcommon.EnqueueForSecret(r.Client, k.newList()))
-	} else {
-		b = b.WatchesMetadata(&corev1.Secret{}, ctrlcommon.EnqueueForSecretThroughRefs(r.Client, r.Apps, k.newList(), downloadClientAppRefs))
-		if b, err = ctrlcommon.WatchAppRefs(mgr, b, r.Apps, k.newObj(), k.newList(), downloadClientAppRefs, k.appRefKinds...); err != nil {
+	if b, err = secretref.Watch(mgr, b, k.newObj(), k.newList()); err != nil {
+		return err
+	}
+	if len(k.appRefKinds) > 0 {
+		if b, err = appref.Watch(mgr, b, r.Apps, k.newObj(), k.newList(), downloadClientAppRefs, k.appRefKinds...); err != nil {
 			return err
 		}
 	}
@@ -402,6 +424,32 @@ func downloadClientAppRefs(o client.Object) []commonv1alpha1.AppRef {
 		return nil
 	}
 	return []commonv1alpha1.AppRef{dc.Item().AppRef}
+}
+
+// resolveDownloadClient returns dc with its appRef, if any, replaced by the
+// referenced download client's kind, address and credentials.
+func resolveDownloadClient(
+	ctx context.Context, c client.Reader, apps appref.Apps, namespace string, dc commonv1alpha1.DownloadClient,
+) (commonv1alpha1.DownloadClient, error) {
+	if dc.AppRef == (commonv1alpha1.AppRef{}) {
+		return dc, nil
+	}
+	app, addr, err := appref.ResolveAddress(ctx, c, apps, namespace, dc.AppRef)
+	if err != nil {
+		return dc, fmt.Errorf("download client %q appRef: %w", dc.Name, err)
+	}
+	dc.Implementation, dc.Host, dc.Port, dc.UseSSL, dc.URLBase = app.Kind, addr.Host, addr.Port, &addr.TLS, addr.Base
+	switch app.Kind {
+	case "QBittorrent":
+		dc.Protocol = "torrent"
+		dc.UsernameSecretRef, dc.PasswordSecretRef = *app.UsernameSecretRef, *app.PasswordSecretRef
+	case "Sabnzbd":
+		dc.Protocol = "usenet"
+		dc.APIKeySecretRef = *app.APIKeySecretRef
+	default:
+		return dc, appref.Invalid("download client %q appRef: %s isn't a download client", dc.Name, app.Kind)
+	}
+	return dc, nil
 }
 
 // resolveDownloadClientSecrets resolves all secret references for a list of download clients.

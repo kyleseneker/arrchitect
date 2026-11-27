@@ -38,7 +38,7 @@ import (
 	pvrclient "github.com/kyleseneker/arrchitect/internal/client/pvr"
 	qbclient "github.com/kyleseneker/arrchitect/internal/client/qbittorrent"
 	tdarrclient "github.com/kyleseneker/arrchitect/internal/client/tdarr"
-	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
+	"github.com/kyleseneker/arrchitect/internal/controller/secretref"
 	"github.com/kyleseneker/arrchitect/internal/httpapi"
 	"github.com/kyleseneker/arrchitect/internal/secrets"
 )
@@ -520,7 +520,7 @@ func specFields(obj client.Object) []string {
 
 func referencedKeys(objs []client.Object, secret string) []string {
 	var keys []string
-	for _, ref := range ctrlcommon.SecretKeyRefs(objs) {
+	for _, ref := range secretref.Refs(objs) {
 		if ref.Name == secret && !slices.Contains(keys, ref.Key) {
 			keys = append(keys, ref.Key)
 		}

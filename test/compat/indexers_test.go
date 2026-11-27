@@ -21,8 +21,8 @@ import (
 
 	indexersv1alpha1 "github.com/kyleseneker/arrchitect/api/indexers/v1alpha1"
 	prowlarrclient "github.com/kyleseneker/arrchitect/internal/client/prowlarr"
-	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
 	"github.com/kyleseneker/arrchitect/internal/controller/indexers"
+	"github.com/kyleseneker/arrchitect/internal/controller/reconciler"
 	"github.com/kyleseneker/arrchitect/internal/testnet"
 )
 
@@ -56,7 +56,7 @@ func TestProwlarr(t *testing.T) {
 			"app-auth-username": "compat-user", "app-auth-password": randomKey(),
 		},
 		newerFields: []string{"/spec/applications/0/authUsernameSecretRef", "/spec/applications/0/authPasswordSecretRef"},
-		newObj:      func() ctrlcommon.ConfigResource { return &indexersv1alpha1.Prowlarr{} },
+		newObj:      func() reconciler.ConfigResource { return &indexersv1alpha1.Prowlarr{} },
 		reconciler: func(c client.Client) reconcile.Reconciler {
 			return &indexers.ProwlarrReconciler{Client: c, Recorder: events.NewFakeRecorder(100)}
 		},
@@ -109,7 +109,7 @@ func TestFlareSolverr(t *testing.T) {
 		fixture: "flaresolverr.yaml",
 		export:  "flaresolverr",
 		vars:    map[string]string{"URL": proxy.url()},
-		newObj:  func() ctrlcommon.ConfigResource { return &indexersv1alpha1.FlareSolverr{} },
+		newObj:  func() reconciler.ConfigResource { return &indexersv1alpha1.FlareSolverr{} },
 		reconciler: func(c client.Client) reconcile.Reconciler {
 			return &indexers.FlareSolverrReconciler{Client: c, Recorder: events.NewFakeRecorder(100)}
 		},
