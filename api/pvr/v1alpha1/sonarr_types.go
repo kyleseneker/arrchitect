@@ -122,6 +122,7 @@ type SonarrSpec struct {
 	// +optional
 	// +listType=map
 	// +listMapKey=name
+	// +kubebuilder:validation:XValidation:rule="self.all(l, !has(l.enabled) || l.enabled)",message="Sonarr import lists are always active, so enabled can't be false; set enableAutomaticAdd to false so a list adds nothing"
 	ImportLists []commonv1alpha1.ImportList `json:"importLists,omitempty"`
 }
 
