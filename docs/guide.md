@@ -239,9 +239,10 @@ rather than replacing it. The app allows a tag in only one profile, so a tag
 moving to another profile is taken off the first one before it's added. The app
 checks tagged profiles in the order the resource lists them.
 
-When a declared tag sits in a profile that no declared profile takes over, the
-operator refuses the change before writing anything and names that profile.
-Move the tag in the app, or turn on prune if the operator created that profile.
+When a declared tag sits in a profile the operator can't prune, and no declared
+profile takes it over, the operator refuses the change before writing anything
+and names that profile. Move the tag in the app, or turn on prune if the
+operator created that profile.
 
 Quality definitions are a fixed set. The operator updates the ones listed,
 matched by `quality`, and leaves the rest alone. Sizes are in the app's units.
