@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
-	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
+	"github.com/kyleseneker/arrchitect/internal/controller/reconciler"
 	"github.com/kyleseneker/arrchitect/internal/metrics"
 )
 
@@ -52,7 +52,7 @@ func TestMaintainerrPrunesOnlyRuleGroupsItCreated(t *testing.T) {
 func TestMaintainerrDeletionPolicyRemovesRuleGroupsBeforeServers(t *testing.T) {
 	app := newFakeMaintainerr()
 	spec := jellyfinSpec(app.serve(t))
-	policy := ctrlcommon.DeletionPolicyDelete
+	policy := reconciler.DeletionPolicyDelete
 	spec.Reconcile = &commonv1alpha1.ReconcileConfig{DeletionPolicy: policy}
 	run := newMaintainerrRun(t, spec)
 	run.reconcile(t)

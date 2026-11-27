@@ -23,8 +23,8 @@ import (
 
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
 	mediaserversv1alpha1 "github.com/kyleseneker/arrchitect/api/mediaservers/v1alpha1"
-	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
 	"github.com/kyleseneker/arrchitect/internal/controller/internal/contract"
+	"github.com/kyleseneker/arrchitect/internal/controller/reconciler"
 	"github.com/kyleseneker/arrchitect/internal/testnet"
 )
 
@@ -302,8 +302,8 @@ func TestPlexClientSaysWhyItCantConnect(t *testing.T) {
 		secret    bool
 		reason    string
 	}{
-		{"missing token Secret", "http://plex:32400", false, ctrlcommon.ReasonSecretNotFound},
-		{"unusable URL", "ftp://plex", true, ctrlcommon.ReasonInvalidConfig},
+		{"missing token Secret", "http://plex:32400", false, reconciler.ReasonSecretNotFound},
+		{"unusable URL", "ftp://plex", true, reconciler.ReasonInvalidConfig},
 		{"connects", "http://plex:32400", true, ""},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -318,7 +318,7 @@ func TestPlexClientSaysWhyItCantConnect(t *testing.T) {
 				return
 			}
 			require.Error(t, err)
-			reason, _ := ctrlcommon.Classify(err)
+			reason, _ := reconciler.Classify(err)
 			assert.Equal(t, tc.reason, reason)
 		})
 	}

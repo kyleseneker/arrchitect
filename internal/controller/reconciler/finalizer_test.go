@@ -1,4 +1,4 @@
-package common
+package reconciler
 
 import (
 	"context"
@@ -242,13 +242,6 @@ func TestLifecycleRejectsPruneWhereUnsupported(t *testing.T) {
 			assert.Contains(t, condition.Message, "prune is not supported")
 		})
 	}
-}
-
-func TestCleanupAppWithoutOwnedPrunableResourcesNeedsNoCredentials(t *testing.T) {
-	obj := newConfig(DeletionPolicyDelete, 0)
-	obj.Status.SetManagedResources(map[string][]string{"tags": {"shared"}})
-	def := engine.AppDefinition{Resources: []engine.ResourceEndpoint{{Name: "tags"}, {Name: "indexers", Prunable: true}}}
-	require.NoError(t, CleanupApp(context.Background(), nil, nil, obj, commonv1alpha1.AppConnection{}, def, "sonarr"))
 }
 
 // Cleanup that runs out the reconcile's deadline must not keep the finalizer

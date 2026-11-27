@@ -23,8 +23,8 @@ import (
 
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
 	downloadsv1alpha1 "github.com/kyleseneker/arrchitect/api/downloads/v1alpha1"
-	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
 	"github.com/kyleseneker/arrchitect/internal/controller/internal/contract"
+	"github.com/kyleseneker/arrchitect/internal/controller/reconciler"
 	"github.com/kyleseneker/arrchitect/internal/testnet"
 )
 
@@ -440,12 +440,12 @@ func TestQBObserveReportsACategoryPruneWouldDelete(t *testing.T) {
 func TestQBDeletionPolicyRemovesWhatItCreated(t *testing.T) {
 	app := &fakeQB{categories: qbCategories("tv", "hand-made")}
 	cfg := qbConfig(app.serve(t), "tv")
-	policy := ctrlcommon.DeletionPolicyDelete
+	policy := reconciler.DeletionPolicyDelete
 	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{DeletionPolicy: policy}
 	cfg.Status.SetManagedResources(map[string][]string{"categories": {"tv"}})
 	now := metav1.NewTime(time.Now())
 	cfg.DeletionTimestamp = &now
-	cfg.Finalizers = []string{ctrlcommon.Finalizer}
+	cfg.Finalizers = []string{reconciler.Finalizer}
 
 	runQB(t, cfg)
 

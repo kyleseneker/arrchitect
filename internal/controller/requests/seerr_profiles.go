@@ -10,7 +10,7 @@ import (
 
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
 	requestsv1alpha1 "github.com/kyleseneker/arrchitect/api/requests/v1alpha1"
-	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
+	"github.com/kyleseneker/arrchitect/internal/controller/reconciler"
 	"github.com/kyleseneker/arrchitect/internal/engine"
 	"github.com/kyleseneker/arrchitect/internal/httpapi"
 )
@@ -34,7 +34,7 @@ func (r *SeerrReconciler) resolvedServicePayload(
 		scheme = "https"
 	}
 	endpoint := url.URL{Scheme: scheme, Host: net.JoinHostPort(svc.Hostname, strconv.Itoa(int(*svc.Port))), Path: "/" + strings.Trim(svc.BaseURL, "/")}
-	tlsCfg, err := ctrlcommon.ResolveTLSConfig(ctx, r.Client, namespace, tlsSpec)
+	tlsCfg, err := reconciler.ResolveTLSConfig(ctx, r.Client, namespace, tlsSpec)
 	if err != nil {
 		return nil, err
 	}

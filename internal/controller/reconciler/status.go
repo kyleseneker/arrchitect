@@ -1,8 +1,7 @@
-package common
+package reconciler
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"reflect"
 	"slices"
@@ -19,45 +18,15 @@ import (
 	"k8s.io/client-go/tools/events"
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/event"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
-	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
 	"github.com/kyleseneker/arrchitect/internal/engine"
-	"github.com/kyleseneker/arrchitect/internal/failure"
 	"github.com/kyleseneker/arrchitect/internal/metrics"
 	"github.com/kyleseneker/arrchitect/internal/secrets"
 )
 
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 // +kubebuilder:rbac:groups=events.k8s.io,resources=events,verbs=create;patch
-
-const DriftPolicyObserve = "observe"
-
-// ReconcileInterval returns the configured interval or the default.
-func ReconcileInterval(rc *commonv1alpha1.ReconcileConfig) time.Duration {
-	if rc != nil && rc.IntervalSeconds != 0 {
-		return time.Duration(rc.IntervalSeconds) * time.Second
-	}
-	return DefaultReconcileInterval
-}
-
-// PruneEnabled returns whether resource pruning is enabled.
-func PruneEnabled(rc *commonv1alpha1.ReconcileConfig) bool {
-	return rc != nil && rc.Prune != nil && *rc.Prune
-}
-
-// ObserveOnly reports whether drift should be recorded without writing.
-func ObserveOnly(rc *commonv1alpha1.ReconcileConfig) bool {
-	return rc != nil && rc.DriftPolicy == DriftPolicyObserve
-}
-
-// Policy renders the reconcile policy for a CR.
-func Policy(rc *commonv1alpha1.ReconcileConfig) engine.SyncPolicy {
-	return engine.SyncPolicy{Prune: PruneEnabled(rc), Observe: ObserveOnly(rc)}
-}
 
 // Result is what a pass did: the items it brought in line, what failed, and
 // what observe mode found differing.
@@ -284,160 +253,6 @@ func writeStatus(ctx context.Context, c client.Client, obj ConfigResource) bool 
 	return err == nil
 }
 
-// BoolTo01 converts a bool to "1" or "0" for APIs that use numeric strings (Plex, SABnzbd).
-func BoolTo01(b bool) string {
-	if b {
-		return "1"
-	}
-	return "0"
-}
-
-// EnqueueForSecret re-reconciles every config of the listed kind, in a changed
-// Secret's namespace, that refers to that Secret.
-func EnqueueForSecret(c client.Client, list client.ObjectList) handler.EventHandler {
-	return handler.EnqueueRequestsFromMapFunc(configsForSecret(c, list))
-}
-
-func configsForSecret(c client.Client, list client.ObjectList) handler.MapFunc {
-	return secretReferrers(c, nil, list, func(client.Object) []commonv1alpha1.AppRef { return nil })
-}
-
-// ResolveConfigFields returns a copy of fields with any valueFrom reference
-// resolved into a literal value, so secrets stay out of the CR.
-func ResolveConfigFields(ctx context.Context, c client.Reader, namespace, owner string, fields []commonv1alpha1.ConfigField) ([]commonv1alpha1.ConfigField, error) {
-	if len(fields) == 0 {
-		return fields, nil
-	}
-	out := make([]commonv1alpha1.ConfigField, len(fields))
-	copy(out, fields)
-	for i := range out {
-		if out[i].ValueFrom == (commonv1alpha1.ValueSource{}) {
-			continue
-		}
-		if out[i].Value != nil {
-			return nil, failure.InvalidConfig(fmt.Errorf("%s field %q: value and valueFrom are mutually exclusive", owner, out[i].Name))
-		}
-		val, err := secrets.ResolveSecretKeyRef(ctx, c, namespace, out[i].ValueFrom.SecretKeyRef)
-		if err != nil {
-			return nil, fmt.Errorf("%s field %q: %w", owner, out[i].Name, err)
-		}
-		raw, err := json.Marshal(val)
-		if err != nil {
-			return nil, fmt.Errorf("%s field %q: encoding secret value: %w", owner, out[i].Name, err)
-		}
-		out[i].Value = &commonv1alpha1.FieldValue{Raw: raw}
-		out[i].ValueFrom = commonv1alpha1.ValueSource{}
-	}
-	return out, nil
-}
-
-// FieldValues resolves fields into values by name, reading the ones that come
-// from Secrets.
-func FieldValues(ctx context.Context, c client.Reader, namespace, owner string, fields []commonv1alpha1.ConfigField) (map[string]any, error) {
-	resolved, err := ResolveConfigFields(ctx, c, namespace, owner, fields)
-	if err != nil {
-		return nil, err
-	}
-	out := make(map[string]any, len(resolved))
-	for _, f := range resolved {
-		if f.Value != nil {
-			out[f.Name] = f.Value.ToInterface()
-		}
-	}
-	return out, nil
-}
-
-// ResolveItemFields returns a copy of items with each item's field Secret
-// references resolved. what names the kind of item in errors, and fields
-// returns an item's name and its fields.
-func ResolveItemFields[T any](
-	ctx context.Context, c client.Reader, namespace, what string, items []T,
-	fields func(*T) (string, *[]commonv1alpha1.ConfigField),
-) ([]T, error) {
-	out := slices.Clone(items)
-	for i := range out {
-		name, f := fields(&out[i])
-		resolved, err := ResolveConfigFields(ctx, c, namespace, what+" "+name, *f)
-		if err != nil {
-			return nil, err
-		}
-		*f = resolved
-	}
-	return out, nil
-}
-
-// ResolveIndexerSecrets returns indexers with their field secret references resolved.
-func ResolveIndexerSecrets(ctx context.Context, c client.Reader, namespace string, in []commonv1alpha1.Indexer) ([]commonv1alpha1.Indexer, error) {
-	return ResolveItemFields(ctx, c, namespace, "indexer", in, func(i *commonv1alpha1.Indexer) (string, *[]commonv1alpha1.ConfigField) {
-		return i.Name, &i.Fields
-	})
-}
-
-// ResolveNotificationSecrets returns notifications with their field secret references resolved.
-func ResolveNotificationSecrets(ctx context.Context, c client.Reader, namespace string, in []commonv1alpha1.Notification) ([]commonv1alpha1.Notification, error) {
-	return ResolveItemFields(ctx, c, namespace, "notification", in, func(n *commonv1alpha1.Notification) (string, *[]commonv1alpha1.ConfigField) {
-		return n.Name, &n.Fields
-	})
-}
-
-// ResolveImportListSecrets returns import lists with their field secret references resolved.
-func ResolveImportListSecrets(ctx context.Context, c client.Reader, namespace string, in []commonv1alpha1.ImportList) ([]commonv1alpha1.ImportList, error) {
-	return ResolveItemFields(ctx, c, namespace, "import list", in, func(il *commonv1alpha1.ImportList) (string, *[]commonv1alpha1.ConfigField) {
-		return il.Name, &il.Fields
-	})
-}
-
-var secretKeyRefType = reflect.TypeFor[commonv1alpha1.SecretKeyRef]()
-
-// referencesSecret reports whether a config refers to the named Secret
-// anywhere. Every Secret reference in the API is a SecretKeyRef, so walking
-// the config finds new ones as fields are added rather than relying on a list
-// kept by hand.
-func referencesSecret(config any, name string) bool {
-	return slices.ContainsFunc(SecretKeyRefs(config), func(ref commonv1alpha1.SecretKeyRef) bool { return ref.Name == name })
-}
-
-// SecretKeyRefs lists every SecretKeyRef in a config.
-func SecretKeyRefs(config any) []commonv1alpha1.SecretKeyRef {
-	var refs []commonv1alpha1.SecretKeyRef
-	collectSecretKeyRefs(reflect.ValueOf(config), &refs)
-	return refs
-}
-
-func collectSecretKeyRefs(v reflect.Value, refs *[]commonv1alpha1.SecretKeyRef) {
-	switch v.Kind() {
-	case reflect.Pointer, reflect.Interface:
-		if !v.IsNil() {
-			collectSecretKeyRefs(v.Elem(), refs)
-		}
-	case reflect.Struct:
-		if v.Type() == secretKeyRefType {
-			if !v.IsZero() {
-				*refs = append(*refs, v.Interface().(commonv1alpha1.SecretKeyRef))
-			}
-			return
-		}
-		for i := range v.NumField() {
-			if v.Type().Field(i).IsExported() {
-				collectSecretKeyRefs(v.Field(i), refs)
-			}
-		}
-	case reflect.Slice, reflect.Array:
-		if v.Type().Elem().Kind() == reflect.Uint8 {
-			return
-		}
-		for i := range v.Len() {
-			collectSecretKeyRefs(v.Index(i), refs)
-		}
-	case reflect.Map:
-		keys := v.MapKeys()
-		slices.SortFunc(keys, func(a, b reflect.Value) int { return strings.Compare(a.String(), b.String()) })
-		for _, k := range keys {
-			collectSecretKeyRefs(v.MapIndex(k), refs)
-		}
-	}
-}
-
 // EmitPruneEvents emits a Warning event for each resource the operator deleted
 // from the app, by prune or by deletionPolicy delete. Either only ever deletes
 // resources the operator created.
@@ -453,19 +268,4 @@ func EmitPruneEvents(recorder events.EventRecorder, obj client.Object, pruned []
 		recorder.Eventf(obj, nil, corev1.EventTypeWarning, ReasonResourcePruned, "Prune",
 			"Deleted %s %q%s, which the operator created", p.Type, p.Name, id)
 	}
-}
-
-// ConfigChangedPredicate ignores status-only updates generated by reconciliation.
-// Deletion and finalizer changes must still enqueue even without a generation
-// change. Apply this to the CR watch only, never to Secret watches.
-func ConfigChangedPredicate() predicate.Predicate {
-	return predicate.Funcs{UpdateFunc: func(e event.UpdateEvent) bool {
-		if e.ObjectOld == nil || e.ObjectNew == nil {
-			return false
-		}
-		return e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration() ||
-			!e.ObjectOld.GetDeletionTimestamp().Equal(e.ObjectNew.GetDeletionTimestamp()) ||
-			!slices.Equal(e.ObjectOld.GetFinalizers(), e.ObjectNew.GetFinalizers()) ||
-			!reflect.DeepEqual(e.ObjectOld.GetAnnotations(), e.ObjectNew.GetAnnotations())
-	}}
 }

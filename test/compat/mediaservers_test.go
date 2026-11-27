@@ -22,8 +22,8 @@ import (
 	mediaserversv1alpha1 "github.com/kyleseneker/arrchitect/api/mediaservers/v1alpha1"
 	jellyfinclient "github.com/kyleseneker/arrchitect/internal/client/jellyfin"
 	plexclient "github.com/kyleseneker/arrchitect/internal/client/plex"
-	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
 	"github.com/kyleseneker/arrchitect/internal/controller/mediaservers"
+	"github.com/kyleseneker/arrchitect/internal/controller/reconciler"
 	"github.com/kyleseneker/arrchitect/internal/httpapi"
 )
 
@@ -72,7 +72,7 @@ func TestJellyfin(t *testing.T) {
 		export:  "jellyfin",
 		vars:    map[string]string{"URL": proxy.url()},
 		secrets: map[string]string{"username": jellyfinAdmin, "password": password},
-		newObj:  func() ctrlcommon.ConfigResource { return &mediaserversv1alpha1.Jellyfin{} },
+		newObj:  func() reconciler.ConfigResource { return &mediaserversv1alpha1.Jellyfin{} },
 		reconciler: func(c client.Client) reconcile.Reconciler {
 			return &mediaservers.JellyfinReconciler{Client: c, Recorder: events.NewFakeRecorder(100)}
 		},
@@ -188,7 +188,7 @@ func checkJellyfinAPIKey(t *testing.T, base, password string, proxy *recordingPr
 
 	proxy.reset()
 	r := &mediaservers.JellyfinReconciler{Client: k8s, Recorder: events.NewFakeRecorder(100)}
-	obj := reconcileUntilCurrent(t, r, client.ObjectKeyFromObject(cfg), func() ctrlcommon.ConfigResource {
+	obj := reconcileUntilCurrent(t, r, client.ObjectKeyFromObject(cfg), func() reconciler.ConfigResource {
 		return &mediaserversv1alpha1.Jellyfin{}
 	})
 	assertSynced(t, obj, "reconcile with an API key")
@@ -247,7 +247,7 @@ func TestPlex(t *testing.T) {
 		export:  "plex",
 		vars:    map[string]string{"URL": proxy.url(), "ALLOWED_NETWORKS": plexAllowedNetworks},
 		secrets: map[string]string{"token": "unclaimed"},
-		newObj:  func() ctrlcommon.ConfigResource { return &mediaserversv1alpha1.Plex{} },
+		newObj:  func() reconciler.ConfigResource { return &mediaserversv1alpha1.Plex{} },
 		reconciler: func(c client.Client) reconcile.Reconciler {
 			return &mediaservers.PlexReconciler{Client: c, Recorder: events.NewFakeRecorder(100)}
 		},

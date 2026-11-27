@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -14,7 +13,9 @@ import (
 	indexersv1alpha1 "github.com/kyleseneker/arrchitect/api/indexers/v1alpha1"
 	prowlarrclient "github.com/kyleseneker/arrchitect/internal/client/prowlarr"
 	pvrclient "github.com/kyleseneker/arrchitect/internal/client/pvr"
-	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
+	"github.com/kyleseneker/arrchitect/internal/controller/appref"
+	"github.com/kyleseneker/arrchitect/internal/controller/reconciler"
+	"github.com/kyleseneker/arrchitect/internal/controller/secretref"
 	"github.com/kyleseneker/arrchitect/internal/engine"
 	"github.com/kyleseneker/arrchitect/internal/httpapi"
 	"github.com/kyleseneker/arrchitect/internal/secrets"
@@ -23,7 +24,7 @@ import (
 type ProwlarrReconciler struct {
 	client.Client
 	Recorder events.EventRecorder
-	Apps     ctrlcommon.Apps
+	Apps     appref.Apps
 }
 
 // +kubebuilder:rbac:groups=arrchitect.dev,resources=prowlarrs,verbs=get;list;watch;update;patch
@@ -33,7 +34,7 @@ type ProwlarrReconciler struct {
 // +kubebuilder:rbac:groups=arrchitect.dev,resources=sonarrs;radarrs;lidarrs;readarrs,verbs=get;list;watch
 
 func (r *ProwlarrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	integration := ctrlcommon.Integration[*indexersv1alpha1.Prowlarr, *httpapi.HTTPClient]{
+	integration := reconciler.Integration[*indexersv1alpha1.Prowlarr, *httpapi.HTTPClient]{
 		App:     "prowlarr",
 		Connect: r.connect,
 		Check: func(ctx context.Context, hc *httpapi.HTTPClient, _ *indexersv1alpha1.Prowlarr) error {
@@ -54,7 +55,7 @@ func (r *ProwlarrReconciler) connect(ctx context.Context, config *indexersv1alph
 	if err != nil {
 		return nil, err
 	}
-	tlsCfg, err := ctrlcommon.ResolveTLSConfig(ctx, r.Client, config.Namespace, config.Spec.Connection.TLS)
+	tlsCfg, err := reconciler.ResolveTLSConfig(ctx, r.Client, config.Namespace, config.Spec.Connection.TLS)
 	if err != nil {
 		return nil, err
 	}
@@ -73,21 +74,25 @@ func (r *ProwlarrReconciler) sync(ctx context.Context, hc *httpapi.HTTPClient, c
 	// the pass, neither written nor pruned, and reported; the rest still syncs.
 	var unresolved []error
 	var err error
-	if opts.Indexers, err = ctrlcommon.ResolveItemFields(ctx, r.Client, namespace, "indexer", config.Spec.Indexers,
+	if opts.Indexers, err = secretref.ResolveItemFields(ctx, r.Client, namespace, "indexer", config.Spec.Indexers,
 		func(i *indexersv1alpha1.ProwlarrIndexer) (string, *[]commonv1alpha1.ConfigField) {
 			return i.Name, &i.Fields
 		},
 	); err != nil {
 		unresolved = append(unresolved, fmt.Errorf("indexers: %w", err))
 	}
-	if opts.DownloadClients, err = ctrlcommon.ResolveItemFields(ctx, r.Client, namespace, "download client", config.Spec.DownloadClients,
+	if opts.DownloadClients, err = secretref.ResolveItemFields(ctx, r.Client, namespace, "download client", config.Spec.DownloadClients,
 		func(dc *indexersv1alpha1.ProwlarrDownloadClient) (string, *[]commonv1alpha1.ConfigField) {
 			return dc.Name, &dc.Fields
 		},
 	); err != nil {
 		unresolved = append(unresolved, fmt.Errorf("downloadClients: %w", err))
 	}
-	if opts.Notifications, err = ctrlcommon.ResolveNotificationSecrets(ctx, r.Client, namespace, config.Spec.Notifications); err != nil {
+	if opts.Notifications, err = secretref.ResolveItemFields(ctx, r.Client, namespace, "notification", config.Spec.Notifications,
+		func(n *commonv1alpha1.Notification) (string, *[]commonv1alpha1.ConfigField) {
+			return n.Name, &n.Fields
+		},
+	); err != nil {
 		unresolved = append(unresolved, fmt.Errorf("notifications: %w", err))
 	}
 	if opts.Applications, err = r.resolveApplications(ctx, hc, config); err != nil {
@@ -107,7 +112,7 @@ func (r *ProwlarrReconciler) resolveApplications(
 	var schema []map[string]any
 	for _, app := range config.Spec.Applications {
 		if app.AppRef != nil {
-			ref, err := ctrlcommon.ResolveAppRef(ctx, r.Client, r.Apps, config.Namespace, *app.AppRef)
+			ref, err := appref.Resolve(ctx, r.Client, r.Apps, config.Namespace, *app.AppRef)
 			if err != nil {
 				return nil, fmt.Errorf("application %q appRef: %w", app.Name, err)
 			}
@@ -198,9 +203,12 @@ func prowlarrAppRefs(o client.Object) []commonv1alpha1.AppRef {
 
 func (r *ProwlarrReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	b := ctrl.NewControllerManagedBy(mgr).
-		For(&indexersv1alpha1.Prowlarr{}, builder.WithPredicates(ctrlcommon.ConfigChangedPredicate())).
-		WatchesMetadata(&corev1.Secret{}, ctrlcommon.EnqueueForSecretThroughRefs(r.Client, r.Apps, &indexersv1alpha1.ProwlarrList{}, prowlarrAppRefs))
-	b, err := ctrlcommon.WatchAppRefs(mgr, b, r.Apps, &indexersv1alpha1.Prowlarr{}, &indexersv1alpha1.ProwlarrList{}, prowlarrAppRefs, "Sonarr", "Radarr", "Lidarr", "Readarr")
+		For(&indexersv1alpha1.Prowlarr{}, builder.WithPredicates(reconciler.ConfigChangedPredicate()))
+	b, err := secretref.Watch(mgr, b, &indexersv1alpha1.Prowlarr{}, &indexersv1alpha1.ProwlarrList{})
+	if err != nil {
+		return err
+	}
+	b, err = appref.Watch(mgr, b, r.Apps, &indexersv1alpha1.Prowlarr{}, &indexersv1alpha1.ProwlarrList{}, prowlarrAppRefs, "Sonarr", "Radarr", "Lidarr", "Readarr")
 	if err != nil {
 		return err
 	}

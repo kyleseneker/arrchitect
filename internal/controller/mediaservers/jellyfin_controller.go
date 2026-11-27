@@ -11,7 +11,6 @@ import (
 	"strconv"
 	"strings"
 
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -20,7 +19,8 @@ import (
 
 	mediaserversv1alpha1 "github.com/kyleseneker/arrchitect/api/mediaservers/v1alpha1"
 	jellyfinclient "github.com/kyleseneker/arrchitect/internal/client/jellyfin"
-	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
+	"github.com/kyleseneker/arrchitect/internal/controller/reconciler"
+	"github.com/kyleseneker/arrchitect/internal/controller/secretref"
 	"github.com/kyleseneker/arrchitect/internal/engine"
 	"github.com/kyleseneker/arrchitect/internal/httpapi"
 	"github.com/kyleseneker/arrchitect/internal/jsondiff"
@@ -39,7 +39,7 @@ type JellyfinReconciler struct {
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
 
 func (r *JellyfinReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	integration := ctrlcommon.Integration[*mediaserversv1alpha1.Jellyfin, *jellyfinConn]{
+	integration := reconciler.Integration[*mediaserversv1alpha1.Jellyfin, *jellyfinConn]{
 		App:     "jellyfin",
 		Connect: r.connect,
 		Sync:    r.sync,
@@ -68,7 +68,7 @@ func (r *JellyfinReconciler) connect(ctx context.Context, config *mediaserversv1
 	if err != nil {
 		return nil, err
 	}
-	tlsCfg, err := ctrlcommon.ResolveTLSConfig(ctx, r.Client, config.Namespace, config.Spec.Connection.TLS)
+	tlsCfg, err := reconciler.ResolveTLSConfig(ctx, r.Client, config.Namespace, config.Spec.Connection.TLS)
 	if err != nil {
 		return nil, err
 	}
@@ -96,7 +96,7 @@ func (r *JellyfinReconciler) sync(ctx context.Context, conn *jellyfinConn, confi
 		})
 		if err != nil {
 			logger.Error(err, "failed to run setup wizard")
-			pass.Retry = ctrlcommon.SetupRetry(err)
+			pass.Retry = reconciler.SetupRetry(err)
 			return []error{fmt.Errorf("setup wizard: %w", err)}
 		}
 		if pass.Observe {
@@ -104,7 +104,7 @@ func (r *JellyfinReconciler) sync(ctx context.Context, conn *jellyfinConn, confi
 		}
 		logger.Info("Jellyfin setup wizard completed")
 		if err := r.signIn(ctx, jf, config, conn.admin); err != nil {
-			_, pass.Retry = ctrlcommon.Classify(err)
+			_, pass.Retry = reconciler.Classify(err)
 			return []error{fmt.Errorf("authentication: %w", err)}
 		}
 	}
@@ -578,9 +578,11 @@ func buildPathInfos(paths []string) []map[string]any {
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *JellyfinReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
-		For(&mediaserversv1alpha1.Jellyfin{}, builder.WithPredicates(ctrlcommon.ConfigChangedPredicate())).
-		WatchesMetadata(&corev1.Secret{}, ctrlcommon.EnqueueForSecret(r.Client, &mediaserversv1alpha1.JellyfinList{})).
-		Named("jellyfin").
-		Complete(r)
+	b := ctrl.NewControllerManagedBy(mgr).
+		For(&mediaserversv1alpha1.Jellyfin{}, builder.WithPredicates(reconciler.ConfigChangedPredicate()))
+	b, err := secretref.Watch(mgr, b, &mediaserversv1alpha1.Jellyfin{}, &mediaserversv1alpha1.JellyfinList{})
+	if err != nil {
+		return err
+	}
+	return b.Named("jellyfin").Complete(r)
 }

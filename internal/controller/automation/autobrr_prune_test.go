@@ -16,7 +16,7 @@ import (
 
 	automationv1alpha1 "github.com/kyleseneker/arrchitect/api/automation/v1alpha1"
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
-	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
+	"github.com/kyleseneker/arrchitect/internal/controller/reconciler"
 	"github.com/kyleseneker/arrchitect/internal/engine"
 	"github.com/kyleseneker/arrchitect/internal/metrics"
 )
@@ -69,12 +69,12 @@ func TestAutobrrDeletionPolicyRemovesWhatItCreated(t *testing.T) {
 		"downloaders": {{"id": float64(4), "name": "qBit"}, {"id": float64(9), "name": "hand-made"}},
 	}}
 	cfg := autobrrConfig(app.serve(t))
-	policy := ctrlcommon.DeletionPolicyDelete
+	policy := reconciler.DeletionPolicyDelete
 	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{DeletionPolicy: policy}
 	cfg.Status.SetManagedResources(map[string][]string{"filters": {"TV"}, "actions": {"TV/send"}, "downloadClients": {"qBit"}})
 	now := metav1.NewTime(time.Now())
 	cfg.DeletionTimestamp = &now
-	cfg.Finalizers = []string{ctrlcommon.Finalizer}
+	cfg.Finalizers = []string{reconciler.Finalizer}
 
 	runAutobrr(t, cfg, true)
 
@@ -113,13 +113,13 @@ func TestAutobrrDeletesListsBeforeWhatTheyNameAndProxiesLast(t *testing.T) {
 		"proxy":       {{"id": float64(6), "name": "VPN"}},
 	}}
 	cfg := autobrrConfig(app.serve(t))
-	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{DeletionPolicy: ctrlcommon.DeletionPolicyDelete}
+	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{DeletionPolicy: reconciler.DeletionPolicyDelete}
 	cfg.Status.SetManagedResources(map[string][]string{
 		"lists": {"Shows"}, "filters": {"TV"}, "downloadClients": {"Sonarr"}, "proxies": {"VPN"},
 	})
 	now := metav1.NewTime(time.Now())
 	cfg.DeletionTimestamp = &now
-	cfg.Finalizers = []string{ctrlcommon.Finalizer}
+	cfg.Finalizers = []string{reconciler.Finalizer}
 
 	runAutobrr(t, cfg, true)
 
@@ -153,11 +153,11 @@ func TestAutobrrCleanupListsOnlyKindsItOwns(t *testing.T) {
 		"downloaders": {{"id": float64(4), "name": "qBit"}},
 	}}
 	cfg := autobrrConfig(app.serve(t))
-	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{DeletionPolicy: ctrlcommon.DeletionPolicyDelete}
+	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{DeletionPolicy: reconciler.DeletionPolicyDelete}
 	cfg.Status.SetManagedResources(map[string][]string{"downloadClients": {"qBit"}})
 	now := metav1.NewTime(time.Now())
 	cfg.DeletionTimestamp = &now
-	cfg.Finalizers = []string{ctrlcommon.Finalizer}
+	cfg.Finalizers = []string{reconciler.Finalizer}
 
 	runAutobrr(t, cfg, true)
 

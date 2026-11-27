@@ -24,7 +24,9 @@ import (
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
 	downloadsv1alpha1 "github.com/kyleseneker/arrchitect/api/downloads/v1alpha1"
 	pvrv1alpha1 "github.com/kyleseneker/arrchitect/api/pvr/v1alpha1"
-	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
+	pvrclient "github.com/kyleseneker/arrchitect/internal/client/pvr"
+	"github.com/kyleseneker/arrchitect/internal/controller/appref"
+	"github.com/kyleseneker/arrchitect/internal/controller/reconciler"
 )
 
 func objectClient(t *testing.T, objs ...client.Object) client.Client {
@@ -68,7 +70,7 @@ func sonarrDownloadClient() *pvrv1alpha1.SonarrDownloadClient {
 		Name: "tv-qbittorrent", Namespace: "media",
 		Spec: pvrv1alpha1.SonarrDownloadClientSpec{
 			SonarrRef:      commonv1alpha1.LocalObjectReference{Name: "tv"},
-			DeletionPolicy: ctrlcommon.DeletionPolicyDelete,
+			DeletionPolicy: reconciler.DeletionPolicyDelete,
 			DownloadClient: commonv1alpha1.DownloadClient{
 				Name: "qBittorrent", Protocol: "torrent", Implementation: "QBittorrent",
 				Host: "qbittorrent", Port: 8080, Category: "tv",
@@ -97,7 +99,7 @@ func reconcileDownloadClient(t *testing.T, objs ...client.Object) *pvrv1alpha1.S
 
 func synced(t *testing.T, conditions []metav1.Condition) metav1.Condition {
 	t.Helper()
-	cond := apimeta.FindStatusCondition(conditions, ctrlcommon.ConditionSynced)
+	cond := apimeta.FindStatusCondition(conditions, reconciler.ConditionSynced)
 	require.NotNil(t, cond)
 	return *cond
 }
@@ -109,7 +111,7 @@ func TestObjectCreatesItsItemAndOwnsIt(t *testing.T) {
 	assert.True(t, fa.saw("POST", fa.path("downloadclient")))
 	assert.Equal(t, []string{"qBittorrent"}, got.Status.GetManagedResources()["downloadClients"])
 	assert.Equal(t, metav1.ConditionTrue, synced(t, got.Status.Conditions).Status)
-	assert.Contains(t, got.Finalizers, ctrlcommon.Finalizer)
+	assert.Contains(t, got.Finalizers, reconciler.Finalizer)
 }
 
 func TestObjectAdoptsAnExistingItemWithoutOwningIt(t *testing.T) {
@@ -128,7 +130,7 @@ func TestObjectWaitsForItsInstance(t *testing.T) {
 	got := reconcileDownloadClient(t, apiKeySecret(), sonarrDownloadClient())
 	cond := synced(t, got.Status.Conditions)
 	assert.Equal(t, metav1.ConditionFalse, cond.Status)
-	assert.Equal(t, ctrlcommon.ReasonReferenceNotFound, cond.Reason)
+	assert.Equal(t, reconciler.ReasonReferenceNotFound, cond.Reason)
 	assert.Equal(t, `Sonarr "tv" not found`, cond.Message)
 }
 
@@ -139,7 +141,7 @@ func TestObjectWithAMissingSecretWritesNothing(t *testing.T) {
 	got := reconcileDownloadClient(t, apiKeySecret(), sonarrInstanceAt(url, nil), dc)
 
 	assert.False(t, fa.sawPrefix("POST", "/api/"))
-	assert.Equal(t, ctrlcommon.ReasonSecretNotFound, synced(t, got.Status.Conditions).Reason)
+	assert.Equal(t, reconciler.ReasonSecretNotFound, synced(t, got.Status.Conditions).Reason)
 }
 
 func TestObjectFollowsItsInstancesObservePolicy(t *testing.T) {
@@ -155,12 +157,12 @@ func TestObjectFollowsItsInstancesObservePolicy(t *testing.T) {
 func TestObjectDropsItsFinalizerWhileItsInstanceObserves(t *testing.T) {
 	_, url := newFakeArr(t, "v3", nil)
 	dc := sonarrDownloadClient()
-	dc.Spec.DeletionPolicy = ctrlcommon.DeletionPolicyDelete
-	dc.Finalizers = []string{ctrlcommon.Finalizer}
+	dc.Spec.DeletionPolicy = reconciler.DeletionPolicyDelete
+	dc.Finalizers = []string{reconciler.Finalizer}
 	got := reconcileDownloadClient(t, apiKeySecret(),
 		sonarrInstanceAt(url, &commonv1alpha1.ReconcileConfig{DriftPolicy: "observe"}), dc)
 
-	assert.NotContains(t, got.Finalizers, ctrlcommon.Finalizer, "observe forbids the cleanup the finalizer waits for")
+	assert.NotContains(t, got.Finalizers, reconciler.Finalizer, "observe forbids the cleanup the finalizer waits for")
 	assert.Equal(t, "DriftDetected", synced(t, got.Status.Conditions).Reason, "the object is still observed")
 }
 
@@ -186,11 +188,11 @@ func TestObjectDeletion(t *testing.T) {
 		instance *commonv1alpha1.ReconcileConfig
 		deletes  bool
 	}{
-		"deletes the item it created":             {policy: ctrlcommon.DeletionPolicyDelete, managed: []string{"qBittorrent"}, deletes: true},
-		"leaves an item it adopted":               {policy: ctrlcommon.DeletionPolicyDelete},
+		"deletes the item it created":             {policy: reconciler.DeletionPolicyDelete, managed: []string{"qBittorrent"}, deletes: true},
+		"leaves an item it adopted":               {policy: reconciler.DeletionPolicyDelete},
 		"leaves the item under the orphan policy": {policy: "orphan", managed: []string{"qBittorrent"}},
 		"leaves the item while its instance observes": {
-			policy: ctrlcommon.DeletionPolicyDelete, managed: []string{"qBittorrent"},
+			policy: reconciler.DeletionPolicyDelete, managed: []string{"qBittorrent"},
 			instance: &commonv1alpha1.ReconcileConfig{DriftPolicy: "observe"},
 		},
 	} {
@@ -201,7 +203,7 @@ func TestObjectDeletion(t *testing.T) {
 			dc := sonarrDownloadClient()
 			dc.Spec.DeletionPolicy = tc.policy
 			dc.Status.SetManagedResources(map[string][]string{"downloadClients": tc.managed})
-			dc.Finalizers = []string{ctrlcommon.Finalizer}
+			dc.Finalizers = []string{reconciler.Finalizer}
 			now := metav1.Now()
 			dc.DeletionTimestamp = &now
 			got := reconcileDownloadClient(t, apiKeySecret(), sonarrInstanceAt(url, tc.instance), dc)
@@ -215,7 +217,7 @@ func TestObjectDeletion(t *testing.T) {
 func TestObjectDeletionWithoutItsInstanceReleasesTheFinalizer(t *testing.T) {
 	dc := sonarrDownloadClient()
 	dc.Status.SetManagedResources(map[string][]string{"downloadClients": {"qBittorrent"}})
-	dc.Finalizers = []string{ctrlcommon.Finalizer}
+	dc.Finalizers = []string{reconciler.Finalizer}
 	now := metav1.Now()
 	dc.DeletionTimestamp = &now
 	got := reconcileDownloadClient(t, apiKeySecret(), dc)
@@ -232,7 +234,7 @@ func TestIndexerObjectReadsItsFieldsFromSecrets(t *testing.T) {
 		Name: "tv-nzbgeek", Namespace: "media",
 		Spec: pvrv1alpha1.SonarrIndexerSpec{
 			SonarrRef:      commonv1alpha1.LocalObjectReference{Name: "tv"},
-			DeletionPolicy: ctrlcommon.DeletionPolicyDelete,
+			DeletionPolicy: reconciler.DeletionPolicyDelete,
 			Indexer: commonv1alpha1.Indexer{
 				Name: "NZBgeek", Protocol: "usenet", Implementation: "Newznab",
 				Fields: []commonv1alpha1.ConfigField{{Name: "apiKey", ValueFrom: commonv1alpha1.ValueSource{
@@ -318,7 +320,7 @@ func TestObjectLeavesAnItemAnOlderObjectConfigures(t *testing.T) {
 
 	assert.False(t, fa.sawPrefix("POST", "/api/"))
 	cond := synced(t, got.Status.Conditions)
-	assert.Equal(t, ctrlcommon.ReasonNameConflict, cond.Reason)
+	assert.Equal(t, reconciler.ReasonNameConflict, cond.Reason)
 	assert.Equal(t, `"tv-qbit" already configures "qBittorrent" in Sonarr "tv"`, cond.Message)
 }
 
@@ -327,7 +329,7 @@ func TestInstanceChangedPassesSpecChangesAndSyncing(t *testing.T) {
 		s := sonarrInstanceAt("", nil)
 		s.Generation = generation
 		if synced != "" {
-			s.Status.Conditions = []metav1.Condition{{Type: ctrlcommon.ConditionSynced, Status: synced}}
+			s.Status.Conditions = []metav1.Condition{{Type: reconciler.ConditionSynced, Status: synced}}
 		}
 		return s
 	}
@@ -427,7 +429,7 @@ func TestEveryPVRAppsObjectsReachItsApp(t *testing.T) {
 			for i, r := range app.reconcilers(missing) {
 				_, err := r.Reconcile(ctx, ctrl.Request{NamespacedName: client.ObjectKeyFromObject(app.objects[i])})
 				require.NoError(t, err)
-				obj := app.objects[i].DeepCopyObject().(ctrlcommon.ConfigResource)
+				obj := app.objects[i].DeepCopyObject().(reconciler.ConfigResource)
 				require.NoError(t, missing.Get(ctx, client.ObjectKeyFromObject(obj), obj))
 				assert.Equal(t, app.kind+` "app" not found`, synced(t, obj.GetConfigStatus().Conditions).Message)
 			}
@@ -513,7 +515,7 @@ func TestObjectDownloadClientWithAMissingAppRefWritesNothing(t *testing.T) {
 
 	assert.False(t, fa.sawPrefix("POST", "/api/"))
 	cond := synced(t, got.Status.Conditions)
-	assert.Equal(t, ctrlcommon.ReasonReferenceNotFound, cond.Reason)
+	assert.Equal(t, reconciler.ReasonReferenceNotFound, cond.Reason)
 	assert.Equal(t, `download client "qBittorrent" appRef: QBittorrent "qbittorrent" not found`, cond.Message)
 }
 
@@ -523,7 +525,7 @@ func TestObjectDownloadClientNamingAnAppTheOperatorDoesntRunWaitsForASpecChange(
 	dc.Spec.DownloadClient = commonv1alpha1.DownloadClient{Name: "qBittorrent",
 		AppRef: commonv1alpha1.AppRef{Kind: "QBittorrent", Name: "qbittorrent"}}
 	c := objectClient(t, apiKeySecret(), sonarrInstanceAt(url, nil), dc)
-	r := NewObjectReconciler(SonarrDownloadClients, c, events.NewFakeRecorder(50), ctrlcommon.Apps{"sonarr": true, "sonarrdownloadclient": true})
+	r := NewObjectReconciler(SonarrDownloadClients, c, events.NewFakeRecorder(50), appref.Apps{"sonarr": true, "sonarrdownloadclient": true})
 	key := types.NamespacedName{Name: "tv-qbittorrent", Namespace: "media"}
 
 	result, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: key})
@@ -534,7 +536,7 @@ func TestObjectDownloadClientNamingAnAppTheOperatorDoesntRunWaitsForASpecChange(
 	var got pvrv1alpha1.SonarrDownloadClient
 	require.NoError(t, c.Get(context.Background(), key, &got))
 	cond := synced(t, got.Status.Conditions)
-	assert.Equal(t, ctrlcommon.ReasonInvalidConfig, cond.Reason)
+	assert.Equal(t, reconciler.ReasonInvalidConfig, cond.Reason)
 	assert.Equal(t, `download client "qBittorrent" appRef: QBittorrent "qbittorrent": the operator doesn't run the qbittorrent controller`, cond.Message)
 }
 
@@ -579,4 +581,10 @@ func TestResolveDownloadClientSecrets_MissingSecret(t *testing.T) {
 	_, err := resolveDownloadClientSecrets(context.Background(), fc, "default", dcs)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "username")
+}
+
+func TestCleanupPVRWithoutOwnedPrunableResourcesNeedsNoCredentials(t *testing.T) {
+	obj := &pvrv1alpha1.SonarrIndexer{Name: "indexer", Namespace: "media"}
+	obj.Status.SetManagedResources(map[string][]string{"tags": {"shared"}})
+	require.NoError(t, cleanupPVR(context.Background(), nil, nil, obj, commonv1alpha1.AppConnection{}, pvrclient.Sonarr))
 }
