@@ -308,6 +308,32 @@ func TestDelayProfilesMoveATagBetweenProfilesInOnePass(t *testing.T) {
 	assert.Equal(t, b, app.byTags(2)["id"])
 }
 
+// Matched one declaration at a time, {a,b,d} took the profile holding a, b
+// and c, and the profile holding d blocked it on every pass.
+func TestDelayProfilesMatchAcrossDeclarations(t *testing.T) {
+	app := newDelayAPI(false, "a", "b", "c", "d")
+	abc := app.add([]any{float64(1), float64(2), float64(3)}, nil)
+	d := app.add([]any{float64(4)}, nil)
+	hc := app.client(t)
+	declared := []commonv1alpha1.DelayProfile{{TagLabels: []string{"a", "b", "d"}}, {TagLabels: []string{"c"}}}
+
+	result := app.reconcile(t, hc, declared, engine.SyncPolicy{}, nil)
+	require.Empty(t, result.Errors)
+	assert.Equal(t, 3, app.count(), "both profiles are reused")
+	assert.Equal(t, d, app.byTags(1, 2, 4)["id"])
+	assert.Equal(t, abc, app.byTags(3)["id"])
+
+	writes := len(app.writeLog())
+	require.Empty(t, app.reconcile(t, hc, declared, engine.SyncPolicy{}, nil).Errors)
+	assert.Len(t, app.writeLog(), writes)
+}
+
+func TestMaxWeightAssignment(t *testing.T) {
+	assert.Equal(t, []int{1, 0}, maxWeightAssignment([][]int64{{5, 4}, {4, 0}}), "the best single pick isn't the best total")
+	assert.Equal(t, []int{0, 1}, maxWeightAssignment([][]int64{{3, 1, 0}, {2, 4, 1}}))
+	assert.Equal(t, []int{2}, maxWeightAssignment([][]int64{{0, 1, 2}}))
+}
+
 func TestDelayProfilesPruneFreesTagsForANewProfile(t *testing.T) {
 	app := newDelayAPI(false, "anime", "kids", "four")
 	owned := app.add([]any{float64(1)}, nil)
@@ -407,6 +433,28 @@ func TestDelayProfilesFollowTheDeclaredOrder(t *testing.T) {
 	writes := len(app.writeLog())
 	require.Empty(t, app.reconcile(t, hc, declared, engine.SyncPolicy{}, nil).Errors)
 	assert.Len(t, app.writeLog(), writes)
+}
+
+// Enforce creates a new profile after the app's tagged profiles and then
+// moves the ones declared after it, so observe reports that move too.
+func TestDelayProfilesObserveOrdersAProfileItWouldCreate(t *testing.T) {
+	for _, observe := range []bool{false, true} {
+		t.Run(strconv.FormatBool(observe), func(t *testing.T) {
+			app := newDelayAPI(false, "favorites", "live")
+			live := app.add([]any{float64(2)}, nil)
+			hc := app.client(t)
+			declared := []commonv1alpha1.DelayProfile{{TagLabels: []string{"favorites"}}, {TagLabels: []string{"live"}}}
+
+			result := app.reconcile(t, hc, declared, engine.SyncPolicy{Observe: observe}, nil)
+			require.Empty(t, result.Errors)
+			if observe {
+				assert.Empty(t, app.writeLog())
+				assert.ElementsMatch(t, []string{"delayProfiles(favorites)", "delayProfiles(order)"}, result.Drift)
+				return
+			}
+			assert.Less(t, app.byTags(1)["order"].(float64), app.profile(live)["order"].(float64))
+		})
+	}
 }
 
 func TestDelayProfilesWithProtocolItems(t *testing.T) {

@@ -1,11 +1,13 @@
 package pvr
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"maps"
+	"math"
 	"net/http"
 	"slices"
 	"strconv"
@@ -49,8 +51,8 @@ type delayProfileStage struct {
 	labels map[int]string
 }
 
-// reconcileDelayProfiles matches each declared profile to the app's profile
-// holding any of its tags, or to the default profile when it has none. The app
+// reconcileDelayProfiles matches the declared profiles to the app's profiles
+// holding their tags, and one without tags to the default profile. The app
 // allows a tag in only one profile, so pruned profiles go first and tags leave
 // a profile before any joins another.
 func reconcileDelayProfiles(
@@ -125,8 +127,9 @@ func planDelayProfiles(declared []commonv1alpha1.DelayProfile, tags engine.Named
 	}
 
 	plans := make([]*delayPlan, 0, len(declared))
+	var taggedPlans []*delayPlan
 	claimed := map[int]string{}
-	matched := map[string]bool{}
+	hasDefault := false
 	for _, d := range declared {
 		p := &delayPlan{name: "default", spec: d}
 		if len(d.TagLabels) > 0 {
@@ -141,16 +144,16 @@ func planDelayProfiles(declared []commonv1alpha1.DelayProfile, tags engine.Named
 		}
 		slices.Sort(ids)
 		p.tags = ids
+		plans = append(plans, p)
 		if len(ids) == 0 {
 			switch {
 			case fallback == nil:
 				return nil, fail("the app has no default profile")
-			case matched[delayProfileID(fallback)]:
+			case hasDefault:
 				return nil, fail("only one profile can be without tags")
 			}
-			matched[delayProfileID(fallback)] = true
+			hasDefault = true
 			p.current = fallback
-			plans = append(plans, p)
 			continue
 		}
 		for _, id := range ids {
@@ -159,24 +162,126 @@ func planDelayProfiles(declared []commonv1alpha1.DelayProfile, tags engine.Named
 			}
 			claimed[id] = p.name
 		}
-		var best map[string]any
-		bestOverlap := 0
-		for _, e := range tagged {
-			if matched[delayProfileID(e)] {
-				continue
-			}
-			n := overlap(profileTags(e), ids)
-			if n > bestOverlap || (n > 0 && n == bestOverlap && num(e["order"]) < num(best["order"])) {
-				best, bestOverlap = e, n
-			}
+		taggedPlans = append(taggedPlans, p)
+	}
+	for i, j := range matchDelayProfiles(taggedPlans, tagged) {
+		if j >= 0 {
+			taggedPlans[i].current = tagged[j]
 		}
-		if best != nil {
-			matched[delayProfileID(best)] = true
-			p.current = best
-		}
-		plans = append(plans, p)
 	}
 	return plans, nil
+}
+
+// matchDelayProfiles picks the app's tagged profile each tagged plan updates,
+// or -1 for one it creates, across all plans at once. A tag sits in one
+// profile only, so a profile left unmatched that holds a declared tag would
+// block the plan that declares it. The match reuses as many profiles that
+// share tags with a plan as it can, then keeps as many tags in place as it
+// can, then prefers the profiles the app checks first.
+func matchDelayProfiles(plans []*delayPlan, profiles []map[string]any) []int {
+	match := make([]int, len(plans))
+	for i := range match {
+		match[i] = -1
+	}
+	if len(plans) == 0 || len(profiles) == 0 {
+		return match
+	}
+	byOrder := slices.Clone(profiles)
+	slices.SortStableFunc(byOrder, func(a, b map[string]any) int { return cmp.Compare(num(a["order"]), num(b["order"])) })
+	rank := map[string]int64{}
+	for i, profile := range byOrder {
+		rank[delayProfileID(profile)] = int64(len(byOrder) - i)
+	}
+	n, m := int64(len(plans)), int64(len(profiles))
+	maxOverlap := int64(0)
+	for _, p := range plans {
+		maxOverlap = max(maxOverlap, int64(len(p.tags)))
+	}
+	// Each weight sorts first by match, then by tags kept, then by the app's
+	// order, however the other rows add up.
+	perTag := n*m + 1
+	perMatch := n*(maxOverlap*perTag+m) + 1
+	cols := max(len(plans), len(profiles))
+	weights := make([][]int64, len(plans))
+	for i, p := range plans {
+		weights[i] = make([]int64, cols)
+		for j, profile := range profiles {
+			if shared := int64(overlap(profileTags(profile), p.tags)); shared > 0 {
+				weights[i][j] = perMatch + shared*perTag + rank[delayProfileID(profile)]
+			}
+		}
+	}
+	for i, j := range maxWeightAssignment(weights) {
+		if j < len(profiles) && weights[i][j] > 0 {
+			match[i] = j
+		}
+	}
+	return match
+}
+
+// maxWeightAssignment gives each row of weights a distinct column so the
+// weights picked add up to the most, by the Hungarian method. weights has no
+// more rows than columns.
+func maxWeightAssignment(weights [][]int64) []int {
+	n, m := len(weights), len(weights[0])
+	var top int64
+	for _, row := range weights {
+		for _, w := range row {
+			top = max(top, w)
+		}
+	}
+	cost := func(i, j int) int64 { return top - weights[i-1][j-1] }
+	const inf = math.MaxInt64 / 4
+	u, v := make([]int64, n+1), make([]int64, m+1)
+	owner, way := make([]int, m+1), make([]int, m+1)
+	for i := 1; i <= n; i++ {
+		owner[0] = i
+		j0 := 0
+		minv := make([]int64, m+1)
+		for j := range minv {
+			minv[j] = inf
+		}
+		used := make([]bool, m+1)
+		for {
+			used[j0] = true
+			i0, delta, j1 := owner[j0], int64(inf), 0
+			for j := 1; j <= m; j++ {
+				if used[j] {
+					continue
+				}
+				if cur := cost(i0, j) - u[i0] - v[j]; cur < minv[j] {
+					minv[j], way[j] = cur, j0
+				}
+				if minv[j] < delta {
+					delta, j1 = minv[j], j
+				}
+			}
+			for j := 0; j <= m; j++ {
+				if used[j] {
+					u[owner[j]] += delta
+					v[j] -= delta
+				} else {
+					minv[j] -= delta
+				}
+			}
+			j0 = j1
+			if owner[j0] == 0 {
+				break
+			}
+		}
+		for j0 != 0 {
+			j1 := way[j0]
+			owner[j0] = owner[j1]
+			j0 = j1
+		}
+	}
+	rows := make([]int, n)
+	for j := 1; j <= m; j++ {
+		if owner[j] != 0 {
+			rows[owner[j]-1] = j - 1
+		}
+	}
+	return rows
 }
 
 // pruneUnmatched deletes owned profiles no declared profile matched, before
@@ -392,10 +497,16 @@ func protocolItemsFor(current any, d commonv1alpha1.DelayProfile) []any {
 // where it has the others. Sonarr and Radarr read the profile to follow from
 // after, Lidarr and Readarr from afterId.
 func (s *delayProfileStage) order(ctx context.Context, plans []*delayPlan) error {
-	var ids []string
+	var ids, planned []string
 	for _, p := range plans {
-		if len(p.tags) > 0 && p.current != nil {
+		switch {
+		case len(p.tags) == 0:
+		case p.current != nil:
 			ids = append(ids, delayProfileID(p.current))
+		case s.Observe:
+			// Enforce would have created it after the app's tagged profiles.
+			ids = append(ids, "planned:"+p.name)
+			planned = append(planned, ids[len(ids)-1])
 		}
 	}
 	if len(ids) < 2 {
@@ -407,8 +518,15 @@ func (s *delayProfileStage) order(ctx context.Context, plans []*delayPlan) error
 	}
 	for i := 1; i < len(ids); i++ {
 		positions := map[string]float64{}
+		last := 0.0
 		for _, profile := range profiles {
 			positions[delayProfileID(profile)] = num(profile["order"])
+			if len(profileTags(profile)) > 0 {
+				last = max(last, num(profile["order"]))
+			}
+		}
+		for k, id := range planned {
+			positions[id] = last + float64(k+1)
 		}
 		if positions[ids[i]] > positions[ids[i-1]] {
 			continue
