@@ -29,6 +29,8 @@ type delayAPI struct {
 	profiles []map[string]any
 	writes   []string
 	nextID   float64
+	// undeletable is a profile the app refuses to delete.
+	undeletable float64
 }
 
 func newDelayAPI(items bool, tags ...string) *delayAPI {
@@ -174,6 +176,8 @@ func (a *delayAPI) client(t *testing.T) *engine.HTTPClient {
 			maps.Copy(current, body)
 			current["order"] = order
 			_ = json.NewEncoder(w).Encode(current)
+		case r.Method == http.MethodDelete && id == a.undeletable:
+			http.Error(w, `{"message":"Profile is in use"}`, http.StatusBadRequest)
 		case r.Method == http.MethodDelete:
 			a.profiles = slices.DeleteFunc(a.profiles, func(p map[string]any) bool { return p["id"] == id })
 		}
@@ -345,6 +349,22 @@ func TestDelayProfilesObserveWritesNothing(t *testing.T) {
 		"delayProfiles(four)", "delayProfiles(kids)", "delayProfiles(default)", "delayProfiles(order)",
 	}, result.Drift)
 	assert.Equal(t, managed, result.Managed)
+}
+
+func TestDelayProfilesPruneKeepsARefusedProfileAndDeletesTheRest(t *testing.T) {
+	app := newDelayAPI(false, "anime", "kids", "four")
+	refused := app.add([]any{float64(1)}, nil)
+	deletable := app.add([]any{float64(2)}, nil)
+	app.undeletable = refused
+	hc := app.client(t)
+	managed := map[string][]string{delayProfilesKind: {strconv.Itoa(int(refused)), strconv.Itoa(int(deletable))}}
+
+	result := app.reconcile(t, hc, []commonv1alpha1.DelayProfile{{TagLabels: []string{"four"}}}, engine.SyncPolicy{Prune: true}, managed)
+	require.Len(t, result.Errors, 1)
+	assert.Contains(t, result.Errors[0], "refused to delete it: Profile is in use")
+	assert.NotNil(t, app.profile(refused))
+	assert.Nil(t, app.profile(deletable), "a refusal stopped the deletions after it")
+	assert.Equal(t, map[string][]string{delayProfilesKind: {strconv.Itoa(int(refused))}}, result.Managed, "the refused profile stays owned")
 }
 
 func TestDelayProfilesObserveRefusesTheSamePruneAsEnforce(t *testing.T) {

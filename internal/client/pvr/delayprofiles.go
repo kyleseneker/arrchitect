@@ -3,6 +3,7 @@ package pvr
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"maps"
 	"net/http"
@@ -199,13 +200,16 @@ func (s *delayProfileStage) pruneUnmatched(ctx context.Context, plans []*delayPl
 		}
 	}
 	label := func(id string) string { return names[id] }
-	return s.Cleanup(s.Owned, delayProfilesKind, unmatched, label, func(id string) error {
-		err := s.client.Delete(ctx, s.path+"/"+id)
-		if reason, refused := engine.Refusal(err); refused {
-			return fmt.Errorf("the app refused: %s", reason)
-		}
-		return err
+	err := s.Cleanup(s.Owned, delayProfilesKind, unmatched, label, func(id string) error {
+		return s.client.Delete(ctx, s.path+"/"+id)
 	})
+	kept, rest := engine.SplitKept(err)
+	for _, k := range kept {
+		for _, r := range k.Kept {
+			rest = errors.Join(rest, fmt.Errorf("%s: %s", names[r.Name], r.Reason))
+		}
+	}
+	return rest
 }
 
 // releaseTags drops the tags a matched profile is losing, so another declared
