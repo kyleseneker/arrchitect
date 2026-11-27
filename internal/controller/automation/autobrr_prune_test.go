@@ -168,7 +168,7 @@ func TestAutobrrCleanupListsOnlyKindsItOwns(t *testing.T) {
 }
 
 func TestActionsUnderAnAmbiguousFilterAreKept(t *testing.T) {
-	s := &autobrrSync{Pass: engine.NewPass("autobrr", engine.SyncPolicy{}, map[string][]string{
+	s := &autobrrSync{Pass: engine.NewPass("autobrr", "", engine.SyncPolicy{}, map[string][]string{
 		actionsKind: {"TV/send", "TV/notify", "Movies/send"},
 	})}
 

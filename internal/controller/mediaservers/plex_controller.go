@@ -41,7 +41,7 @@ func (r *PlexReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 			return pc.Ping(ctx)
 		},
 		Sync: func(ctx context.Context, pc *plexclient.Client, config *mediaserversv1alpha1.Plex, pass *engine.Pass) []string {
-			problems := reconcilePlexPreferences(ctx, pc, &pass.Writes, string(config.UID), buildPlexPreferences(config.Spec))
+			problems := reconcilePlexPreferences(ctx, pc, pass, buildPlexPreferences(config.Spec))
 			return append(problems, reconcilePlexLibraries(ctx, pc, &pass.Writes, config.Spec.Libraries)...)
 		},
 	}
@@ -232,7 +232,7 @@ func plexPreferenceChanges(desired, current map[string]string) (map[string]strin
 // Plex doesn't list is compared with what the operator last wrote, so observe
 // mode reports one only after it has been written once.
 func reconcilePlexPreferences(
-	ctx context.Context, pc *plexclient.Client, w *engine.Writes, owner string, desiredPrefs map[string]string,
+	ctx context.Context, pc *plexclient.Client, pass *engine.Pass, desiredPrefs map[string]string,
 ) []string {
 	logger := log.FromContext(ctx)
 	var syncErrors []string
@@ -244,21 +244,21 @@ func reconcilePlexPreferences(
 			changes, unlisted := plexPreferenceChanges(desiredPrefs, current)
 			// Some settings (secureConnections, the hardware switches) are accepted
 			// but never listed, so what was last written is remembered instead.
-			remember := func(key string) string { return fmt.Sprintf("plex/%s/pref/%s", owner, key) }
+			remember := func(key string) string { return "pref/" + key }
 			for _, key := range unlisted {
-				if reconciler.SecretsDiffer(remember(key), desiredPrefs[key], w.Observe) {
+				if pass.SecretsDiffer(remember(key), desiredPrefs[key]) {
 					changes[key] = desiredPrefs[key]
 				}
 			}
 			// One key per request: Plex rejects a whole update over one setting it
 			// does not have, which would block every other setting.
 			for _, key := range slices.Sorted(maps.Keys(changes)) {
-				err := w.Apply("settings", key, func() error {
+				err := pass.Apply("settings", key, func() error {
 					if err := pc.SetPreferences(ctx, map[string]string{key: changes[key]}); err != nil {
 						return err
 					}
 					if slices.Contains(unlisted, key) {
-						reconciler.RecordSecrets(remember(key), changes[key])
+						pass.RecordSecrets(remember(key), changes[key])
 					}
 					return nil
 				})

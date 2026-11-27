@@ -33,6 +33,7 @@ import (
 	subtitlesv1alpha1 "github.com/kyleseneker/arrchitect/api/subtitles/v1alpha1"
 	"github.com/kyleseneker/arrchitect/internal/engine"
 	"github.com/kyleseneker/arrchitect/internal/metrics"
+	"github.com/kyleseneker/arrchitect/internal/reconciler"
 )
 
 func TestReconcileInterval(t *testing.T) {
@@ -440,6 +441,19 @@ func TestIgnoreDeletedDropsTheSyncedSeries(t *testing.T) {
 	metrics.ConfigSynced.WithLabelValues("Sonarr", "media", "gone").Set(0)
 	assert.NoError(t, IgnoreDeleted(obj, key, apierrors.NewNotFound(schema.GroupResource{Resource: "sonarrs"}, "gone")))
 	assert.False(t, metrics.ConfigSynced.DeleteLabelValues("Sonarr", "media", "gone"), "the series outlived the resource")
+}
+
+// The secrets a resource wrote are remembered by its OwnerKey, which a
+// deletion drops for every incarnation of it.
+func TestIgnoreDeletedForgetsTheSecretsTheResourceWrote(t *testing.T) {
+	obj := &pvrv1alpha1.Sonarr{Name: t.Name(), Namespace: "media", UID: "uid-1"}
+	key := types.NamespacedName{Name: t.Name(), Namespace: "media"}
+	reconciler.RecordSecrets(OwnerKey(obj), "settings/host", "digest")
+	require.False(t, reconciler.SecretsDiffer(OwnerKey(obj), "settings/host", "digest", false))
+
+	require.NoError(t, IgnoreDeleted(&pvrv1alpha1.Sonarr{}, key, apierrors.NewNotFound(schema.GroupResource{Resource: "sonarrs"}, t.Name())))
+
+	assert.True(t, reconciler.SecretsDiffer(OwnerKey(obj), "settings/host", "digest", false), "the deleted resource's record outlived it")
 }
 
 // statusSonarr is a Sonarr in a fake API server that serves its status.

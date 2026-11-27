@@ -83,7 +83,7 @@ func (in Integration[T, C]) Reconcile(
 	Reached(obj)
 
 	rc := obj.GetReconcileConfig()
-	pass := engine.NewPass(in.App, Policy(rc), obj.GetConfigStatus().GetManagedResources())
+	pass := engine.NewPass(in.App, OwnerKey(obj), Policy(rc), obj.GetConfigStatus().GetManagedResources())
 	problems := in.Sync(ctx, conn, obj, pass)
 	UpdateStatusManaged(obj, pass.Owned.Managed())
 	EmitPruneEvents(recorder, obj, pass.Owned.Pruned())

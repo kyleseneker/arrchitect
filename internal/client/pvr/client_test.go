@@ -130,7 +130,7 @@ func TestSettingsGoBeforeTheKindsTheyGovern(t *testing.T) {
 	spec := pvrv1alpha1.RadarrSpec{ImportListConfig: pvrv1alpha1.RadarrImportListConfig{ListSyncLevel: "logOnly"}}
 	opts := Options{App: Radarr, ImportLists: []commonv1alpha1.ImportList{{Name: "Trakt", Implementation: "TraktListImport"}}}
 
-	require.Empty(t, Reconcile(context.Background(), hc, spec, opts, engine.NewPass("radarr", engine.SyncPolicy{}, nil)))
+	require.Empty(t, Reconcile(context.Background(), hc, spec, opts, engine.NewPass("radarr", "", engine.SyncPolicy{}, nil)))
 	app.mu.Lock()
 	writes := slices.Clone(app.writes)
 	app.mu.Unlock()
@@ -147,7 +147,7 @@ func TestImportListsWaitForTheirSyncSetting(t *testing.T) {
 			hc := app.client(t)
 			spec := pvrv1alpha1.RadarrSpec{ImportListConfig: pvrv1alpha1.RadarrImportListConfig{ListSyncLevel: "logOnly"}}
 			opts := Options{App: Radarr, ImportLists: []commonv1alpha1.ImportList{{Name: "Trakt", Implementation: "TraktListImport"}}}
-			pass := engine.NewPass("radarr", engine.SyncPolicy{Prune: true}, map[string][]string{"importLists": {"Old"}})
+			pass := engine.NewPass("radarr", "", engine.SyncPolicy{Prune: true}, map[string][]string{"importLists": {"Old"}})
 
 			problems := Reconcile(context.Background(), hc, spec, opts, pass)
 			require.Len(t, problems, 2)
@@ -824,7 +824,7 @@ func reconcileOnce(ctx context.Context, hc *engine.HTTPClient, opts Options, pol
 	if opts.App.Name == "" {
 		opts.App = Sonarr
 	}
-	pass := engine.NewPass(hc.AppLabel(), policy, managed)
+	pass := engine.NewPass(hc.AppLabel(), "", policy, managed)
 	errs := Reconcile(ctx, hc, struct{}{}, opts, pass)
 	return outcome{
 		Synced: pass.SyncedItems(), Errors: errs, Drift: pass.Drift(), Pruned: pass.Owned.Pruned(), Managed: pass.Owned.Managed(),

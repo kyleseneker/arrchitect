@@ -166,14 +166,14 @@ func reconcileSetting(ctx context.Context, client *HTTPClient, pass *Pass, s Set
 		return fmt.Errorf("merging: %w", err)
 	}
 	key := client.secretKey("setting", s.Path)
-	if !out.Changed && !reconciler.SecretsDiffer(key, out.SecretDigest, pass.Observe) {
+	if !out.Changed && !pass.SecretsDiffer(key, out.SecretDigest) {
 		return nil
 	}
 	return pass.Apply("settings", s.Name, func() error {
 		if err := client.PutJSON(ctx, fmt.Sprintf("%s/%d", s.Path, int(id)), out.Merged); err != nil {
 			return err
 		}
-		reconciler.RecordSecrets(key, out.SecretDigest)
+		pass.RecordSecrets(key, out.SecretDigest)
 		return nil
 	})
 }
@@ -202,7 +202,7 @@ func reconcileItem(ctx context.Context, client *HTTPClient, pass *Pass, endpoint
 		if endpoint.Policy == CreateOnly {
 			return nil
 		}
-		update, err := planUpdate(current, desired, endpoint, key, pass.Observe)
+		update, err := planUpdate(current, desired, endpoint, key, pass)
 		if err != nil || update == nil {
 			return err
 		}
@@ -217,7 +217,7 @@ func reconcileItem(ctx context.Context, client *HTTPClient, pass *Pass, endpoint
 			if current = find(latest, endpoint, desiredMatch); current == nil {
 				return fmt.Errorf("the app no longer has %s %q", endpoint.Name, desiredMatch)
 			}
-			if update, err = planUpdate(current, desired, endpoint, key, false); err != nil || update == nil {
+			if update, err = planUpdate(current, desired, endpoint, key, pass); err != nil || update == nil {
 				return err
 			}
 		}
@@ -225,7 +225,7 @@ func reconcileItem(ctx context.Context, client *HTTPClient, pass *Pass, endpoint
 			if err := client.PutJSON(ctx, fmt.Sprintf("%s/%d", endpoint.Path, update.id), update.Merged); err != nil {
 				return err
 			}
-			reconciler.RecordSecrets(key, update.SecretDigest)
+			pass.RecordSecrets(key, update.SecretDigest)
 			return nil
 		})
 	}
@@ -253,7 +253,7 @@ func reconcileItem(ctx context.Context, client *HTTPClient, pass *Pass, endpoint
 		if json.Unmarshal(body, &stored) == nil {
 			*existing = append(*existing, stored)
 			if out, err := reconciler.MergeDesired(stored, desired); err == nil {
-				reconciler.RecordSecrets(key, out.SecretDigest)
+				pass.RecordSecrets(key, out.SecretDigest)
 			}
 		}
 		return nil
@@ -268,7 +268,7 @@ type itemUpdate struct {
 
 // planUpdate merges desired over current and returns the update to send, or
 // nil when the item already matches.
-func planUpdate(current, desired map[string]any, endpoint ResourceEndpoint, key string, observe bool) (*itemUpdate, error) {
+func planUpdate(current, desired map[string]any, endpoint ResourceEndpoint, key string, pass *Pass) (*itemUpdate, error) {
 	id, ok := current["id"].(float64)
 	if !ok {
 		return nil, fmt.Errorf("resource %q has no id", endpoint.resourceKey(current))
@@ -281,7 +281,7 @@ func planUpdate(current, desired map[string]any, endpoint ResourceEndpoint, key 
 	if err != nil {
 		return nil, err
 	}
-	if !trimmed && !out.Changed && !reconciler.SecretsDiffer(key, out.SecretDigest, observe) {
+	if !trimmed && !out.Changed && !pass.SecretsDiffer(key, out.SecretDigest) {
 		return nil, nil
 	}
 	return &itemUpdate{MergeOutcome: out, id: int(id)}, nil
@@ -337,10 +337,11 @@ func withoutUndeclared(current, desired map[string]any, lists []string) (map[str
 	return out, trimmed, nil
 }
 
-// secretKey isolates last-written secrets by target and Kubernetes owner. Quoted
-// components keep arbitrary resource names from colliding with separators.
+// secretKey names an item's last-written secrets within its resource's
+// records. Quoted components keep arbitrary names from colliding with
+// separators.
 func (c *HTTPClient) secretKey(resourceType, name string) string {
-	return fmt.Sprintf("%q/%q/%q/%q/%q", c.baseURL, c.owner, c.AppLabel(), resourceType, name)
+	return fmt.Sprintf("%q/%q/%q/%q", c.baseURL, c.AppLabel(), resourceType, name)
 }
 
 func isNilInterface(v any) bool {

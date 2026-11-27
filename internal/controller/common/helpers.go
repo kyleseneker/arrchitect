@@ -215,7 +215,7 @@ func emitTransition(recorder events.EventRecorder, obj ConfigResource, before *m
 
 // IgnoreDeleted is client.IgnoreNotFound for a reconcile's first read. A
 // resource that is gone also loses its config_synced series, so an alert on a
-// deleted resource clears.
+// deleted resource clears, and the state kept for it between passes.
 func IgnoreDeleted(obj ConfigResource, key types.NamespacedName, err error) error {
 	if apierrors.IsNotFound(err) {
 		metrics.ConfigSynced.DeleteLabelValues(reflect.TypeOf(obj).Elem().Name(), key.Namespace, key.Name)
@@ -223,6 +223,7 @@ func IgnoreDeleted(obj ConfigResource, key types.NamespacedName, err error) erro
 		obj.SetNamespace(key.Namespace)
 		obj.SetName(key.Name)
 		forget(obj)
+		reconciler.ForgetSecrets(ownerPrefix(obj))
 	}
 	return client.IgnoreNotFound(err)
 }

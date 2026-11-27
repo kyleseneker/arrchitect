@@ -31,7 +31,7 @@ func TestPruneKindsDeletesOnlyOwnedUndeclaredItems(t *testing.T) {
 	feeds := &fakeKind{items: []map[string]any{
 		{"id": float64(1), "name": "old"}, {"id": float64(2), "name": "kept"}, {"id": float64(3), "name": "hand-made"},
 	}}
-	pass := NewPass("kinds", SyncPolicy{Prune: true}, map[string][]string{"feeds": {"old", "kept"}})
+	pass := NewPass("kinds", "", SyncPolicy{Prune: true}, map[string][]string{"feeds": {"old", "kept"}})
 
 	problems := pass.PruneKinds(context.Background(), []Kind{feeds.kind("feeds")}, map[string][]string{"feeds": {"kept"}}, nil)
 
@@ -41,7 +41,7 @@ func TestPruneKindsDeletesOnlyOwnedUndeclaredItems(t *testing.T) {
 
 func TestPruneKindsNeverListsWhatItCantPrune(t *testing.T) {
 	unowned, failed, undeclared := &fakeKind{}, &fakeKind{}, &fakeKind{}
-	pass := NewPass("kinds", SyncPolicy{Prune: true}, map[string][]string{"failed": {"a"}, "undeclared": {"a"}})
+	pass := NewPass("kinds", "", SyncPolicy{Prune: true}, map[string][]string{"failed": {"a"}, "undeclared": {"a"}})
 
 	problems := pass.PruneKinds(context.Background(),
 		[]Kind{unowned.kind("unowned"), failed.kind("failed"), undeclared.kind("undeclared")},
@@ -86,7 +86,7 @@ func TestPruneItemsSetsAnAmbiguousNameAsideInBothModes(t *testing.T) {
 
 	for _, observe := range []bool{false, true} {
 		t.Run(fmt.Sprintf("observe=%t", observe), func(t *testing.T) {
-			pass := NewPass("sonarr", SyncPolicy{Prune: true, Observe: observe}, managed)
+			pass := NewPass("sonarr", "", SyncPolicy{Prune: true, Observe: observe}, managed)
 			var removed []int
 			err := pass.PruneItems("indexers", []string{"kept"}, items, func(id int) error {
 				removed = append(removed, id)

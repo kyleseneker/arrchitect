@@ -29,6 +29,7 @@ import (
 	pvrv1alpha1 "github.com/kyleseneker/arrchitect/api/pvr/v1alpha1"
 	autobrrclient "github.com/kyleseneker/arrchitect/internal/client/autobrr"
 	"github.com/kyleseneker/arrchitect/internal/engine"
+	"github.com/kyleseneker/arrchitect/internal/reconciler"
 	"github.com/kyleseneker/arrchitect/internal/testnet"
 )
 
@@ -277,7 +278,7 @@ func TestUpsertAutobrrComparesRedactedSecretsByWhatWasWritten(t *testing.T) {
 	}}
 	obj := map[string]any{"name": "qBittorrent", "type": "QBITTORRENT", "password": "s3cret"}
 	writes := 0
-	ab := &autobrrSync{Pass: &engine.Pass{}, owner: "media/" + t.Name()}
+	ab := &autobrrSync{Pass: &engine.Pass{Owner: forgottenOwner(t, "")}}
 	upsert := func() {
 		t.Helper()
 		require.NoError(t, ab.upsert(context.Background(), "download client", "qBittorrent", existing, obj,
@@ -296,16 +297,25 @@ func TestUpsertAutobrrComparesRedactedSecretsByWhatWasWritten(t *testing.T) {
 	upsert()
 	assert.Equal(t, 3, writes, "a real change must be written")
 
-	observer := &autobrrSync{Pass: &engine.Pass{Observe: true}, owner: "media/" + t.Name() + "-observe"}
+	observer := &autobrrSync{Pass: &engine.Pass{Observe: true, Owner: forgottenOwner(t, "-observe")}}
 	require.NoError(t, observer.upsert(context.Background(), "download client", "qBittorrent", existing,
 		map[string]any{"name": "qBittorrent", "type": "QBITTORRENT", "password": "s3cret"}, nil, nil, nil))
 	assert.Empty(t, observer.Drift(), "observe mode can't know a secret it never wrote")
 }
 
+// forgottenOwner names an owner for t whose remembered secrets are dropped
+// when t ends, so a run under -count starts with none.
+func forgottenOwner(t *testing.T, suffix string) string {
+	t.Helper()
+	owner := "Autobrr/media/" + t.Name() + suffix
+	t.Cleanup(func() { reconciler.ForgetSecrets(owner) })
+	return owner
+}
+
 func TestUpsertAutobrrRemembersTheSecretsItCreatedWith(t *testing.T) {
 	stored := []map[string]any{}
 	obj := map[string]any{"name": "qBittorrent", "type": "QBITTORRENT", "password": "s3cret"}
-	ab := &autobrrSync{Pass: &engine.Pass{}, owner: "media/" + t.Name()}
+	ab := &autobrrSync{Pass: &engine.Pass{Owner: forgottenOwner(t, "")}}
 	list := func(context.Context) ([]map[string]any, error) { return stored, nil }
 	require.NoError(t, ab.upsert(context.Background(), "download client", "qBittorrent", stored, obj,
 		func() error {

@@ -58,8 +58,7 @@ func (r *ProwlarrReconciler) connect(ctx context.Context, config *indexersv1alph
 		return nil, err
 	}
 	hc, err := engine.NewHTTPClient(config.Spec.Connection.URL, engine.AuthAPIKey,
-		engine.WithOwner(config.Namespace+"/"+config.Name+"/"+string(config.UID)), engine.WithAPIKey(apiKey),
-		engine.WithTLSConfig(tlsCfg), engine.WithAppLabel("prowlarr"))
+		engine.WithAPIKey(apiKey), engine.WithTLSConfig(tlsCfg), engine.WithAppLabel("prowlarr"))
 	if err != nil {
 		return nil, err
 	}

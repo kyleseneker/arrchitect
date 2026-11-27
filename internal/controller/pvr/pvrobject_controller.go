@@ -118,7 +118,7 @@ func reconcilePVRObject(ctx context.Context, c client.Client, recorder events.Ev
 	policy := ctrlcommon.Policy(instance.policy)
 	// The object owns only the item it names, so prune replaces it on a rename.
 	policy.Prune = true
-	pass := engine.NewPass(o.app.Name, policy, obj.GetConfigStatus().GetManagedResources())
+	pass := engine.NewPass(o.app.Name, ctrlcommon.OwnerKey(obj), policy, obj.GetConfigStatus().GetManagedResources())
 	problems := pvrclient.Reconcile(ctx, hc, nil, opts, pass)
 	if id, ok := idOf(ctx, hc, "/api/"+o.app.APIVersion+o.path, o.name); ok {
 		o.setID(id)

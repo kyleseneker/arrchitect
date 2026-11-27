@@ -91,9 +91,9 @@ func (r *SabnzbdReconciler) sync(ctx context.Context, sc *sabnzbdclient.Client, 
 		problems = append(problems, fmt.Sprintf("login: %v", err))
 	}
 	plan := func(current map[string]any) []sabWrite {
-		writes := planSabnzbd(current, config.Spec, servers, string(config.UID))
+		writes := planSabnzbd(current, config.Spec, servers, pass.Owner)
 		writes = append(writes, planKeywords(current, "apprise", apprise)...)
-		return append(writes, planLogin(current, login, string(config.UID), pass.Observe)...)
+		return append(writes, planLogin(current, login, pass.Owner, pass.Observe)...)
 	}
 	writes := plan(current)
 	problems = append(problems, applySabnzbd(ctx, sc, pass, writes)...)
@@ -285,7 +285,7 @@ func applySabnzbd(ctx context.Context, sc *sabnzbdclient.Client, pass *engine.Pa
 			if err != nil {
 				return err
 			}
-			reconciler.RecordSecrets(w.secretKey, w.secretDigest)
+			pass.RecordSecrets(w.secretKey, w.secretDigest)
 			if w.create {
 				pass.Owned.Created(w.section, w.name)
 			}
@@ -477,9 +477,9 @@ func planLogin(current map[string]any, login map[string]string, owner string, ob
 		}
 		return writes
 	}
-	w.secretKey = fmt.Sprintf("sabnzbd/%s/misc/password", owner)
+	w.secretKey = "misc/password"
 	w.secretDigest = maskedDigest("password", password)
-	if !reconciler.IsMasked(stored) || reconciler.SecretsDiffer(w.secretKey, w.secretDigest, observe) {
+	if !reconciler.IsMasked(stored) || reconciler.SecretsDiffer(owner, w.secretKey, w.secretDigest, observe) {
 		writes = append(writes, w)
 	}
 	return writes
@@ -519,15 +519,15 @@ func planSabnzbd(
 			continue
 		}
 		vals = withServerQuota(current, srv.Name, vals)
-		key := fmt.Sprintf("sabnzbd/%s/server/%q", owner, srv.Name)
-		if w, needed := planNamed(current, "servers", srv.Name, vals, key, observe); needed {
+		key := fmt.Sprintf("server/%q", srv.Name)
+		if w, needed := planNamed(current, "servers", srv.Name, vals, owner, key, observe); needed {
 			w.resourceType = "servers"
 			writes = append(writes, w)
 		}
 	}
 
 	for _, cat := range spec.Categories {
-		if w, needed := planNamed(current, "categories", cat.Name, sabnzbdCategoryValues(cat), "", observe); needed {
+		if w, needed := planNamed(current, "categories", cat.Name, sabnzbdCategoryValues(cat), owner, "", observe); needed {
 			w.resourceType = "categories"
 			writes = append(writes, w)
 		}
@@ -537,7 +537,7 @@ func planSabnzbd(
 
 // planNamed decides whether a server or category needs writing. Passwords read
 // back masked, so a change there is noticed through the remembered digest.
-func planNamed(current map[string]any, section, name string, vals map[string]string, secretKey string, observe bool) (sabWrite, bool) {
+func planNamed(current map[string]any, section, name string, vals map[string]string, owner, secretKey string, observe bool) (sabWrite, bool) {
 	w := sabWrite{section: section, name: name, values: vals, secretKey: secretKey}
 	entries, _ := current[section].([]any)
 	for _, e := range entries {
@@ -554,7 +554,7 @@ func planNamed(current map[string]any, section, name string, vals map[string]str
 			return w, true
 		}
 		w.secretDigest = out.SecretDigest
-		return w, out.Changed || reconciler.SecretsDiffer(secretKey, out.SecretDigest, observe)
+		return w, out.Changed || reconciler.SecretsDiffer(owner, secretKey, out.SecretDigest, observe)
 	}
 	w.create = true
 	// A new entry reads back with its password masked; remember what is

@@ -190,7 +190,7 @@ func (a *delayAPI) client(t *testing.T) *engine.HTTPClient {
 
 func (a *delayAPI) reconcile(t *testing.T, hc *engine.HTTPClient, declared []commonv1alpha1.DelayProfile, policy engine.SyncPolicy, managed map[string][]string) outcome {
 	t.Helper()
-	pass := engine.NewPass(hc.AppLabel(), policy, managed)
+	pass := engine.NewPass(hc.AppLabel(), "", policy, managed)
 	errs := reconcileDelayProfiles(context.Background(), hc, "v3", declared, pass, nil)
 	return outcome{
 		Synced: pass.SyncedItems(), Errors: errs, Drift: pass.Drift(), Pruned: pass.Owned.Pruned(), Managed: pass.Owned.Managed(),

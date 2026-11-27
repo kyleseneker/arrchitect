@@ -83,7 +83,6 @@ func connectPVR(
 		return nil, err
 	}
 	hc, err := engine.NewHTTPClient(conn.URL, engine.AuthAPIKey,
-		engine.WithOwner(namespace+"/"+obj.GetName()+"/"+string(obj.GetUID())),
 		engine.WithAPIKey(apiKey), engine.WithTLSConfig(tlsCfg), engine.WithAppLabel(app.Name))
 	if err != nil {
 		return nil, err

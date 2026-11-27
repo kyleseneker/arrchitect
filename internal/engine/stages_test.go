@@ -106,7 +106,7 @@ func TestStagesNameWhatEarlierStagesCreated(t *testing.T) {
 		TagPath: "/tags",
 	}
 
-	problems := stages.Reconcile(context.Background(), hc, stagesDefinition(), NewPass("test", SyncPolicy{}, nil))
+	problems := stages.Reconcile(context.Background(), hc, stagesDefinition(), NewPass("test", "", SyncPolicy{}, nil))
 	require.Empty(t, problems)
 	items, _ := app.snapshot()
 	tag := items["/tags"][0]["id"]
@@ -126,7 +126,7 @@ func TestStagesReadTagsOncePerStage(t *testing.T) {
 		TagPath: "/tags",
 	}
 
-	require.Empty(t, stages.Reconcile(context.Background(), hc, stagesDefinition(), NewPass("test", SyncPolicy{}, nil)))
+	require.Empty(t, stages.Reconcile(context.Background(), hc, stagesDefinition(), NewPass("test", "", SyncPolicy{}, nil)))
 	_, lists := app.snapshot()
 	assert.Equal(t, 2, lists["/tags"])
 }
@@ -141,7 +141,7 @@ func TestStagesReadTagsAgainAfterAStageFailedToRead(t *testing.T) {
 		TagPath:  "/tags",
 	}
 
-	problems := stages.Reconcile(context.Background(), hc, stagesDefinition(), NewPass("test", SyncPolicy{}, nil))
+	problems := stages.Reconcile(context.Background(), hc, stagesDefinition(), NewPass("test", "", SyncPolicy{}, nil))
 	require.Len(t, problems, 1)
 	assert.True(t, strings.HasPrefix(problems[0], "indexers: "), problems[0])
 	items, _ := app.snapshot()
@@ -163,7 +163,7 @@ func TestStagesLeaveOutAKindThatCantBeBuilt(t *testing.T) {
 		TagPath: "/tags",
 	}
 
-	problems := stages.Reconcile(context.Background(), hc, stagesDefinition(), NewPass("test", SyncPolicy{}, nil))
+	problems := stages.Reconcile(context.Background(), hc, stagesDefinition(), NewPass("test", "", SyncPolicy{}, nil))
 	require.Len(t, problems, 1)
 	assert.Contains(t, problems[0], `the app has no item named "missing"`)
 	items, _ := app.snapshot()
@@ -185,7 +185,7 @@ func TestStagesReadTagsOnlyForTaggedItems(t *testing.T) {
 		TagPath: "/tags",
 	}
 
-	require.Empty(t, stages.Reconcile(context.Background(), hc, stagesDefinition(), NewPass("test", SyncPolicy{}, nil)))
+	require.Empty(t, stages.Reconcile(context.Background(), hc, stagesDefinition(), NewPass("test", "", SyncPolicy{}, nil)))
 	_, lists := app.snapshot()
 	assert.Zero(t, lists["/tags"])
 }
@@ -199,7 +199,7 @@ func TestStagesReportATagListFailureAgainstEachTaggedKind(t *testing.T) {
 		TagPath:  "/tags",
 	}
 
-	problems := stages.Reconcile(context.Background(), hc, stagesDefinition(), NewPass("test", SyncPolicy{}, nil))
+	problems := stages.Reconcile(context.Background(), hc, stagesDefinition(), NewPass("test", "", SyncPolicy{}, nil))
 	require.Len(t, problems, 2)
 	assert.True(t, strings.HasPrefix(problems[0], "indexers: "), problems[0])
 	assert.True(t, strings.HasPrefix(problems[1], "clients: "), problems[1])
@@ -220,6 +220,6 @@ func TestStagesPlanDeclaredTagsInObserveMode(t *testing.T) {
 		PlannedTags: []string{"TV"},
 	}
 
-	require.Empty(t, stages.Reconcile(context.Background(), hc, stagesDefinition(), NewPass("test", SyncPolicy{Observe: true}, nil)))
+	require.Empty(t, stages.Reconcile(context.Background(), hc, stagesDefinition(), NewPass("test", "", SyncPolicy{Observe: true}, nil)))
 	assert.Equal(t, []int{PlannedID}, got)
 }
