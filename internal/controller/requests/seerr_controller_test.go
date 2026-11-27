@@ -436,6 +436,13 @@ func seerrConfig(addr string) *requestsv1alpha1.Seerr {
 
 func runSeerr(t *testing.T, cfg *requestsv1alpha1.Seerr, objs ...client.Object) *requestsv1alpha1.Seerr {
 	t.Helper()
+	_, got := reconcileSeerr(t, cfg, objs...)
+	return got
+}
+
+// reconcileSeerr is runSeerr that also returns the reconcile's result.
+func reconcileSeerr(t *testing.T, cfg *requestsv1alpha1.Seerr, objs ...client.Object) (ctrl.Result, *requestsv1alpha1.Seerr) {
+	t.Helper()
 	scheme := runtime.NewScheme()
 	require.NoError(t, clientgoscheme.AddToScheme(scheme), "adding client-go scheme")
 	require.NoError(t, requestsv1alpha1.AddToScheme(scheme), "adding requests scheme")
@@ -445,16 +452,16 @@ func runSeerr(t *testing.T, cfg *requestsv1alpha1.Seerr, objs ...client.Object) 
 		WithStatusSubresource(&requestsv1alpha1.Seerr{}).
 		WithObjects(append(objs, cfg, seerrSecret())...).Build()
 	r := &SeerrReconciler{Client: c, Recorder: events.NewFakeRecorder(50)}
-	_, err := r.Reconcile(context.Background(), ctrl.Request{
+	result, err := r.Reconcile(context.Background(), ctrl.Request{
 		Name: "seerr", Namespace: "media",
 	})
 	require.NoError(t, err, "reconcile")
 	var got requestsv1alpha1.Seerr
 	if err := c.Get(context.Background(), types.NamespacedName{Name: "seerr", Namespace: "media"}, &got); err != nil {
 		require.True(t, apierrors.IsNotFound(err), "re-reading the resource: %v", err)
-		return nil
+		return result, nil
 	}
-	return &got
+	return result, &got
 }
 
 // A supplied API key is used directly. Logging in anyway would be pointless and,
@@ -601,6 +608,26 @@ func TestSeerrFirstRunWaitsForJellyfinLibraries(t *testing.T) {
 
 	require.True(t, app.saw("POST", "/api/v1/settings/jellyfin/library/sync"), "never asked Seerr to sync the Jellyfin libraries")
 	assert.False(t, app.saw("POST", "/api/v1/settings/initialize"), "completed initialization with no libraries to enable")
+}
+
+// A setup that fails while Jellyfin has no libraries yet tries again in a
+// minute. Mixed with a missing Secret, it waits for the resource's interval,
+// as any mix of failures does.
+func TestSeerrFailedSetupRetriesByItsReason(t *testing.T) {
+	plain, _ := reconcileSeerr(t, firstRunJellyfinConfig((&fakeSeerr{}).serve(t)))
+	assert.Equal(t, time.Minute, plain.RequeueAfter, "a setup that failed for no reason of its own retries in a minute")
+
+	cfg := firstRunJellyfinConfig((&fakeSeerr{}).serve(t))
+	port := int32(8989)
+	cfg.Spec.Sonarr = []requestsv1alpha1.SeerrServiceConnection{{
+		Name: "Sonarr", Hostname: "sonarr", Port: &port, APIKeySecretRef: &commonv1alpha1.SecretKeyRef{Name: "missing", Key: "api-key"},
+	}}
+	mixed, got := reconcileSeerr(t, cfg)
+	require.NotNil(t, got)
+	ready := meta.FindStatusCondition(got.Status.Conditions, "Ready")
+	require.NotNil(t, ready)
+	assert.Equal(t, "SyncFailed", ready.Reason)
+	assert.GreaterOrEqual(t, mixed.RequeueAfter, 5*time.Minute, "a mix of failures retried before the interval")
 }
 
 func TestSeerrFailedSetupKeepsTrackOfTheServersItCreated(t *testing.T) {
