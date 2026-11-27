@@ -36,11 +36,27 @@ func (w *Writes) Prune(owned *Ownership, kind string, declared, existing []strin
 		return owned.Prune(kind, declared, existing, remove)
 	}
 	candidates := owned.Candidates(kind, declared, existing)
-	if err := PruneLimit(kind, len(candidates)); err != nil {
+	if err := pruneLimit(kind, len(candidates)); err != nil {
 		return err
 	}
 	for _, name := range candidates {
 		w.RecordDrift(kind, name)
+	}
+	return nil
+}
+
+// Cleanup deletes what owned.Cleanup would, or in observe mode records each item
+// it would delete as a difference, under the name label gives it.
+func (w *Writes) Cleanup(owned *Ownership, kind string, existing []string, label func(string) string, remove func(name string) error) error {
+	if !w.Observe {
+		return owned.Cleanup(kind, existing, remove)
+	}
+	candidates := owned.owned(kind, nil, existing)
+	if err := pruneLimit(kind, len(candidates)); err != nil {
+		return err
+	}
+	for _, name := range candidates {
+		w.RecordDrift(kind, label(name))
 	}
 	return nil
 }

@@ -198,19 +198,8 @@ func (s *delayProfileStage) pruneUnmatched(ctx context.Context, plans []*delayPl
 			names[id] = s.describe(e)
 		}
 	}
-	if s.Observe {
-		owned := slices.DeleteFunc(unmatched, func(id string) bool {
-			return !slices.Contains(s.Owned.Managed()[delayProfilesKind], id)
-		})
-		if err := engine.PruneLimit(delayProfilesKind, len(owned)); err != nil {
-			return err
-		}
-		for _, id := range owned {
-			s.RecordDrift(delayProfilesKind, names[id])
-		}
-		return nil
-	}
-	return s.Owned.Cleanup(delayProfilesKind, unmatched, func(id string) error {
+	label := func(id string) string { return names[id] }
+	return s.Cleanup(s.Owned, delayProfilesKind, unmatched, label, func(id string) error {
 		err := s.client.Delete(ctx, s.path+"/"+id)
 		if reason, refused := engine.Refusal(err); refused {
 			return fmt.Errorf("the app refused: %s", reason)
