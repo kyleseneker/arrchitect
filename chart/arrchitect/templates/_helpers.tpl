@@ -116,5 +116,8 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- $namespaces = append $namespaces . }}
 {{- end }}
 {{- end }}
+{{- if and .Values.watchNamespace (not $namespaces) }}
+{{- fail "watchNamespace must list at least one namespace" }}
+{{- end }}
 {{- join "," (uniq $namespaces) }}
 {{- end }}

@@ -75,6 +75,13 @@ tests:
             apiGroup: rbac.authorization.k8s.io
             kind: Role
             name: arrchitect
+  - it: refuses a watchNamespace with no namespace in it
+    template: templates/rolebinding.yaml
+    set:
+      watchNamespace: " , ,"
+    asserts:
+      - failedTemplate:
+          errorPattern: watchNamespace must list at least one namespace
   - it: keeps the leader election lease in the release namespace
     template: templates/role.yaml
     documentIndex: 0
