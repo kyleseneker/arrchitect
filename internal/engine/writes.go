@@ -45,13 +45,13 @@ func (w *Writes) Prune(owned *Ownership, kind string, declared, existing []strin
 	return nil
 }
 
-// Cleanup deletes what owned.Cleanup would, or in observe mode records each item
-// it would delete as a difference, under the name label gives it.
-func (w *Writes) Cleanup(owned *Ownership, kind string, existing []string, label func(string) string, remove func(name string) error) error {
+// PruneOwned deletes what owned.PruneOwned would, or in observe mode records
+// each item it would delete as a difference, under the name label gives it.
+func (w *Writes) PruneOwned(owned *Ownership, kind string, names []string, label func(string) string, remove func(name string) error) error {
 	if !w.Observe {
-		return owned.Cleanup(kind, existing, remove)
+		return owned.PruneOwned(kind, names, remove)
 	}
-	candidates := owned.owned(kind, nil, existing)
+	candidates := owned.owned(kind, nil, names)
 	if err := pruneLimit(kind, len(candidates)); err != nil {
 		return err
 	}

@@ -287,6 +287,8 @@ The API server rejects `prune: true` on Jellyfin and Plex.
 Deleting an app's resource leaves the app unchanged unless
 `spec.reconcile.deletionPolicy` is `delete`. Then the operator first deletes
 the items it created, the same kinds prune covers, and keeps everything else.
+Prune's limit of 25 items a kind doesn't apply, since deleting everything the
+operator created is what was asked.
 Indexers and download clients default to `delete`; see
 [Indexers and download clients](#indexers-and-download-clients).
 
