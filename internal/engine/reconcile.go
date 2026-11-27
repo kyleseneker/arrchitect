@@ -344,7 +344,7 @@ func DeleteManagedResources(ctx context.Context, client *HTTPClient, def AppDefi
 		}
 		existing, err := client.GetJSONList(ctx, endpoint.Path)
 		if err != nil {
-			return errors.Join(append(kept, fmt.Errorf("cleaning up %s: listing: %w", endpoint.Name, err))...)
+			return JoinErrors(append(kept, fmt.Errorf("cleaning up %s: listing: %w", endpoint.Name, err))...)
 		}
 		items := listItems(client.AppLabel(), endpoint.Name, existing, endpoint.resourceKey)
 		err = owned.Cleanup(endpoint.Name, items.Names, func(name string) error {
@@ -362,10 +362,10 @@ func DeleteManagedResources(ctx context.Context, client *HTTPClient, def AppDefi
 			kept = append(kept, refusal)
 		}
 		if failure != nil {
-			return errors.Join(append(kept, fmt.Errorf("cleaning up %s: %w", endpoint.Name, failure))...)
+			return JoinErrors(append(kept, fmt.Errorf("cleaning up %s: %w", endpoint.Name, failure))...)
 		}
 	}
-	return errors.Join(kept...)
+	return JoinErrors(kept...)
 }
 
 // Refusal reports whether err is the app declining a request it understood,

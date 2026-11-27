@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"maps"
 	"slices"
@@ -519,6 +518,16 @@ func importListResources(
 	return ils, nil
 }
 
+// heldBackError reports a kind left out of a pass for another failure, and
+// takes that failure's reason.
+type heldBackError struct {
+	msg   string
+	cause error
+}
+
+func (e *heldBackError) Error() string { return e.msg }
+func (e *heldBackError) Unwrap() error { return e.cause }
+
 // Reconcile runs the full reconciliation for Sonarr, Radarr, Lidarr or Readarr.
 func Reconcile(ctx context.Context, client *engine.HTTPClient, spec any, opts Options, pass *engine.Pass) []error {
 	apiVersion := opts.App.APIVersion
@@ -554,7 +563,9 @@ func Reconcile(ctx context.Context, client *engine.HTTPClient, spec any, opts Op
 	problems = append(problems, engine.ReconcileApp(ctx, client, def, sections, nil, pass)...)
 	if len(listProblems) > 0 && len(opts.ImportLists) > 0 {
 		delete(run.Builders, "importLists")
-		problems = append(problems, errors.New("importLists: left out until importListConfig syncs"))
+		problems = append(problems, &heldBackError{
+			msg: "importLists: left out until importListConfig syncs", cause: engine.JoinErrors(listProblems...),
+		})
 	}
 
 	run.Order = stages

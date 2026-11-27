@@ -3,7 +3,6 @@ package transcode
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"maps"
 	"slices"
@@ -493,7 +492,7 @@ func (s *tdarrSync) workers(ctx context.Context, workers []transcodev1alpha1.Tda
 			errs = append(errs, fmt.Errorf("node %s: %w", w.NodeName, err))
 		}
 	}
-	return errors.Join(errs...)
+	return engine.JoinErrors(errs...)
 }
 
 func (s *tdarrSync) nodeWorkers(ctx context.Context, nodes map[string]any, workers transcodev1alpha1.TdarrWorkers) error {

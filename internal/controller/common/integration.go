@@ -111,25 +111,60 @@ func Classify(err error) (string, time.Duration) {
 
 // syncFailure is the status reason for what a pass failed to sync, and how
 // soon to try again, or zero for the resource's interval. Failures that all
-// have one reason of their own, such as a missing Secret, report it; any
-// other mix reads SyncFailed.
+// have one reason of their own, such as a missing Secret, report it and its
+// retry. Any other mix reads SyncFailed and waits for the interval, so a
+// write the app refused isn't sent again sooner because something else is
+// missing. Failures joined into one count apart.
 func syncFailure(errs []error) (string, time.Duration) {
+	leaves := make([]error, 0, len(errs))
+	for _, err := range errs {
+		leaves = append(leaves, failureLeaves(err)...)
+	}
 	var reason string
 	var retry time.Duration
-	for i, err := range errs {
+	for i, err := range leaves {
 		r, after, ok := failureReason(err)
-		if !ok {
-			r, after = engine.ReasonSyncFailed, 0
+		if !ok || (i > 0 && r != reason) {
+			return engine.ReasonSyncFailed, 0
 		}
-		if i > 0 && r != reason {
-			r = engine.ReasonSyncFailed
-		}
-		reason = r
-		if after > 0 && (retry == 0 || after < retry) {
-			retry = after
-		}
+		reason, retry = r, after
 	}
 	return reason, retry
+}
+
+// failureLeaves splits err into the failures joined into it. A failure with a
+// reason of its own stays whole, with whatever it wraps.
+func failureLeaves(err error) []error {
+	for e := err; e != nil; {
+		if hasOwnReason(e) {
+			return []error{e}
+		}
+		switch u := e.(type) {
+		case interface{ Unwrap() []error }:
+			var leaves []error
+			for _, child := range u.Unwrap() {
+				leaves = append(leaves, failureLeaves(child)...)
+			}
+			return leaves
+		case interface{ Unwrap() error }:
+			e = u.Unwrap()
+		default:
+			return []error{err}
+		}
+	}
+	return []error{err}
+}
+
+// hasOwnReason reports whether err itself, not what it wraps, is a failure
+// failureReason names.
+func hasOwnReason(err error) bool {
+	switch e := err.(type) {
+	case *engine.ConfigError, *reconciler.SecretError, *invalidAppRefError:
+		return true
+	case *engine.APIError:
+		return engine.IsUnauthorized(e)
+	}
+	return err == errAppRefNotFound || err == engine.ErrUnauthorized
 }
 
 // failureReason is the status reason for a failure that has one of its own,

@@ -2,7 +2,6 @@ package downloads
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"maps"
 	"net"
@@ -334,7 +333,7 @@ func cleanupSabnzbd(ctx context.Context, sc *sabnzbdclient.Client, owned *engine
 			return sc.DeleteNamed(ctx, section, name)
 		}))
 	}
-	return errors.Join(errs...)
+	return engine.JoinErrors(errs...)
 }
 
 func sabnzbdNames(current map[string]any, section string) []string {

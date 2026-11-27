@@ -2,7 +2,6 @@ package automation
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"slices"
 	"strings"
@@ -113,7 +112,7 @@ func (s *autobrrSync) cleanup(ctx context.Context) error {
 			errs = append(errs, err)
 		}
 	}
-	return errors.Join(append(errs, s.Owned.CleanupKinds(ctx, s.kinds()))...)
+	return engine.JoinErrors(append(errs, s.Owned.CleanupKinds(ctx, s.kinds()))...)
 }
 
 // filterActions lists a filter's actions as <filter>/<action>.

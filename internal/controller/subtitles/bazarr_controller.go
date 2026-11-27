@@ -313,7 +313,7 @@ func resolveBazarrJellyfinLibraries(ctx context.Context, bc *bazarrclient.Client
 		}
 		form[key+"_ids"] = ids
 	}
-	return errors.Join(errs...)
+	return engine.JoinErrors(errs...)
 }
 
 func dropBazarrJellyfinLibraries(form url.Values, kind string) {
@@ -426,7 +426,7 @@ func resolveBazarrDefaultProfiles(ctx context.Context, bc *bazarrclient.Client, 
 		form.Set(key, strconv.Itoa(id))
 		form.Set("settings-general-"+d.enabled, "true")
 	}
-	return errors.Join(errs...)
+	return engine.JoinErrors(errs...)
 }
 
 func (r *BazarrReconciler) bazarrProviderForm(ctx context.Context, namespace string, providers []subtitlesv1alpha1.BazarrProvider) (url.Values, error) {

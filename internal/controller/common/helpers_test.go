@@ -229,6 +229,18 @@ func TestReportResultMessages(t *testing.T) {
 		{"failures with different reasons", false, Result{Errors: []error{
 			fmt.Errorf("settings: %w", missing), errors.New("flow(a): x"),
 		}}, metav1.ConditionFalse, engine.ReasonSyncFailed, ""},
+		{"joined failures with different reasons", false, Result{Errors: []error{
+			fmt.Errorf("general: %w", engine.JoinErrors(fmt.Errorf("series: %w", missing), &engine.APIError{StatusCode: 401})),
+		}}, metav1.ConditionFalse, engine.ReasonSyncFailed, ""},
+		{"joined failures that share a reason", false, Result{Errors: []error{
+			fmt.Errorf("sonarr: %w", engine.JoinErrors(fmt.Errorf("a: %w", missing), fmt.Errorf("b: %w", missing))),
+		}}, metav1.ConditionFalse, engine.ReasonSecretNotFound, ""},
+		{"joined failures read on one line", false, Result{Errors: []error{
+			fmt.Errorf("general: %w", engine.JoinErrors(errors.New("series: 503"), errors.New("movies: 503"))),
+		}}, metav1.ConditionFalse, engine.ReasonSyncFailed, "general: series: 503; movies: 503"},
+		{"a spec problem around joined failures", false, Result{Errors: []error{
+			engine.InvalidConfig(engine.JoinErrors(errors.New("a"), &engine.APIError{StatusCode: 401})),
+		}}, metav1.ConditionFalse, engine.ReasonInvalidConfig, ""},
 		{"observe match", true, Result{}, metav1.ConditionTrue, "Observed", ""},
 		{"observe drift", true, Result{Drift: []string{"flows(a)", "naming", "flows(a)"}}, metav1.ConditionFalse, "DriftDetected",
 			"differs: flows(a), naming; observe policy prevents application writes"},
@@ -252,8 +264,10 @@ func TestReportResultMessages(t *testing.T) {
 }
 
 // A failure that a retry can fix sooner than the resource's interval, such as
-// a Secret not created yet, asks for the next pass in its own time.
-func TestReportResultAsksForTheSoonestRetry(t *testing.T) {
+// a Secret not created yet, asks for the next pass in its own time. Mixed with
+// a write the app refused, it waits for the interval, so the refused write
+// isn't sent again sooner.
+func TestReportResultRetriesSoonerOnlyForASharedReason(t *testing.T) {
 	for _, tc := range []struct {
 		name   string
 		errors []error
@@ -262,8 +276,11 @@ func TestReportResultAsksForTheSoonestRetry(t *testing.T) {
 	}{
 		{"none", nil, 0, 0},
 		{"the app refused", []error{errors.New("flow(a): x")}, 0, 0},
-		{"a missing Secret", []error{errors.New("flow(a): x"), fmt.Errorf("settings: %w", &reconciler.SecretError{})},
-			30 * time.Second, 33 * time.Second},
+		{"a missing Secret", []error{fmt.Errorf("settings: %w", &reconciler.SecretError{})}, 30 * time.Second, 33 * time.Second},
+		{"a missing Secret and a refused write", []error{errors.New("flow(a): x"), fmt.Errorf("settings: %w", &reconciler.SecretError{})}, 0, 0},
+		{"a missing Secret and refused credentials", []error{
+			fmt.Errorf("settings: %w", &reconciler.SecretError{}), fmt.Errorf("flow(a): %w", &engine.APIError{StatusCode: 401}),
+		}, 0, 0},
 		{"a spec problem", []error{fmt.Errorf("importLists(a): %w", engine.InvalidConfig(errors.New("x")))}, 0, 0},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

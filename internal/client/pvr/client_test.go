@@ -3,6 +3,7 @@ package pvr
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -153,6 +154,8 @@ func TestImportListsWaitForTheirSyncSetting(t *testing.T) {
 			require.Len(t, problems, 2)
 			assert.ErrorContains(t, problems[0], "importListConfig: ")
 			assert.EqualError(t, problems[1], "importLists: left out until importListConfig syncs")
+			_, carriesCause := errors.AsType[*engine.APIError](problems[1])
+			assert.True(t, carriesCause, "the notice takes the reason of the failure that held the lists back")
 			app.mu.Lock()
 			defer app.mu.Unlock()
 			assert.NotContains(t, app.writes, "POST importlist", "a list changed under the old sync level")

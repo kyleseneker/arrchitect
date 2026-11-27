@@ -2,7 +2,6 @@ package engine
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"slices"
 )
@@ -104,7 +103,7 @@ func (o *Ownership) CleanupKinds(ctx context.Context, kinds []Kind) error {
 		}
 		errs = append(errs, err)
 	}
-	return errors.Join(errs...)
+	return JoinErrors(errs...)
 }
 
 func removeByID(ctx context.Context, k Kind, items Items) func(string) error {
@@ -136,5 +135,5 @@ func (p *Pass) PruneItems(kind string, declared []string, items Items, remove fu
 		}
 		return remove(id)
 	})
-	return errors.Join(append(ambiguous, err)...)
+	return JoinErrors(append(ambiguous, err)...)
 }
