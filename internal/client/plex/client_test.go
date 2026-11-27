@@ -13,16 +13,16 @@ import (
 	"github.com/stretchr/testify/require"
 
 	mediaserversv1alpha1 "github.com/kyleseneker/arrchitect/api/mediaservers/v1alpha1"
-	"github.com/kyleseneker/arrchitect/internal/engine"
+	"github.com/kyleseneker/arrchitect/internal/httpapi"
 )
 
 func newTestClient(t *testing.T, handler http.HandlerFunc) *Client {
 	t.Helper()
 	srv := httptest.NewServer(handler)
 	t.Cleanup(srv.Close)
-	hc, err := engine.NewHTTPClient(srv.URL, engine.AuthPlexToken,
-		engine.WithPlexToken("test-token"),
-		engine.WithTransport(&http.Transport{}),
+	hc, err := httpapi.NewHTTPClient(srv.URL, httpapi.AuthPlexToken,
+		httpapi.WithPlexToken("test-token"),
+		httpapi.WithTransport(&http.Transport{}),
 	)
 	require.NoError(t, err)
 	return NewClient(hc)

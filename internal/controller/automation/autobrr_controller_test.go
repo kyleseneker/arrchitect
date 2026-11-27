@@ -29,7 +29,7 @@ import (
 	pvrv1alpha1 "github.com/kyleseneker/arrchitect/api/pvr/v1alpha1"
 	autobrrclient "github.com/kyleseneker/arrchitect/internal/client/autobrr"
 	"github.com/kyleseneker/arrchitect/internal/engine"
-	"github.com/kyleseneker/arrchitect/internal/reconciler"
+	"github.com/kyleseneker/arrchitect/internal/secrets"
 	"github.com/kyleseneker/arrchitect/internal/testnet"
 )
 
@@ -308,7 +308,7 @@ func TestUpsertAutobrrComparesRedactedSecretsByWhatWasWritten(t *testing.T) {
 func forgottenOwner(t *testing.T, suffix string) string {
 	t.Helper()
 	owner := "Autobrr/media/" + t.Name() + suffix
-	t.Cleanup(func() { reconciler.ForgetSecrets(owner) })
+	t.Cleanup(func() { secrets.ForgetSecrets(owner) })
 	return owner
 }
 

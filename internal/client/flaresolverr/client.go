@@ -1,3 +1,4 @@
+// Package flaresolverr is a client for the FlareSolverr API.
 package flaresolverr
 
 import (
@@ -6,18 +7,18 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/kyleseneker/arrchitect/internal/engine"
-	"github.com/kyleseneker/arrchitect/internal/reconciler"
+	"github.com/kyleseneker/arrchitect/internal/httpapi"
+	"github.com/kyleseneker/arrchitect/internal/secrets"
 )
 
 // Client is an HTTP client for the FlareSolverr API v1.
 // FlareSolverr uses no authentication by default.
 type Client struct {
-	hc *engine.HTTPClient
+	hc *httpapi.HTTPClient
 }
 
 // NewClient creates a new FlareSolverr API client.
-func NewClient(hc *engine.HTTPClient) *Client {
+func NewClient(hc *httpapi.HTTPClient) *Client {
 	return &Client{hc: hc}
 }
 
@@ -41,7 +42,7 @@ func (c *Client) do(ctx context.Context, body any) (*response, error) {
 	}
 
 	if result.Status != "ok" {
-		return nil, fmt.Errorf("FlareSolverr error: %s", reconciler.Redact(result.Message))
+		return nil, fmt.Errorf("FlareSolverr error: %s", secrets.Redact(result.Message))
 	}
 
 	return &result, nil

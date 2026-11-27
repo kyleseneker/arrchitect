@@ -1,3 +1,4 @@
+// Package plex is a client for the Plex Media Server API.
 package plex
 
 import (
@@ -7,11 +8,11 @@ import (
 	"net/url"
 	"strconv"
 
-	"github.com/kyleseneker/arrchitect/internal/engine"
+	"github.com/kyleseneker/arrchitect/internal/httpapi"
 )
 
 type Client struct {
-	hc *engine.HTTPClient
+	hc *httpapi.HTTPClient
 }
 
 // Choices maps the names Plex uses for a preference to the values Plex
@@ -58,7 +59,7 @@ var Preferences = map[string]map[string]string{
 	},
 }
 
-func NewClient(hc *engine.HTTPClient) *Client {
+func NewClient(hc *httpapi.HTTPClient) *Client {
 	return &Client{hc: hc}
 }
 

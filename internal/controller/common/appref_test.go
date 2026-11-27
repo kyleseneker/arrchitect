@@ -22,8 +22,7 @@ import (
 	mediaserversv1alpha1 "github.com/kyleseneker/arrchitect/api/mediaservers/v1alpha1"
 	pvrv1alpha1 "github.com/kyleseneker/arrchitect/api/pvr/v1alpha1"
 	requestsv1alpha1 "github.com/kyleseneker/arrchitect/api/requests/v1alpha1"
-	"github.com/kyleseneker/arrchitect/internal/engine"
-	"github.com/kyleseneker/arrchitect/internal/reconciler"
+	"github.com/kyleseneker/arrchitect/internal/secrets"
 )
 
 func appRefClient(t *testing.T, objs ...client.Object) client.Client {
@@ -195,7 +194,7 @@ func TestAppRefFailureSaysWhatToFix(t *testing.T) {
 		_, _, err := ResolveAppAddress(context.Background(), c, apps, "media", commonv1alpha1.AppRef{Kind: kind, Name: name})
 		return fmt.Errorf("download client %q appRef: %w", "client", err)
 	}
-	_, secretErr := reconciler.ResolveSecretKeyRef(context.Background(), c, "media", *ref("missing", "key"))
+	_, secretErr := secrets.ResolveSecretKeyRef(context.Background(), c, "media", *ref("missing", "key"))
 	_, notMediaServer := ResolveNotifications(context.Background(), c, nil, "media", []commonv1alpha1.Notification{
 		{Name: "Sonarr", AppRef: commonv1alpha1.AppRef{Kind: "Sonarr", Name: "sonarr"}},
 	})
@@ -206,13 +205,13 @@ func TestAppRefFailureSaysWhatToFix(t *testing.T) {
 		reason string
 		after  time.Duration
 	}{
-		{"missing resource", resolve(nil, "Sonarr", "gone"), engine.ReasonReferenceNotFound, 30 * time.Second},
-		{"unsupported kind", resolve(nil, "Tdarr", "tdarr"), engine.ReasonInvalidConfig, 0},
-		{"app the operator doesn't run", resolve(Apps{"radarr": true}, "Sonarr", "sonarr"), engine.ReasonInvalidConfig, 0},
-		{"no usable URL", resolve(nil, "Sonarr", "nourl"), engine.ReasonInvalidConfig, 0},
-		{"kind the connection doesn't take", notMediaServer, engine.ReasonInvalidConfig, 0},
-		{"missing Secret", fmt.Errorf("download client %q password: %w", "client", secretErr), engine.ReasonSecretNotFound, 30 * time.Second},
-		{"other failure", errors.New("reading Sonarr \"sonarr\": timeout"), engine.ReasonSyncFailed, 30 * time.Second},
+		{"missing resource", resolve(nil, "Sonarr", "gone"), ReasonReferenceNotFound, 30 * time.Second},
+		{"unsupported kind", resolve(nil, "Tdarr", "tdarr"), ReasonInvalidConfig, 0},
+		{"app the operator doesn't run", resolve(Apps{"radarr": true}, "Sonarr", "sonarr"), ReasonInvalidConfig, 0},
+		{"no usable URL", resolve(nil, "Sonarr", "nourl"), ReasonInvalidConfig, 0},
+		{"kind the connection doesn't take", notMediaServer, ReasonInvalidConfig, 0},
+		{"missing Secret", fmt.Errorf("download client %q password: %w", "client", secretErr), ReasonSecretNotFound, 30 * time.Second},
+		{"other failure", errors.New("reading Sonarr \"sonarr\": timeout"), ReasonSyncFailed, 30 * time.Second},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

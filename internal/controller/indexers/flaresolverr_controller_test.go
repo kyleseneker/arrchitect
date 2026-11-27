@@ -25,7 +25,6 @@ import (
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
 	indexersv1alpha1 "github.com/kyleseneker/arrchitect/api/indexers/v1alpha1"
 	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
-	"github.com/kyleseneker/arrchitect/internal/engine"
 	"github.com/kyleseneker/arrchitect/internal/testnet"
 )
 
@@ -228,12 +227,12 @@ func TestFlareSolverrClientSaysWhyItCantConnect(t *testing.T) {
 	_, err := r.connect(context.Background(), withCA)
 	require.Error(t, err)
 	reason, _ := ctrlcommon.Classify(err)
-	assert.Equal(t, engine.ReasonSecretNotFound, reason)
+	assert.Equal(t, ctrlcommon.ReasonSecretNotFound, reason)
 
 	_, err = r.connect(context.Background(), flareConfig("ftp://flaresolverr", false, nil))
 	require.Error(t, err)
 	reason, after := ctrlcommon.Classify(err)
-	assert.Equal(t, engine.ReasonInvalidConfig, reason)
+	assert.Equal(t, ctrlcommon.ReasonInvalidConfig, reason)
 	assert.Zero(t, after, "a spec problem waits for the spec to change")
 
 	fc, err := r.connect(context.Background(), flareConfig("http://flaresolverr:8191", false, nil))

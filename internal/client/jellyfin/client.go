@@ -1,3 +1,4 @@
+// Package jellyfin is a client for the Jellyfin API.
 package jellyfin
 
 import (
@@ -7,17 +8,17 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/kyleseneker/arrchitect/internal/engine"
+	"github.com/kyleseneker/arrchitect/internal/httpapi"
 )
 
 // Client is an HTTP client for the Jellyfin API.
-// It delegates all HTTP and auth handling to engine.HTTPClient.
+// It delegates all HTTP and auth handling to httpapi.HTTPClient.
 type Client struct {
-	hc *engine.HTTPClient
+	hc *httpapi.HTTPClient
 }
 
-// NewClient creates a new Jellyfin API client backed by an engine.HTTPClient.
-func NewClient(hc *engine.HTTPClient) *Client {
+// NewClient creates a new Jellyfin API client backed by an httpapi.HTTPClient.
+func NewClient(hc *httpapi.HTTPClient) *Client {
 	return &Client{hc: hc}
 }
 

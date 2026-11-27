@@ -10,10 +10,10 @@ import (
 	"github.com/stretchr/testify/require"
 
 	pvrv1alpha1 "github.com/kyleseneker/arrchitect/api/pvr/v1alpha1"
-	"github.com/kyleseneker/arrchitect/internal/engine"
+	"github.com/kyleseneker/arrchitect/internal/httpapi"
 )
 
-func metadataProfileClient(t *testing.T, schema, profiles string) *engine.HTTPClient {
+func metadataProfileClient(t *testing.T, schema, profiles string) *httpapi.HTTPClient {
 	t.Helper()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
@@ -26,7 +26,7 @@ func metadataProfileClient(t *testing.T, schema, profiles string) *engine.HTTPCl
 		}
 	}))
 	t.Cleanup(srv.Close)
-	hc, err := engine.NewHTTPClient(srv.URL, engine.AuthNone, engine.WithTransport(&http.Transport{}))
+	hc, err := httpapi.NewHTTPClient(srv.URL, httpapi.AuthNone, httpapi.WithTransport(&http.Transport{}))
 	require.NoError(t, err)
 	return hc
 }

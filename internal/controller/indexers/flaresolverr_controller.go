@@ -1,3 +1,4 @@
+// Package indexers holds the Prowlarr and FlareSolverr controllers.
 package indexers
 
 import (
@@ -16,6 +17,7 @@ import (
 	flaresolverrclient "github.com/kyleseneker/arrchitect/internal/client/flaresolverr"
 	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
 	"github.com/kyleseneker/arrchitect/internal/engine"
+	"github.com/kyleseneker/arrchitect/internal/httpapi"
 )
 
 // FlareSolverrReconciler reconciles a FlareSolverr object.
@@ -44,11 +46,11 @@ func (r *FlareSolverrReconciler) Reconcile(ctx context.Context, req ctrl.Request
 }
 
 func (r *FlareSolverrReconciler) connect(ctx context.Context, config *indexersv1alpha1.FlareSolverr) (*flaresolverrclient.Client, error) {
-	tlsCfg, err := engine.ResolveTLSConfig(ctx, r.Client, config.Namespace, config.Spec.Connection.TLS)
+	tlsCfg, err := ctrlcommon.ResolveTLSConfig(ctx, r.Client, config.Namespace, config.Spec.Connection.TLS)
 	if err != nil {
 		return nil, err
 	}
-	hc, err := engine.NewHTTPClient(config.Spec.Connection.URL, engine.AuthNone, engine.WithTLSConfig(tlsCfg), engine.WithAppLabel("flaresolverr"))
+	hc, err := httpapi.NewHTTPClient(config.Spec.Connection.URL, httpapi.AuthNone, httpapi.WithTLSConfig(tlsCfg), httpapi.WithAppLabel("flaresolverr"))
 	if err != nil {
 		return nil, err
 	}

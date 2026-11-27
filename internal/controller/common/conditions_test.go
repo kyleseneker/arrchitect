@@ -1,4 +1,4 @@
-package reconciler
+package common
 
 import (
 	"strings"

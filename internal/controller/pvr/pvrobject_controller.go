@@ -27,7 +27,8 @@ import (
 	pvrclient "github.com/kyleseneker/arrchitect/internal/client/pvr"
 	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
 	"github.com/kyleseneker/arrchitect/internal/engine"
-	"github.com/kyleseneker/arrchitect/internal/reconciler"
+	"github.com/kyleseneker/arrchitect/internal/httpapi"
+	"github.com/kyleseneker/arrchitect/internal/secrets"
 )
 
 // instanceRefIndex indexes object resources by the instance they name, so a
@@ -70,7 +71,7 @@ func reconcilePVRObject(ctx context.Context, c client.Client, recorder events.Ev
 
 	cleanup := func(ctx context.Context) error {
 		if missing {
-			recorder.Eventf(obj, nil, corev1.EventTypeWarning, engine.ReasonInstanceMissing, "Delete",
+			recorder.Eventf(obj, nil, corev1.EventTypeWarning, ctrlcommon.ReasonInstanceMissing, "Delete",
 				"%s %q is gone, so nothing was removed from it", o.instanceKind, o.instanceName)
 			return nil
 		}
@@ -80,7 +81,7 @@ func reconcilePVRObject(ctx context.Context, c client.Client, recorder events.Ev
 		return ctrl.Result{RequeueAfter: after}, nil
 	}
 	if missing {
-		ctrlcommon.UpdateStatus(ctx, c, recorder, obj, false, engine.ReasonReferenceNotFound,
+		ctrlcommon.UpdateStatus(ctx, c, recorder, obj, false, ctrlcommon.ReasonReferenceNotFound,
 			fmt.Sprintf("%s %q not found", o.instanceKind, o.instanceName))
 		return ctrl.Result{RequeueAfter: ctrlcommon.RetryAfter(obj, 30*time.Second)}, nil
 	}
@@ -90,7 +91,7 @@ func reconcilePVRObject(ctx context.Context, c client.Client, recorder events.Ev
 		return ctrl.Result{}, err
 	}
 	if claimant != "" {
-		ctrlcommon.UpdateStatus(ctx, c, recorder, obj, false, engine.ReasonNameConflict,
+		ctrlcommon.UpdateStatus(ctx, c, recorder, obj, false, ctrlcommon.ReasonNameConflict,
 			fmt.Sprintf("%q already configures %q in %s %q", claimant, o.name, o.instanceKind, o.instanceName))
 		return ctrl.Result{RequeueAfter: ctrlcommon.RetryAfter(obj, 30*time.Second)}, nil
 	}
@@ -175,7 +176,7 @@ func older(a, b client.Object) bool {
 }
 
 // idOf finds the ID the app gave the object with this name.
-func idOf(ctx context.Context, hc *engine.HTTPClient, path, name string) (int32, bool) {
+func idOf(ctx context.Context, hc *httpapi.HTTPClient, path, name string) (int32, bool) {
 	items, err := hc.GetJSONList(ctx, path)
 	if err != nil {
 		return 0, false
@@ -231,7 +232,7 @@ func syncedStatus(obj client.Object) metav1.ConditionStatus {
 	if !ok {
 		return ""
 	}
-	if cond := apimeta.FindStatusCondition(cr.GetConfigStatus().Conditions, engine.ConditionSynced); cond != nil {
+	if cond := apimeta.FindStatusCondition(cr.GetConfigStatus().Conditions, ctrlcommon.ConditionSynced); cond != nil {
 		return cond.Status
 	}
 	return ""
@@ -408,21 +409,21 @@ func resolveDownloadClientSecrets(ctx context.Context, c client.Reader, namespac
 	for _, dc := range downloadClients {
 		var s pvrclient.DownloadClientResolvedSecrets
 		if dc.UsernameSecretRef != (commonv1alpha1.SecretKeyRef{}) {
-			val, err := reconciler.ResolveSecretKeyRef(ctx, c, namespace, dc.UsernameSecretRef)
+			val, err := secrets.ResolveSecretKeyRef(ctx, c, namespace, dc.UsernameSecretRef)
 			if err != nil {
 				return nil, fmt.Errorf("download client %q username: %w", dc.Name, err)
 			}
 			s.Username = val
 		}
 		if dc.PasswordSecretRef != (commonv1alpha1.SecretKeyRef{}) {
-			val, err := reconciler.ResolveSecretKeyRef(ctx, c, namespace, dc.PasswordSecretRef)
+			val, err := secrets.ResolveSecretKeyRef(ctx, c, namespace, dc.PasswordSecretRef)
 			if err != nil {
 				return nil, fmt.Errorf("download client %q password: %w", dc.Name, err)
 			}
 			s.Password = val
 		}
 		if dc.APIKeySecretRef != (commonv1alpha1.SecretKeyRef{}) {
-			val, err := reconciler.ResolveSecretKeyRef(ctx, c, namespace, dc.APIKeySecretRef)
+			val, err := secrets.ResolveSecretKeyRef(ctx, c, namespace, dc.APIKeySecretRef)
 			if err != nil {
 				return nil, fmt.Errorf("download client %q apiKey: %w", dc.Name, err)
 			}

@@ -1,3 +1,4 @@
+// Package requests holds the Seerr controller.
 package requests
 
 import (
@@ -21,7 +22,10 @@ import (
 	seerrclient "github.com/kyleseneker/arrchitect/internal/client/seerr"
 	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
 	"github.com/kyleseneker/arrchitect/internal/engine"
-	"github.com/kyleseneker/arrchitect/internal/reconciler"
+	"github.com/kyleseneker/arrchitect/internal/failure"
+	"github.com/kyleseneker/arrchitect/internal/httpapi"
+	"github.com/kyleseneker/arrchitect/internal/jsondiff"
+	"github.com/kyleseneker/arrchitect/internal/secrets"
 )
 
 // SeerrReconciler reconciles a Seerr object.
@@ -60,11 +64,11 @@ type seerrConn struct {
 }
 
 func (r *SeerrReconciler) connect(ctx context.Context, config *requestsv1alpha1.Seerr) (*seerrConn, error) {
-	tlsCfg, err := engine.ResolveTLSConfig(ctx, r.Client, config.Namespace, config.Spec.Connection.TLS)
+	tlsCfg, err := ctrlcommon.ResolveTLSConfig(ctx, r.Client, config.Namespace, config.Spec.Connection.TLS)
 	if err != nil {
 		return nil, err
 	}
-	hc, err := engine.NewHTTPClient(config.Spec.Connection.URL, engine.AuthSession, engine.WithTLSConfig(tlsCfg), engine.WithAppLabel("seerr"))
+	hc, err := httpapi.NewHTTPClient(config.Spec.Connection.URL, httpapi.AuthSession, httpapi.WithTLSConfig(tlsCfg), httpapi.WithAppLabel("seerr"))
 	if err != nil {
 		return nil, err
 	}
@@ -228,7 +232,7 @@ func (r *SeerrReconciler) setup(
 		}
 	}
 	if len(initErrors) > 0 {
-		return fmt.Errorf("initialization failed: %w", engine.JoinErrors(initErrors...))
+		return fmt.Errorf("initialization failed: %w", failure.Join(initErrors...))
 	}
 
 	if err := sc.Initialize(ctx); err != nil {
@@ -283,7 +287,7 @@ func (r *SeerrReconciler) reconcileServiceConnection(
 		return err
 	}
 	svc = &resolved
-	apiKey, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, namespace, *svc.APIKeySecretRef)
+	apiKey, err := secrets.ResolveSecretKeyRef(ctx, r.Client, namespace, *svc.APIKeySecretRef)
 	if err != nil {
 		return fmt.Errorf("resolving API key: %w", err)
 	}
@@ -304,7 +308,7 @@ func (r *SeerrReconciler) reconcileServiceConnection(
 			if !seerrDiffers(e, payload) {
 				return nil
 			}
-			body, _, err := reconciler.MergeDesiredOverCurrent(e, payload)
+			body, _, err := jsondiff.MergeDesiredOverCurrent(e, payload)
 			if err != nil {
 				return err
 			}
@@ -316,7 +320,7 @@ func (r *SeerrReconciler) reconcileServiceConnection(
 		}
 	}
 
-	body, _, err := reconciler.MergeDesiredOverCurrent(seerrServiceCreateDefaults[kind], payload)
+	body, _, err := jsondiff.MergeDesiredOverCurrent(seerrServiceCreateDefaults[kind], payload)
 	if err != nil {
 		return err
 	}
@@ -656,7 +660,7 @@ func reconcileSeerrMetadataProviders(
 	if !seerrDiffers(current, payload) {
 		return nil
 	}
-	body, _, err := reconciler.MergeDesiredOverCurrent(current, payload)
+	body, _, err := jsondiff.MergeDesiredOverCurrent(current, payload)
 	if err != nil {
 		return err
 	}
@@ -735,7 +739,7 @@ func reconcileSeerrNotificationAgent(
 	if !seerrDiffers(current, payload) {
 		return nil
 	}
-	body, _, err := reconciler.MergeDesiredOverCurrent(current, payload)
+	body, _, err := jsondiff.MergeDesiredOverCurrent(current, payload)
 	if err != nil {
 		return err
 	}
@@ -755,7 +759,7 @@ func seerrDiffers(current, payload map[string]any) bool {
 	if err := json.Unmarshal(raw, &desired); err != nil {
 		return true
 	}
-	return !reconciler.Covers(current, desired)
+	return !jsondiff.Covers(current, desired)
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -824,7 +828,7 @@ func setUpLibraries(ctx context.Context, sc *seerrclient.Client, w *engine.Write
 		return enableLibraries(ctx, sc, server)
 	}
 	if _, err := sc.SyncLibraries(ctx, server); err != nil {
-		return fmt.Errorf("%s library sync: %w", engine.AppName(server), err)
+		return fmt.Errorf("%s library sync: %w", httpapi.AppName(server), err)
 	}
 	return reconcileSeerrLibraries(ctx, sc, w, server, libraries)
 }
@@ -861,7 +865,7 @@ func reconcileSeerrPlex(ctx context.Context, sc *seerrclient.Client, w *engine.W
 func enableLibraries(ctx context.Context, sc *seerrclient.Client, server string) error {
 	libraries, err := sc.SyncLibraries(ctx, server)
 	if err != nil {
-		return fmt.Errorf("%s library sync: %w", engine.AppName(server), err)
+		return fmt.Errorf("%s library sync: %w", httpapi.AppName(server), err)
 	}
 	for _, lib := range libraries {
 		id, ok := lib["id"].(string)
@@ -869,7 +873,7 @@ func enableLibraries(ctx context.Context, sc *seerrclient.Client, server string)
 			continue
 		}
 		if err := sc.EnableLibrary(ctx, server, id, true); err != nil {
-			return fmt.Errorf("enabling %s library %s: %w", engine.AppName(server), id, err)
+			return fmt.Errorf("enabling %s library %s: %w", httpapi.AppName(server), id, err)
 		}
 	}
 	return nil
@@ -877,7 +881,7 @@ func enableLibraries(ctx context.Context, sc *seerrclient.Client, server string)
 
 func (r *SeerrReconciler) establishSession(ctx context.Context, sc *seerrclient.Client, config *requestsv1alpha1.Seerr, media seerrMediaServer) error {
 	if ref := config.Spec.Connection.APIKeySecretRef; ref != nil {
-		apiKey, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, *ref)
+		apiKey, err := secrets.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, *ref)
 		if err != nil {
 			return err
 		}
@@ -903,7 +907,7 @@ func (r *SeerrReconciler) authenticate(ctx context.Context, sc *seerrclient.Clie
 		if plex.TokenSecretRef == nil {
 			return fmt.Errorf("plexAuth has no token Secret")
 		}
-		plexToken, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, namespace, *plex.TokenSecretRef)
+		plexToken, err := secrets.ResolveSecretKeyRef(ctx, r.Client, namespace, *plex.TokenSecretRef)
 		if err != nil {
 			return fmt.Errorf("resolving Plex token: %w", err)
 		}
@@ -913,11 +917,11 @@ func (r *SeerrReconciler) authenticate(ctx context.Context, sc *seerrclient.Clie
 		if jf.UsernameSecretRef == nil || jf.PasswordSecretRef == nil {
 			return fmt.Errorf("jellyfinAuth has no username or password Secret")
 		}
-		jfUsername, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, namespace, *jf.UsernameSecretRef)
+		jfUsername, err := secrets.ResolveSecretKeyRef(ctx, r.Client, namespace, *jf.UsernameSecretRef)
 		if err != nil {
 			return fmt.Errorf("resolving Jellyfin username: %w", err)
 		}
-		jfPassword, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, namespace, *jf.PasswordSecretRef)
+		jfPassword, err := secrets.ResolveSecretKeyRef(ctx, r.Client, namespace, *jf.PasswordSecretRef)
 		if err != nil {
 			return fmt.Errorf("resolving Jellyfin password: %w", err)
 		}

@@ -34,8 +34,10 @@ import (
 	pvrv1alpha1 "github.com/kyleseneker/arrchitect/api/pvr/v1alpha1"
 	subtitlesv1alpha1 "github.com/kyleseneker/arrchitect/api/subtitles/v1alpha1"
 	"github.com/kyleseneker/arrchitect/internal/engine"
+	"github.com/kyleseneker/arrchitect/internal/failure"
+	"github.com/kyleseneker/arrchitect/internal/httpapi"
 	"github.com/kyleseneker/arrchitect/internal/metrics"
-	"github.com/kyleseneker/arrchitect/internal/reconciler"
+	"github.com/kyleseneker/arrchitect/internal/secrets"
 )
 
 func TestReconcileInterval(t *testing.T) {
@@ -44,8 +46,8 @@ func TestReconcileInterval(t *testing.T) {
 		rc   *commonv1alpha1.ReconcileConfig
 		want time.Duration
 	}{
-		{"nil config", nil, engine.DefaultReconcileInterval},
-		{"nil interval", &commonv1alpha1.ReconcileConfig{}, engine.DefaultReconcileInterval},
+		{"nil config", nil, DefaultReconcileInterval},
+		{"nil interval", &commonv1alpha1.ReconcileConfig{}, DefaultReconcileInterval},
 		{"30s", &commonv1alpha1.ReconcileConfig{IntervalSeconds: int32(30)}, 30 * time.Second},
 		{"10m", &commonv1alpha1.ReconcileConfig{IntervalSeconds: int32(600)}, 10 * time.Minute},
 	}
@@ -109,10 +111,10 @@ func TestReportResultReportsObservedDrift(t *testing.T) {
 		status metav1.ConditionStatus
 		reason string
 	}{
-		{"enforce", "enforce", Result{Synced: []string{"naming"}}, metav1.ConditionTrue, engine.ReasonSynced},
+		{"enforce", "enforce", Result{Synced: []string{"naming"}}, metav1.ConditionTrue, ReasonSynced},
 		{"observe drift", DriftPolicyObserve, Result{Drift: []string{"naming"}}, metav1.ConditionFalse, "DriftDetected"},
 		{"observe match", DriftPolicyObserve, Result{Synced: []string{"naming"}}, metav1.ConditionTrue, "Observed"},
-		{"observe error", DriftPolicyObserve, Result{Errors: []error{errors.New("x")}}, metav1.ConditionFalse, engine.ReasonSyncFailed},
+		{"observe error", DriftPolicyObserve, Result{Errors: []error{errors.New("x")}}, metav1.ConditionFalse, ReasonSyncFailed},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			obj := newConfig("", 0)
@@ -147,7 +149,7 @@ func TestUpdateStatusSurvivesASpecEditMidPass(t *testing.T) {
 		"precondition: a plain status write from the stale copy conflicts")
 
 	UpdateStatusManaged(stale, map[string][]string{"downloadClients": {"qbit"}})
-	UpdateStatus(ctx, cl, nil, stale, true, engine.ReasonSynced, "ok")
+	UpdateStatus(ctx, cl, nil, stale, true, ReasonSynced, "ok")
 
 	got := &pvrv1alpha1.Sonarr{}
 	require.NoError(t, cl.Get(ctx, key, got))
@@ -186,7 +188,7 @@ func TestUpdateStatusReadsPastALaggingCache(t *testing.T) {
 	cache := lagging{Client: cl, snapshot: stale.DeepCopy()}
 
 	UpdateStatusManaged(stale, map[string][]string{"downloadClients": {"qbit"}})
-	UpdateStatus(ctx, cache, nil, stale, true, engine.ReasonSynced, "ok")
+	UpdateStatus(ctx, cache, nil, stale, true, ReasonSynced, "ok")
 
 	got := &pvrv1alpha1.Sonarr{}
 	require.NoError(t, cl.Get(ctx, key, got))
@@ -201,7 +203,7 @@ func TestUpdateStatusOutlivesACancelledReconcile(t *testing.T) {
 	cancel()
 
 	UpdateStatusManaged(obj, map[string][]string{"downloadClients": {"qbit"}})
-	UpdateStatus(ctx, cl, nil, obj, true, engine.ReasonSynced, "ok")
+	UpdateStatus(ctx, cl, nil, obj, true, ReasonSynced, "ok")
 
 	got := &pvrv1alpha1.Sonarr{}
 	require.NoError(t, cl.Get(context.Background(), client.ObjectKeyFromObject(obj), got))
@@ -209,7 +211,7 @@ func TestUpdateStatusOutlivesACancelledReconcile(t *testing.T) {
 }
 
 func TestReportResultMessages(t *testing.T) {
-	missing := &reconciler.SecretError{}
+	missing := &secrets.SecretError{}
 	for _, tc := range []struct {
 		name    string
 		observe bool
@@ -218,34 +220,34 @@ func TestReportResultMessages(t *testing.T) {
 		reason  string
 		message string
 	}{
-		{"synced", false, Result{}, metav1.ConditionTrue, engine.ReasonSynced, "all configuration sections synced"},
-		{"synced items", false, Result{Synced: []string{"naming", "indexers(a)"}}, metav1.ConditionTrue, engine.ReasonSynced,
+		{"synced", false, Result{}, metav1.ConditionTrue, ReasonSynced, "all configuration sections synced"},
+		{"synced items", false, Result{Synced: []string{"naming", "indexers(a)"}}, metav1.ConditionTrue, ReasonSynced,
 			"synced: naming, indexers(a)"},
 		{"partial failure", false, Result{Synced: []string{"naming"}, Errors: []error{errors.New("flow(a): x"), errors.New("flow(b): y")}},
-			metav1.ConditionFalse, engine.ReasonSyncFailed, "flow(a): x; flow(b): y"},
+			metav1.ConditionFalse, ReasonSyncFailed, "flow(a): x; flow(b): y"},
 		{"failures that share a reason", false, Result{Errors: []error{
 			fmt.Errorf("settings: %w", missing), fmt.Errorf("library(a): %w", missing),
-		}}, metav1.ConditionFalse, engine.ReasonSecretNotFound, ""},
+		}}, metav1.ConditionFalse, ReasonSecretNotFound, ""},
 		{"failures with different reasons", false, Result{Errors: []error{
 			fmt.Errorf("settings: %w", missing), errors.New("flow(a): x"),
-		}}, metav1.ConditionFalse, engine.ReasonSyncFailed, ""},
+		}}, metav1.ConditionFalse, ReasonSyncFailed, ""},
 		{"joined failures with different reasons", false, Result{Errors: []error{
-			fmt.Errorf("general: %w", engine.JoinErrors(fmt.Errorf("series: %w", missing), &engine.APIError{StatusCode: 401})),
-		}}, metav1.ConditionFalse, engine.ReasonSyncFailed, ""},
+			fmt.Errorf("general: %w", failure.Join(fmt.Errorf("series: %w", missing), &httpapi.APIError{StatusCode: 401})),
+		}}, metav1.ConditionFalse, ReasonSyncFailed, ""},
 		{"joined failures that share a reason", false, Result{Errors: []error{
-			fmt.Errorf("sonarr: %w", engine.JoinErrors(fmt.Errorf("a: %w", missing), fmt.Errorf("b: %w", missing))),
-		}}, metav1.ConditionFalse, engine.ReasonSecretNotFound, ""},
+			fmt.Errorf("sonarr: %w", failure.Join(fmt.Errorf("a: %w", missing), fmt.Errorf("b: %w", missing))),
+		}}, metav1.ConditionFalse, ReasonSecretNotFound, ""},
 		{"joined failures read on one line", false, Result{Errors: []error{
-			fmt.Errorf("general: %w", engine.JoinErrors(errors.New("series: 503"), errors.New("movies: 503"))),
-		}}, metav1.ConditionFalse, engine.ReasonSyncFailed, "general: series: 503; movies: 503"},
+			fmt.Errorf("general: %w", failure.Join(errors.New("series: 503"), errors.New("movies: 503"))),
+		}}, metav1.ConditionFalse, ReasonSyncFailed, "general: series: 503; movies: 503"},
 		{"a spec problem around joined failures", false, Result{Errors: []error{
-			engine.InvalidConfig(engine.JoinErrors(errors.New("a"), &engine.APIError{StatusCode: 401})),
-		}}, metav1.ConditionFalse, engine.ReasonInvalidConfig, ""},
+			failure.InvalidConfig(failure.Join(errors.New("a"), &httpapi.APIError{StatusCode: 401})),
+		}}, metav1.ConditionFalse, ReasonInvalidConfig, ""},
 		{"observe match", true, Result{}, metav1.ConditionTrue, "Observed", ""},
 		{"observe drift", true, Result{Drift: []string{"flows(a)", "naming", "flows(a)"}}, metav1.ConditionFalse, "DriftDetected",
 			"differs: flows(a), naming; observe policy prevents application writes"},
 		{"observe error precedes drift", true, Result{Drift: []string{"flows(a)"}, Errors: []error{errors.New("x")}},
-			metav1.ConditionFalse, engine.ReasonSyncFailed, "observation failed: x"},
+			metav1.ConditionFalse, ReasonSyncFailed, "observation failed: x"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			obj := newConfig("", 0)
@@ -276,13 +278,13 @@ func TestReportResultRetriesSoonerOnlyForASharedReason(t *testing.T) {
 	}{
 		{"none", nil, 0, 0},
 		{"the app refused", []error{errors.New("flow(a): x")}, 0, 0},
-		{"a missing Secret", []error{fmt.Errorf("settings: %w", &reconciler.SecretError{})}, 30 * time.Second, 33 * time.Second},
-		{"a missing Secret and a refused write", []error{errors.New("flow(a): x"), fmt.Errorf("settings: %w", &reconciler.SecretError{})}, 0, 0},
-		{"refused credentials", []error{fmt.Errorf("flow(a): %w", &engine.APIError{StatusCode: 401})}, 0, 0},
+		{"a missing Secret", []error{fmt.Errorf("settings: %w", &secrets.SecretError{})}, 30 * time.Second, 33 * time.Second},
+		{"a missing Secret and a refused write", []error{errors.New("flow(a): x"), fmt.Errorf("settings: %w", &secrets.SecretError{})}, 0, 0},
+		{"refused credentials", []error{fmt.Errorf("flow(a): %w", &httpapi.APIError{StatusCode: 401})}, 0, 0},
 		{"a missing Secret and refused credentials", []error{
-			fmt.Errorf("settings: %w", &reconciler.SecretError{}), fmt.Errorf("flow(a): %w", &engine.APIError{StatusCode: 401}),
+			fmt.Errorf("settings: %w", &secrets.SecretError{}), fmt.Errorf("flow(a): %w", &httpapi.APIError{StatusCode: 401}),
 		}, 0, 0},
-		{"a spec problem", []error{fmt.Errorf("importLists(a): %w", engine.InvalidConfig(errors.New("x")))}, 0, 0},
+		{"a spec problem", []error{fmt.Errorf("importLists(a): %w", failure.InvalidConfig(errors.New("x")))}, 0, 0},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			obj := newConfig("", 0)
@@ -416,7 +418,7 @@ func TestResolveConfigFieldsRejectsBothValueAndValueFrom(t *testing.T) {
 	}}
 	_, err := ResolveConfigFields(context.Background(), c, "arr", "indexer x", fields)
 	require.Error(t, err, "expected an error when both value and valueFrom are set")
-	assert.True(t, engine.IsConfigError(err), "only a spec change fixes it")
+	assert.True(t, failure.IsConfigError(err), "only a spec change fixes it")
 }
 
 func TestResolveConfigFieldsMissingSecret(t *testing.T) {
@@ -474,12 +476,12 @@ func TestIgnoreDeletedDropsTheSyncedSeries(t *testing.T) {
 func TestIgnoreDeletedForgetsTheSecretsTheResourceWrote(t *testing.T) {
 	obj := &pvrv1alpha1.Sonarr{Name: t.Name(), Namespace: "media", UID: "uid-1"}
 	key := types.NamespacedName{Name: t.Name(), Namespace: "media"}
-	reconciler.RecordSecrets(OwnerKey(obj), "settings/host", "digest")
-	require.False(t, reconciler.SecretsDiffer(OwnerKey(obj), "settings/host", "digest", false))
+	secrets.RecordSecrets(OwnerKey(obj), "settings/host", "digest")
+	require.False(t, secrets.SecretsDiffer(OwnerKey(obj), "settings/host", "digest", false))
 
 	require.NoError(t, IgnoreDeleted(&pvrv1alpha1.Sonarr{}, key, apierrors.NewNotFound(schema.GroupResource{Resource: "sonarrs"}, t.Name())))
 
-	assert.True(t, reconciler.SecretsDiffer(OwnerKey(obj), "settings/host", "digest", false), "the deleted resource's record outlived it")
+	assert.True(t, secrets.SecretsDiffer(OwnerKey(obj), "settings/host", "digest", false), "the deleted resource's record outlived it")
 }
 
 // statusSonarr is a Sonarr in a fake API server that serves its status.
@@ -499,19 +501,19 @@ func TestReadySumsUpSyncedAndStalledMarksWhatNoRetryFixes(t *testing.T) {
 		ready   metav1.ConditionStatus
 		stalled bool
 	}{
-		{true, engine.ReasonSynced, metav1.ConditionTrue, false},
-		{false, engine.ReasonSyncFailed, metav1.ConditionFalse, false},
-		{false, engine.ReasonAppUnreachable, metav1.ConditionFalse, false},
-		{false, engine.ReasonInvalidConfig, metav1.ConditionFalse, true},
-		{false, engine.ReasonUnauthorized, metav1.ConditionFalse, true},
-		{true, engine.ReasonObserved, metav1.ConditionTrue, false},
+		{true, ReasonSynced, metav1.ConditionTrue, false},
+		{false, ReasonSyncFailed, metav1.ConditionFalse, false},
+		{false, ReasonAppUnreachable, metav1.ConditionFalse, false},
+		{false, ReasonInvalidConfig, metav1.ConditionFalse, true},
+		{false, ReasonUnauthorized, metav1.ConditionFalse, true},
+		{true, ReasonObserved, metav1.ConditionTrue, false},
 	} {
 		UpdateStatus(context.Background(), c, nil, obj, step.synced, step.reason, "message")
-		ready := meta.FindStatusCondition(obj.Status.Conditions, engine.ConditionReady)
+		ready := meta.FindStatusCondition(obj.Status.Conditions, ConditionReady)
 		require.NotNil(t, ready, step.reason)
 		assert.Equal(t, step.ready, ready.Status, step.reason)
 		assert.Equal(t, step.reason, ready.Reason, "Ready carries Synced's reason")
-		assert.Equal(t, step.stalled, meta.IsStatusConditionTrue(obj.Status.Conditions, engine.ConditionStalled), step.reason)
+		assert.Equal(t, step.stalled, meta.IsStatusConditionTrue(obj.Status.Conditions, ConditionStalled), step.reason)
 	}
 }
 
@@ -522,12 +524,12 @@ func TestReadyChangesAreRecordedAsEvents(t *testing.T) {
 		UpdateStatus(context.Background(), c, recorder, obj, synced, reason, "message")
 	}
 
-	update(true, engine.ReasonSynced)
-	update(false, engine.ReasonAppUnreachable)
-	update(false, engine.ReasonAppUnreachable)
-	update(false, engine.ReasonSyncFailed)
-	update(true, engine.ReasonSynced)
-	update(true, engine.ReasonSynced)
+	update(true, ReasonSynced)
+	update(false, ReasonAppUnreachable)
+	update(false, ReasonAppUnreachable)
+	update(false, ReasonSyncFailed)
+	update(true, ReasonSynced)
+	update(true, ReasonSynced)
 
 	close(recorder.Events)
 	var got []string
@@ -591,11 +593,11 @@ func TestEventNotesKeepTheAppsWordsOut(t *testing.T) {
 	obj, c := statusSonarr(t)
 	recorder := events.NewFakeRecorder(1)
 
-	UpdateStatus(context.Background(), c, recorder, obj, false, engine.ReasonSyncFailed, "indexers(Private): the tracker said key abc123 is banned")
+	UpdateStatus(context.Background(), c, recorder, obj, false, ReasonSyncFailed, "indexers(Private): the tracker said key abc123 is banned")
 
 	assert.Equal(t, "Warning SyncFailed The app refused some settings. The Ready condition says which.", <-recorder.Events,
 		"an event can reach readers who can't read the resource")
-	ready := meta.FindStatusCondition(obj.Status.Conditions, engine.ConditionReady)
+	ready := meta.FindStatusCondition(obj.Status.Conditions, ConditionReady)
 	require.NotNil(t, ready)
 	assert.Contains(t, ready.Message, "the tracker said", "the details stay in the condition")
 }
@@ -605,7 +607,7 @@ func TestManagedResourcesGaugeSurvivesARestartWhileTheAppIsDown(t *testing.T) {
 	obj.Name = "restarted"
 	obj.Status.SetManagedResources(map[string][]string{"tags": {"a", "b"}})
 
-	UpdateStatus(context.Background(), c, nil, obj, false, engine.ReasonAppUnreachable, "connection refused")
+	UpdateStatus(context.Background(), c, nil, obj, false, ReasonAppUnreachable, "connection refused")
 
 	assert.Equal(t, 2.0, testutil.ToFloat64(metrics.ManagedResources.WithLabelValues("Sonarr", "media", "restarted", "tags")),
 		"the series comes from the ownership status records, not only from a successful sync")
@@ -618,7 +620,7 @@ func TestNoEventWithoutTheStatusItDescribes(t *testing.T) {
 	c := fake.NewClientBuilder().WithScheme(s).WithStatusSubresource(obj).Build()
 	recorder := events.NewFakeRecorder(1)
 
-	UpdateStatus(context.Background(), c, recorder, obj, false, engine.ReasonAppUnreachable, "connection refused")
+	UpdateStatus(context.Background(), c, recorder, obj, false, ReasonAppUnreachable, "connection refused")
 
 	assert.Empty(t, recorder.Events, "the status write failed, so the event would describe a state nobody can read")
 }

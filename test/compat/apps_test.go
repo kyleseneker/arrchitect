@@ -21,7 +21,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/kyleseneker/arrchitect/internal/engine"
+	"github.com/kyleseneker/arrchitect/internal/httpapi"
 )
 
 func randomKey() string {
@@ -41,9 +41,9 @@ func withEnv(base map[string]string, extra map[string]string) map[string]string 
 }
 
 // directClient talks to an application without the operator, for verification.
-func directClient(t *testing.T, base, apiKey string) *engine.HTTPClient {
+func directClient(t *testing.T, base, apiKey string) *httpapi.HTTPClient {
 	t.Helper()
-	hc, err := engine.NewHTTPClient(base, engine.AuthAPIKey, engine.WithAPIKey(apiKey), engine.WithAppLabel("compat"))
+	hc, err := httpapi.NewHTTPClient(base, httpapi.AuthAPIKey, httpapi.WithAPIKey(apiKey), httpapi.WithAppLabel("compat"))
 	require.NoError(t, err)
 	return hc
 }

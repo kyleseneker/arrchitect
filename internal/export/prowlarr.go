@@ -3,7 +3,7 @@ package export
 import (
 	"reflect"
 
-	"github.com/kyleseneker/arrchitect/internal/reconciler"
+	"github.com/kyleseneker/arrchitect/internal/secrets"
 )
 
 type prowlarrExport struct {
@@ -48,7 +48,7 @@ func (e *prowlarrExport) application(item map[string]any, defaults map[string]ma
 		}
 	}
 	key, _ := values["apiKey"].(string)
-	if reconciler.IsMasked(key) {
+	if secrets.IsMasked(key) {
 		key = ""
 	}
 	a["apiKeySecretRef"] = e.creds.ref(key, "application", name, "api-key")
@@ -57,7 +57,7 @@ func (e *prowlarrExport) application(item map[string]any, defaults map[string]ma
 		if text == "" {
 			continue
 		}
-		if reconciler.IsMasked(text) {
+		if secrets.IsMasked(text) {
 			text = ""
 		}
 		a[field+"SecretRef"] = e.creds.ref(text, "application", name, key)
@@ -103,7 +103,7 @@ func (e *prowlarrExport) proxy(item map[string]any, _ map[string]map[string]any)
 			if text == "" {
 				continue
 			}
-			if reconciler.IsMasked(text) {
+			if secrets.IsMasked(text) {
 				text = ""
 			}
 			p[field+"SecretRef"] = e.creds.ref(text, "proxy", name, field)

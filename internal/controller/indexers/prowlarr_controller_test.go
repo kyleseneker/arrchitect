@@ -27,7 +27,6 @@ import (
 	indexersv1alpha1 "github.com/kyleseneker/arrchitect/api/indexers/v1alpha1"
 	pvrv1alpha1 "github.com/kyleseneker/arrchitect/api/pvr/v1alpha1"
 	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
-	"github.com/kyleseneker/arrchitect/internal/engine"
 	"github.com/kyleseneker/arrchitect/internal/testnet"
 )
 
@@ -484,8 +483,8 @@ func TestProwlarrClientSaysWhyItCantConnect(t *testing.T) {
 		secret    bool
 		reason    string
 	}{
-		{"missing API key Secret", "http://prowlarr:9696", false, engine.ReasonSecretNotFound},
-		{"unusable URL", "ftp://prowlarr", true, engine.ReasonInvalidConfig},
+		{"missing API key Secret", "http://prowlarr:9696", false, ctrlcommon.ReasonSecretNotFound},
+		{"unusable URL", "ftp://prowlarr", true, ctrlcommon.ReasonInvalidConfig},
 		{"connects", "http://prowlarr:9696", true, ""},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

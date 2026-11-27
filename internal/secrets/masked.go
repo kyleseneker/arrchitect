@@ -1,4 +1,4 @@
-package reconciler
+package secrets
 
 import (
 	"crypto/sha256"
@@ -89,9 +89,9 @@ func ForgetSecrets(prefix string) {
 	}
 }
 
-// digestOf hashes the desired values that landed on masked fields. Values are
+// Digest hashes the desired values that landed on masked fields. Values are
 // sorted so the digest does not depend on map iteration order.
-func digestOf(values []string) string {
+func Digest(values []string) string {
 	if len(values) == 0 {
 		return ""
 	}

@@ -20,6 +20,8 @@ import (
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
 	pvrv1alpha1 "github.com/kyleseneker/arrchitect/api/pvr/v1alpha1"
 	"github.com/kyleseneker/arrchitect/internal/engine"
+	"github.com/kyleseneker/arrchitect/internal/failure"
+	"github.com/kyleseneker/arrchitect/internal/httpapi"
 )
 
 func fieldValue(raw string) *commonv1alpha1.FieldValue {
@@ -154,7 +156,7 @@ func TestImportListsWaitForTheirSyncSetting(t *testing.T) {
 			require.Len(t, problems, 2)
 			assert.ErrorContains(t, problems[0], "importListConfig: ")
 			assert.EqualError(t, problems[1], "importLists: left out until importListConfig syncs")
-			_, carriesCause := errors.AsType[*engine.APIError](problems[1])
+			_, carriesCause := errors.AsType[*httpapi.APIError](problems[1])
 			assert.True(t, carriesCause, "the notice takes the reason of the failure that held the lists back")
 			app.mu.Lock()
 			defer app.mu.Unlock()
@@ -185,9 +187,9 @@ func TestOnlyRadarrTurnsAnImportListOff(t *testing.T) {
 				return
 			}
 			require.Len(t, result.Errors, 1)
-			assert.Contains(t, result.Errors[0], engine.AppName(app.Name)+" import lists are always active")
+			assert.Contains(t, result.Errors[0], httpapi.AppName(app.Name)+" import lists are always active")
 			assert.NotContains(t, api.writes, "POST importlist", "a list declared off must not be created active")
-			assert.True(t, engine.IsConfigError(buildErr), "only a spec change fixes it: %v", buildErr)
+			assert.True(t, failure.IsConfigError(buildErr), "only a spec change fixes it: %v", buildErr)
 		})
 	}
 }
@@ -313,7 +315,7 @@ type rebuildAPI struct {
 	fail   string
 }
 
-func (a *rebuildAPI) client(t *testing.T) *engine.HTTPClient {
+func (a *rebuildAPI) client(t *testing.T) *httpapi.HTTPClient {
 	t.Helper()
 	if a.items == nil {
 		a.items = map[string][]map[string]any{}
@@ -370,7 +372,7 @@ func (a *rebuildAPI) client(t *testing.T) *engine.HTTPClient {
 		_ = json.NewEncoder(w).Encode(body)
 	}))
 	t.Cleanup(srv.Close)
-	hc, err := engine.NewHTTPClient(srv.URL, engine.AuthNone, engine.WithTransport(&http.Transport{}))
+	hc, err := httpapi.NewHTTPClient(srv.URL, httpapi.AuthNone, httpapi.WithTransport(&http.Transport{}))
 	require.NoError(t, err)
 	return hc
 }
@@ -800,7 +802,7 @@ func TestLidarrRootFoldersKeepTheirNameAndTakeDefaults(t *testing.T) {
 		}
 	}))
 	t.Cleanup(srv.Close)
-	hc, err := engine.NewHTTPClient(srv.URL, engine.AuthNone, engine.WithTransport(&http.Transport{}))
+	hc, err := httpapi.NewHTTPClient(srv.URL, httpapi.AuthNone, httpapi.WithTransport(&http.Transport{}))
 	require.NoError(t, err)
 	folder := func(dir string) commonv1alpha1.RootFolder {
 		return commonv1alpha1.RootFolder{
@@ -825,7 +827,7 @@ func TestLidarrRootFoldersKeepTheirNameAndTakeDefaults(t *testing.T) {
 
 // reconcileOnce is Reconcile in a pass of its own, its outcome gathered for
 // assertions. Options that name no app reconcile as Sonarr.
-func reconcileOnce(ctx context.Context, hc *engine.HTTPClient, opts Options, policy engine.SyncPolicy, managed map[string][]string) outcome {
+func reconcileOnce(ctx context.Context, hc *httpapi.HTTPClient, opts Options, policy engine.SyncPolicy, managed map[string][]string) outcome {
 	if opts.App.Name == "" {
 		opts.App = Sonarr
 	}

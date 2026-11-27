@@ -63,7 +63,7 @@ linters:
     rules:
       - linters:
           - kubeapilinter
-        path-except: api/*
+        path-except: ^api/
       # kube-api-linter reads markers only in the package it lints, so it can't
       # see that the shared connection and reference types require their fields.
       - linters:

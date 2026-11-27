@@ -20,7 +20,7 @@ import (
 	seerrclient "github.com/kyleseneker/arrchitect/internal/client/seerr"
 	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
 	"github.com/kyleseneker/arrchitect/internal/controller/requests"
-	"github.com/kyleseneker/arrchitect/internal/engine"
+	"github.com/kyleseneker/arrchitect/internal/httpapi"
 )
 
 // TestSeerr runs Seerr's first-time setup through Jellyfin, as a rebuild does:
@@ -29,7 +29,7 @@ func TestSeerr(t *testing.T) {
 	t.Parallel()
 	jf := startJellyfin(t)
 	jellyfinPassword := randomKey()
-	hc, err := engine.NewHTTPClient(jf.url(), engine.AuthMediaBrowser, engine.WithAppLabel("compat"))
+	hc, err := httpapi.NewHTTPClient(jf.url(), httpapi.AuthMediaBrowser, httpapi.WithAppLabel("compat"))
 	require.NoError(t, err)
 	jc := jellyfinclient.NewClient(hc)
 	ctx := context.Background()
@@ -68,7 +68,7 @@ func TestSeerr(t *testing.T) {
 	fakes := startFakes(t)
 	proxy := newRecordingProxy(t, seerr.url())
 	seerrAPIKey := func(t *testing.T) string {
-		hc, err := engine.NewHTTPClient(seerr.url(), engine.AuthSession, engine.WithAppLabel("compat"))
+		hc, err := httpapi.NewHTTPClient(seerr.url(), httpapi.AuthSession, httpapi.WithAppLabel("compat"))
 		require.NoError(t, err)
 		sc := seerrclient.NewClient(hc)
 		require.NoError(t, sc.AuthenticateJellyfin(ctx, jellyfinAdmin, jellyfinPassword, hostIP, jf.port, "", false, true))
@@ -179,7 +179,7 @@ func TestSeerr(t *testing.T) {
 }
 
 // seerrJobSchedules maps each job Seerr runs to its schedule.
-func seerrJobSchedules(t *testing.T, hc *engine.HTTPClient) map[any]any {
+func seerrJobSchedules(t *testing.T, hc *httpapi.HTTPClient) map[any]any {
 	t.Helper()
 	jobs, err := hc.GetJSONList(context.Background(), "/api/v1/settings/jobs")
 	require.NoError(t, err)

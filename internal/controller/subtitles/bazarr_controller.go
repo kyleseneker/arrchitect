@@ -1,3 +1,4 @@
+// Package subtitles holds the Bazarr controller.
 package subtitles
 
 import (
@@ -24,7 +25,10 @@ import (
 	bazarrclient "github.com/kyleseneker/arrchitect/internal/client/bazarr"
 	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
 	"github.com/kyleseneker/arrchitect/internal/engine"
-	"github.com/kyleseneker/arrchitect/internal/reconciler"
+	"github.com/kyleseneker/arrchitect/internal/failure"
+	"github.com/kyleseneker/arrchitect/internal/httpapi"
+	"github.com/kyleseneker/arrchitect/internal/jsondiff"
+	"github.com/kyleseneker/arrchitect/internal/secrets"
 )
 
 // BazarrReconciler reconciles a Bazarr object.
@@ -55,16 +59,16 @@ func (r *BazarrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 }
 
 func (r *BazarrReconciler) connect(ctx context.Context, config *subtitlesv1alpha1.Bazarr) (*bazarrclient.Client, error) {
-	apiKey, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, config.Spec.Connection.APIKeySecretRef)
+	apiKey, err := secrets.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, config.Spec.Connection.APIKeySecretRef)
 	if err != nil {
 		return nil, err
 	}
-	tlsCfg, err := engine.ResolveTLSConfig(ctx, r.Client, config.Namespace, config.Spec.Connection.TLS)
+	tlsCfg, err := ctrlcommon.ResolveTLSConfig(ctx, r.Client, config.Namespace, config.Spec.Connection.TLS)
 	if err != nil {
 		return nil, err
 	}
-	hc, err := engine.NewHTTPClient(config.Spec.Connection.URL, engine.AuthAPIKey,
-		append(bazarrclient.HTTPOptions(), engine.WithAPIKey(apiKey), engine.WithTLSConfig(tlsCfg))...)
+	hc, err := httpapi.NewHTTPClient(config.Spec.Connection.URL, httpapi.AuthAPIKey,
+		append(bazarrclient.HTTPOptions(), httpapi.WithAPIKey(apiKey), httpapi.WithTLSConfig(tlsCfg))...)
 	if err != nil {
 		return nil, err
 	}
@@ -157,7 +161,7 @@ func (r *BazarrReconciler) bazarrDesired(ctx context.Context, config *subtitlesv
 			problems = append(problems, fmt.Errorf("%sConnection: %w", c.section, err))
 			continue
 		}
-		key, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, *conn.APIKeySecretRef)
+		key, err := secrets.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, *conn.APIKeySecretRef)
 		if err != nil {
 			problems = append(problems, fmt.Errorf("%sConnection: resolving apiKeySecretRef: %w", c.section, err))
 			continue
@@ -250,7 +254,7 @@ func (r *BazarrReconciler) bazarrJellyfinForm(
 	if jf.APIKeySecretRef == nil {
 		return nil, fmt.Errorf("no API key Secret")
 	}
-	key, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, namespace, *jf.APIKeySecretRef)
+	key, err := secrets.ResolveSecretKeyRef(ctx, r.Client, namespace, *jf.APIKeySecretRef)
 	if err != nil {
 		return nil, fmt.Errorf("resolving apiKeySecretRef: %w", err)
 	}
@@ -313,7 +317,7 @@ func resolveBazarrJellyfinLibraries(ctx context.Context, bc *bazarrclient.Client
 		}
 		form[key+"_ids"] = ids
 	}
-	return engine.JoinErrors(errs...)
+	return failure.Join(errs...)
 }
 
 func dropBazarrJellyfinLibraries(form url.Values, kind string) {
@@ -426,7 +430,7 @@ func resolveBazarrDefaultProfiles(ctx context.Context, bc *bazarrclient.Client, 
 		form.Set(key, strconv.Itoa(id))
 		form.Set("settings-general-"+d.enabled, "true")
 	}
-	return engine.JoinErrors(errs...)
+	return failure.Join(errs...)
 }
 
 func (r *BazarrReconciler) bazarrProviderForm(ctx context.Context, namespace string, providers []subtitlesv1alpha1.BazarrProvider) (url.Values, error) {
@@ -481,7 +485,7 @@ func (r *BazarrReconciler) bazarrNotificationChanges(
 			want["enabled"] = *n.Enabled
 		}
 		if n.URLSecretRef != nil {
-			u, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, namespace, *n.URLSecretRef)
+			u, err := secrets.ResolveSecretKeyRef(ctx, r.Client, namespace, *n.URLSecretRef)
 			if err != nil {
 				return nil, fmt.Errorf("%s url: %w", n.Name, err)
 			}
@@ -612,7 +616,7 @@ func sameBazarrProfiles(current []map[string]any, desiredJSON string) bool {
 	}
 	byID(have)
 	byID(want)
-	return reconciler.Covers(any(have), any(want))
+	return jsondiff.Covers(any(have), any(want))
 }
 
 // SetupWithManager sets up the controller with the Manager.

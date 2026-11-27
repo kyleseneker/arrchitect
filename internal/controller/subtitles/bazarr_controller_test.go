@@ -28,7 +28,7 @@ import (
 	pvrv1alpha1 "github.com/kyleseneker/arrchitect/api/pvr/v1alpha1"
 	subtitlesv1alpha1 "github.com/kyleseneker/arrchitect/api/subtitles/v1alpha1"
 	bazarrclient "github.com/kyleseneker/arrchitect/internal/client/bazarr"
-	"github.com/kyleseneker/arrchitect/internal/engine"
+	"github.com/kyleseneker/arrchitect/internal/httpapi"
 	"github.com/kyleseneker/arrchitect/internal/testnet"
 )
 
@@ -330,7 +330,7 @@ func TestBazarrDefaultProfilesResolveByName(t *testing.T) {
 
 func newTestBazarrClient(t *testing.T, addr string) *bazarrclient.Client {
 	t.Helper()
-	hc, err := engine.NewHTTPClient(addr, engine.AuthAPIKey, engine.WithAPIKey("key"), engine.WithAPIKeyHeader("X-API-KEY"))
+	hc, err := httpapi.NewHTTPClient(addr, httpapi.AuthAPIKey, httpapi.WithAPIKey("key"), httpapi.WithAPIKeyHeader("X-API-KEY"))
 	require.NoError(t, err)
 	return bazarrclient.NewClient(hc)
 }

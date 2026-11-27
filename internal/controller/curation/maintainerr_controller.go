@@ -1,3 +1,4 @@
+// Package curation holds the Maintainerr controller.
 package curation
 
 import (
@@ -18,7 +19,10 @@ import (
 	maintainerrclient "github.com/kyleseneker/arrchitect/internal/client/maintainerr"
 	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
 	"github.com/kyleseneker/arrchitect/internal/engine"
-	"github.com/kyleseneker/arrchitect/internal/reconciler"
+	"github.com/kyleseneker/arrchitect/internal/failure"
+	"github.com/kyleseneker/arrchitect/internal/httpapi"
+	"github.com/kyleseneker/arrchitect/internal/jsondiff"
+	"github.com/kyleseneker/arrchitect/internal/secrets"
 )
 
 const (
@@ -60,13 +64,13 @@ func (r *MaintainerrReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 }
 
 func (r *MaintainerrReconciler) connect(ctx context.Context, config *curationv1alpha1.Maintainerr) (*maintainerrclient.Client, error) {
-	tlsCfg, err := engine.ResolveTLSConfig(ctx, r.Client, config.Namespace, config.Spec.Connection.TLS)
+	tlsCfg, err := ctrlcommon.ResolveTLSConfig(ctx, r.Client, config.Namespace, config.Spec.Connection.TLS)
 	if err != nil {
 		return nil, err
 	}
 	// Maintainerr has no API authentication.
-	hc, err := engine.NewHTTPClient(config.Spec.Connection.URL, engine.AuthNone,
-		engine.WithTLSConfig(tlsCfg), engine.WithAppLabel(maintainerrApp))
+	hc, err := httpapi.NewHTTPClient(config.Spec.Connection.URL, httpapi.AuthNone,
+		httpapi.WithTLSConfig(tlsCfg), httpapi.WithAppLabel(maintainerrApp))
 	if err != nil {
 		return nil, err
 	}
@@ -182,7 +186,7 @@ func (s *maintainerrSync) mediaServer(ctx context.Context, ms *curationv1alpha1.
 	current, _ := settings["media_server_type"].(string)
 	if current != "" && current != want {
 		return fmt.Errorf("Maintainerr uses %s; switching it to %s deletes every collection, "+
-			"so the operator leaves that to Maintainerr's settings page", engine.AppName(current), engine.AppName(want))
+			"so the operator leaves that to Maintainerr's settings page", httpapi.AppName(current), httpapi.AppName(want))
 	}
 	if ms.Jellyfin != (curationv1alpha1.MaintainerrJellyfin{}) {
 		return s.jellyfin(ctx, &ms.Jellyfin)
@@ -214,7 +218,7 @@ func (s *maintainerrSync) jellyfin(ctx context.Context, jf *curationv1alpha1.Mai
 	if jf.APIKeySecretRef == nil {
 		return fmt.Errorf("no Jellyfin API key Secret")
 	}
-	key, err := reconciler.ResolveSecretKeyRef(ctx, s.c, s.namespace, *jf.APIKeySecretRef)
+	key, err := secrets.ResolveSecretKeyRef(ctx, s.c, s.namespace, *jf.APIKeySecretRef)
 	if err != nil {
 		return fmt.Errorf("resolving Jellyfin API key: %w", err)
 	}
@@ -238,7 +242,7 @@ func (s *maintainerrSync) plex(ctx context.Context, plex *curationv1alpha1.Maint
 	if plex.TokenSecretRef == nil {
 		return fmt.Errorf("no Plex token Secret")
 	}
-	token, err := reconciler.ResolveSecretKeyRef(ctx, s.c, s.namespace, *plex.TokenSecretRef)
+	token, err := secrets.ResolveSecretKeyRef(ctx, s.c, s.namespace, *plex.TokenSecretRef)
 	if err != nil {
 		return fmt.Errorf("resolving Plex token: %w", err)
 	}
@@ -257,7 +261,7 @@ func (s *maintainerrSync) plex(ctx context.Context, plex *curationv1alpha1.Maint
 		}
 	}
 	desired := plexFields(plex)
-	if reconciler.Covers(settings, mustJSON(desired)) {
+	if jsondiff.Covers(settings, mustJSON(desired)) {
 		return nil
 	}
 	return s.Apply("mediaServer", mediaPlex, func() error { return s.mc.UpdateSettings(ctx, desired) })
@@ -319,7 +323,7 @@ func (s *maintainerrSync) arrServers(
 	}
 	ids := engine.NamedIDsOf(stored, "serverName")
 	if len(errs) > 0 {
-		return ids, engine.JoinErrors(errs...)
+		return ids, failure.Join(errs...)
 	}
 	return ids, nil
 }
@@ -337,7 +341,7 @@ func (s *maintainerrSync) arrServer(
 	if server.APIKeySecretRef == nil {
 		return false, fmt.Errorf("no API key Secret")
 	}
-	key, err := reconciler.ResolveSecretKeyRef(ctx, s.c, s.namespace, *server.APIKeySecretRef)
+	key, err := secrets.ResolveSecretKeyRef(ctx, s.c, s.namespace, *server.APIKeySecretRef)
 	if err != nil {
 		return false, fmt.Errorf("resolving API key: %w", err)
 	}
@@ -359,7 +363,7 @@ func (s *maintainerrSync) arrServer(
 			continue
 		}
 		if match != nil {
-			return false, fmt.Errorf("Maintainerr has more than one %s server named %q", engine.AppName(string(kind)), server.Name)
+			return false, fmt.Errorf("Maintainerr has more than one %s server named %q", httpapi.AppName(string(kind)), server.Name)
 		}
 		match = e
 	}
@@ -367,7 +371,7 @@ func (s *maintainerrSync) arrServer(
 		add := s.created(string(kind), server.Name, func() error { return s.mc.AddArr(ctx, kind, desired) })
 		return !s.Observe, s.Apply(string(kind), server.Name, add)
 	}
-	if reconciler.Covers(match, mustJSON(desired)) {
+	if jsondiff.Covers(match, mustJSON(desired)) {
 		return false, nil
 	}
 	id, ok := match["id"].(float64)
@@ -380,7 +384,7 @@ func (s *maintainerrSync) arrServer(
 func (s *maintainerrSync) service(
 	ctx context.Context, svc maintainerrclient.Service, conn *curationv1alpha1.MaintainerrServiceConnection,
 ) error {
-	key, err := reconciler.ResolveSecretKeyRef(ctx, s.c, s.namespace, conn.APIKeySecretRef)
+	key, err := secrets.ResolveSecretKeyRef(ctx, s.c, s.namespace, conn.APIKeySecretRef)
 	if err != nil {
 		return fmt.Errorf("resolving API key: %w", err)
 	}
@@ -389,7 +393,7 @@ func (s *maintainerrSync) service(
 		return fmt.Errorf("reading connection: %w", err)
 	}
 	desired := map[string]any{"url": serviceURL(conn.URL), "api_key": key}
-	if reconciler.Covers(stored, mustJSON(desired)) {
+	if jsondiff.Covers(stored, mustJSON(desired)) {
 		return nil
 	}
 	return s.Apply(string(svc), string(svc), func() error { return s.mc.SaveService(ctx, svc, desired) })
@@ -438,7 +442,7 @@ func maintainerrAppRefs(o client.Object) []commonv1alpha1.AppRef {
 
 func (s *maintainerrSync) jobs(ctx context.Context, jobs *curationv1alpha1.MaintainerrJobs, settings map[string]any) error {
 	desired := buildMaintainerrJobs(jobs)
-	if len(desired) == 0 || reconciler.Covers(settings, mustJSON(desired)) {
+	if len(desired) == 0 || jsondiff.Covers(settings, mustJSON(desired)) {
 		return nil
 	}
 	return s.Apply("jobs", "jobs", func() error { return s.mc.UpdateSettings(ctx, desired) })

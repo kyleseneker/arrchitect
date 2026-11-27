@@ -20,7 +20,7 @@ import (
 	tdarrclient "github.com/kyleseneker/arrchitect/internal/client/tdarr"
 	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
 	"github.com/kyleseneker/arrchitect/internal/controller/transcode"
-	"github.com/kyleseneker/arrchitect/internal/engine"
+	"github.com/kyleseneker/arrchitect/internal/httpapi"
 )
 
 func TestTdarr(t *testing.T) {
@@ -33,7 +33,7 @@ func TestTdarr(t *testing.T) {
 		}),
 	})
 	tdarr.exec(t, "mkdir -p /media/movies /temp")
-	hc, err := engine.NewHTTPClient(tdarr.url(), engine.AuthNone, engine.WithAppLabel("compat"))
+	hc, err := httpapi.NewHTTPClient(tdarr.url(), httpapi.AuthNone, httpapi.WithAppLabel("compat"))
 	require.NoError(t, err)
 	tc := tdarrclient.NewClient(hc)
 	// Worker limits belong to a node, so wait for the internal node to register.

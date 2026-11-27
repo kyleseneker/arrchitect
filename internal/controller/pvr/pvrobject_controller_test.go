@@ -25,7 +25,6 @@ import (
 	downloadsv1alpha1 "github.com/kyleseneker/arrchitect/api/downloads/v1alpha1"
 	pvrv1alpha1 "github.com/kyleseneker/arrchitect/api/pvr/v1alpha1"
 	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
-	"github.com/kyleseneker/arrchitect/internal/engine"
 )
 
 func objectClient(t *testing.T, objs ...client.Object) client.Client {
@@ -98,7 +97,7 @@ func reconcileDownloadClient(t *testing.T, objs ...client.Object) *pvrv1alpha1.S
 
 func synced(t *testing.T, conditions []metav1.Condition) metav1.Condition {
 	t.Helper()
-	cond := apimeta.FindStatusCondition(conditions, engine.ConditionSynced)
+	cond := apimeta.FindStatusCondition(conditions, ctrlcommon.ConditionSynced)
 	require.NotNil(t, cond)
 	return *cond
 }
@@ -129,7 +128,7 @@ func TestObjectWaitsForItsInstance(t *testing.T) {
 	got := reconcileDownloadClient(t, apiKeySecret(), sonarrDownloadClient())
 	cond := synced(t, got.Status.Conditions)
 	assert.Equal(t, metav1.ConditionFalse, cond.Status)
-	assert.Equal(t, engine.ReasonReferenceNotFound, cond.Reason)
+	assert.Equal(t, ctrlcommon.ReasonReferenceNotFound, cond.Reason)
 	assert.Equal(t, `Sonarr "tv" not found`, cond.Message)
 }
 
@@ -140,7 +139,7 @@ func TestObjectWithAMissingSecretWritesNothing(t *testing.T) {
 	got := reconcileDownloadClient(t, apiKeySecret(), sonarrInstanceAt(url, nil), dc)
 
 	assert.False(t, fa.sawPrefix("POST", "/api/"))
-	assert.Equal(t, engine.ReasonSecretNotFound, synced(t, got.Status.Conditions).Reason)
+	assert.Equal(t, ctrlcommon.ReasonSecretNotFound, synced(t, got.Status.Conditions).Reason)
 }
 
 func TestObjectFollowsItsInstancesObservePolicy(t *testing.T) {
@@ -319,7 +318,7 @@ func TestObjectLeavesAnItemAnOlderObjectConfigures(t *testing.T) {
 
 	assert.False(t, fa.sawPrefix("POST", "/api/"))
 	cond := synced(t, got.Status.Conditions)
-	assert.Equal(t, engine.ReasonNameConflict, cond.Reason)
+	assert.Equal(t, ctrlcommon.ReasonNameConflict, cond.Reason)
 	assert.Equal(t, `"tv-qbit" already configures "qBittorrent" in Sonarr "tv"`, cond.Message)
 }
 
@@ -328,7 +327,7 @@ func TestInstanceChangedPassesSpecChangesAndSyncing(t *testing.T) {
 		s := sonarrInstanceAt("", nil)
 		s.Generation = generation
 		if synced != "" {
-			s.Status.Conditions = []metav1.Condition{{Type: engine.ConditionSynced, Status: synced}}
+			s.Status.Conditions = []metav1.Condition{{Type: ctrlcommon.ConditionSynced, Status: synced}}
 		}
 		return s
 	}
@@ -514,7 +513,7 @@ func TestObjectDownloadClientWithAMissingAppRefWritesNothing(t *testing.T) {
 
 	assert.False(t, fa.sawPrefix("POST", "/api/"))
 	cond := synced(t, got.Status.Conditions)
-	assert.Equal(t, engine.ReasonReferenceNotFound, cond.Reason)
+	assert.Equal(t, ctrlcommon.ReasonReferenceNotFound, cond.Reason)
 	assert.Equal(t, `download client "qBittorrent" appRef: QBittorrent "qbittorrent" not found`, cond.Message)
 }
 
@@ -535,7 +534,7 @@ func TestObjectDownloadClientNamingAnAppTheOperatorDoesntRunWaitsForASpecChange(
 	var got pvrv1alpha1.SonarrDownloadClient
 	require.NoError(t, c.Get(context.Background(), key, &got))
 	cond := synced(t, got.Status.Conditions)
-	assert.Equal(t, engine.ReasonInvalidConfig, cond.Reason)
+	assert.Equal(t, ctrlcommon.ReasonInvalidConfig, cond.Reason)
 	assert.Equal(t, `download client "qBittorrent" appRef: QBittorrent "qbittorrent": the operator doesn't run the qbittorrent controller`, cond.Message)
 }
 

@@ -12,6 +12,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/kyleseneker/arrchitect/internal/httpapi"
 )
 
 // stagesApp is an app that keeps what's posted to it, by path. A GET of a path
@@ -24,7 +26,7 @@ type stagesApp struct {
 	nextID   int
 }
 
-func (a *stagesApp) client(t *testing.T) *HTTPClient {
+func (a *stagesApp) client(t *testing.T) *httpapi.HTTPClient {
 	a.items, a.lists = map[string][]map[string]any{}, map[string]int{}
 	return newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
 		a.mu.Lock()

@@ -24,7 +24,7 @@ import (
 	pvrclient "github.com/kyleseneker/arrchitect/internal/client/pvr"
 	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
 	"github.com/kyleseneker/arrchitect/internal/controller/pvr"
-	"github.com/kyleseneker/arrchitect/internal/engine"
+	"github.com/kyleseneker/arrchitect/internal/httpapi"
 )
 
 func TestSonarr(t *testing.T) {
@@ -488,7 +488,7 @@ func requireNamed(t *testing.T, hc interface {
 
 // seedDelayProfile adds a tag and a delay profile holding it, as if made in the
 // app, so the first reconcile has a profile to adopt and move into place.
-func seedDelayProfile(t *testing.T, hc *engine.HTTPClient, prefix, tag string, profile map[string]any) {
+func seedDelayProfile(t *testing.T, hc *httpapi.HTTPClient, prefix, tag string, profile map[string]any) {
 	t.Helper()
 	ctx := context.Background()
 	body, err := hc.Do(ctx, http.MethodPost, prefix+"/tag", map[string]any{"label": tag})
@@ -502,7 +502,7 @@ func seedDelayProfile(t *testing.T, hc *engine.HTTPClient, prefix, tag string, p
 
 // lidarrDelayProfile returns a delay profile in the shape the running Lidarr
 // takes: Lidarr 3.1 lists protocols as items, earlier versions have flags.
-func lidarrDelayProfile(t *testing.T, hc *engine.HTTPClient) map[string]any {
+func lidarrDelayProfile(t *testing.T, hc *httpapi.HTTPClient) map[string]any {
 	t.Helper()
 	profiles, err := hc.GetJSONList(context.Background(), "/api/v1/delayprofile")
 	require.NoError(t, err)
@@ -519,7 +519,7 @@ func lidarrDelayProfile(t *testing.T, hc *engine.HTTPClient) map[string]any {
 	}
 }
 
-func qualityDefinition(t *testing.T, hc *engine.HTTPClient, prefix, quality string) map[string]any {
+func qualityDefinition(t *testing.T, hc *httpapi.HTTPClient, prefix, quality string) map[string]any {
 	t.Helper()
 	definitions, err := hc.GetJSONList(context.Background(), prefix+"/qualitydefinition")
 	require.NoError(t, err)
@@ -534,7 +534,7 @@ func qualityDefinition(t *testing.T, hc *engine.HTTPClient, prefix, quality stri
 
 // delayProfiles keys the app's delay profiles by their sorted tag labels, or
 // "default", and lists the tagged ones in the order the app checks them.
-func delayProfiles(t *testing.T, hc *engine.HTTPClient, prefix string) (map[string]map[string]any, []string) {
+func delayProfiles(t *testing.T, hc *httpapi.HTTPClient, prefix string) (map[string]map[string]any, []string) {
 	t.Helper()
 	ctx := context.Background()
 	tags, err := hc.GetJSONList(ctx, prefix+"/tag")

@@ -1,3 +1,4 @@
+// Package downloads holds the qBittorrent and SABnzbd controllers.
 package downloads
 
 import (
@@ -22,7 +23,8 @@ import (
 	qbclient "github.com/kyleseneker/arrchitect/internal/client/qbittorrent"
 	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
 	"github.com/kyleseneker/arrchitect/internal/engine"
-	"github.com/kyleseneker/arrchitect/internal/reconciler"
+	"github.com/kyleseneker/arrchitect/internal/httpapi"
+	"github.com/kyleseneker/arrchitect/internal/secrets"
 )
 
 // QBittorrentReconciler reconciles a QBittorrent object.
@@ -52,7 +54,7 @@ func (r *QBittorrentReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 func (r *QBittorrentReconciler) sync(ctx context.Context, qb *qbclient.Client, config *downloadsv1alpha1.QBittorrent, pass *engine.Pass) []error {
 	secret := func(ref commonv1alpha1.SecretKeyRef) (string, error) {
-		return reconciler.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, ref)
+		return secrets.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, ref)
 	}
 	var problems []error
 	if config.Spec.Preferences != nil {
@@ -259,20 +261,20 @@ func reconcileQBPreferences(
 }
 
 func (r *QBittorrentReconciler) connect(ctx context.Context, config *downloadsv1alpha1.QBittorrent) (*qbclient.Client, error) {
-	username, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, config.Spec.Connection.UsernameSecretRef)
+	username, err := secrets.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, config.Spec.Connection.UsernameSecretRef)
 	if err != nil {
 		return nil, err
 	}
-	password, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, config.Spec.Connection.PasswordSecretRef)
+	password, err := secrets.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, config.Spec.Connection.PasswordSecretRef)
 	if err != nil {
 		return nil, err
 	}
-	tlsCfg, err := engine.ResolveTLSConfig(ctx, r.Client, config.Namespace, config.Spec.Connection.TLS)
+	tlsCfg, err := ctrlcommon.ResolveTLSConfig(ctx, r.Client, config.Namespace, config.Spec.Connection.TLS)
 	if err != nil {
 		return nil, err
 	}
-	hc, err := engine.NewHTTPClient(config.Spec.Connection.URL, engine.AuthCookie,
-		append(qbclient.HTTPOptions(), engine.WithTLSConfig(tlsCfg))...)
+	hc, err := httpapi.NewHTTPClient(config.Spec.Connection.URL, httpapi.AuthCookie,
+		append(qbclient.HTTPOptions(), httpapi.WithTLSConfig(tlsCfg))...)
 	if err != nil {
 		return nil, err
 	}

@@ -11,6 +11,7 @@ import (
 
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
 	"github.com/kyleseneker/arrchitect/internal/engine"
+	"github.com/kyleseneker/arrchitect/internal/httpapi"
 )
 
 // buildQualityProfilePayload builds the API payload for a quality profile.
@@ -121,7 +122,7 @@ func findCutoffID(items []commonv1alpha1.QualityProfileItem, cutoffName string) 
 }
 
 func qualityProfileResources(
-	ctx context.Context, client *engine.HTTPClient, apiVersion string, profiles []commonv1alpha1.QualityProfile, plannedFormats []string,
+	ctx context.Context, client *httpapi.HTTPClient, apiVersion string, profiles []commonv1alpha1.QualityProfile, plannedFormats []string,
 ) ([]map[string]any, error) {
 	formats, err := engine.FetchNamedIDs(ctx, client, fmt.Sprintf("/api/%s/customformat", apiVersion), "name")
 	if err != nil {
@@ -181,7 +182,7 @@ func qualityProfileResources(
 // profileLanguages maps the app's language names to their IDs, read only when
 // a profile names a language.
 func profileLanguages(
-	ctx context.Context, client *engine.HTTPClient, apiVersion string, profiles []commonv1alpha1.QualityProfile,
+	ctx context.Context, client *httpapi.HTTPClient, apiVersion string, profiles []commonv1alpha1.QualityProfile,
 ) (map[string]any, error) {
 	if !slices.ContainsFunc(profiles, func(qp commonv1alpha1.QualityProfile) bool { return qp.Language != "" }) {
 		return nil, nil
@@ -206,7 +207,7 @@ func qualityName(item map[string]any) string {
 }
 
 func qualityDefinitionResources(
-	ctx context.Context, client *engine.HTTPClient, apiVersion string, declared []commonv1alpha1.QualityDefinition,
+	ctx context.Context, client *httpapi.HTTPClient, apiVersion string, declared []commonv1alpha1.QualityDefinition,
 ) ([]map[string]any, error) {
 	current, err := client.GetJSONList(ctx, fmt.Sprintf("/api/%s/qualitydefinition", apiVersion))
 	if err != nil {

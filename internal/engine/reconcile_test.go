@@ -15,8 +15,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/kyleseneker/arrchitect/internal/httpapi"
 	"github.com/kyleseneker/arrchitect/internal/metrics"
-	"github.com/kyleseneker/arrchitect/internal/reconciler"
+	"github.com/kyleseneker/arrchitect/internal/secrets"
 )
 
 func TestIsNilInterface(t *testing.T) {
@@ -158,7 +159,7 @@ func TestMaskedSecretCacheIncludesOwner(t *testing.T) {
 	hc := maskingServer(t, "recreated", &writes)
 	ep := ResourceEndpoint{Name: "downloadClients", Path: "/api/v3/downloadclient", MatchField: "name", Policy: CreateOrUpdate}
 	prefix := "Sonarr/ns/" + t.Name() + "/"
-	t.Cleanup(func() { reconciler.ForgetSecrets(prefix) })
+	t.Cleanup(func() { secrets.ForgetSecrets(prefix) })
 	for _, owner := range []string{prefix + "uid-1", prefix + "uid-1", prefix + "uid-2"} {
 		pass := NewPass(hc.AppLabel(), owner, SyncPolicy{}, nil)
 		require.NoError(t, reconcileWith(context.Background(), hc, pass, ep, desiredWithPassword("recreated", "password")))
@@ -237,7 +238,7 @@ func TestRefusalLeavesRetryableFailuresOut(t *testing.T) {
 		http.StatusBadRequest: true, http.StatusConflict: true, http.StatusUnauthorized: false,
 		http.StatusNotFound: false, http.StatusTooManyRequests: false, http.StatusInternalServerError: false,
 	} {
-		_, got := Refusal(&APIError{StatusCode: status})
+		_, got := Refusal(&httpapi.APIError{StatusCode: status})
 		assert.Equal(t, refused, got, "status %d", status)
 	}
 	_, got := Refusal(errors.New("connection refused"))
@@ -673,7 +674,7 @@ func TestPruneIsNoOpOnFirstReconcile(t *testing.T) {
 	assert.Empty(t, pruned)
 }
 
-func driftServer(t *testing.T, existing map[string]any, writes *[]string) *HTTPClient {
+func driftServer(t *testing.T, existing map[string]any, writes *[]string) *httpapi.HTTPClient {
 	t.Helper()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -688,9 +689,9 @@ func driftServer(t *testing.T, existing map[string]any, writes *[]string) *HTTPC
 	}))
 	t.Cleanup(srv.Close)
 
-	hc, err := NewHTTPClient(srv.URL, AuthAPIKey, WithAPIKey("k"),
-		WithAPIKeyHeader("X-Api-Key"), WithAppLabel("sonarr"),
-		WithTransport(&http.Transport{}))
+	hc, err := httpapi.NewHTTPClient(srv.URL, httpapi.AuthAPIKey, httpapi.WithAPIKey("k"),
+		httpapi.WithAPIKeyHeader("X-Api-Key"), httpapi.WithAppLabel("sonarr"),
+		httpapi.WithTransport(&http.Transport{}))
 	require.NoError(t, err, "building client")
 	return hc
 }
@@ -748,7 +749,7 @@ func TestEnforceWritesTheCorrection(t *testing.T) {
 
 // maskingServer mimics the apps: it stores whatever is written but always
 // reports the secret field back as "********".
-func maskingServer(t *testing.T, name string, writes *[]string) *HTTPClient {
+func maskingServer(t *testing.T, name string, writes *[]string) *httpapi.HTTPClient {
 	t.Helper()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -768,9 +769,9 @@ func maskingServer(t *testing.T, name string, writes *[]string) *HTTPClient {
 	}))
 	t.Cleanup(srv.Close)
 
-	hc, err := NewHTTPClient(srv.URL, AuthAPIKey, WithAPIKey("k"),
-		WithAPIKeyHeader("X-Api-Key"), WithAppLabel("sonarr"),
-		WithTransport(&http.Transport{}))
+	hc, err := httpapi.NewHTTPClient(srv.URL, httpapi.AuthAPIKey, httpapi.WithAPIKey("k"),
+		httpapi.WithAPIKeyHeader("X-Api-Key"), httpapi.WithAppLabel("sonarr"),
+		httpapi.WithTransport(&http.Transport{}))
 	require.NoError(t, err, "building client")
 	return hc
 }
@@ -866,9 +867,9 @@ func TestProwlarrApplicationSettles(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
-	hc, err := NewHTTPClient(srv.URL, AuthAPIKey, WithAPIKey("k"),
-		WithAPIKeyHeader("X-Api-Key"), WithAppLabel("prowlarr"),
-		WithTransport(&http.Transport{}))
+	hc, err := httpapi.NewHTTPClient(srv.URL, httpapi.AuthAPIKey, httpapi.WithAPIKey("k"),
+		httpapi.WithAPIKeyHeader("X-Api-Key"), httpapi.WithAppLabel("prowlarr"),
+		httpapi.WithTransport(&http.Transport{}))
 	require.NoError(t, err, "building client")
 
 	ep := ResourceEndpoint{Name: "applications", Path: "/api/v1/applications", MatchField: "name", Policy: CreateOrUpdate}
@@ -917,7 +918,7 @@ func TestCreatedSecretIsNotRewrittenOnTheNextPass(t *testing.T) {
 		_ = json.NewEncoder(w).Encode(body)
 	}))
 	t.Cleanup(srv.Close)
-	hc, err := NewHTTPClient(srv.URL, AuthAPIKey, WithAPIKey("k"), WithAppLabel("sonarr"), WithTransport(&http.Transport{}))
+	hc, err := httpapi.NewHTTPClient(srv.URL, httpapi.AuthAPIKey, httpapi.WithAPIKey("k"), httpapi.WithAppLabel("sonarr"), httpapi.WithTransport(&http.Transport{}))
 	require.NoError(t, err)
 	ep := ResourceEndpoint{Name: "downloadClients", Path: "/api/v3/downloadclient", MatchField: "name", Policy: CreateOrUpdate}
 
@@ -932,7 +933,7 @@ var namingSetting = SettingEndpoint{Name: "naming", Path: "/api/v3/config/naming
 // run is ReconcileApp with a pass built from policy and managed, its outcome
 // gathered for assertions.
 func run(
-	ctx context.Context, hc *HTTPClient, def AppDefinition, sections map[string]any, resources map[string][]map[string]any,
+	ctx context.Context, hc *httpapi.HTTPClient, def AppDefinition, sections map[string]any, resources map[string][]map[string]any,
 	policy SyncPolicy, managed map[string][]string,
 ) outcome {
 	pass := NewPass(hc.AppLabel(), "", policy, managed)
@@ -944,7 +945,7 @@ func run(
 
 // reconcileWith reconciles one declared item through pass, listing the
 // endpoint first as ReconcileApp does.
-func reconcileWith(ctx context.Context, hc *HTTPClient, pass *Pass, endpoint ResourceEndpoint, desired map[string]any) error {
+func reconcileWith(ctx context.Context, hc *httpapi.HTTPClient, pass *Pass, endpoint ResourceEndpoint, desired map[string]any) error {
 	existing, err := hc.GetJSONList(ctx, endpoint.Path)
 	if err != nil {
 		return err
@@ -953,14 +954,14 @@ func reconcileWith(ctx context.Context, hc *HTTPClient, pass *Pass, endpoint Res
 }
 
 // reconcileResource reconciles one declared item in a pass of its own.
-func reconcileResource(ctx context.Context, hc *HTTPClient, endpoint ResourceEndpoint, desired map[string]any, observe bool) error {
+func reconcileResource(ctx context.Context, hc *httpapi.HTTPClient, endpoint ResourceEndpoint, desired map[string]any, observe bool) error {
 	return reconcileWith(ctx, hc, NewPass(hc.AppLabel(), "", SyncPolicy{Observe: observe}, nil), endpoint, desired)
 }
 
 // pruneResources prunes endpoint against desired, with managed as what the
 // operator created, and returns what it deleted.
 func pruneResources(
-	ctx context.Context, hc *HTTPClient, endpoint ResourceEndpoint, desired []map[string]any, managed []string,
+	ctx context.Context, hc *httpapi.HTTPClient, endpoint ResourceEndpoint, desired []map[string]any, managed []string,
 ) ([]PrunedResource, error) {
 	pass := NewPass(hc.AppLabel(), "", SyncPolicy{Prune: true}, map[string][]string{endpoint.Name: managed})
 	existing, err := hc.GetJSONList(ctx, endpoint.Path)
@@ -1136,4 +1137,22 @@ func TestACreateChecksTheItemIsStillMissing(t *testing.T) {
 	require.Empty(t, result.Errors)
 	assert.Zero(t, creates, "a second item with the same name must not be created")
 	assert.Empty(t, result.Managed["tags"], "an item someone else created isn't the operator's")
+}
+
+// testAppLabel is the app label newTestServer gives its client. Tests that
+// assert on the per-app metrics read their series under it.
+const testAppLabel = "test-app"
+
+// newTestServer serves handler as an app and returns a client for it.
+func newTestServer(t *testing.T, handler http.HandlerFunc) *httpapi.HTTPClient {
+	t.Helper()
+	srv := httptest.NewServer(handler)
+	t.Cleanup(srv.Close)
+	hc, err := httpapi.NewHTTPClient(srv.URL, httpapi.AuthAPIKey,
+		httpapi.WithAPIKey("test-key"),
+		httpapi.WithTransport(&http.Transport{}),
+		httpapi.WithAppLabel(testAppLabel),
+	)
+	require.NoError(t, err)
+	return hc
 }

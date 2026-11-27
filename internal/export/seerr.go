@@ -12,7 +12,7 @@ import (
 
 	requestsv1alpha1 "github.com/kyleseneker/arrchitect/api/requests/v1alpha1"
 	seerrclient "github.com/kyleseneker/arrchitect/internal/client/seerr"
-	"github.com/kyleseneker/arrchitect/internal/engine"
+	"github.com/kyleseneker/arrchitect/internal/httpapi"
 )
 
 var seerrNotificationAgents = []string{
@@ -98,7 +98,7 @@ func exportSeerr(r *reader) (map[string]any, error) {
 	var notifications []any
 	for _, agent := range seerrNotificationAgents {
 		settings, err := sc.NotificationSettings(r.ctx, agent)
-		var apiErr *engine.APIError
+		var apiErr *httpapi.APIError
 		if errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusNotFound {
 			continue
 		}
