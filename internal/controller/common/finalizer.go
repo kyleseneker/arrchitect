@@ -15,7 +15,8 @@ import (
 
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
 	"github.com/kyleseneker/arrchitect/internal/engine"
-	"github.com/kyleseneker/arrchitect/internal/reconciler"
+	"github.com/kyleseneker/arrchitect/internal/httpapi"
+	"github.com/kyleseneker/arrchitect/internal/secrets"
 )
 
 // Finalizer holds a resource with deletionPolicy delete until the operator has
@@ -81,12 +82,12 @@ func handleDeletion(ctx context.Context, c client.Client, recorder events.EventR
 			if expired(obj) {
 				logger.Error(err, "giving up removing remote resources; releasing finalizer")
 				if recorder != nil {
-					recorder.Eventf(obj, nil, corev1.EventTypeWarning, engine.ReasonFinalizerReleased, "ReleaseFinalizer",
+					recorder.Eventf(obj, nil, corev1.EventTypeWarning, ReasonFinalizerReleased, "ReleaseFinalizer",
 						"Released the finalizer after %s without removing remote resources: %v", DeletionGiveUpAfter, err)
 				}
 			} else {
 				if recorder != nil {
-					recorder.Eventf(obj, nil, corev1.EventTypeWarning, engine.ReasonCleanupFailed, "Cleanup",
+					recorder.Eventf(obj, nil, corev1.EventTypeWarning, ReasonCleanupFailed, "Cleanup",
 						"Removing remote resources failed; retrying until the finalizer is released at %s: %v",
 						obj.GetDeletionTimestamp().Add(DeletionGiveUpAfter).Format(time.RFC3339), err)
 				}
@@ -142,7 +143,7 @@ func HandleLifecycle(ctx context.Context, c client.Client, recorder events.Event
 		if lc.Observe && remove != nil {
 			remove = func(context.Context) error {
 				if recorder != nil {
-					recorder.Eventf(obj, nil, corev1.EventTypeNormal, engine.ReasonResourceKept, "Delete",
+					recorder.Eventf(obj, nil, corev1.EventTypeNormal, ReasonResourceKept, "Delete",
 						"Removed nothing from the app, because the app's resource is in observe mode")
 				}
 				return nil
@@ -166,11 +167,11 @@ func HandleLifecycle(ctx context.Context, c client.Client, recorder events.Event
 		if ObserveOnly(rc) {
 			message = "deletionPolicy delete conflicts with driftPolicy observe; use orphan"
 		}
-		UpdateStatus(ctx, c, recorder, obj, false, engine.ReasonInvalidConfig, message)
+		UpdateStatus(ctx, c, recorder, obj, false, ReasonInvalidConfig, message)
 		return true, ReconcileInterval(rc)
 	}
 	if PruneEnabled(rc) && !lc.Prune {
-		UpdateStatus(ctx, c, recorder, obj, false, engine.ReasonInvalidConfig,
+		UpdateStatus(ctx, c, recorder, obj, false, ReasonInvalidConfig,
 			"prune is not supported by this integration; remove spec.reconcile.prune")
 		return true, ReconcileInterval(rc)
 	}
@@ -186,15 +187,15 @@ func CleanupApp(ctx context.Context, c client.Reader, recorder events.EventRecor
 	if !def.Deletable(owned) {
 		return nil
 	}
-	apiKey, err := reconciler.ResolveSecretKeyRef(ctx, c, obj.GetNamespace(), connection.APIKeySecretRef)
+	apiKey, err := secrets.ResolveSecretKeyRef(ctx, c, obj.GetNamespace(), connection.APIKeySecretRef)
 	if err != nil {
 		return err
 	}
-	tlsConfig, err := engine.ResolveTLSConfig(ctx, c, obj.GetNamespace(), connection.TLS)
+	tlsConfig, err := ResolveTLSConfig(ctx, c, obj.GetNamespace(), connection.TLS)
 	if err != nil {
 		return err
 	}
-	hc, err := engine.NewHTTPClient(connection.URL, engine.AuthAPIKey, engine.WithAPIKey(apiKey), engine.WithTLSConfig(tlsConfig), engine.WithAppLabel(app))
+	hc, err := httpapi.NewHTTPClient(connection.URL, httpapi.AuthAPIKey, httpapi.WithAPIKey(apiKey), httpapi.WithTLSConfig(tlsConfig), httpapi.WithAppLabel(app))
 	if err != nil {
 		return err
 	}
@@ -210,7 +211,7 @@ func emitKeptEvents(recorder events.EventRecorder, obj ConfigResource, kept []en
 		return
 	}
 	for _, k := range kept {
-		recorder.Eventf(obj, nil, corev1.EventTypeWarning, engine.ReasonResourceKept, "Cleanup",
+		recorder.Eventf(obj, nil, corev1.EventTypeWarning, ReasonResourceKept, "Cleanup",
 			"Kept %s %q, which the operator created: %s", k.Type, k.Name, k.Reason)
 	}
 }

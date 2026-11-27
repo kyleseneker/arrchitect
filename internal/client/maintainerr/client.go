@@ -1,3 +1,4 @@
+// Package maintainerr is a client for the Maintainerr API.
 package maintainerr
 
 import (
@@ -7,17 +8,17 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/kyleseneker/arrchitect/internal/engine"
-	"github.com/kyleseneker/arrchitect/internal/reconciler"
+	"github.com/kyleseneker/arrchitect/internal/httpapi"
+	"github.com/kyleseneker/arrchitect/internal/secrets"
 )
 
-// Client wraps engine.HTTPClient with the Maintainerr 3 API.
+// Client wraps httpapi.HTTPClient with the Maintainerr 3 API.
 //
 // Maintainerr's settings endpoints answer 2xx even when they refuse a write and
 // carry the outcome in the body as {status, code, message}; code 0 is a failure.
 // Every settings write here checks it.
 type Client struct {
-	hc *engine.HTTPClient
+	hc *httpapi.HTTPClient
 }
 
 // ArrActions are the names of the actions Maintainerr takes in Sonarr and
@@ -45,7 +46,7 @@ var NotificationTypes = map[string]int{
 }
 
 // NewClient creates a new Maintainerr API client.
-func NewClient(hc *engine.HTTPClient) *Client {
+func NewClient(hc *httpapi.HTTPClient) *Client {
 	return &Client{hc: hc}
 }
 
@@ -178,7 +179,7 @@ func (c *Client) DeleteRuleGroup(ctx context.Context, id int) error {
 // The reason names the rule at fault ("First value is not available") and a
 // rule group carries no secrets, unlike the bodies APIError leaves out.
 func ruleGroupRejection(data []byte, err error) ([]byte, error) {
-	var apiErr *engine.APIError
+	var apiErr *httpapi.APIError
 	if !errors.As(err, &apiErr) || apiErr.StatusCode >= http.StatusInternalServerError {
 		return data, err
 	}
@@ -188,7 +189,7 @@ func ruleGroupRejection(data []byte, err error) ([]byte, error) {
 	if json.Unmarshal(apiErr.Body, &body) != nil || body.Message == nil {
 		return data, err
 	}
-	return data, fmt.Errorf("Maintainerr rejected the rule group (%d): %s", apiErr.StatusCode, reconciler.Redact(fmt.Sprint(body.Message)))
+	return data, fmt.Errorf("Maintainerr rejected the rule group (%d): %s", apiErr.StatusCode, secrets.Redact(fmt.Sprint(body.Message)))
 }
 
 // ListNotifications returns the notification configurations.
@@ -227,5 +228,5 @@ func (c *Client) checked(data []byte, err error) error {
 	if result.Message == "" {
 		result.Message = "no reason given"
 	}
-	return fmt.Errorf("Maintainerr refused the change: %s", reconciler.Redact(result.Message))
+	return fmt.Errorf("Maintainerr refused the change: %s", secrets.Redact(result.Message))
 }

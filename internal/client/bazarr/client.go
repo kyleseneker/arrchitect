@@ -1,3 +1,4 @@
+// Package bazarr is a client for the Bazarr API.
 package bazarr
 
 import (
@@ -10,21 +11,21 @@ import (
 	"strings"
 
 	subtitlesv1alpha1 "github.com/kyleseneker/arrchitect/api/subtitles/v1alpha1"
-	"github.com/kyleseneker/arrchitect/internal/engine"
+	"github.com/kyleseneker/arrchitect/internal/httpapi"
 )
 
 // HTTPOptions are what every client for Bazarr takes.
-func HTTPOptions() []engine.HTTPClientOption {
-	return []engine.HTTPClientOption{engine.WithAPIKeyHeader("X-API-KEY"), engine.WithAppLabel("bazarr")}
+func HTTPOptions() []httpapi.HTTPClientOption {
+	return []httpapi.HTTPClientOption{httpapi.WithAPIKeyHeader("X-API-KEY"), httpapi.WithAppLabel("bazarr")}
 }
 
-// Client wraps engine.HTTPClient for Bazarr's form-encoded API.
+// Client wraps httpapi.HTTPClient for Bazarr's form-encoded API.
 type Client struct {
-	hc *engine.HTTPClient
+	hc *httpapi.HTTPClient
 }
 
 // NewClient creates a new Bazarr API client.
-func NewClient(hc *engine.HTTPClient) *Client {
+func NewClient(hc *httpapi.HTTPClient) *Client {
 	return &Client{hc: hc}
 }
 

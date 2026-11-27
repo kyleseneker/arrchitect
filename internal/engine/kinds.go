@@ -4,6 +4,9 @@ import (
 	"context"
 	"fmt"
 	"slices"
+
+	"github.com/kyleseneker/arrchitect/internal/failure"
+	"github.com/kyleseneker/arrchitect/internal/httpapi"
 )
 
 // Kind is one kind of item an app lists and deletes by id, for prune and
@@ -61,7 +64,7 @@ func listItems(app, kind string, items []map[string]any, key func(map[string]any
 // told apart, so neither is deleted.
 func (i Items) ID(name string) (int, error) {
 	if n := len(i.ids[name]); n != 1 {
-		return 0, &ambiguousError{msg: fmt.Sprintf("%s has %d %s named %q", AppName(i.app), n, i.kind, name)}
+		return 0, &ambiguousError{msg: fmt.Sprintf("%s has %d %s named %q", httpapi.AppName(i.app), n, i.kind, name)}
 	}
 	return i.ids[name][0], nil
 }
@@ -103,7 +106,7 @@ func (o *Ownership) CleanupKinds(ctx context.Context, kinds []Kind) error {
 		}
 		errs = append(errs, err)
 	}
-	return JoinErrors(errs...)
+	return failure.Join(errs...)
 }
 
 func removeByID(ctx context.Context, k Kind, items Items) func(string) error {
@@ -135,5 +138,5 @@ func (p *Pass) PruneItems(kind string, declared []string, items Items, remove fu
 		}
 		return remove(id)
 	})
-	return JoinErrors(append(ambiguous, err)...)
+	return failure.Join(append(ambiguous, err)...)
 }

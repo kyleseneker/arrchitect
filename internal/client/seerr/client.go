@@ -1,3 +1,4 @@
+// Package seerr is a client for the Seerr API.
 package seerr
 
 import (
@@ -6,7 +7,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/kyleseneker/arrchitect/internal/engine"
+	"github.com/kyleseneker/arrchitect/internal/httpapi"
 )
 
 // mediaServerTypeJellyfin is Seerr's MediaServerType.JELLYFIN.
@@ -20,14 +21,14 @@ var NotificationTypes = map[string]int{
 	"issueReopened": 2048, "mediaAutoRequested": 4096,
 }
 
-// Client reaches the Seerr API v1 through an engine.HTTPClient configured with
+// Client reaches the Seerr API v1 through an httpapi.HTTPClient configured with
 // AuthSession. Each method names the endpoint it uses.
 type Client struct {
-	hc *engine.HTTPClient
+	hc *httpapi.HTTPClient
 }
 
-// NewClient creates a new Seerr API client wrapping the given engine.HTTPClient.
-func NewClient(hc *engine.HTTPClient) *Client {
+// NewClient creates a new Seerr API client wrapping the given httpapi.HTTPClient.
+func NewClient(hc *httpapi.HTTPClient) *Client {
 	return &Client{hc: hc}
 }
 

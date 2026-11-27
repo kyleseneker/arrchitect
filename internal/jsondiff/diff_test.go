@@ -1,4 +1,4 @@
-package reconciler
+package jsondiff
 
 import (
 	"encoding/json"

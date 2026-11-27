@@ -26,8 +26,9 @@ import (
 
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
 	"github.com/kyleseneker/arrchitect/internal/engine"
+	"github.com/kyleseneker/arrchitect/internal/failure"
 	"github.com/kyleseneker/arrchitect/internal/metrics"
-	"github.com/kyleseneker/arrchitect/internal/reconciler"
+	"github.com/kyleseneker/arrchitect/internal/secrets"
 )
 
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
@@ -40,7 +41,7 @@ func ReconcileInterval(rc *commonv1alpha1.ReconcileConfig) time.Duration {
 	if rc != nil && rc.IntervalSeconds != 0 {
 		return time.Duration(rc.IntervalSeconds) * time.Second
 	}
-	return engine.DefaultReconcileInterval
+	return DefaultReconcileInterval
 }
 
 // PruneEnabled returns whether resource pruning is enabled.
@@ -80,14 +81,14 @@ func ReportResult(ctx context.Context, c client.Client, recorder events.EventRec
 	case len(failures) > 0:
 		UpdateStatus(ctx, c, recorder, obj, false, reason, listed(failures, "; "))
 	case observe && len(result.Drift) > 0:
-		UpdateStatus(ctx, c, recorder, obj, false, engine.ReasonDriftDetected,
+		UpdateStatus(ctx, c, recorder, obj, false, ReasonDriftDetected,
 			"differs: "+listed(result.Drift, ", ")+"; observe policy prevents application writes")
 	case observe:
-		UpdateStatus(ctx, c, recorder, obj, true, engine.ReasonObserved, "observable configuration matches; no application writes performed")
+		UpdateStatus(ctx, c, recorder, obj, true, ReasonObserved, "observable configuration matches; no application writes performed")
 	case len(result.Synced) > 0:
-		UpdateStatus(ctx, c, recorder, obj, true, engine.ReasonSynced, "synced: "+listed(result.Synced, ", "))
+		UpdateStatus(ctx, c, recorder, obj, true, ReasonSynced, "synced: "+listed(result.Synced, ", "))
 	default:
-		UpdateStatus(ctx, c, recorder, obj, true, engine.ReasonSynced, "all configuration sections synced")
+		UpdateStatus(ctx, c, recorder, obj, true, ReasonSynced, "all configuration sections synced")
 	}
 	if after == 0 {
 		return 0
@@ -144,9 +145,9 @@ func resourceLabels(namespace, name string, obj ConfigResource) prometheus.Label
 // stalledReasons are failures no retry fixes: the spec, a Secret or the app
 // has to change first.
 var stalledReasons = map[string]bool{
-	engine.ReasonInvalidConfig: true,
-	engine.ReasonNameConflict:  true,
-	engine.ReasonUnauthorized:  true,
+	ReasonInvalidConfig: true,
+	ReasonNameConflict:  true,
+	ReasonUnauthorized:  true,
 }
 
 // UpdateStatus records the outcome of a pass and persists it. Synced says
@@ -164,15 +165,15 @@ func UpdateStatus(ctx context.Context, c client.Client, recorder events.EventRec
 	generation := obj.GetGeneration()
 	conditions := &cs.Conditions
 	var before *metav1.Condition
-	if previous := meta.FindStatusCondition(*conditions, engine.ConditionReady); previous != nil {
+	if previous := meta.FindStatusCondition(*conditions, ConditionReady); previous != nil {
 		before = previous.DeepCopy()
 	}
-	reconciler.SetCondition(conditions, generation, engine.ConditionSynced, status, reason, message)
-	reconciler.SetCondition(conditions, generation, engine.ConditionReady, status, reason, message)
+	SetCondition(conditions, generation, ConditionSynced, status, reason, message)
+	SetCondition(conditions, generation, ConditionReady, status, reason, message)
 	if !synced && stalledReasons[reason] {
-		reconciler.SetCondition(conditions, generation, engine.ConditionStalled, metav1.ConditionTrue, reason, message)
+		SetCondition(conditions, generation, ConditionStalled, metav1.ConditionTrue, reason, message)
 	} else {
-		meta.RemoveStatusCondition(conditions, engine.ConditionStalled)
+		meta.RemoveStatusCondition(conditions, ConditionStalled)
 	}
 	cs.ObservedGeneration = generation
 	recordSynced(obj, synced)
@@ -186,16 +187,16 @@ func UpdateStatus(ctx context.Context, c client.Client, recorder events.EventRec
 // can reach readers who can't read the resource, such as an event exporter,
 // so the app's own words stay in the Ready condition.
 var transitionNotes = map[string]string{
-	engine.ReasonSynced:            "The app matches the resource again.",
-	engine.ReasonObserved:          "The app matches the resource again.",
-	engine.ReasonSyncFailed:        "The app refused some settings. The Ready condition says which.",
-	engine.ReasonDriftDetected:     "The app differs from the resource. The Ready condition says where.",
-	engine.ReasonAppUnreachable:    "The app didn't respond.",
-	engine.ReasonUnauthorized:      "The app refused the credentials.",
-	engine.ReasonSecretNotFound:    "A Secret the resource uses is missing. The Ready condition names it.",
-	engine.ReasonReferenceNotFound: "A resource this one refers to is missing. The Ready condition names it.",
-	engine.ReasonInvalidConfig:     "The resource asks for something the operator can't do. The Ready condition says what.",
-	engine.ReasonNameConflict:      "Another resource already configures this item.",
+	ReasonSynced:            "The app matches the resource again.",
+	ReasonObserved:          "The app matches the resource again.",
+	ReasonSyncFailed:        "The app refused some settings. The Ready condition says which.",
+	ReasonDriftDetected:     "The app differs from the resource. The Ready condition says where.",
+	ReasonAppUnreachable:    "The app didn't respond.",
+	ReasonUnauthorized:      "The app refused the credentials.",
+	ReasonSecretNotFound:    "A Secret the resource uses is missing. The Ready condition names it.",
+	ReasonReferenceNotFound: "A resource this one refers to is missing. The Ready condition names it.",
+	ReasonInvalidConfig:     "The resource asks for something the operator can't do. The Ready condition says what.",
+	ReasonNameConflict:      "Another resource already configures this item.",
 }
 
 // emitTransition records a Warning when Ready turns False or its reason
@@ -226,7 +227,7 @@ func IgnoreDeleted(obj ConfigResource, key types.NamespacedName, err error) erro
 		obj.SetNamespace(key.Namespace)
 		obj.SetName(key.Name)
 		forget(obj)
-		reconciler.ForgetSecrets(ownerPrefix(obj))
+		secrets.ForgetSecrets(ownerPrefix(obj))
 	}
 	return client.IgnoreNotFound(err)
 }
@@ -314,9 +315,9 @@ func ResolveConfigFields(ctx context.Context, c client.Reader, namespace, owner 
 			continue
 		}
 		if out[i].Value != nil {
-			return nil, engine.InvalidConfig(fmt.Errorf("%s field %q: value and valueFrom are mutually exclusive", owner, out[i].Name))
+			return nil, failure.InvalidConfig(fmt.Errorf("%s field %q: value and valueFrom are mutually exclusive", owner, out[i].Name))
 		}
-		val, err := reconciler.ResolveSecretKeyRef(ctx, c, namespace, out[i].ValueFrom.SecretKeyRef)
+		val, err := secrets.ResolveSecretKeyRef(ctx, c, namespace, out[i].ValueFrom.SecretKeyRef)
 		if err != nil {
 			return nil, fmt.Errorf("%s field %q: %w", owner, out[i].Name, err)
 		}
@@ -449,7 +450,7 @@ func EmitPruneEvents(recorder events.EventRecorder, obj client.Object, pruned []
 		if p.ID != 0 {
 			id = fmt.Sprintf(" (id=%d)", p.ID)
 		}
-		recorder.Eventf(obj, nil, corev1.EventTypeWarning, engine.ReasonResourcePruned, "Prune",
+		recorder.Eventf(obj, nil, corev1.EventTypeWarning, ReasonResourcePruned, "Prune",
 			"Deleted %s %q%s, which the operator created", p.Type, p.Name, id)
 	}
 }

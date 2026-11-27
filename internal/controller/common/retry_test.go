@@ -8,7 +8,6 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	pvrv1alpha1 "github.com/kyleseneker/arrchitect/api/pvr/v1alpha1"
-	"github.com/kyleseneker/arrchitect/internal/engine"
 )
 
 func TestRetryAfterBacksOffUntilTheAppAnswers(t *testing.T) {
@@ -45,8 +44,8 @@ func TestRetriesAreCountedPerResource(t *testing.T) {
 func TestNextSyncStretchesTheIntervalALittle(t *testing.T) {
 	for range 50 {
 		got := NextSync(nil)
-		assert.GreaterOrEqual(t, got, engine.DefaultReconcileInterval)
-		assert.LessOrEqual(t, got, engine.DefaultReconcileInterval+time.Duration(float64(engine.DefaultReconcileInterval)*jitter))
+		assert.GreaterOrEqual(t, got, DefaultReconcileInterval)
+		assert.LessOrEqual(t, got, DefaultReconcileInterval+time.Duration(float64(DefaultReconcileInterval)*jitter))
 	}
 }
 

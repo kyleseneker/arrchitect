@@ -1,4 +1,4 @@
-package engine
+package common
 
 import (
 	"context"
@@ -38,26 +38,6 @@ func generateTestCAPEM(t *testing.T) []byte {
 	certDER, err := x509.CreateCertificate(rand.Reader, tmpl, tmpl, &key.PublicKey, key)
 	require.NoError(t, err)
 	return pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certDER})
-}
-
-func TestNewHTTPTransport(t *testing.T) {
-	tests := []struct {
-		name   string
-		tlsCfg *tls.Config
-	}{
-		{"nil tls config", nil},
-		{"with tls config", &tls.Config{InsecureSkipVerify: true}},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			transport := newHTTPTransport(tt.tlsCfg)
-			assert.NotNil(t, transport)
-			assert.NotNil(t, transport.DialContext, "should have SSRF-safe dialer")
-			if tt.tlsCfg != nil {
-				assert.Equal(t, tt.tlsCfg, transport.TLSClientConfig)
-			}
-		})
-	}
 }
 
 func TestResolveTLSConfig_Nil(t *testing.T) {

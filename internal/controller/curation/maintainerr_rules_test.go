@@ -10,7 +10,7 @@ import (
 	curationv1alpha1 "github.com/kyleseneker/arrchitect/api/curation/v1alpha1"
 	maintainerrclient "github.com/kyleseneker/arrchitect/internal/client/maintainerr"
 	"github.com/kyleseneker/arrchitect/internal/engine"
-	"github.com/kyleseneker/arrchitect/internal/reconciler"
+	"github.com/kyleseneker/arrchitect/internal/jsondiff"
 )
 
 func testRuleEnv(mediaServer string) ruleEnv {
@@ -214,10 +214,10 @@ func TestStoredRuleGroupCoversWhatWasSaved(t *testing.T) {
 	rows := listed["rules"].([]any)
 	rows[1].(map[string]any)["ruleJson"] = `{"operator":"0","action":2,"firstVal":[0,5],"section":0,"customVal":{"ruleTypeId":0,"value":"0"}}`
 
-	assert.True(t, reconciler.Covers(storedRuleGroup(listed), mustJSON(compare)))
+	assert.True(t, jsondiff.Covers(storedRuleGroup(listed), mustJSON(compare)))
 
 	rows[0].(map[string]any)["ruleJson"] = `{"operator":null,"action":5,"firstVal":[0,0],"section":0,"customVal":{"ruleTypeId":0,"value":"0"},"lastVal":[0,7]}`
-	assert.False(t, reconciler.Covers(storedRuleGroup(listed), mustJSON(compare)),
+	assert.False(t, jsondiff.Covers(storedRuleGroup(listed), mustJSON(compare)),
 		"a value added to a rule in Maintainerr's UI must count as a difference")
 }
 

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"slices"
 
+	"github.com/kyleseneker/arrchitect/internal/failure"
+	"github.com/kyleseneker/arrchitect/internal/httpapi"
 	"github.com/kyleseneker/arrchitect/internal/metrics"
 )
 
@@ -95,11 +97,11 @@ func (o *Ownership) delete(kind string, names []string, remove func(name string)
 				kept.Kept = append(kept.Kept, KeptResource{Type: kind, Name: name, Reason: reason})
 				continue
 			}
-			failure := fmt.Errorf("deleting %s %q: %w", kind, name, err)
+			deleteErr := fmt.Errorf("deleting %s %q: %w", kind, name, err)
 			if len(kept.Kept) > 0 {
-				return JoinErrors(kept, failure)
+				return failure.Join(kept, deleteErr)
 			}
-			return failure
+			return deleteErr
 		}
 		o.managed[kind] = slices.DeleteFunc(o.managed[kind], func(n string) bool { return n == name })
 		if len(o.managed[kind]) == 0 {
@@ -118,7 +120,7 @@ func (o *Ownership) delete(kind string, names []string, remove func(name string)
 // reason: the app refused it, or the name is ambiguous.
 func (o *Ownership) keep(err error) (string, bool) {
 	if reason, refused := Refusal(err); refused {
-		return AppName(o.app) + " refused to delete it: " + reason, true
+		return httpapi.AppName(o.app) + " refused to delete it: " + reason, true
 	}
 	if _, ambiguous := errors.AsType[*ambiguousError](err); ambiguous {
 		return err.Error(), true
@@ -141,7 +143,7 @@ type KeptError struct {
 }
 
 func (e *KeptError) Error() string {
-	return fmt.Sprintf("%s refused to delete %d item(s)", AppName(e.App), len(e.Kept))
+	return fmt.Sprintf("%s refused to delete %d item(s)", httpapi.AppName(e.App), len(e.Kept))
 }
 
 // SplitKept separates what an app refused to delete, which no retry will
@@ -167,7 +169,7 @@ func SplitKept(err error) ([]*KeptError, error) {
 		rest = append(rest, err)
 	}
 	walk(err)
-	return kept, JoinErrors(rest...)
+	return kept, failure.Join(rest...)
 }
 
 func pruneLimit(kind string, n int) error {

@@ -1,4 +1,6 @@
-package reconciler
+// Package jsondiff merges a declared item over the app's and tells whether
+// they differ, leaving what the resource doesn't declare as it is.
+package jsondiff
 
 import (
 	"encoding/json"
@@ -6,6 +8,8 @@ import (
 	"math"
 	"reflect"
 	"strconv"
+
+	"github.com/kyleseneker/arrchitect/internal/secrets"
 )
 
 // MergeOutcome is the result of overlaying desired state onto current state.
@@ -54,19 +58,19 @@ func MergeDesired(current map[string]any, desired any) (MergeOutcome, error) {
 	// A field the app masks on read cannot be compared, so it is not drift.
 	// Collect what was overlaid onto those fields instead: a change there is
 	// only visible by remembering what was last written.
-	var secrets []string
-	changed := differs(current, merged, &secrets)
+	var masked []string
+	changed := differs(current, merged, &masked)
 
-	return MergeOutcome{Merged: merged, Changed: changed, SecretDigest: digestOf(secrets)}, nil
+	return MergeOutcome{Merged: merged, Changed: changed, SecretDigest: secrets.Digest(masked)}, nil
 }
 
 // differs walks current against merged and reports whether they differ,
 // treating a masked current value as equal to whatever replaced it. Desired
-// values landing on masked fields are appended to secrets.
-func differs(current, merged any, secrets *[]string) bool {
-	if IsMasked(current) {
-		if s, ok := merged.(string); ok && !IsMasked(merged) {
-			*secrets = append(*secrets, s)
+// values landing on masked fields are appended to masked.
+func differs(current, merged any, masked *[]string) bool {
+	if secrets.IsMasked(current) {
+		if s, ok := merged.(string); ok && !secrets.IsMasked(merged) {
+			*masked = append(*masked, s)
 		}
 		return false
 	}
@@ -83,7 +87,7 @@ func differs(current, merged any, secrets *[]string) bool {
 				changed = true
 				continue
 			}
-			if differs(cv, mv, secrets) {
+			if differs(cv, mv, masked) {
 				changed = true
 			}
 		}
@@ -97,7 +101,7 @@ func differs(current, merged any, secrets *[]string) bool {
 		// anything new, so equal lengths mean index-wise correspondence.
 		changed := len(curSlice) != len(mergedSlice)
 		for i := range min(len(curSlice), len(mergedSlice)) {
-			if differs(curSlice[i], mergedSlice[i], secrets) {
+			if differs(curSlice[i], mergedSlice[i], masked) {
 				changed = true
 			}
 		}
@@ -292,7 +296,7 @@ func Covers(current, desired any) bool {
 		}
 	case string:
 		// A masked secret cannot be read back, so it cannot be shown to differ.
-		if IsMasked(current) {
+		if secrets.IsMasked(current) {
 			return true
 		}
 	}

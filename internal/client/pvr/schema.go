@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
-	"github.com/kyleseneker/arrchitect/internal/engine"
+	"github.com/kyleseneker/arrchitect/internal/httpapi"
 )
 
 // SchemaFieldNames returns the field names an implementation accepts, taken from
@@ -132,7 +132,7 @@ func validateFieldNames(schema []map[string]any, implementation string, fieldNam
 
 // fetchSchema reads the schema listing for a kind. A schema that cannot be read
 // yields no definitions, so validation is skipped rather than blocking a write.
-func fetchSchema(ctx context.Context, client *engine.HTTPClient, apiVersion, kind string) []map[string]any {
+func fetchSchema(ctx context.Context, client *httpapi.HTTPClient, apiVersion, kind string) []map[string]any {
 	schema, err := client.GetJSONList(ctx, fmt.Sprintf("/api/%s/%s/schema", apiVersion, kind))
 	if err != nil {
 		return nil
@@ -143,7 +143,7 @@ func fetchSchema(ctx context.Context, client *engine.HTTPClient, apiVersion, kin
 // validateOptionFields checks each resource's free-form fields against the app's
 // own schema. Failures are returned as messages rather than an error, so one bad
 // field does not abandon the rest of the reconcile.
-func validateOptionFields(ctx context.Context, client *engine.HTTPClient, apiVersion string, opts Options) []error {
+func validateOptionFields(ctx context.Context, client *httpapi.HTTPClient, apiVersion string, opts Options) []error {
 	var problems []error
 
 	check := func(kind, name, implementation string, fields []commonv1alpha1.ConfigField, schema []map[string]any) {
@@ -193,7 +193,7 @@ func validateOptionFields(ctx context.Context, client *engine.HTTPClient, apiVer
 
 // withSchemas reads each provider kind's schema once, so validation and every
 // reconcile stage share it.
-func withSchemas(ctx context.Context, client *engine.HTTPClient, apiVersion string, opts Options) Options {
+func withSchemas(ctx context.Context, client *httpapi.HTTPClient, apiVersion string, opts Options) Options {
 	opts.schemas = map[string][]map[string]any{}
 	for kind, used := range map[string]bool{
 		"downloadclient": len(opts.DownloadClients) > 0,

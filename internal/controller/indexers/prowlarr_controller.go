@@ -16,7 +16,8 @@ import (
 	pvrclient "github.com/kyleseneker/arrchitect/internal/client/pvr"
 	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
 	"github.com/kyleseneker/arrchitect/internal/engine"
-	"github.com/kyleseneker/arrchitect/internal/reconciler"
+	"github.com/kyleseneker/arrchitect/internal/httpapi"
+	"github.com/kyleseneker/arrchitect/internal/secrets"
 )
 
 type ProwlarrReconciler struct {
@@ -32,14 +33,14 @@ type ProwlarrReconciler struct {
 // +kubebuilder:rbac:groups=arrchitect.dev,resources=sonarrs;radarrs;lidarrs;readarrs,verbs=get;list;watch
 
 func (r *ProwlarrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	integration := ctrlcommon.Integration[*indexersv1alpha1.Prowlarr, *engine.HTTPClient]{
+	integration := ctrlcommon.Integration[*indexersv1alpha1.Prowlarr, *httpapi.HTTPClient]{
 		App:     "prowlarr",
 		Connect: r.connect,
-		Check: func(ctx context.Context, hc *engine.HTTPClient, _ *indexersv1alpha1.Prowlarr) error {
+		Check: func(ctx context.Context, hc *httpapi.HTTPClient, _ *indexersv1alpha1.Prowlarr) error {
 			return hc.Ping(ctx, prowlarrclient.Definition().HealthPath)
 		},
 		Sync: r.sync,
-		Cleanup: func(ctx context.Context, hc *engine.HTTPClient, owned *engine.Ownership) error {
+		Cleanup: func(ctx context.Context, hc *httpapi.HTTPClient, owned *engine.Ownership) error {
 			return engine.DeleteManagedResources(ctx, hc, prowlarrclient.Definition(), owned)
 		},
 		Deletable: prowlarrclient.Definition().Deletable,
@@ -48,24 +49,24 @@ func (r *ProwlarrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	return integration.Reconcile(ctx, r.Client, r.Recorder, req, &indexersv1alpha1.Prowlarr{})
 }
 
-func (r *ProwlarrReconciler) connect(ctx context.Context, config *indexersv1alpha1.Prowlarr) (*engine.HTTPClient, error) {
-	apiKey, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, config.Spec.Connection.APIKeySecretRef)
+func (r *ProwlarrReconciler) connect(ctx context.Context, config *indexersv1alpha1.Prowlarr) (*httpapi.HTTPClient, error) {
+	apiKey, err := secrets.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, config.Spec.Connection.APIKeySecretRef)
 	if err != nil {
 		return nil, err
 	}
-	tlsCfg, err := engine.ResolveTLSConfig(ctx, r.Client, config.Namespace, config.Spec.Connection.TLS)
+	tlsCfg, err := ctrlcommon.ResolveTLSConfig(ctx, r.Client, config.Namespace, config.Spec.Connection.TLS)
 	if err != nil {
 		return nil, err
 	}
-	hc, err := engine.NewHTTPClient(config.Spec.Connection.URL, engine.AuthAPIKey,
-		engine.WithAPIKey(apiKey), engine.WithTLSConfig(tlsCfg), engine.WithAppLabel("prowlarr"))
+	hc, err := httpapi.NewHTTPClient(config.Spec.Connection.URL, httpapi.AuthAPIKey,
+		httpapi.WithAPIKey(apiKey), httpapi.WithTLSConfig(tlsCfg), httpapi.WithAppLabel("prowlarr"))
 	if err != nil {
 		return nil, err
 	}
 	return hc, nil
 }
 
-func (r *ProwlarrReconciler) sync(ctx context.Context, hc *engine.HTTPClient, config *indexersv1alpha1.Prowlarr, pass *engine.Pass) []error {
+func (r *ProwlarrReconciler) sync(ctx context.Context, hc *httpapi.HTTPClient, config *indexersv1alpha1.Prowlarr, pass *engine.Pass) []error {
 	namespace := config.Namespace
 	opts := prowlarrclient.Options{Tags: config.Spec.Tags, AppProfiles: config.Spec.AppProfiles}
 	// A kind whose items name a Secret or app that can't be read is left out of
@@ -100,7 +101,7 @@ func (r *ProwlarrReconciler) sync(ctx context.Context, hc *engine.HTTPClient, co
 
 // resolveApplications resolves each application's reference and Secrets.
 func (r *ProwlarrReconciler) resolveApplications(
-	ctx context.Context, hc *engine.HTTPClient, config *indexersv1alpha1.Prowlarr,
+	ctx context.Context, hc *httpapi.HTTPClient, config *indexersv1alpha1.Prowlarr,
 ) ([]prowlarrclient.Application, error) {
 	apps := make([]prowlarrclient.Application, 0, len(config.Spec.Applications))
 	var schema []map[string]any
@@ -118,7 +119,7 @@ func (r *ProwlarrReconciler) resolveApplications(
 		if app.APIKeySecretRef == nil {
 			return nil, fmt.Errorf("application %q has no API key Secret", app.Name)
 		}
-		secrets := map[string]string{}
+		resolved := map[string]string{}
 		for _, ref := range []struct {
 			field, name string
 			ref         *commonv1alpha1.SecretKeyRef
@@ -135,13 +136,13 @@ func (r *ProwlarrReconciler) resolveApplications(
 					return nil, fmt.Errorf("application %q %s: %w", app.Name, ref.name, err)
 				}
 			}
-			value, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, *ref.ref)
+			value, err := secrets.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, *ref.ref)
 			if err != nil {
 				return nil, fmt.Errorf("application %q %s: %w", app.Name, ref.name, err)
 			}
-			secrets[ref.field] = value
+			resolved[ref.field] = value
 		}
-		apps = append(apps, prowlarrclient.Application{ProwlarrApplication: app, Secrets: secrets})
+		apps = append(apps, prowlarrclient.Application{ProwlarrApplication: app, Secrets: resolved})
 	}
 	return apps, nil
 }
@@ -150,7 +151,7 @@ func (r *ProwlarrReconciler) resolveApplications(
 // implementation lacks field, as Prowlarr before 2.4.0 lacks basic auth. It
 // reads the schema once, into schema.
 func requireApplicationField(
-	ctx context.Context, hc *engine.HTTPClient, schema *[]map[string]any, app indexersv1alpha1.ProwlarrApplication, field string,
+	ctx context.Context, hc *httpapi.HTTPClient, schema *[]map[string]any, app indexersv1alpha1.ProwlarrApplication, field string,
 ) error {
 	if *schema == nil {
 		list, err := hc.GetJSONList(ctx, "/api/v1/applications/schema")
@@ -174,7 +175,7 @@ func (r *ProwlarrReconciler) resolveProxies(ctx context.Context, config *indexer
 			if ref == nil {
 				continue
 			}
-			value, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, *ref)
+			value, err := secrets.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, *ref)
 			if err != nil {
 				return nil, fmt.Errorf("proxy %q %s: %w", p.Name, name, err)
 			}

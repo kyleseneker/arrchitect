@@ -24,7 +24,7 @@ import (
 	autobrrclient "github.com/kyleseneker/arrchitect/internal/client/autobrr"
 	"github.com/kyleseneker/arrchitect/internal/controller/automation"
 	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
-	"github.com/kyleseneker/arrchitect/internal/engine"
+	"github.com/kyleseneker/arrchitect/internal/httpapi"
 )
 
 func TestAutobrr(t *testing.T) {
@@ -161,10 +161,10 @@ func TestAutobrr(t *testing.T) {
 	})
 }
 
-func autobrrClient(t *testing.T, url, key string) *engine.HTTPClient {
+func autobrrClient(t *testing.T, url, key string) *httpapi.HTTPClient {
 	t.Helper()
-	hc, err := engine.NewHTTPClient(url, engine.AuthAPIKey, engine.WithAPIKey(key),
-		engine.WithAPIKeyHeader("X-API-Token"), engine.WithAppLabel("compat"))
+	hc, err := httpapi.NewHTTPClient(url, httpapi.AuthAPIKey, httpapi.WithAPIKey(key),
+		httpapi.WithAPIKeyHeader("X-API-Token"), httpapi.WithAppLabel("compat"))
 	require.NoError(t, err)
 	return hc
 }

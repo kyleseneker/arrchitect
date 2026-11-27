@@ -1,3 +1,5 @@
+// Package autobrr is a client for the Autobrr API, and the field tables the
+// controller and export share.
 package autobrr
 
 import (
@@ -10,16 +12,16 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/kyleseneker/arrchitect/internal/engine"
+	"github.com/kyleseneker/arrchitect/internal/httpapi"
 )
 
 // HTTPOptions are what every client for Autobrr takes. Autobrr reads only
 // X-API-Token and answers any other header with 403.
-func HTTPOptions() []engine.HTTPClientOption {
-	return []engine.HTTPClientOption{engine.WithAPIKeyHeader("X-API-Token"), engine.WithAppLabel("autobrr")}
+func HTTPOptions() []httpapi.HTTPClientOption {
+	return []httpapi.HTTPClientOption{httpapi.WithAPIKeyHeader("X-API-Token"), httpapi.WithAppLabel("autobrr")}
 }
 
-// Client wraps engine.HTTPClient with Autobrr-specific API methods.
+// Client wraps httpapi.HTTPClient with Autobrr-specific API methods.
 // FilterFields maps the AutobrrFilter fields Autobrr stores as given to its keys.
 var FilterFields = map[string]string{
 	"priority":             "priority",
@@ -117,7 +119,7 @@ var ActionFields = map[string]string{
 }
 
 type Client struct {
-	hc *engine.HTTPClient
+	hc *httpapi.HTTPClient
 	// downloaders is where this Autobrr serves download clients:
 	// /api/downloaders since 1.86.0, /api/download_clients before it.
 	downloaders string
@@ -155,7 +157,7 @@ var SlowTorrentConditions = map[string]string{"Always": "ALWAYS", "MaxDownloadsR
 var FeedDownloadTypes = map[string]string{"Torrent": "TORRENT", "Magnet": "MAGNET"}
 
 // NewClient creates a new Autobrr API client.
-func NewClient(hc *engine.HTTPClient) *Client {
+func NewClient(hc *httpapi.HTTPClient) *Client {
 	return &Client{hc: hc, downloaders: "/api/downloaders"}
 }
 
@@ -174,7 +176,7 @@ func (c *Client) Ping(ctx context.Context) error {
 // Autobrr serves them at for the calls after it.
 func (c *Client) ListDownloadClients(ctx context.Context) ([]map[string]any, error) {
 	list, err := c.hc.GetJSONList(ctx, c.downloaders)
-	var apiErr *engine.APIError
+	var apiErr *httpapi.APIError
 	if errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusNotFound && c.downloaders == "/api/downloaders" {
 		c.downloaders = "/api/download_clients"
 		return c.hc.GetJSONList(ctx, c.downloaders)

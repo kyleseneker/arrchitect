@@ -8,6 +8,7 @@ import (
 
 	automationv1alpha1 "github.com/kyleseneker/arrchitect/api/automation/v1alpha1"
 	"github.com/kyleseneker/arrchitect/internal/engine"
+	"github.com/kyleseneker/arrchitect/internal/failure"
 )
 
 const actionsKind = "actions"
@@ -112,7 +113,7 @@ func (s *autobrrSync) cleanup(ctx context.Context) error {
 			errs = append(errs, err)
 		}
 	}
-	return engine.JoinErrors(append(errs, s.Owned.CleanupKinds(ctx, s.kinds()))...)
+	return failure.Join(append(errs, s.Owned.CleanupKinds(ctx, s.kinds()))...)
 }
 
 // filterActions lists a filter's actions as <filter>/<action>.

@@ -1,3 +1,4 @@
+// Package tdarr is a client for the Tdarr API.
 package tdarr
 
 import (
@@ -8,24 +9,24 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/kyleseneker/arrchitect/internal/engine"
+	"github.com/kyleseneker/arrchitect/internal/httpapi"
 )
 
 // HTTPOptions are what every client for Tdarr takes: the header it reads the
 // API key from, and room for the time a large flow or library write takes.
-func HTTPOptions() []engine.HTTPClientOption {
-	return []engine.HTTPClientOption{
-		engine.WithAPIKeyHeader("x-api-key"), engine.WithAppLabel("tdarr"), engine.WithTimeout(3 * time.Minute),
+func HTTPOptions() []httpapi.HTTPClientOption {
+	return []httpapi.HTTPClientOption{
+		httpapi.WithAPIKeyHeader("x-api-key"), httpapi.WithAppLabel("tdarr"), httpapi.WithTimeout(3 * time.Minute),
 	}
 }
 
-// Client wraps engine.HTTPClient with Tdarr-specific API methods.
+// Client wraps httpapi.HTTPClient with Tdarr-specific API methods.
 type Client struct {
-	hc *engine.HTTPClient
+	hc *httpapi.HTTPClient
 }
 
 // NewClient creates a new Tdarr API client.
-func NewClient(hc *engine.HTTPClient) *Client {
+func NewClient(hc *httpapi.HTTPClient) *Client {
 	return &Client{hc: hc}
 }
 

@@ -28,7 +28,7 @@ import (
 	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
 	"github.com/kyleseneker/arrchitect/internal/controller/internal/contract"
 	"github.com/kyleseneker/arrchitect/internal/metrics"
-	"github.com/kyleseneker/arrchitect/internal/reconciler"
+	"github.com/kyleseneker/arrchitect/internal/secrets"
 	"github.com/kyleseneker/arrchitect/internal/testnet"
 )
 
@@ -172,7 +172,7 @@ func TestSabnzbdPlanSkipsWhatAlreadyMatches(t *testing.T) {
 	first := planSabnzbd(current, sabnzbdSpec(), servers, owner)
 	require.Len(t, first, 1, "only the server, whose masked password cannot be compared")
 	assert.Equal(t, "servers", first[0].section)
-	reconciler.RecordSecrets(owner, first[0].secretKey, first[0].secretDigest)
+	secrets.RecordSecrets(owner, first[0].secretKey, first[0].secretDigest)
 
 	assert.Empty(t, planSabnzbd(current, sabnzbdSpec(), servers, owner))
 
@@ -240,7 +240,7 @@ func TestSabnzbdPlanRemembersTheCreatedPassword(t *testing.T) {
 	owner := freshOwner()
 	created := planSabnzbd(map[string]any{}, spec, servers, owner)
 	require.Len(t, created, 1)
-	reconciler.RecordSecrets(owner, created[0].secretKey, created[0].secretDigest)
+	secrets.RecordSecrets(owner, created[0].secretKey, created[0].secretDigest)
 
 	readBack := map[string]any{"servers": []any{map[string]any{
 		"name": "Primary", "host": "news.example.com", "port": float64(563), "ssl": float64(1), "password": "**********",
@@ -524,7 +524,7 @@ func TestSabnzbdPlanLoginRemembersTheMaskedPassword(t *testing.T) {
 	assert.Equal(t, "username", writes[0].name)
 	assert.Equal(t, "password", writes[1].name)
 	assert.Equal(t, "s3cret", writes[1].values["value"])
-	reconciler.RecordSecrets(owner, writes[1].secretKey, writes[1].secretDigest)
+	secrets.RecordSecrets(owner, writes[1].secretKey, writes[1].secretDigest)
 
 	set := map[string]any{"misc": map[string]any{"username": "admin", "password": "**********"}}
 	assert.Empty(t, planLogin(set, login, owner, false))

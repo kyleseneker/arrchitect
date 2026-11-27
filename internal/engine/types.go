@@ -15,24 +15,6 @@ const (
 	UpdateOnly
 )
 
-// AuthType identifies the authentication strategy for an app.
-type AuthType int
-
-const (
-	// AuthNone applies no authentication headers (FlareSolverr, SABnzbd with key in body).
-	AuthNone AuthType = iota
-	// AuthAPIKey sends the key in X-Api-Key, or in the header WithAPIKeyHeader names.
-	AuthAPIKey
-	// AuthCookie uses session-based cookie auth (qBittorrent).
-	AuthCookie
-	// AuthMediaBrowser uses Jellyfin's MediaBrowser auth header.
-	AuthMediaBrowser
-	// AuthPlexToken uses X-Plex-Token header.
-	AuthPlexToken
-	// AuthSession uses cookie jar with optional X-Api-Key fallback (Seerr).
-	AuthSession
-)
-
 // SettingEndpoint defines a singleton config endpoint (GET id, merge, PUT).
 type SettingEndpoint struct {
 	// Name identifies this setting for status reporting.

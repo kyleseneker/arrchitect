@@ -21,7 +21,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/kyleseneker/arrchitect/internal/engine"
+	"github.com/kyleseneker/arrchitect/internal/testnet"
 )
 
 func randomKey() string {
@@ -40,14 +40,6 @@ func withEnv(base map[string]string, extra map[string]string) map[string]string 
 	return out
 }
 
-// directClient talks to an application without the operator, for verification.
-func directClient(t *testing.T, base, apiKey string) *engine.HTTPClient {
-	t.Helper()
-	hc, err := engine.NewHTTPClient(base, engine.AuthAPIKey, engine.WithAPIKey(apiKey), engine.WithAppLabel("compat"))
-	require.NoError(t, err)
-	return hc
-}
-
 // startPVR runs Sonarr, Radarr, Lidarr, Readarr or Prowlarr with a known API
 // key, supplied through the <APP>__AUTH__APIKEY environment variable they read.
 func startPVR(t *testing.T, app, image string, port int, apiVersion string) (*container, string) {
@@ -57,7 +49,7 @@ func startPVR(t *testing.T, app, image string, port int, apiVersion string) (*co
 		name: app, image: image, port: port,
 		env: withEnv(linuxserverEnv, map[string]string{strings.ToUpper(app) + "__AUTH__APIKEY": key}),
 	})
-	hc := directClient(t, c.url(), key)
+	hc := testnet.Client(t, c.url(), key)
 	waitFor(t, app, 3*time.Minute, func() error {
 		return hc.Ping(context.Background(), "/api/"+apiVersion+"/system/status")
 	})

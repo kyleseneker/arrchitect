@@ -1,3 +1,5 @@
+// Command arrchitect-operator runs the operator: a controller for each app
+// kind the chart turns on.
 package main
 
 import (

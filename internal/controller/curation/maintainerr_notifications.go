@@ -10,7 +10,7 @@ import (
 	maintainerrclient "github.com/kyleseneker/arrchitect/internal/client/maintainerr"
 	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
 	"github.com/kyleseneker/arrchitect/internal/engine"
-	"github.com/kyleseneker/arrchitect/internal/reconciler"
+	"github.com/kyleseneker/arrchitect/internal/jsondiff"
 )
 
 const notificationsKind = "notifications"
@@ -62,7 +62,7 @@ func (s *maintainerrSync) notification(ctx context.Context, n *curationv1alpha1.
 	if current == nil {
 		return s.Apply("notification", n.Name, s.created(notificationsKind, n.Name, func() error { return s.mc.SaveNotification(ctx, body) }))
 	}
-	if reconciler.Covers(current, mustJSON(body)) {
+	if jsondiff.Covers(current, mustJSON(body)) {
 		return nil
 	}
 	body["id"] = current["id"]

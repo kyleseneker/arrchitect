@@ -11,7 +11,7 @@ import (
 
 	subtitlesv1alpha1 "github.com/kyleseneker/arrchitect/api/subtitles/v1alpha1"
 	bazarrclient "github.com/kyleseneker/arrchitect/internal/client/bazarr"
-	"github.com/kyleseneker/arrchitect/internal/reconciler"
+	"github.com/kyleseneker/arrchitect/internal/secrets"
 )
 
 var bazarrSecretSettings = []string{"password", "apikey", "api_key", "token", "secret", "passkey", "cookie"}
@@ -41,7 +41,7 @@ func exportBazarr(r *reader) (map[string]any, error) {
 		values := section(c.section)
 		conn := bazarrSettings(c.section, values, reflect.TypeFor[subtitlesv1alpha1.BazarrAppConnection]())
 		key, _ := values["apikey"].(string)
-		if reconciler.IsMasked(key) {
+		if secrets.IsMasked(key) {
 			key = ""
 		}
 		conn["apiKeySecretRef"] = r.creds.ref(key, c.section, "api-key")
@@ -56,9 +56,9 @@ func exportBazarr(r *reader) (map[string]any, error) {
 	var providers []any
 	for _, name := range texts(general["enabled_providers"]) {
 		provider := map[string]any{"name": name}
-		settings, secrets := r.bazarrProviderSettings(name, section(name))
-		if len(settings)+len(secrets) > 0 {
-			provider["settings"] = configFields(settings, secrets)
+		settings, refs := r.bazarrProviderSettings(name, section(name))
+		if len(settings)+len(refs) > 0 {
+			provider["settings"] = configFields(settings, refs)
 		}
 		providers = append(providers, provider)
 	}
@@ -117,7 +117,7 @@ func (r *reader) bazarrJellyfin(values map[string]any) map[string]any {
 		return nil
 	}
 	key, _ := values["apikey"].(string)
-	if reconciler.IsMasked(key) {
+	if secrets.IsMasked(key) {
 		key = ""
 	}
 	out := map[string]any{"url": u, "apiKeySecretRef": r.creds.ref(key, "jellyfin", "api-key")}
@@ -187,8 +187,8 @@ func bazarrDefaultProfileNames(general map[string]any, profiles []map[string]any
 	}
 }
 
-func (r *reader) bazarrProviderSettings(provider string, values map[string]any) (settings, secrets map[string]any) {
-	settings, secrets = map[string]any{}, map[string]any{}
+func (r *reader) bazarrProviderSettings(provider string, values map[string]any) (settings, refs map[string]any) {
+	settings, refs = map[string]any{}, map[string]any{}
 	for _, key := range slices.Sorted(maps.Keys(values)) {
 		var text string
 		switch v := values[key].(type) {
@@ -211,15 +211,15 @@ func (r *reader) bazarrProviderSettings(provider string, values map[string]any) 
 			continue
 		}
 		if slices.ContainsFunc(bazarrSecretSettings, func(s string) bool { return strings.Contains(key, s) }) {
-			if reconciler.IsMasked(text) {
+			if secrets.IsMasked(text) {
 				text = ""
 			}
-			secrets[key] = r.creds.ref(text, "provider", provider, key)
+			refs[key] = r.creds.ref(text, "provider", provider, key)
 			continue
 		}
 		settings[key] = text
 	}
-	return settings, secrets
+	return settings, refs
 }
 
 func (r *reader) bazarrProfiles(profiles []map[string]any) []any {

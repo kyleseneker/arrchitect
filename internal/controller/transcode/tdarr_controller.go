@@ -1,3 +1,4 @@
+// Package transcode holds the Tdarr controller.
 package transcode
 
 import (
@@ -22,7 +23,10 @@ import (
 	tdarrclient "github.com/kyleseneker/arrchitect/internal/client/tdarr"
 	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
 	"github.com/kyleseneker/arrchitect/internal/engine"
-	"github.com/kyleseneker/arrchitect/internal/reconciler"
+	"github.com/kyleseneker/arrchitect/internal/failure"
+	"github.com/kyleseneker/arrchitect/internal/httpapi"
+	"github.com/kyleseneker/arrchitect/internal/jsondiff"
+	"github.com/kyleseneker/arrchitect/internal/secrets"
 )
 
 // TdarrReconciler reconciles a Tdarr object.
@@ -51,16 +55,16 @@ func (r *TdarrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 }
 
 func (r *TdarrReconciler) connect(ctx context.Context, config *transcodev1alpha1.Tdarr) (*tdarrclient.Client, error) {
-	apiKey, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, config.Spec.Connection.APIKeySecretRef)
+	apiKey, err := secrets.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, config.Spec.Connection.APIKeySecretRef)
 	if err != nil {
 		return nil, err
 	}
-	tlsCfg, err := engine.ResolveTLSConfig(ctx, r.Client, config.Namespace, config.Spec.Connection.TLS)
+	tlsCfg, err := ctrlcommon.ResolveTLSConfig(ctx, r.Client, config.Namespace, config.Spec.Connection.TLS)
 	if err != nil {
 		return nil, err
 	}
-	hc, err := engine.NewHTTPClient(config.Spec.Connection.URL, engine.AuthAPIKey,
-		append(tdarrclient.HTTPOptions(), engine.WithAPIKey(apiKey), engine.WithTLSConfig(tlsCfg))...)
+	hc, err := httpapi.NewHTTPClient(config.Spec.Connection.URL, httpapi.AuthAPIKey,
+		append(tdarrclient.HTTPOptions(), httpapi.WithAPIKey(apiKey), httpapi.WithTLSConfig(tlsCfg))...)
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +76,7 @@ func (r *TdarrReconciler) sync(ctx context.Context, tc *tdarrclient.Client, conf
 	spec := config.Spec
 	var unresolved []error
 	if settings := spec.Settings; settings != nil && settings.NotificationsDiscordWebhookSecretRef != nil {
-		webhook, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, *settings.NotificationsDiscordWebhookSecretRef)
+		webhook, err := secrets.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, *settings.NotificationsDiscordWebhookSecretRef)
 		if err != nil {
 			// The settings are left out of the pass; the rest still syncs.
 			unresolved = append(unresolved, fmt.Errorf("settings: %w", err))
@@ -461,7 +465,7 @@ func (s *tdarrSync) upsertDoc(ctx context.Context, collection, id string, obj, o
 	if err := json.Unmarshal(raw, &desired); err != nil {
 		return err
 	}
-	if reconciler.Covers(existing, desired) {
+	if jsondiff.Covers(existing, desired) {
 		return nil
 	}
 	return s.Apply(collection, id, func() error { return s.tc.Update(ctx, collection, id, obj) })
@@ -492,7 +496,7 @@ func (s *tdarrSync) workers(ctx context.Context, workers []transcodev1alpha1.Tda
 			errs = append(errs, fmt.Errorf("node %s: %w", w.NodeName, err))
 		}
 	}
-	return engine.JoinErrors(errs...)
+	return failure.Join(errs...)
 }
 
 func (s *tdarrSync) nodeWorkers(ctx context.Context, nodes map[string]any, workers transcodev1alpha1.TdarrWorkers) error {

@@ -1,4 +1,7 @@
-package engine
+// Package httpapi is the HTTP client every app client builds on. It signs
+// requests for each app's auth scheme, refuses loopback, link-local and cloud
+// metadata addresses, and reports what an app answered as an *APIError.
+package httpapi
 
 import (
 	"bytes"
@@ -17,8 +20,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/kyleseneker/arrchitect/internal/failure"
 	"github.com/kyleseneker/arrchitect/internal/metrics"
-	"github.com/kyleseneker/arrchitect/internal/reconciler"
+	"github.com/kyleseneker/arrchitect/internal/secrets"
 )
 
 const outcomeError = "error"
@@ -41,7 +45,7 @@ func (e *APIError) Error() string {
 
 // DetailedMessage returns the status code and full response body for debug logging.
 func (e *APIError) DetailedMessage() string {
-	return fmt.Sprintf("API returned %d: %s", e.StatusCode, reconciler.Redact(string(e.Body)))
+	return fmt.Sprintf("API returned %d: %s", e.StatusCode, secrets.Redact(string(e.Body)))
 }
 
 // maxErrorDetail caps the app's reason in an error.
@@ -80,7 +84,7 @@ func apiErrorDetail(body []byte) string {
 	case text != "" && !strings.HasPrefix(text, "<") && !strings.ContainsAny(text, "\n\r"):
 		detail = text
 	}
-	detail = reconciler.Redact(detail)
+	detail = secrets.Redact(detail)
 	if runes := []rune(detail); len(runes) > maxErrorDetail {
 		detail = string(runes[:maxErrorDetail]) + "..."
 	}
@@ -135,7 +139,7 @@ func (j secureAgnosticJar) SetCookies(u *url.URL, cookies []*http.Cookie) {
 // Returns an error if the URL scheme is not http/https.
 func NewHTTPClient(baseURL string, authType AuthType, opts ...HTTPClientOption) (*HTTPClient, error) {
 	if err := validateBaseURL(baseURL); err != nil {
-		return nil, InvalidConfig(err)
+		return nil, failure.InvalidConfig(err)
 	}
 
 	jar, err := cookiejar.New(nil)
@@ -301,6 +305,11 @@ func WithTransport(rt http.RoundTripper) HTTPClientOption {
 // a label on custom Prometheus metrics.
 func WithAppLabel(app string) HTTPClientOption {
 	return func(c *HTTPClient) { c.appLabel = app }
+}
+
+// BaseURL is the app's address the client was built for.
+func (c *HTTPClient) BaseURL() string {
+	return c.baseURL
 }
 
 // AppLabel returns the app identifier used for metrics labeling.
@@ -522,4 +531,43 @@ func (c *HTTPClient) PostJSON(ctx context.Context, path string, body map[string]
 func (c *HTTPClient) Delete(ctx context.Context, path string) error {
 	_, err := c.Do(ctx, http.MethodDelete, path, nil)
 	return err
+}
+
+// AuthType identifies the authentication strategy for an app.
+type AuthType int
+
+const (
+	// AuthNone applies no authentication headers (FlareSolverr, SABnzbd with key in body).
+	AuthNone AuthType = iota
+	// AuthAPIKey sends the key in X-Api-Key, or in the header WithAPIKeyHeader names.
+	AuthAPIKey
+	// AuthCookie uses session-based cookie auth (qBittorrent).
+	AuthCookie
+	// AuthMediaBrowser uses Jellyfin's MediaBrowser auth header.
+	AuthMediaBrowser
+	// AuthPlexToken uses X-Plex-Token header.
+	AuthPlexToken
+	// AuthSession uses cookie jar with optional X-Api-Key fallback (Seerr).
+	AuthSession
+)
+
+// ErrUnauthorized is an app refusing the credentials the operator sent.
+var ErrUnauthorized = errors.New("the app refused the credentials")
+
+// IsUnauthorized reports whether err is an app refusing the credentials.
+func IsUnauthorized(err error) bool {
+	if errors.Is(err, ErrUnauthorized) {
+		return true
+	}
+	apiErr, ok := errors.AsType[*APIError](err)
+	return ok && (apiErr.StatusCode == http.StatusUnauthorized || apiErr.StatusCode == http.StatusForbidden)
+}
+
+// newHTTPTransport creates an *http.Transport with SSRF protection and optional TLS configuration.
+// If tlsCfg is nil, the default TLS settings are used.
+func newHTTPTransport(tlsCfg *tls.Config) *http.Transport {
+	return &http.Transport{
+		DialContext:     ssrfSafeDialContext,
+		TLSClientConfig: tlsCfg,
+	}
 }

@@ -10,7 +10,8 @@ import (
 	pvrclient "github.com/kyleseneker/arrchitect/internal/client/pvr"
 	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
 	"github.com/kyleseneker/arrchitect/internal/engine"
-	"github.com/kyleseneker/arrchitect/internal/reconciler"
+	"github.com/kyleseneker/arrchitect/internal/httpapi"
+	"github.com/kyleseneker/arrchitect/internal/secrets"
 )
 
 // pvrConfig is what the PVR pipeline takes from an app's resource.
@@ -24,14 +25,14 @@ type pvrConfig struct {
 // reads what the pipeline takes from a resource.
 func pvrIntegration[T ctrlcommon.ConfigResource](
 	c client.Client, apps ctrlcommon.Apps, app pvrclient.App, describe func(T) pvrConfig,
-) ctrlcommon.Integration[T, *engine.HTTPClient] {
-	return ctrlcommon.Integration[T, *engine.HTTPClient]{
+) ctrlcommon.Integration[T, *httpapi.HTTPClient] {
+	return ctrlcommon.Integration[T, *httpapi.HTTPClient]{
 		App: app.Name,
-		Connect: func(ctx context.Context, obj T) (*engine.HTTPClient, error) {
+		Connect: func(ctx context.Context, obj T) (*httpapi.HTTPClient, error) {
 			return connectPVR(ctx, c, obj, describe(obj).connection, app)
 		},
-		Check: func(ctx context.Context, hc *engine.HTTPClient, _ T) error { return pingPVR(ctx, hc, app) },
-		Sync: func(ctx context.Context, hc *engine.HTTPClient, obj T, pass *engine.Pass) []error {
+		Check: func(ctx context.Context, hc *httpapi.HTTPClient, _ T) error { return pingPVR(ctx, hc, app) },
+		Sync: func(ctx context.Context, hc *httpapi.HTTPClient, obj T, pass *engine.Pass) []error {
 			cfg, namespace := describe(obj), obj.GetNamespace()
 			opts := cfg.options
 			opts.App = app
@@ -50,7 +51,7 @@ func pvrIntegration[T ctrlcommon.ConfigResource](
 			}
 			return append(unresolved, pvrclient.Reconcile(ctx, hc, cfg.spec, opts, pass)...)
 		},
-		Cleanup: func(ctx context.Context, hc *engine.HTTPClient, owned *engine.Ownership) error {
+		Cleanup: func(ctx context.Context, hc *httpapi.HTTPClient, owned *engine.Ownership) error {
 			return engine.DeleteManagedResources(ctx, hc, pvrclient.Definition(app), owned)
 		},
 		Deletable: pvrclient.Definition(app).Deletable,
@@ -72,18 +73,18 @@ func notificationAppRefs(notifications []commonv1alpha1.Notification) []commonv1
 // connectPVR builds the client for an app's connection.
 func connectPVR(
 	ctx context.Context, c client.Reader, obj ctrlcommon.ConfigResource, conn commonv1alpha1.AppConnection, app pvrclient.App,
-) (*engine.HTTPClient, error) {
+) (*httpapi.HTTPClient, error) {
 	namespace := obj.GetNamespace()
-	apiKey, err := reconciler.ResolveSecretKeyRef(ctx, c, namespace, conn.APIKeySecretRef)
+	apiKey, err := secrets.ResolveSecretKeyRef(ctx, c, namespace, conn.APIKeySecretRef)
 	if err != nil {
 		return nil, err
 	}
-	tlsCfg, err := engine.ResolveTLSConfig(ctx, c, namespace, conn.TLS)
+	tlsCfg, err := ctrlcommon.ResolveTLSConfig(ctx, c, namespace, conn.TLS)
 	if err != nil {
 		return nil, err
 	}
-	hc, err := engine.NewHTTPClient(conn.URL, engine.AuthAPIKey,
-		engine.WithAPIKey(apiKey), engine.WithTLSConfig(tlsCfg), engine.WithAppLabel(app.Name))
+	hc, err := httpapi.NewHTTPClient(conn.URL, httpapi.AuthAPIKey,
+		httpapi.WithAPIKey(apiKey), httpapi.WithTLSConfig(tlsCfg), httpapi.WithAppLabel(app.Name))
 	if err != nil {
 		return nil, err
 	}
@@ -91,6 +92,6 @@ func connectPVR(
 }
 
 // pingPVR checks an app answers.
-func pingPVR(ctx context.Context, hc *engine.HTTPClient, app pvrclient.App) error {
+func pingPVR(ctx context.Context, hc *httpapi.HTTPClient, app pvrclient.App) error {
 	return hc.Ping(ctx, "/api/"+app.APIVersion+"/system/status")
 }

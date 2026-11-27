@@ -20,7 +20,8 @@ import (
 	plexclient "github.com/kyleseneker/arrchitect/internal/client/plex"
 	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
 	"github.com/kyleseneker/arrchitect/internal/engine"
-	"github.com/kyleseneker/arrchitect/internal/reconciler"
+	"github.com/kyleseneker/arrchitect/internal/httpapi"
+	"github.com/kyleseneker/arrchitect/internal/secrets"
 )
 
 type PlexReconciler struct {
@@ -51,16 +52,16 @@ func (r *PlexReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 // plexClient builds the client for a config, or returns the status reason it
 // can't.
 func (r *PlexReconciler) connect(ctx context.Context, config *mediaserversv1alpha1.Plex) (*plexclient.Client, error) {
-	token, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, config.Spec.Connection.TokenSecretRef)
+	token, err := secrets.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, config.Spec.Connection.TokenSecretRef)
 	if err != nil {
 		return nil, err
 	}
-	tlsCfg, err := engine.ResolveTLSConfig(ctx, r.Client, config.Namespace, config.Spec.Connection.TLS)
+	tlsCfg, err := ctrlcommon.ResolveTLSConfig(ctx, r.Client, config.Namespace, config.Spec.Connection.TLS)
 	if err != nil {
 		return nil, err
 	}
-	hc, err := engine.NewHTTPClient(config.Spec.Connection.URL, engine.AuthPlexToken, engine.WithPlexToken(token),
-		engine.WithTLSConfig(tlsCfg), engine.WithAppLabel("plex"))
+	hc, err := httpapi.NewHTTPClient(config.Spec.Connection.URL, httpapi.AuthPlexToken, httpapi.WithPlexToken(token),
+		httpapi.WithTLSConfig(tlsCfg), httpapi.WithAppLabel("plex"))
 	if err != nil {
 		return nil, err
 	}

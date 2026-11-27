@@ -1,3 +1,6 @@
+// Package pvr reconciles Sonarr, Radarr, Lidarr and Readarr, which share an
+// API: the definition of each app, the payloads for each kind, and the
+// stages they are written in.
 package pvr
 
 import (
@@ -12,6 +15,8 @@ import (
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
 	pvrv1alpha1 "github.com/kyleseneker/arrchitect/api/pvr/v1alpha1"
 	"github.com/kyleseneker/arrchitect/internal/engine"
+	"github.com/kyleseneker/arrchitect/internal/failure"
+	"github.com/kyleseneker/arrchitect/internal/httpapi"
 )
 
 // App holds what differs between Sonarr, Radarr, Lidarr and Readarr.
@@ -240,7 +245,7 @@ type Options struct {
 }
 
 // schema returns the cached listing for a provider kind, reading it when absent.
-func (o Options) schema(ctx context.Context, client *engine.HTTPClient, apiVersion, kind string) []map[string]any {
+func (o Options) schema(ctx context.Context, client *httpapi.HTTPClient, apiVersion, kind string) []map[string]any {
 	if s, ok := o.schemas[kind]; ok {
 		return s
 	}
@@ -266,7 +271,7 @@ var stages = [][]string{
 	{"importLists"},
 }
 
-func (o Options) builders(ctx context.Context, client *engine.HTTPClient) map[string]engine.Builder {
+func (o Options) builders(ctx context.Context, client *httpapi.HTTPClient) map[string]engine.Builder {
 	v := o.App.APIVersion
 	return map[string]engine.Builder{
 		"tags": {Count: len(o.Tags), Build: func(engine.NamedIDs) ([]map[string]any, error) {
@@ -358,7 +363,7 @@ func customFormatResources(declared []commonv1alpha1.CustomFormat) []map[string]
 }
 
 func downloadClientResources(
-	ctx context.Context, client *engine.HTTPClient, apiVersion string, opts Options, tagIDs engine.NamedIDs,
+	ctx context.Context, client *httpapi.HTTPClient, apiVersion string, opts Options, tagIDs engine.NamedIDs,
 ) ([]map[string]any, error) {
 	schema := opts.schema(ctx, client, apiVersion, "downloadclient")
 	dcs := make([]map[string]any, 0, len(opts.DownloadClients))
@@ -375,7 +380,7 @@ func downloadClientResources(
 }
 
 func indexerResources(
-	ctx context.Context, client *engine.HTTPClient, apiVersion string, opts Options, tagIDs engine.NamedIDs,
+	ctx context.Context, client *httpapi.HTTPClient, apiVersion string, opts Options, tagIDs engine.NamedIDs,
 ) ([]map[string]any, error) {
 	schema := opts.schema(ctx, client, apiVersion, "indexer")
 	var clients engine.NamedIDs
@@ -407,7 +412,7 @@ func indexerResources(
 }
 
 func releaseProfileResources(
-	ctx context.Context, client *engine.HTTPClient, apiVersion string, declared []commonv1alpha1.ReleaseProfile,
+	ctx context.Context, client *httpapi.HTTPClient, apiVersion string, declared []commonv1alpha1.ReleaseProfile,
 	tagIDs engine.NamedIDs, plannedIndexers []string,
 ) ([]map[string]any, error) {
 	var indexers engine.NamedIDs
@@ -450,7 +455,7 @@ func releaseProfileResources(
 }
 
 func notificationResources(
-	ctx context.Context, client *engine.HTTPClient, apiVersion string, opts Options, tagIDs engine.NamedIDs,
+	ctx context.Context, client *httpapi.HTTPClient, apiVersion string, opts Options, tagIDs engine.NamedIDs,
 ) ([]map[string]any, error) {
 	schema := opts.schema(ctx, client, apiVersion, "notification")
 	notifs := make([]map[string]any, 0, len(opts.Notifications))
@@ -471,7 +476,7 @@ func notificationResources(
 }
 
 func importListResources(
-	ctx context.Context, client *engine.HTTPClient, apiVersion string, opts Options, tagIDs engine.NamedIDs,
+	ctx context.Context, client *httpapi.HTTPClient, apiVersion string, opts Options, tagIDs engine.NamedIDs,
 ) ([]map[string]any, error) {
 	profiles, err := engine.FetchNamedIDs(ctx, client, fmt.Sprintf("/api/%s/qualityprofile", apiVersion), "name")
 	if err != nil {
@@ -489,8 +494,8 @@ func importListResources(
 	ils := make([]map[string]any, 0, len(opts.ImportLists))
 	for _, il := range opts.ImportLists {
 		if il.Enabled != nil && !*il.Enabled && opts.App.ImportListFields.Enable == "" {
-			return nil, engine.InvalidConfig(fmt.Errorf("importLists(%s): %s import lists are always active; set enableAutomaticAdd to false so this one adds nothing",
-				il.Name, engine.AppName(opts.App.Name)))
+			return nil, failure.InvalidConfig(fmt.Errorf("importLists(%s): %s import lists are always active; set enableAutomaticAdd to false so this one adds nothing",
+				il.Name, httpapi.AppName(opts.App.Name)))
 		}
 		tags, err := tagIDs.ResolveTags(il.TagLabels)
 		if err != nil {
@@ -529,7 +534,7 @@ func (e *heldBackError) Error() string { return e.msg }
 func (e *heldBackError) Unwrap() error { return e.cause }
 
 // Reconcile runs the full reconciliation for Sonarr, Radarr, Lidarr or Readarr.
-func Reconcile(ctx context.Context, client *engine.HTTPClient, spec any, opts Options, pass *engine.Pass) []error {
+func Reconcile(ctx context.Context, client *httpapi.HTTPClient, spec any, opts Options, pass *engine.Pass) []error {
 	apiVersion := opts.App.APIVersion
 	def := Definition(opts.App)
 	sections, err := Sections(spec, opts.App.Choices)
@@ -564,7 +569,7 @@ func Reconcile(ctx context.Context, client *engine.HTTPClient, spec any, opts Op
 	if len(listProblems) > 0 && len(opts.ImportLists) > 0 {
 		delete(run.Builders, "importLists")
 		problems = append(problems, &heldBackError{
-			msg: "importLists: left out until importListConfig syncs", cause: engine.JoinErrors(listProblems...),
+			msg: "importLists: left out until importListConfig syncs", cause: failure.Join(listProblems...),
 		})
 	}
 
@@ -578,7 +583,7 @@ func Reconcile(ctx context.Context, client *engine.HTTPClient, spec any, opts Op
 
 // resolveListSyncTag puts the ID of the tag Sonarr's listSyncTagLabel names in
 // listSyncTag.
-func resolveListSyncTag(ctx context.Context, client *engine.HTTPClient, apiVersion string, listConfig any, planned []string) error {
+func resolveListSyncTag(ctx context.Context, client *httpapi.HTTPClient, apiVersion string, listConfig any, planned []string) error {
 	config, _ := listConfig.(map[string]any)
 	label, _ := config["listSyncTagLabel"].(string)
 	if label == "" {
@@ -652,7 +657,7 @@ func remotePathMappingKey(item map[string]any) string {
 // apply and the quality profiles, metadata profiles and tags their conditions
 // name to the app's IDs.
 func autoTagResources(
-	ctx context.Context, client *engine.HTTPClient, apiVersion string, opts Options, tagIDs engine.NamedIDs,
+	ctx context.Context, client *httpapi.HTTPClient, apiVersion string, opts Options, tagIDs engine.NamedIDs,
 ) ([]map[string]any, error) {
 	var profiles, metadataProfiles engine.NamedIDs
 	for _, at := range opts.AutoTags {
@@ -728,7 +733,7 @@ func autoTagSpecificationPayload(
 // metadataConsumerResources builds updates for the declared consumers,
 // checking each type and field name against the consumers the app has.
 func metadataConsumerResources(
-	ctx context.Context, client *engine.HTTPClient, apiVersion string, declared []commonv1alpha1.MetadataConsumer,
+	ctx context.Context, client *httpapi.HTTPClient, apiVersion string, declared []commonv1alpha1.MetadataConsumer,
 ) ([]map[string]any, error) {
 	current, err := client.GetJSONList(ctx, fmt.Sprintf("/api/%s/metadata", apiVersion))
 	if err != nil {
@@ -770,7 +775,7 @@ func metadataConsumerResources(
 // referenced by name so a rebuilt app's new IDs are picked up. A folder that
 // exists keeps its name unless the spec sets one.
 func rootFolderResources(
-	ctx context.Context, client *engine.HTTPClient, apiVersion string, opts Options, tagIDs engine.NamedIDs,
+	ctx context.Context, client *httpapi.HTTPClient, apiVersion string, opts Options, tagIDs engine.NamedIDs,
 ) ([]map[string]any, error) {
 	var qualities, metadata engine.NamedIDs
 	existing := map[string]bool{}

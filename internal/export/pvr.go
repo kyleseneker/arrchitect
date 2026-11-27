@@ -10,13 +10,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	pvrclient "github.com/kyleseneker/arrchitect/internal/client/pvr"
-	"github.com/kyleseneker/arrchitect/internal/engine"
-	"github.com/kyleseneker/arrchitect/internal/reconciler"
+	"github.com/kyleseneker/arrchitect/internal/httpapi"
+	"github.com/kyleseneker/arrchitect/internal/secrets"
 )
 
 func pvrApp(a pvrclient.App, newObj func() client.Object) app {
 	return app{
-		auth:   engine.AuthAPIKey,
+		auth:   httpapi.AuthAPIKey,
 		apiKey: true,
 		newObj: newObj,
 		export: func(r *reader) (map[string]any, error) {
@@ -257,10 +257,10 @@ func (e *pvrExport) downloadClient(item map[string]any, defaults map[string]map[
 	if v, _ := values["username"].(string); v != "" {
 		dc["usernameSecretRef"] = e.creds.ref(v, "download-client", name, "username")
 	}
-	if reconciler.IsMasked(values["password"]) {
+	if secrets.IsMasked(values["password"]) {
 		dc["passwordSecretRef"] = e.creds.ref("", "download-client", name, "password")
 	}
-	if reconciler.IsMasked(values["apiKey"]) {
+	if secrets.IsMasked(values["apiKey"]) {
 		dc["apiKeySecretRef"] = e.creds.ref("", "download-client", name, "api-key")
 	}
 	skip := map[string]bool{

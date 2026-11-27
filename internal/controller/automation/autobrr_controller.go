@@ -1,3 +1,4 @@
+// Package automation holds the Autobrr controller.
 package automation
 
 import (
@@ -20,7 +21,9 @@ import (
 	autobrrclient "github.com/kyleseneker/arrchitect/internal/client/autobrr"
 	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
 	"github.com/kyleseneker/arrchitect/internal/engine"
-	"github.com/kyleseneker/arrchitect/internal/reconciler"
+	"github.com/kyleseneker/arrchitect/internal/httpapi"
+	"github.com/kyleseneker/arrchitect/internal/jsondiff"
+	"github.com/kyleseneker/arrchitect/internal/secrets"
 )
 
 // AutobrrReconciler reconciles an Autobrr object.
@@ -58,16 +61,16 @@ func (r *AutobrrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 }
 
 func (r *AutobrrReconciler) connect(ctx context.Context, config *automationv1alpha1.Autobrr) (*autobrrclient.Client, error) {
-	apiKey, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, config.Spec.Connection.APIKeySecretRef)
+	apiKey, err := secrets.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, config.Spec.Connection.APIKeySecretRef)
 	if err != nil {
 		return nil, err
 	}
-	tlsCfg, err := engine.ResolveTLSConfig(ctx, r.Client, config.Namespace, config.Spec.Connection.TLS)
+	tlsCfg, err := ctrlcommon.ResolveTLSConfig(ctx, r.Client, config.Namespace, config.Spec.Connection.TLS)
 	if err != nil {
 		return nil, err
 	}
-	hc, err := engine.NewHTTPClient(config.Spec.Connection.URL, engine.AuthAPIKey,
-		append(autobrrclient.HTTPOptions(), engine.WithAPIKey(apiKey), engine.WithTLSConfig(tlsCfg))...)
+	hc, err := httpapi.NewHTTPClient(config.Spec.Connection.URL, httpapi.AuthAPIKey,
+		append(autobrrclient.HTTPOptions(), httpapi.WithAPIKey(apiKey), httpapi.WithTLSConfig(tlsCfg))...)
 	if err != nil {
 		return nil, err
 	}
@@ -223,14 +226,14 @@ func (s *autobrrSync) downloadClient(ctx context.Context, dc automationv1alpha1.
 	}
 
 	if dc.UsernameSecretRef != nil {
-		val, err := reconciler.ResolveSecretKeyRef(ctx, s.c, s.namespace, *dc.UsernameSecretRef)
+		val, err := secrets.ResolveSecretKeyRef(ctx, s.c, s.namespace, *dc.UsernameSecretRef)
 		if err != nil {
 			return fmt.Errorf("resolving username: %w", err)
 		}
 		obj["username"] = val
 	}
 	if dc.PasswordSecretRef != nil {
-		val, err := reconciler.ResolveSecretKeyRef(ctx, s.c, s.namespace, *dc.PasswordSecretRef)
+		val, err := secrets.ResolveSecretKeyRef(ctx, s.c, s.namespace, *dc.PasswordSecretRef)
 		if err != nil {
 			return fmt.Errorf("resolving password: %w", err)
 		}
@@ -262,18 +265,18 @@ func (s *autobrrSync) downloadClientSettings(
 ) (map[string]any, error) {
 	settings := map[string]any{}
 	if dc.APIKeySecretRef != nil {
-		val, err := reconciler.ResolveSecretKeyRef(ctx, s.c, s.namespace, *dc.APIKeySecretRef)
+		val, err := secrets.ResolveSecretKeyRef(ctx, s.c, s.namespace, *dc.APIKeySecretRef)
 		if err != nil {
 			return nil, fmt.Errorf("resolving API key: %w", err)
 		}
 		settings["apikey"] = val
 	}
 	if a := dc.HTTPAuth; a != (automationv1alpha1.AutobrrHTTPAuth{}) {
-		user, err := reconciler.ResolveSecretKeyRef(ctx, s.c, s.namespace, a.UsernameSecretRef)
+		user, err := secrets.ResolveSecretKeyRef(ctx, s.c, s.namespace, a.UsernameSecretRef)
 		if err != nil {
 			return nil, fmt.Errorf("resolving httpAuth username: %w", err)
 		}
-		pass, err := reconciler.ResolveSecretKeyRef(ctx, s.c, s.namespace, a.PasswordSecretRef)
+		pass, err := secrets.ResolveSecretKeyRef(ctx, s.c, s.namespace, a.PasswordSecretRef)
 		if err != nil {
 			return nil, fmt.Errorf("resolving httpAuth password: %w", err)
 		}
@@ -366,7 +369,7 @@ func (s *autobrrSync) indexer(ctx context.Context, idx automationv1alpha1.Autobr
 		if err != nil {
 			return err
 		}
-		out, err := reconciler.MergeDesired(current, obj)
+		out, err := jsondiff.MergeDesired(current, obj)
 		if err != nil {
 			return err
 		}
@@ -476,7 +479,7 @@ func (s *autobrrSync) ircNetwork(ctx context.Context, irc automationv1alpha1.Aut
 		obj["bot_mode"] = *irc.BotMode
 	}
 	if irc.ServerPasswordSecretRef != nil {
-		val, err := reconciler.ResolveSecretKeyRef(ctx, s.c, s.namespace, *irc.ServerPasswordSecretRef)
+		val, err := secrets.ResolveSecretKeyRef(ctx, s.c, s.namespace, *irc.ServerPasswordSecretRef)
 		if err != nil {
 			return fmt.Errorf("resolving server password: %w", err)
 		}
@@ -491,14 +494,14 @@ func (s *autobrrSync) ircNetwork(ctx context.Context, irc automationv1alpha1.Aut
 	}
 
 	if irc.AuthAccountSecretRef != nil {
-		val, err := reconciler.ResolveSecretKeyRef(ctx, s.c, s.namespace, *irc.AuthAccountSecretRef)
+		val, err := secrets.ResolveSecretKeyRef(ctx, s.c, s.namespace, *irc.AuthAccountSecretRef)
 		if err != nil {
 			return fmt.Errorf("resolving auth account: %w", err)
 		}
 		auth["account"] = val
 	}
 	if irc.AuthPasswordSecretRef != nil {
-		val, err := reconciler.ResolveSecretKeyRef(ctx, s.c, s.namespace, *irc.AuthPasswordSecretRef)
+		val, err := secrets.ResolveSecretKeyRef(ctx, s.c, s.namespace, *irc.AuthPasswordSecretRef)
 		if err != nil {
 			return fmt.Errorf("resolving auth password: %w", err)
 		}
@@ -513,7 +516,7 @@ func (s *autobrrSync) ircNetwork(ctx context.Context, irc automationv1alpha1.Aut
 		for _, ch := range irc.Channels {
 			chObj := map[string]any{"name": ch.Name}
 			if ch.PasswordSecretRef != nil {
-				val, err := reconciler.ResolveSecretKeyRef(ctx, s.c, s.namespace, *ch.PasswordSecretRef)
+				val, err := secrets.ResolveSecretKeyRef(ctx, s.c, s.namespace, *ch.PasswordSecretRef)
 				if err != nil {
 					return fmt.Errorf("resolving channel %q password: %w", ch.Name, err)
 				}
@@ -624,14 +627,14 @@ func (s *autobrrSync) feed(ctx context.Context, feed automationv1alpha1.AutobrrF
 		obj["settings"] = map[string]any{"download_type": t}
 	}
 	if feed.APIKeySecretRef != nil {
-		val, err := reconciler.ResolveSecretKeyRef(ctx, s.c, s.namespace, *feed.APIKeySecretRef)
+		val, err := secrets.ResolveSecretKeyRef(ctx, s.c, s.namespace, *feed.APIKeySecretRef)
 		if err != nil {
 			return fmt.Errorf("resolving API key: %w", err)
 		}
 		obj["api_key"] = val
 	}
 	if feed.CookieSecretRef != nil {
-		val, err := reconciler.ResolveSecretKeyRef(ctx, s.c, s.namespace, *feed.CookieSecretRef)
+		val, err := secrets.ResolveSecretKeyRef(ctx, s.c, s.namespace, *feed.CookieSecretRef)
 		if err != nil {
 			return fmt.Errorf("resolving cookie: %w", err)
 		}
@@ -706,7 +709,7 @@ func (s *autobrrSync) proxy(ctx context.Context, p automationv1alpha1.AutobrrPro
 		if ref == nil {
 			continue
 		}
-		val, err := reconciler.ResolveSecretKeyRef(ctx, s.c, s.namespace, *ref)
+		val, err := secrets.ResolveSecretKeyRef(ctx, s.c, s.namespace, *ref)
 		if err != nil {
 			return fmt.Errorf("resolving %s: %w", key, err)
 		}
@@ -745,7 +748,7 @@ func (s *autobrrSync) titleList(ctx context.Context, l automationv1alpha1.Autobr
 		}
 	}
 	if l.APIKeySecretRef != nil {
-		val, err := reconciler.ResolveSecretKeyRef(ctx, s.c, s.namespace, *l.APIKeySecretRef)
+		val, err := secrets.ResolveSecretKeyRef(ctx, s.c, s.namespace, *l.APIKeySecretRef)
 		if err != nil {
 			return fmt.Errorf("resolving API key: %w", err)
 		}
@@ -1054,7 +1057,7 @@ func (s *autobrrSync) upsert(ctx context.Context, kind, key string, existing []m
 		if err != nil {
 			return err
 		}
-		out, err := reconciler.MergeDesired(e, obj)
+		out, err := jsondiff.MergeDesired(e, obj)
 		if err != nil {
 			return err
 		}
@@ -1091,7 +1094,7 @@ func (s *autobrrSync) rememberCreated(
 		if e["name"] != name {
 			continue
 		}
-		if out, err := reconciler.MergeDesired(e, obj); err == nil {
+		if out, err := jsondiff.MergeDesired(e, obj); err == nil {
 			s.RecordSecrets(secretKey, out.SecretDigest)
 		}
 		return
@@ -1138,11 +1141,11 @@ func onlyNamed(list any, channels []automationv1alpha1.AutobrrIRCChannel) []any 
 	})
 }
 
-// autobrrCovers compares as reconciler.Covers does, except that a declared
+// autobrrCovers compares as jsondiff.Covers does, except that a declared
 // false, 0 or empty value, at any depth, matches a key Autobrr left out: it
 // omits zero values from what it returns.
 func autobrrCovers(current map[string]any, desired any) bool {
-	return reconciler.Covers(withZeros(current, desired), desired)
+	return jsondiff.Covers(withZeros(current, desired), desired)
 }
 
 func withZeros(current, desired any) any {
@@ -1213,7 +1216,7 @@ func (s *autobrrSync) upsertFilter(
 		if autobrrCovers(full, desired) {
 			return id, nil
 		}
-		merged, _, err := reconciler.MergeDesiredOverCurrent(full, obj)
+		merged, _, err := jsondiff.MergeDesiredOverCurrent(full, obj)
 		if err != nil {
 			return 0, err
 		}
@@ -1285,7 +1288,7 @@ const defaultFeedInterval = 15
 // update keeps what the resource doesn't manage. Autobrr keeps a stored secret
 // sent back redacted.
 func mergedOver(current, obj map[string]any) (map[string]any, error) {
-	merged, _, err := reconciler.MergeDesiredOverCurrent(current, obj)
+	merged, _, err := jsondiff.MergeDesiredOverCurrent(current, obj)
 	return merged, err
 }
 

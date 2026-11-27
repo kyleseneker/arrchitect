@@ -1,3 +1,4 @@
+// Package sabnzbd is a client for the SABnzbd API.
 package sabnzbd
 
 import (
@@ -6,8 +7,8 @@ import (
 	"fmt"
 	"net/url"
 
-	"github.com/kyleseneker/arrchitect/internal/engine"
-	"github.com/kyleseneker/arrchitect/internal/reconciler"
+	"github.com/kyleseneker/arrchitect/internal/httpapi"
+	"github.com/kyleseneker/arrchitect/internal/secrets"
 )
 
 // Folders maps SabnzbdFolders fields to their misc keys.
@@ -99,11 +100,11 @@ var AppriseEvents = map[string]string{
 }
 
 type Client struct {
-	hc     *engine.HTTPClient
+	hc     *httpapi.HTTPClient
 	apiKey string
 }
 
-func NewClient(hc *engine.HTTPClient, apiKey string) *Client {
+func NewClient(hc *httpapi.HTTPClient, apiKey string) *Client {
 	return &Client{
 		hc:     hc,
 		apiKey: apiKey,
@@ -196,7 +197,7 @@ func refusal(data []byte, what string) error {
 		Error  string `json:"error"`
 	}
 	if json.Unmarshal(data, &reply) == nil && reply.Status != nil && !*reply.Status {
-		return fmt.Errorf("%s: %s", what, reconciler.Redact(reply.Error))
+		return fmt.Errorf("%s: %s", what, secrets.Redact(reply.Error))
 	}
 	return nil
 }

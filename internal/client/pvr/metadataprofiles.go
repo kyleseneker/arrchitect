@@ -8,14 +8,14 @@ import (
 	"strings"
 
 	pvrv1alpha1 "github.com/kyleseneker/arrchitect/api/pvr/v1alpha1"
-	"github.com/kyleseneker/arrchitect/internal/engine"
+	"github.com/kyleseneker/arrchitect/internal/httpapi"
 )
 
 // metadataProfileBases reads the app's template for a new metadata profile and
 // its current profiles by name. A declared profile starts from its current
 // self, or from the template when it is new.
 func metadataProfileBases(
-	ctx context.Context, client *engine.HTTPClient, apiVersion string,
+	ctx context.Context, client *httpapi.HTTPClient, apiVersion string,
 ) (map[string]any, map[string]map[string]any, error) {
 	schema, err := client.GetJSON(ctx, fmt.Sprintf("/api/%s/metadataprofile/schema", apiVersion))
 	if err != nil {
@@ -36,7 +36,7 @@ func metadataProfileBases(
 }
 
 func lidarrMetadataProfileResources(
-	ctx context.Context, client *engine.HTTPClient, apiVersion string, declared []pvrv1alpha1.LidarrMetadataProfile,
+	ctx context.Context, client *httpapi.HTTPClient, apiVersion string, declared []pvrv1alpha1.LidarrMetadataProfile,
 ) ([]map[string]any, error) {
 	schema, current, err := metadataProfileBases(ctx, client, apiVersion)
 	if err != nil {
@@ -101,7 +101,7 @@ func allowedItems(list any, key string, allowed []string) ([]any, error) {
 }
 
 func readarrMetadataProfileResources(
-	ctx context.Context, client *engine.HTTPClient, apiVersion string, declared []pvrv1alpha1.ReadarrMetadataProfile,
+	ctx context.Context, client *httpapi.HTTPClient, apiVersion string, declared []pvrv1alpha1.ReadarrMetadataProfile,
 ) ([]map[string]any, error) {
 	schema, current, err := metadataProfileBases(ctx, client, apiVersion)
 	if err != nil {

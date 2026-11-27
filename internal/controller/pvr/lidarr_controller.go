@@ -1,3 +1,5 @@
+// Package pvr holds the Sonarr, Radarr, Lidarr and Readarr controllers, and
+// those for the indexers and download clients defined apart from them.
 package pvr
 
 import (

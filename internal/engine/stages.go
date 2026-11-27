@@ -3,6 +3,8 @@ package engine
 import (
 	"context"
 	"fmt"
+
+	"github.com/kyleseneker/arrchitect/internal/httpapi"
 )
 
 // A Builder builds one kind's items for Stages. Tagged marks a kind with items
@@ -33,7 +35,7 @@ type Stages struct {
 // such as one naming a tag that doesn't exist, is left out of its stage, so it
 // is neither written nor pruned, and reported; the other kinds are still
 // written.
-func (s Stages) Reconcile(ctx context.Context, client *HTTPClient, def AppDefinition, pass *Pass) []error {
+func (s Stages) Reconcile(ctx context.Context, client *httpapi.HTTPClient, def AppDefinition, pass *Pass) []error {
 	var problems []error
 	for _, kinds := range s.Order {
 		var tags NamedIDs

@@ -17,6 +17,8 @@ import (
 
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
 	"github.com/kyleseneker/arrchitect/internal/engine"
+	"github.com/kyleseneker/arrchitect/internal/failure"
+	"github.com/kyleseneker/arrchitect/internal/httpapi"
 )
 
 // delayAPI keeps delay profiles as Sonarr, Radarr and Readarr do, or as Lidarr
@@ -117,7 +119,7 @@ func (a *delayAPI) reorder(id, after float64) {
 	}
 }
 
-func (a *delayAPI) client(t *testing.T) *engine.HTTPClient {
+func (a *delayAPI) client(t *testing.T) *httpapi.HTTPClient {
 	t.Helper()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		a.mu.Lock()
@@ -188,12 +190,12 @@ func (a *delayAPI) client(t *testing.T) *engine.HTTPClient {
 		}
 	}))
 	t.Cleanup(srv.Close)
-	hc, err := engine.NewHTTPClient(srv.URL, engine.AuthNone, engine.WithTransport(&http.Transport{}))
+	hc, err := httpapi.NewHTTPClient(srv.URL, httpapi.AuthNone, httpapi.WithTransport(&http.Transport{}))
 	require.NoError(t, err)
 	return hc
 }
 
-func (a *delayAPI) reconcile(t *testing.T, hc *engine.HTTPClient, declared []commonv1alpha1.DelayProfile, policy engine.SyncPolicy, managed map[string][]string) outcome {
+func (a *delayAPI) reconcile(t *testing.T, hc *httpapi.HTTPClient, declared []commonv1alpha1.DelayProfile, policy engine.SyncPolicy, managed map[string][]string) outcome {
 	t.Helper()
 	pass := engine.NewPass(hc.AppLabel(), "", policy, managed)
 	errs := reconcileDelayProfiles(context.Background(), hc, "v3", declared, pass, nil)
@@ -410,7 +412,7 @@ func TestDelayProfilesRefuseAPlanThatCantFinish(t *testing.T) {
 		engine.NamedIDs{"a": {1}, "b": {2}},
 		[]map[string]any{{"id": float64(2), "tags": []any{float64(1)}}, {"id": float64(3), "tags": []any{float64(2)}}},
 		func(map[string]any) bool { return false })
-	assert.True(t, engine.IsConfigError(err))
+	assert.True(t, failure.IsConfigError(err))
 }
 
 // Profiles holding no declared tag never enter the match, so its size

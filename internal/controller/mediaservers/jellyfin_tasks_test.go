@@ -14,6 +14,7 @@ import (
 	mediaserversv1alpha1 "github.com/kyleseneker/arrchitect/api/mediaservers/v1alpha1"
 	jellyfinclient "github.com/kyleseneker/arrchitect/internal/client/jellyfin"
 	"github.com/kyleseneker/arrchitect/internal/engine"
+	"github.com/kyleseneker/arrchitect/internal/httpapi"
 	"github.com/kyleseneker/arrchitect/internal/testnet"
 )
 
@@ -47,7 +48,7 @@ func (f *fakeJellyfinTasks) client(t *testing.T) *jellyfinclient.Client {
 		}
 		w.WriteHeader(http.StatusNotFound)
 	}))
-	hc, err := engine.NewHTTPClient(srv.URL, engine.AuthNone, engine.WithAppLabel("jellyfin"))
+	hc, err := httpapi.NewHTTPClient(srv.URL, httpapi.AuthNone, httpapi.WithAppLabel("jellyfin"))
 	require.NoError(t, err)
 	return jellyfinclient.NewClient(hc)
 }

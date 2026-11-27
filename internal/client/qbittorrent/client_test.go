@@ -12,16 +12,16 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kyleseneker/arrchitect/internal/engine"
+	"github.com/kyleseneker/arrchitect/internal/httpapi"
 )
 
 func newTestClient(t *testing.T, handler http.HandlerFunc) *Client {
 	t.Helper()
 	srv := httptest.NewServer(handler)
 	t.Cleanup(srv.Close)
-	hc, err := engine.NewHTTPClient(srv.URL, engine.AuthCookie,
-		engine.WithTransport(&http.Transport{}),
-		engine.WithDisableRedirect(),
+	hc, err := httpapi.NewHTTPClient(srv.URL, httpapi.AuthCookie,
+		httpapi.WithTransport(&http.Transport{}),
+		httpapi.WithDisableRedirect(),
 	)
 	require.NoError(t, err)
 	return NewClient(hc, "admin", "adminadmin")
@@ -45,7 +45,7 @@ func TestLogin_Failure(t *testing.T) {
 		_, _ = w.Write([]byte("Fails."))
 	})
 	err := c.Login(context.Background())
-	require.ErrorIs(t, err, engine.ErrUnauthorized)
+	require.ErrorIs(t, err, httpapi.ErrUnauthorized)
 	assert.Contains(t, err.Error(), "Fails.")
 }
 
@@ -56,7 +56,7 @@ func TestLoginRefusedNamesTheHostHeaderPort(t *testing.T) {
 	err := c.Login(context.Background())
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "the URL's port is qBittorrent's own")
-	apiErr, ok := errors.AsType[*engine.APIError](err)
+	apiErr, ok := errors.AsType[*httpapi.APIError](err)
 	require.True(t, ok)
 	assert.Equal(t, http.StatusUnauthorized, apiErr.StatusCode)
 }
