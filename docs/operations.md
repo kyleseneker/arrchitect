@@ -106,7 +106,7 @@ How soon a resource that failed tries again depends on why:
 | Reason | Next try |
 | --- | --- |
 | `AppUnreachable` | After 30 seconds, doubling with each failure in a row, up to 10 minutes |
-| `SyncFailed` from reading the Kubernetes API | The same |
+| `SyncFailed` from reading a Secret or referenced resource | The same |
 | `SecretNotFound`, `ReferenceNotFound` | When the Secret or resource appears, or after the interval |
 | `Unauthorized`, `InvalidConfig` | When the resource or a Secret it uses changes, or after the interval |
 | `NameConflict`, any other `SyncFailed` | After the interval |
@@ -117,8 +117,10 @@ waits for the interval too, stretched by up to 10% at random so resources
 created together don't all reach their app at once. Changing the resource, or
 a Secret it uses, reconciles it at once.
 
-Refused credentials wait, so an app that locks out failed sign-ins sees at most
-one attempt per interval. A retry that backs off counts in
+Refused credentials aren't retried before the interval unless the resource or
+a Secret changes, so an app that locks out failed sign-ins isn't pushed into
+it. A failure to read the resource itself backs off without changing its
+status. A retry that backs off counts in
 `controller_runtime_reconcile_errors_total`.
 
 ## Alerting

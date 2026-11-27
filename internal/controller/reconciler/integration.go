@@ -139,12 +139,8 @@ func (in Integration[T, C]) Reconcile(ctx context.Context, c client.Client, reco
 		return ctrl.Result{}, err
 	}
 
-	base, ok := obj.DeepCopyObject().(client.Object)
-	if !ok {
-		return ctrl.Result{}, nil
-	}
 	if err := refusal(obj.GetReconcileConfig(), lc); err != nil {
-		return in.finish(ctx, c, recorder, obj, base, s, nil, []error{err})
+		return in.finish(ctx, c, recorder, obj, s, nil, []error{err})
 	}
 	conn, err := in.Connect(ctx, obj)
 	if err == nil && in.Check != nil {
@@ -152,7 +148,7 @@ func (in Integration[T, C]) Reconcile(ctx context.Context, c client.Client, reco
 	}
 	if err != nil {
 		log.FromContext(ctx).Info("Couldn't reach "+httpapi.AppName(in.App), "error", err.Error())
-		return in.finish(ctx, c, recorder, obj, base, s, nil, []error{err})
+		return in.finish(ctx, c, recorder, obj, s, nil, []error{err})
 	}
 
 	pass := engine.NewPass(in.App, ownerKey(obj), s.policy, owned(obj))
@@ -161,7 +157,7 @@ func (in Integration[T, C]) Reconcile(ctx context.Context, c client.Client, reco
 		obj.GetConfigStatus().SetManagedResources(managed)
 	}
 	emitPruneEvents(recorder, obj, pass.Owned.Pruned())
-	return in.finish(ctx, c, recorder, obj, base, s, pass, problems)
+	return in.finish(ctx, c, recorder, obj, s, pass, problems)
 }
 
 // finish records how a pass ended, from errs or else from what pass did, and
@@ -169,8 +165,7 @@ func (in Integration[T, C]) Reconcile(ctx context.Context, c client.Client, reco
 // backs off or a status that couldn't be written, else at the interval. pass
 // is nil when the pass ended before syncing.
 func (in Integration[T, C]) finish(
-	ctx context.Context, c client.Client, recorder events.EventRecorder, obj T, base client.Object,
-	s settings, pass *engine.Pass, errs []error,
+	ctx context.Context, c client.Client, recorder events.EventRecorder, obj T, s settings, pass *engine.Pass, errs []error,
 ) (ctrl.Result, error) {
 	var out outcome
 	var st state
@@ -180,7 +175,7 @@ func (in Integration[T, C]) finish(
 	} else {
 		st = passState(s.policy.Observe, pass.SyncedItems(), pass.Drift())
 	}
-	err := record(ctx, c, recorder, obj, base, st)
+	err := record(ctx, c, recorder, obj, st)
 	if pass != nil {
 		remember(obj, pass.Owned.Managed(), err == nil)
 	}

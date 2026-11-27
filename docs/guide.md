@@ -189,7 +189,7 @@ The reason is one of:
 | Reason | Meaning |
 | --- | --- |
 | `Synced` | The app matches the resource. |
-| `SyncFailed` | Some settings could not be applied, the pass failed in different ways, or reading from the Kubernetes API failed; the message says which, and the reason the app gave. |
+| `SyncFailed` | Some settings could not be applied, the pass failed in different ways, or reading a Secret or a referenced resource from the Kubernetes API failed; the message says which, and the reason the app gave. |
 | `AppUnreachable` | The app did not respond, or answered that it is down with a 502, 503 or 504. |
 | `Unauthorized` | The app refused the API key, token or password. |
 | `SecretNotFound` | A Secret or key the resource needs does not exist. |
@@ -301,8 +301,9 @@ won't delete because something still uses it is kept and named in a
 `ResourceKept` warning event. A Lidarr or Readarr quality profile that a root
 folder defaults to is one example. Cleanup that fails for another reason
 records a `CleanupFailed` warning event and is retried, backing off from 30
-seconds. The first retry after 10 minutes gives up. It records a
-`FinalizerReleased` warning event and removes the finalizer.
+seconds. A retry more than 10 minutes after the deletion that still fails
+gives up: it records a `FinalizerReleased` warning event and removes the
+finalizer.
 
 ## Credentials
 

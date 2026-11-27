@@ -21,6 +21,7 @@ import (
 	"k8s.io/client-go/tools/events"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
 	pvrv1alpha1 "github.com/kyleseneker/arrchitect/api/pvr/v1alpha1"
 	"github.com/kyleseneker/arrchitect/internal/engine"
@@ -119,13 +120,12 @@ func TestRecordSurvivesASpecEditMidPass(t *testing.T) {
 
 	stale := &pvrv1alpha1.Sonarr{}
 	require.NoError(t, cl.Get(ctx, key, stale))
-	base := stale.DeepCopy()
 	edited := stale.DeepCopy()
 	edited.Spec.Connection.URL = "http://sonarr.edited:8989"
 	require.NoError(t, cl.Update(ctx, edited))
 
 	stale.Status.SetManagedResources(map[string][]string{"downloadClients": {"qbit"}})
-	require.NoError(t, record(ctx, cl, nil, stale, base, state{synced: true, reason: ReasonSynced, message: "ok"}))
+	require.NoError(t, record(ctx, cl, nil, stale, state{synced: true, reason: ReasonSynced, message: "ok"}))
 
 	got := &pvrv1alpha1.Sonarr{}
 	require.NoError(t, cl.Get(ctx, key, got))
@@ -137,41 +137,68 @@ func TestRecordSurvivesASpecEditMidPass(t *testing.T) {
 }
 
 func TestRecordOutlivesACancelledReconcile(t *testing.T) {
-	obj, cl := statusSonarr(t)
-	base := obj.DeepCopy()
+	obj := &pvrv1alpha1.Sonarr{Name: "sonarr", Namespace: "media"}
+	s := runtime.NewScheme()
+	require.NoError(t, pvrv1alpha1.AddToScheme(s))
+	cl := fake.NewClientBuilder().WithScheme(s).WithObjects(obj).WithStatusSubresource(obj).WithInterceptorFuncs(interceptor.Funcs{
+		SubResourcePatch: func(ctx context.Context, c client.Client, sub string, o client.Object, patch client.Patch, opts ...client.SubResourcePatchOption) error {
+			if err := ctx.Err(); err != nil {
+				return err
+			}
+			return c.SubResource(sub).Patch(ctx, o, patch, opts...)
+		},
+	}).Build()
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
 	obj.Status.SetManagedResources(map[string][]string{"downloadClients": {"qbit"}})
-	require.NoError(t, record(ctx, cl, nil, obj, base, state{synced: true, reason: ReasonSynced, message: "ok"}))
+	require.NoError(t, record(ctx, cl, nil, obj, state{synced: true, reason: ReasonSynced, message: "ok"}))
 
 	got := &pvrv1alpha1.Sonarr{}
 	require.NoError(t, cl.Get(context.Background(), client.ObjectKeyFromObject(obj), got))
 	assert.Equal(t, map[string][]string{"downloadClients": {"qbit"}}, got.Status.GetManagedResources())
 }
 
-// A condition a pass drops leaves the status too: the merge patch, taken over
-// the resource as the pass read it, carries the removal.
+// A condition a pass drops leaves the status too, since the write replaces the
+// whole status.
 func TestRecordClearsADroppedCondition(t *testing.T) {
 	obj, c := statusSonarr(t)
-	require.NoError(t, record(context.Background(), c, nil, obj, obj.DeepCopy(), failedWith(failure.InvalidConfig.Errorf("x"))))
+	require.NoError(t, record(context.Background(), c, nil, obj, failedWith(failure.InvalidConfig.Errorf("x"))))
 	require.True(t, meta.IsStatusConditionTrue(obj.Status.Conditions, ConditionStalled))
 
-	require.NoError(t, record(context.Background(), c, nil, obj, obj.DeepCopy(), passState(false, nil, nil)))
+	require.NoError(t, record(context.Background(), c, nil, obj, passState(false, nil, nil)))
 
 	got := &pvrv1alpha1.Sonarr{}
 	require.NoError(t, c.Get(context.Background(), client.ObjectKeyFromObject(obj), got))
 	assert.Nil(t, meta.FindStatusCondition(got.Status.Conditions, ConditionStalled), "the patch left Stalled in place")
 }
 
+// A resource deleted and created again mid-pass keeps its own status: the
+// write tests the UID it was read with.
+func TestRecordNeverWritesIntoAReplacement(t *testing.T) {
+	replacement := &pvrv1alpha1.Sonarr{Name: "sonarr", Namespace: "media", UID: "second"}
+	s := runtime.NewScheme()
+	require.NoError(t, pvrv1alpha1.AddToScheme(s))
+	c := fake.NewClientBuilder().WithScheme(s).WithObjects(replacement).WithStatusSubresource(replacement).Build()
+	old := &pvrv1alpha1.Sonarr{Name: "sonarr", Namespace: "media", UID: "first"}
+	old.Status.SetManagedResources(map[string][]string{"tags": {"created"}})
+
+	require.Error(t, record(context.Background(), c, nil, old, passState(false, nil, nil)))
+
+	got := &pvrv1alpha1.Sonarr{}
+	require.NoError(t, c.Get(context.Background(), client.ObjectKeyFromObject(replacement), got))
+	assert.Empty(t, got.Status.GetManagedResources(), "the replacement took on the old resource's ownership")
+	assert.Empty(t, got.Status.Conditions)
+}
+
 func TestConfigSyncedGaugeTracksOutcome(t *testing.T) {
 	obj, c := statusSonarr(t)
 
-	require.NoError(t, record(context.Background(), c, nil, obj, obj.DeepCopy(), passState(false, nil, nil)))
+	require.NoError(t, record(context.Background(), c, nil, obj, passState(false, nil, nil)))
 	assert.Equal(t, 1.0, testutil.ToFloat64(metrics.ConfigSynced.WithLabelValues("Sonarr", "media", "sonarr")),
 		"expected gauge 1 after a successful sync")
 
-	require.NoError(t, record(context.Background(), c, nil, obj, obj.DeepCopy(), failedWith(failure.Unreachable.Errorf("boom"))))
+	require.NoError(t, record(context.Background(), c, nil, obj, failedWith(failure.Unreachable.Errorf("boom"))))
 	assert.Equal(t, 0.0, testutil.ToFloat64(metrics.ConfigSynced.WithLabelValues("Sonarr", "media", "sonarr")),
 		"expected gauge 0 after failure")
 }
@@ -220,7 +247,7 @@ func TestReadySumsUpSyncedAndStalledMarksWhatNoRetryFixes(t *testing.T) {
 		{failedWith(failure.NameConflict.Errorf("taken")), metav1.ConditionFalse, true},
 		{passState(true, nil, nil), metav1.ConditionTrue, false},
 	} {
-		require.NoError(t, record(context.Background(), c, nil, obj, obj.DeepCopy(), step.state))
+		require.NoError(t, record(context.Background(), c, nil, obj, step.state))
 		ready := meta.FindStatusCondition(obj.Status.Conditions, ConditionReady)
 		require.NotNil(t, ready, step.state.reason)
 		assert.Equal(t, step.ready, ready.Status, step.state.reason)
@@ -233,7 +260,7 @@ func TestReadyChangesAreRecordedAsEvents(t *testing.T) {
 	obj, c := statusSonarr(t)
 	recorder := events.NewFakeRecorder(10)
 	write := func(st state) {
-		require.NoError(t, record(context.Background(), c, recorder, obj, obj.DeepCopy(), st))
+		require.NoError(t, record(context.Background(), c, recorder, obj, st))
 	}
 
 	write(passState(false, nil, nil))
@@ -305,7 +332,7 @@ func TestEventNotesKeepTheAppsWordsOut(t *testing.T) {
 	obj, c := statusSonarr(t)
 	recorder := events.NewFakeRecorder(1)
 
-	require.NoError(t, record(context.Background(), c, recorder, obj, obj.DeepCopy(),
+	require.NoError(t, record(context.Background(), c, recorder, obj,
 		failedWith(errors.New("indexers(Private): the tracker said key abc123 is banned"))))
 
 	assert.Equal(t, "Warning SyncFailed The app refused some settings. The Ready condition says which.", <-recorder.Events,
@@ -322,7 +349,7 @@ func TestNoEventWithoutTheStatusItDescribes(t *testing.T) {
 	c := fake.NewClientBuilder().WithScheme(s).WithStatusSubresource(obj).Build()
 	recorder := events.NewFakeRecorder(1)
 
-	require.NoError(t, record(context.Background(), c, recorder, obj, obj.DeepCopy(), failedWith(failure.Unreachable.Errorf("connection refused"))),
+	require.NoError(t, record(context.Background(), c, recorder, obj, failedWith(failure.Unreachable.Errorf("connection refused"))),
 		"a resource deleted mid-pass needs no status")
 
 	assert.Empty(t, recorder.Events, "the status write failed, so the event would describe a state nobody can read")

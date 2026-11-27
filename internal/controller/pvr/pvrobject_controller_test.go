@@ -18,6 +18,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -581,4 +582,27 @@ func TestResolveDownloadClientSecrets_MissingSecret(t *testing.T) {
 	_, err := resolveDownloadClientSecrets(context.Background(), fc, "default", dcs)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "username")
+}
+
+// A pass reads the instance once, so its drift policy and its connection come
+// from the same version of it.
+func TestObjectReadsItsInstanceOncePerPass(t *testing.T) {
+	_, url := newFakeArr(t, "v3", nil)
+	base, ok := objectClient(t, apiKeySecret(), sonarrInstanceAt(url, nil), sonarrDownloadClient()).(client.WithWatch)
+	require.True(t, ok)
+	reads := 0
+	c := interceptor.NewClient(base, interceptor.Funcs{
+		Get: func(ctx context.Context, cl client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+			if _, ok := obj.(*pvrv1alpha1.Sonarr); ok {
+				reads++
+			}
+			return cl.Get(ctx, key, obj, opts...)
+		},
+	})
+	r := NewObjectReconciler(SonarrDownloadClients, c, events.NewFakeRecorder(50), nil)
+
+	_, err := r.Reconcile(context.Background(), ctrl.Request{Name: "tv-qbittorrent", Namespace: "media"})
+
+	require.NoError(t, err)
+	assert.Equal(t, 1, reads)
 }

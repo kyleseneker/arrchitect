@@ -2,6 +2,7 @@ package reconciler
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"slices"
@@ -84,9 +85,8 @@ func listed(items []string, sep string) string {
 // record writes st to obj's status and records a change of Ready as an event.
 // A resource deleted mid-pass gets neither.
 // Synced says whether the app matches the resource. Ready repeats it as the
-// summary GitOps tools read, and Stalled marks a failure no retry fixes. base
-// is obj as the pass found it, which the status is patched over.
-func record(ctx context.Context, c client.Client, recorder events.EventRecorder, obj ConfigResource, base client.Object, st state) error {
+// summary GitOps tools read, and Stalled marks a failure no retry fixes.
+func record(ctx context.Context, c client.Client, recorder events.EventRecorder, obj ConfigResource, st state) error {
 	cs := obj.GetConfigStatus()
 	status := metav1.ConditionFalse
 	if st.synced {
@@ -110,7 +110,7 @@ func record(ctx context.Context, c client.Client, recorder events.EventRecorder,
 	cs.ObservedGeneration = generation
 	recordSynced(obj, st.synced)
 	recordManaged(obj)
-	err := writeStatus(ctx, c, obj, base)
+	err := writeStatus(ctx, c, obj)
 	if apierrors.IsNotFound(err) {
 		return nil
 	}
@@ -125,14 +125,33 @@ func record(ctx context.Context, c client.Client, recorder events.EventRecorder,
 // is cancelled.
 const statusWriteTimeout = 10 * time.Second
 
-// writeStatus patches obj's status over base. A merge patch carries no
-// resourceVersion, so a spec edit mid-pass can't conflict with it. The write
-// outlives a reconcile cancelled mid-pass, which would otherwise lose the
-// ownership the pass recorded.
-func writeStatus(ctx context.Context, c client.Client, obj, base client.Object) error {
+// writeStatus replaces obj's status with a JSON patch. The patch carries no
+// resourceVersion, so a spec edit mid-pass can't conflict with it, but it
+// tests the UID, so a resource deleted and created again mid-pass never gets
+// the old one's status and ownership. The write outlives a reconcile cancelled
+// mid-pass, which would otherwise lose the ownership the pass recorded.
+func writeStatus(ctx context.Context, c client.Client, obj client.Object) error {
+	doc, err := json.Marshal(obj)
+	if err != nil {
+		return err
+	}
+	var fields struct {
+		Status json.RawMessage `json:"status"`
+	}
+	if err := json.Unmarshal(doc, &fields); err != nil {
+		return err
+	}
+	ops := []map[string]any{{"op": "add", "path": "/status", "value": fields.Status}}
+	if uid := obj.GetUID(); uid != "" {
+		ops = append([]map[string]any{{"op": "test", "path": "/metadata/uid", "value": uid}}, ops...)
+	}
+	patch, err := json.Marshal(ops)
+	if err != nil {
+		return err
+	}
 	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), statusWriteTimeout)
 	defer cancel()
-	return c.Status().Patch(ctx, obj, client.MergeFrom(base))
+	return c.Status().Patch(ctx, obj, client.RawPatch(types.JSONPatchType, patch))
 }
 
 // recordManaged sets the managed_resources series from the ownership obj's

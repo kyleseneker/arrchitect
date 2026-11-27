@@ -108,13 +108,15 @@ Copy these when you add something similar:
 
 - A controller: `TdarrReconciler` in
   `internal/controller/transcode/tdarr_controller.go`. Its `integration()`
-  declares a `reconciler.Integration`: the kind (`New`, `NewList`), what its
-  appRefs name (`AppRefs`, `RefKinds`), and `Connect`, `Check`, `Sync` and
-  `Cleanup`. `Connect` builds the client with `reconciler.Dial` and signs in,
-  and cleanup reuses it. `Check` probes the app before a sync, and holds any
-  spec check that mustn't block cleanup. `Sync` writes through the
-  `engine.Pass` it's given. `Reconcile` and `SetupWithManager` hand off to the
-  integration, which does the lifecycle, status, events, requeue and watches.
+  declares a `reconciler.Integration`: the kind (`New`, `NewList`), and
+  `Connect`, `Check`, `Sync` and `Cleanup`. `Connect` builds the client with
+  `reconciler.Dial`, and cleanup reuses it. A kind with appRefs also sets
+  `AppRefs` and `RefKinds`, as Maintainerr does, and an app that needs a
+  sign-in does it in `Connect`, as qBittorrent does. `Check` probes the app
+  before a sync, and holds any spec check that mustn't block cleanup. `Sync`
+  writes through the `engine.Pass` it's given. `Reconcile` and
+  `SetupWithManager` hand off to the integration, which does the lifecycle,
+  status, events, requeue and watches.
   An app that needs its own header, timeout or redirect handling exports them
   as `HTTPOptions()` from its client package, which `arrchitect export` uses
   too.

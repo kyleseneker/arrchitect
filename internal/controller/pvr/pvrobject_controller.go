@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -271,10 +272,20 @@ func (r *ObjectReconciler[O]) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 // integration reconciles an object through the instance it names, whose drift
-// policy and interval govern it.
+// policy and interval govern it. It serves one pass, and reads the instance
+// once, so the policy and the connection come from the same version of it.
 func (r *ObjectReconciler[O]) integration() reconciler.Integration[O, objectConn] {
 	k := r.kind
 	def := pvrclient.Definition(k.app)
+	var read struct {
+		sync.Once
+		instance pvrInstance
+		err      error
+	}
+	lookup := func(ctx context.Context, obj O) (pvrInstance, error) {
+		read.Do(func() { read.instance, read.err = r.instance(ctx, obj) })
+		return read.instance, read.err
+	}
 	in := reconciler.Integration[O, objectConn]{
 		App:     k.app.Name,
 		Name:    strings.ToLower(k.app.Kind) + strings.TrimPrefix(k.path, "/"),
@@ -290,14 +301,14 @@ func (r *ObjectReconciler[O]) integration() reconciler.Integration[O, objectConn
 				builder.WithPredicates(instanceChanged())), nil
 		},
 		Governor: func(ctx context.Context, obj O) (*commonv1alpha1.ReconcileConfig, error) {
-			instance, err := r.instance(ctx, obj)
+			instance, err := lookup(ctx, obj)
 			if apierrors.IsNotFound(err) {
 				return nil, nil
 			}
 			return instance.policy, err
 		},
 		Connect: func(ctx context.Context, obj O) (objectConn, error) {
-			instance, err := r.instance(ctx, obj)
+			instance, err := lookup(ctx, obj)
 			if apierrors.IsNotFound(err) {
 				return objectConn{orphan: obj}, nil
 			}

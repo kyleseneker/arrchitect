@@ -46,6 +46,7 @@ func stored(t *testing.T, obj *pvrv1alpha1.Sonarr, funcs ...interceptor.Funcs) c
 	for _, f := range funcs {
 		b = b.WithInterceptorFuncs(f)
 	}
+	t.Cleanup(func() { forgetOwnership(obj) })
 	return b.Build()
 }
 
@@ -207,7 +208,7 @@ func TestAFailedStatusWriteKeepsWhatThePassCreated(t *testing.T) {
 // An object governed by another resource takes that resource's drift policy
 // and interval, always prunes, and keeps no finalizer while it observes.
 func TestAGovernorDecidesThePolicyAndInterval(t *testing.T) {
-	obj := &pvrv1alpha1.Sonarr{Name: "sonarr", Namespace: "media"}
+	obj := &pvrv1alpha1.Sonarr{Name: "sonarr", Namespace: "media", Finalizers: []string{Finalizer}}
 	obj.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{DeletionPolicy: DeletionPolicyDelete}
 	c := stored(t, obj)
 	in := sonarrs()
@@ -228,7 +229,7 @@ func TestAGovernorDecidesThePolicyAndInterval(t *testing.T) {
 	assert.True(t, prune, "a governed pass always prunes")
 	assert.GreaterOrEqual(t, result.RequeueAfter, time.Minute)
 	assert.LessOrEqual(t, result.RequeueAfter, time.Minute+6*time.Second)
-	assert.False(t, controllerutil.ContainsFinalizer(readSonarr(t, c), Finalizer), "an observed object holds no finalizer")
+	assert.False(t, controllerutil.ContainsFinalizer(readSonarr(t, c), Finalizer), "the governor's observe mode left the finalizer in place")
 }
 
 func TestCleanupSkipsCheck(t *testing.T) {
