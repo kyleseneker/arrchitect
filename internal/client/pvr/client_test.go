@@ -141,18 +141,22 @@ func TestSettingsGoBeforeTheKindsTheyGovern(t *testing.T) {
 }
 
 func TestImportListsWaitForTheirSyncSetting(t *testing.T) {
-	app := &rebuildAPI{fail: "config/importlist"}
-	hc := app.client(t)
-	spec := pvrv1alpha1.RadarrSpec{ImportListConfig: pvrv1alpha1.RadarrImportListConfig{ListSyncLevel: "logOnly"}}
-	opts := Options{App: Radarr, ImportLists: []commonv1alpha1.ImportList{{Name: "Trakt", Implementation: "TraktListImport"}}}
+	for name, fail := range map[string]string{"read": "config/importlist", "write": "config/importlist/1"} {
+		t.Run(name, func(t *testing.T) {
+			app := &rebuildAPI{fail: fail}
+			hc := app.client(t)
+			spec := pvrv1alpha1.RadarrSpec{ImportListConfig: pvrv1alpha1.RadarrImportListConfig{ListSyncLevel: "logOnly"}}
+			opts := Options{App: Radarr, ImportLists: []commonv1alpha1.ImportList{{Name: "Trakt", Implementation: "TraktListImport"}}}
 
-	problems := Reconcile(context.Background(), hc, spec, opts, engine.NewPass("radarr", engine.SyncPolicy{}, nil))
-	require.Len(t, problems, 2)
-	assert.Contains(t, problems[0], "importListConfig: ")
-	assert.Equal(t, "importLists: left out until importListConfig syncs", problems[1])
-	app.mu.Lock()
-	defer app.mu.Unlock()
-	assert.NotContains(t, app.writes, "POST importlist", "a list changed under the old sync level")
+			problems := Reconcile(context.Background(), hc, spec, opts, engine.NewPass("radarr", engine.SyncPolicy{}, nil))
+			require.Len(t, problems, 2)
+			assert.Contains(t, problems[0], "importListConfig: ")
+			assert.Equal(t, "importLists: left out until importListConfig syncs", problems[1])
+			app.mu.Lock()
+			defer app.mu.Unlock()
+			assert.NotContains(t, app.writes, "POST importlist", "a list changed under the old sync level")
+		})
+	}
 }
 
 func TestOnlyRadarrTurnsAnImportListOff(t *testing.T) {
