@@ -340,7 +340,7 @@ func TestBazarrDefaultProfilesResolveByName(t *testing.T) {
 
 func newTestBazarrClient(t *testing.T, addr string) *bazarrclient.Client {
 	t.Helper()
-	hc, err := engine.NewHTTPClient(addr, engine.AuthFormEncoded, engine.WithAPIKey("key"), engine.WithAPIKeyHeader("X-API-KEY"))
+	hc, err := engine.NewHTTPClient(addr, engine.AuthAPIKey, engine.WithAPIKey("key"), engine.WithAPIKeyHeader("X-API-KEY"))
 	require.NoError(t, err)
 	return bazarrclient.NewClient(hc)
 }

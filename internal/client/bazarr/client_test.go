@@ -19,7 +19,7 @@ func newTestClient(t *testing.T, handler http.HandlerFunc) *Client {
 	t.Helper()
 	srv := httptest.NewServer(handler)
 	t.Cleanup(srv.Close)
-	hc, err := engine.NewHTTPClient(srv.URL, engine.AuthFormEncoded,
+	hc, err := engine.NewHTTPClient(srv.URL, engine.AuthAPIKey,
 		engine.WithAPIKey("test-key"),
 		engine.WithAPIKeyHeader("X-API-KEY"),
 		engine.WithTransport(&http.Transport{}),

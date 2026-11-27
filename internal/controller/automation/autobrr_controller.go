@@ -66,9 +66,8 @@ func (r *AutobrrReconciler) connect(ctx context.Context, config *automationv1alp
 	if err != nil {
 		return nil, err
 	}
-	hc, err := engine.NewHTTPClient(config.Spec.Connection.URL, engine.AuthAPIKey, engine.WithAPIKey(apiKey),
-		// Autobrr reads only X-API-Token; any other header is answered with 403.
-		engine.WithAPIKeyHeader("X-API-Token"), engine.WithTLSConfig(tlsCfg), engine.WithAppLabel("autobrr"))
+	hc, err := engine.NewHTTPClient(config.Spec.Connection.URL, engine.AuthAPIKey,
+		append(autobrrclient.HTTPOptions(), engine.WithAPIKey(apiKey), engine.WithTLSConfig(tlsCfg))...)
 	if err != nil {
 		return nil, err
 	}

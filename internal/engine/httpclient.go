@@ -446,7 +446,7 @@ func (c *HTTPClient) DoForm(ctx context.Context, path string, form url.Values) (
 
 func (c *HTTPClient) applyAuth(req *http.Request) {
 	switch c.authType {
-	case AuthAPIKey, AuthFormEncoded:
+	case AuthAPIKey:
 		if c.apiKey != "" {
 			req.Header.Set(c.apiKeyHeader, c.apiKey)
 		}

@@ -271,8 +271,8 @@ func (r *QBittorrentReconciler) connect(ctx context.Context, config *downloadsv1
 	if err != nil {
 		return nil, err
 	}
-	hc, err := engine.NewHTTPClient(config.Spec.Connection.URL, engine.AuthCookie, engine.WithTLSConfig(tlsCfg),
-		engine.WithDisableRedirect(), engine.WithAppLabel("qbittorrent"))
+	hc, err := engine.NewHTTPClient(config.Spec.Connection.URL, engine.AuthCookie,
+		append(qbclient.HTTPOptions(), engine.WithTLSConfig(tlsCfg))...)
 	if err != nil {
 		return nil, err
 	}

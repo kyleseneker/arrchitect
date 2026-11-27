@@ -33,7 +33,11 @@ import (
 	requestsv1alpha1 "github.com/kyleseneker/arrchitect/api/requests/v1alpha1"
 	subtitlesv1alpha1 "github.com/kyleseneker/arrchitect/api/subtitles/v1alpha1"
 	transcodev1alpha1 "github.com/kyleseneker/arrchitect/api/transcode/v1alpha1"
+	autobrrclient "github.com/kyleseneker/arrchitect/internal/client/autobrr"
+	bazarrclient "github.com/kyleseneker/arrchitect/internal/client/bazarr"
 	pvrclient "github.com/kyleseneker/arrchitect/internal/client/pvr"
+	qbclient "github.com/kyleseneker/arrchitect/internal/client/qbittorrent"
+	tdarrclient "github.com/kyleseneker/arrchitect/internal/client/tdarr"
 	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
 	"github.com/kyleseneker/arrchitect/internal/engine"
 	"github.com/kyleseneker/arrchitect/internal/reconciler"
@@ -142,7 +146,7 @@ var apps = map[string]app{
 	},
 	"qbittorrent": {
 		auth: engine.AuthCookie, login: true, hostPort: true, export: exportQBittorrent,
-		options: []engine.HTTPClientOption{engine.WithDisableRedirect()},
+		options: qbclient.HTTPOptions(),
 		newObj:  func() client.Object { return &downloadsv1alpha1.QBittorrent{} },
 	},
 	"sabnzbd": {
@@ -163,12 +167,12 @@ var apps = map[string]app{
 	},
 	"tdarr": {
 		auth: engine.AuthAPIKey, apiKey: true, export: exportTdarr,
-		options: []engine.HTTPClientOption{engine.WithAPIKeyHeader("x-api-key")},
+		options: tdarrclient.HTTPOptions(),
 		newObj:  func() client.Object { return &transcodev1alpha1.Tdarr{} },
 	},
 	"autobrr": {
 		auth: engine.AuthAPIKey, apiKey: true, export: exportAutobrr,
-		options: []engine.HTTPClientOption{engine.WithAPIKeyHeader("X-API-Token")},
+		options: autobrrclient.HTTPOptions(),
 		newObj:  func() client.Object { return &automationv1alpha1.Autobrr{} },
 	},
 	"maintainerr": {
@@ -176,8 +180,8 @@ var apps = map[string]app{
 		newObj: func() client.Object { return &curationv1alpha1.Maintainerr{} },
 	},
 	"bazarr": {
-		auth: engine.AuthFormEncoded, apiKey: true, export: exportBazarr,
-		options: []engine.HTTPClientOption{engine.WithAPIKeyHeader("X-API-KEY")},
+		auth: engine.AuthAPIKey, apiKey: true, export: exportBazarr,
+		options: bazarrclient.HTTPOptions(),
 		newObj:  func() client.Object { return &subtitlesv1alpha1.Bazarr{} },
 	},
 }

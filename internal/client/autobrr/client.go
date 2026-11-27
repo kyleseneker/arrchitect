@@ -13,6 +13,12 @@ import (
 	"github.com/kyleseneker/arrchitect/internal/engine"
 )
 
+// HTTPOptions are what every client for Autobrr takes. Autobrr reads only
+// X-API-Token and answers any other header with 403.
+func HTTPOptions() []engine.HTTPClientOption {
+	return []engine.HTTPClientOption{engine.WithAPIKeyHeader("X-API-Token"), engine.WithAppLabel("autobrr")}
+}
+
 // Client wraps engine.HTTPClient with Autobrr-specific API methods.
 // FilterFields maps the AutobrrFilter fields Autobrr stores as given to its keys.
 var FilterFields = map[string]string{

@@ -222,13 +222,6 @@ func TestApplyAuth(t *testing.T) {
 			wantValue:  `MediaBrowser Client="arrchitect", Device="operator", DeviceId="arrchitect-operator", Version="1.0.0", Token="jf-tok"`,
 		},
 		{
-			name:       "FormEncoded",
-			authType:   AuthFormEncoded,
-			setup:      func(c *HTTPClient) { c.apiKey = "bazarr-key" },
-			wantHeader: "X-Api-Key",
-			wantValue:  "bazarr-key",
-		},
-		{
 			name:       "Session with API key",
 			authType:   AuthSession,
 			setup:      func(c *HTTPClient) { c.apiKey = "seerr-key" },

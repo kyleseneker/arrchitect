@@ -6,9 +6,18 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/kyleseneker/arrchitect/internal/engine"
 )
+
+// HTTPOptions are what every client for Tdarr takes: the header it reads the
+// API key from, and room for the time a large flow or library write takes.
+func HTTPOptions() []engine.HTTPClientOption {
+	return []engine.HTTPClientOption{
+		engine.WithAPIKeyHeader("x-api-key"), engine.WithAppLabel("tdarr"), engine.WithTimeout(3 * time.Minute),
+	}
+}
 
 // Client wraps engine.HTTPClient with Tdarr-specific API methods.
 type Client struct {
