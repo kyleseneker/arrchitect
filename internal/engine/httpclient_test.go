@@ -420,7 +420,7 @@ func TestPostJSON(t *testing.T) {
 	assert.Equal(t, http.MethodPost, capturedMethod)
 }
 
-func TestDeleteJSON(t *testing.T) {
+func TestDelete(t *testing.T) {
 	var capturedMethod string
 
 	hc := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
@@ -428,7 +428,7 @@ func TestDeleteJSON(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	err := hc.DeleteJSON(context.Background(), "/api/resource/1")
+	err := hc.Delete(context.Background(), "/api/resource/1")
 	require.NoError(t, err)
 	assert.Equal(t, http.MethodDelete, capturedMethod)
 }

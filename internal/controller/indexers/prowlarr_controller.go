@@ -37,13 +37,13 @@ func (r *ProwlarrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		App:     "prowlarr",
 		Connect: r.connect,
 		Check: func(ctx context.Context, hc *engine.HTTPClient, _ *indexersv1alpha1.Prowlarr) error {
-			return hc.Ping(ctx, prowlarrclient.ProwlarrDefinition().HealthPath)
+			return hc.Ping(ctx, prowlarrclient.Definition().HealthPath)
 		},
 		Sync: r.sync,
 		Cleanup: func(ctx context.Context, hc *engine.HTTPClient, owned *engine.Ownership) error {
-			return engine.DeleteManagedResources(ctx, hc, prowlarrclient.ProwlarrDefinition(), owned)
+			return engine.DeleteManagedResources(ctx, hc, prowlarrclient.Definition(), owned)
 		},
-		Deletable: prowlarrclient.ProwlarrDefinition().Deletable,
+		Deletable: prowlarrclient.Definition().Deletable,
 		Prune:     true,
 	}
 	return integration.Reconcile(ctx, r.Client, r.Recorder, req, &indexersv1alpha1.Prowlarr{})
@@ -68,7 +68,7 @@ func (r *ProwlarrReconciler) connect(ctx context.Context, config *indexersv1alph
 }
 
 func (r *ProwlarrReconciler) sync(ctx context.Context, hc *engine.HTTPClient, config *indexersv1alpha1.Prowlarr, pass *engine.Pass) []string {
-	def := prowlarrclient.ProwlarrDefinition()
+	def := prowlarrclient.Definition()
 	// A kind whose items name a Secret that can't be read is left out of the
 	// pass, neither written nor pruned, and reported; the rest still syncs.
 	var unresolved []string
@@ -96,7 +96,7 @@ func (r *ProwlarrReconciler) sync(ctx context.Context, hc *engine.HTTPClient, co
 	}
 
 	// Tags and sync profiles must exist before their IDs can be referenced.
-	prerequisites := prowlarrclient.ProwlarrResources(prowlarrclient.ProwlarrOptions{Tags: config.Spec.Tags, AppProfiles: config.Spec.AppProfiles}, nil)
+	prerequisites := prowlarrclient.Resources(prowlarrclient.Options{Tags: config.Spec.Tags, AppProfiles: config.Spec.AppProfiles}, nil)
 	problems := engine.ReconcileApp(ctx, hc, def, nil, prerequisites, pass)
 
 	resolved, tagIDs, terr := prowlarrclient.ResolveReferences(ctx, hc, config.Spec, pass.Observe)
@@ -125,7 +125,7 @@ func (r *ProwlarrReconciler) sync(ctx context.Context, hc *engine.HTTPClient, co
 		unresolved = append(unresolved, fmt.Sprintf("proxies: %v", perr))
 	}
 
-	resources := prowlarrclient.ProwlarrResources(prowlarrclient.ProwlarrOptions{
+	resources := prowlarrclient.Resources(prowlarrclient.Options{
 		Applications:    appPayloads,
 		Indexers:        indexers,
 		Proxies:         proxyPayloads,
@@ -180,7 +180,7 @@ func (r *ProwlarrReconciler) buildApplicationPayloads(
 			}
 			secrets[ref.field] = value
 		}
-		payloads = append(payloads, prowlarrclient.BuildProwlarrApplicationPayload(app, secrets, tagIDs))
+		payloads = append(payloads, prowlarrclient.BuildApplicationPayload(app, secrets, tagIDs))
 	}
 	return payloads, nil
 }
@@ -220,7 +220,7 @@ func (r *ProwlarrReconciler) buildProxyPayloads(ctx context.Context, config *ind
 			}
 			credentials[name] = value
 		}
-		payloads = append(payloads, prowlarrclient.BuildProwlarrProxyPayload(p, credentials, tagIDs))
+		payloads = append(payloads, prowlarrclient.BuildProxyPayload(p, credentials, tagIDs))
 	}
 	return payloads, nil
 }

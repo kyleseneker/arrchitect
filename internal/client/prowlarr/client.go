@@ -7,8 +7,8 @@ import (
 	"github.com/kyleseneker/arrchitect/internal/engine"
 )
 
-// ProwlarrDefinition returns the AppDefinition for Prowlarr.
-func ProwlarrDefinition() engine.AppDefinition {
+// Definition returns the AppDefinition for Prowlarr.
+func Definition() engine.AppDefinition {
 	return engine.AppDefinition{
 		HealthPath: "/api/v1/system/status",
 		Resources: []engine.ResourceEndpoint{
@@ -39,8 +39,8 @@ func ProwlarrDefinition() engine.AppDefinition {
 	}
 }
 
-// ProwlarrOptions holds all the inputs needed to reconcile Prowlarr.
-type ProwlarrOptions struct {
+// Options holds all the inputs needed to reconcile Prowlarr.
+type Options struct {
 	AppProfiles     []indexersv1alpha1.ProwlarrAppProfile
 	Tags            []commonv1alpha1.Tag
 	Applications    []map[string]any
@@ -50,8 +50,8 @@ type ProwlarrOptions struct {
 	Notifications   []commonv1alpha1.Notification
 }
 
-// ProwlarrResources builds the resources map from the options.
-func ProwlarrResources(opts ProwlarrOptions, tagIDs map[string]int) map[string][]map[string]any {
+// Resources builds the resources map from the options.
+func Resources(opts Options, tagIDs map[string]int) map[string][]map[string]any {
 	resources := make(map[string][]map[string]any)
 	for _, profile := range opts.AppProfiles {
 		payload := map[string]any{"name": profile.Name}
@@ -86,7 +86,7 @@ func ProwlarrResources(opts ProwlarrOptions, tagIDs map[string]int) map[string][
 	if len(opts.Indexers) > 0 {
 		idxs := make([]map[string]any, 0, len(opts.Indexers))
 		for _, idx := range opts.Indexers {
-			idxs = append(idxs, BuildProwlarrIndexerPayload(idx, tagIDs))
+			idxs = append(idxs, BuildIndexerPayload(idx, tagIDs))
 		}
 		resources["indexers"] = idxs
 	}
@@ -99,7 +99,7 @@ func ProwlarrResources(opts ProwlarrOptions, tagIDs map[string]int) map[string][
 	if len(opts.DownloadClients) > 0 {
 		dcs := make([]map[string]any, 0, len(opts.DownloadClients))
 		for _, dc := range opts.DownloadClients {
-			dcs = append(dcs, BuildProwlarrDownloadClientPayload(dc, tagIDs))
+			dcs = append(dcs, BuildDownloadClientPayload(dc, tagIDs))
 		}
 		resources["downloadClients"] = dcs
 	}
@@ -117,9 +117,9 @@ func ProwlarrResources(opts ProwlarrOptions, tagIDs map[string]int) map[string][
 	return resources
 }
 
-// BuildProwlarrApplicationPayload builds the API payload for a Prowlarr application.
+// BuildApplicationPayload builds the API payload for a Prowlarr application.
 // secrets holds the resolved apiKey, authUsername and authPassword, by field name.
-func BuildProwlarrApplicationPayload(app indexersv1alpha1.ProwlarrApplication, secrets map[string]string, tagIDs map[string]int) map[string]any {
+func BuildApplicationPayload(app indexersv1alpha1.ProwlarrApplication, secrets map[string]string, tagIDs map[string]int) map[string]any {
 	fields := []map[string]any{
 		{"name": "baseUrl", "value": app.BaseURL},
 		{"name": "apiKey", "value": secrets["apiKey"]},
@@ -161,8 +161,8 @@ func BuildProwlarrApplicationPayload(app indexersv1alpha1.ProwlarrApplication, s
 	return payload
 }
 
-// BuildProwlarrIndexerPayload builds the API payload for a Prowlarr indexer.
-func BuildProwlarrIndexerPayload(idx indexersv1alpha1.ProwlarrIndexer, tagIDs map[string]int) map[string]any {
+// BuildIndexerPayload builds the API payload for a Prowlarr indexer.
+func BuildIndexerPayload(idx indexersv1alpha1.ProwlarrIndexer, tagIDs map[string]int) map[string]any {
 	// Prowlarr's indexer schema lists every tracker definition, too large to read
 	// each pass; Torznab, Newznab and Cardigann all follow this naming.
 	configContract := idx.Implementation + "Settings"
@@ -186,9 +186,9 @@ func BuildProwlarrIndexerPayload(idx indexersv1alpha1.ProwlarrIndexer, tagIDs ma
 	return desired
 }
 
-// BuildProwlarrProxyPayload builds the API payload for a Prowlarr proxy.
+// BuildProxyPayload builds the API payload for a Prowlarr proxy.
 // credentials holds the resolved username and password, by field name.
-func BuildProwlarrProxyPayload(proxy indexersv1alpha1.ProwlarrProxy, credentials map[string]string, tagIDs map[string]int) map[string]any {
+func BuildProxyPayload(proxy indexersv1alpha1.ProwlarrProxy, credentials map[string]string, tagIDs map[string]int) map[string]any {
 	fields := []map[string]any{{"name": "host", "value": proxy.Host}}
 	if proxy.Port != 0 {
 		fields = append(fields, map[string]any{"name": "port", "value": proxy.Port})
@@ -209,8 +209,8 @@ func BuildProwlarrProxyPayload(proxy indexersv1alpha1.ProwlarrProxy, credentials
 	return payload
 }
 
-// BuildProwlarrDownloadClientPayload builds the API payload for a Prowlarr download client.
-func BuildProwlarrDownloadClientPayload(dc indexersv1alpha1.ProwlarrDownloadClient, tagIDs map[string]int) map[string]any {
+// BuildDownloadClientPayload builds the API payload for a Prowlarr download client.
+func BuildDownloadClientPayload(dc indexersv1alpha1.ProwlarrDownloadClient, tagIDs map[string]int) map[string]any {
 	configContract := dc.Implementation + "Settings"
 	if dc.ConfigContract != "" {
 		configContract = dc.ConfigContract

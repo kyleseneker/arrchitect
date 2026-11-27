@@ -524,8 +524,8 @@ func (c *HTTPClient) PostJSON(ctx context.Context, path string, body map[string]
 	return err
 }
 
-// DeleteJSON sends a DELETE request.
-func (c *HTTPClient) DeleteJSON(ctx context.Context, path string) error {
+// Delete sends a DELETE request.
+func (c *HTTPClient) Delete(ctx context.Context, path string) error {
 	_, err := c.Do(ctx, http.MethodDelete, path, nil)
 	return err
 }

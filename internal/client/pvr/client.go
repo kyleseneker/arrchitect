@@ -1807,7 +1807,7 @@ func (s *delayProfileStage) pruneUnmatched(ctx context.Context, plans []*delayPl
 		return nil
 	}
 	return s.Owned.Cleanup(delayProfilesKind, unmatched, func(id string) error {
-		err := s.client.DeleteJSON(ctx, s.path+"/"+id)
+		err := s.client.Delete(ctx, s.path+"/"+id)
 		if reason, refused := engine.Refusal(err); refused {
 			return fmt.Errorf("the app refused: %s", reason)
 		}

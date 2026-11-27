@@ -89,7 +89,7 @@ func TestProwlarr(t *testing.T) {
 				return fmt.Errorf("sonarr has %d indexers, none synced from Prowlarr", len(items))
 			})
 		},
-		cleanup: ownedGone(directClient(t, prowlarr.url(), key), prowlarrclient.ProwlarrDefinition()),
+		cleanup: ownedGone(directClient(t, prowlarr.url(), key), prowlarrclient.Definition()),
 	})
 }
 

@@ -11,7 +11,7 @@ import (
 )
 
 func TestProwlarrDefinition(t *testing.T) {
-	def := ProwlarrDefinition()
+	def := Definition()
 	assert.Equal(t, "/api/v1/system/status", def.HealthPath)
 	assert.Empty(t, def.Settings, "Prowlarr has no settings endpoints")
 	assert.True(t, len(def.Resources) >= 6)
@@ -28,17 +28,17 @@ func TestProwlarrDefinition(t *testing.T) {
 func TestProwlarrResources(t *testing.T) {
 	tests := []struct {
 		name     string
-		opts     ProwlarrOptions
+		opts     Options
 		wantKeys []string
 	}{
 		{
 			name:     "empty options",
-			opts:     ProwlarrOptions{},
+			opts:     Options{},
 			wantKeys: []string{},
 		},
 		{
 			name: "all resource types",
-			opts: ProwlarrOptions{
+			opts: Options{
 				Tags:         []commonv1alpha1.Tag{{Label: "test"}},
 				Applications: []map[string]any{{"name": "sonarr"}},
 				Indexers:     []indexersv1alpha1.ProwlarrIndexer{{Name: "idx"}},
@@ -52,7 +52,7 @@ func TestProwlarrResources(t *testing.T) {
 		},
 		{
 			name: "tags only",
-			opts: ProwlarrOptions{
+			opts: Options{
 				Tags: []commonv1alpha1.Tag{{Label: "tag1"}, {Label: "tag2"}},
 			},
 			wantKeys: []string{"tags"},
@@ -60,7 +60,7 @@ func TestProwlarrResources(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			resources := ProwlarrResources(tt.opts, nil)
+			resources := Resources(tt.opts, nil)
 			assert.Len(t, resources, len(tt.wantKeys))
 			for _, k := range tt.wantKeys {
 				assert.Contains(t, resources, k)
@@ -81,7 +81,7 @@ func TestBuildProwlarrApplicationPayload(t *testing.T) {
 		TagLabels:      []string{"tag1", "tag2"},
 	}
 
-	p := BuildProwlarrApplicationPayload(app, map[string]string{"apiKey": "sonarr-api-key"}, map[string]int{"tag1": 1, "tag2": 2})
+	p := BuildApplicationPayload(app, map[string]string{"apiKey": "sonarr-api-key"}, map[string]int{"tag1": 1, "tag2": 2})
 
 	assert.Equal(t, "Sonarr", p["name"])
 	assert.Equal(t, "fullSync", p["syncLevel"])
@@ -105,7 +105,7 @@ func TestBuildProwlarrApplicationPayload(t *testing.T) {
 }
 
 func TestBuildProwlarrApplicationPayloadLeavesOutWhatTheResourceLeavesOut(t *testing.T) {
-	p := BuildProwlarrApplicationPayload(indexersv1alpha1.ProwlarrApplication{
+	p := BuildApplicationPayload(indexersv1alpha1.ProwlarrApplication{
 		Name: "Sonarr", Implementation: "Sonarr", ConfigContract: "SonarrSettings", BaseURL: "http://sonarr:8989",
 	}, map[string]string{"apiKey": "key"}, nil)
 
@@ -118,7 +118,7 @@ func TestBuildProwlarrApplicationPayloadLeavesOutWhatTheResourceLeavesOut(t *tes
 }
 
 func TestBuildProwlarrApplicationPayloadSendsBasicAuth(t *testing.T) {
-	p := BuildProwlarrApplicationPayload(indexersv1alpha1.ProwlarrApplication{
+	p := BuildApplicationPayload(indexersv1alpha1.ProwlarrApplication{
 		Name: "Radarr", Implementation: "Radarr", BaseURL: "https://radarr.example",
 	}, map[string]string{"apiKey": "key", "authUsername": "proxy", "authPassword": "secret"}, nil)
 
@@ -172,7 +172,7 @@ func TestBuildProwlarrIndexerPayload(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			p := BuildProwlarrIndexerPayload(tt.idx, nil)
+			p := BuildIndexerPayload(tt.idx, nil)
 			tt.check(t, p)
 		})
 	}
@@ -210,7 +210,7 @@ func TestBuildProwlarrProxyPayload(t *testing.T) {
 	}
 	t.Run("with port and credentials", func(t *testing.T) {
 		proxy := indexersv1alpha1.ProwlarrProxy{Name: "Proxy", Implementation: "Http", ConfigContract: "HttpSettings", Host: "proxy.local", Port: 8080}
-		p := BuildProwlarrProxyPayload(proxy, map[string]string{"username": "u", "password": "p"}, nil)
+		p := BuildProxyPayload(proxy, map[string]string{"username": "u", "password": "p"}, nil)
 		assert.Equal(t, []map[string]any{
 			{"name": "host", "value": "proxy.local"}, {"name": "port", "value": int32(8080)},
 			{"name": "username", "value": "u"}, {"name": "password", "value": "p"},
@@ -218,7 +218,7 @@ func TestBuildProwlarrProxyPayload(t *testing.T) {
 	})
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			p := BuildProwlarrProxyPayload(tt.proxy, nil, nil)
+			p := BuildProxyPayload(tt.proxy, nil, nil)
 			tt.check(t, p)
 		})
 	}
@@ -268,7 +268,7 @@ func TestBuildProwlarrDownloadClientPayload(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			p := BuildProwlarrDownloadClientPayload(tt.dc, nil)
+			p := BuildDownloadClientPayload(tt.dc, nil)
 			tt.check(t, p)
 		})
 	}

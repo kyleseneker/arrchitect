@@ -41,8 +41,8 @@ func TestReconcileInterval(t *testing.T) {
 		rc   *commonv1alpha1.ReconcileConfig
 		want time.Duration
 	}{
-		{"nil config", nil, DefaultReconcileInterval},
-		{"nil interval", &commonv1alpha1.ReconcileConfig{}, DefaultReconcileInterval},
+		{"nil config", nil, engine.DefaultReconcileInterval},
+		{"nil interval", &commonv1alpha1.ReconcileConfig{}, engine.DefaultReconcileInterval},
 		{"30s", &commonv1alpha1.ReconcileConfig{IntervalSeconds: int32(30)}, 30 * time.Second},
 		{"10m", &commonv1alpha1.ReconcileConfig{IntervalSeconds: int32(600)}, 10 * time.Minute},
 	}

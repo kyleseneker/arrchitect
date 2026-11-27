@@ -33,8 +33,6 @@ import (
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 // +kubebuilder:rbac:groups=events.k8s.io,resources=events,verbs=create;patch
 
-const DefaultReconcileInterval = engine.DefaultReconcileInterval
-
 const DriftPolicyObserve = "observe"
 
 // ReconcileInterval returns the configured interval or the default.
@@ -42,7 +40,7 @@ func ReconcileInterval(rc *commonv1alpha1.ReconcileConfig) time.Duration {
 	if rc != nil && rc.IntervalSeconds != 0 {
 		return time.Duration(rc.IntervalSeconds) * time.Second
 	}
-	return DefaultReconcileInterval
+	return engine.DefaultReconcileInterval
 }
 
 // PruneEnabled returns whether resource pruning is enabled.
@@ -166,10 +164,10 @@ func UpdateStatus(ctx context.Context, c client.Client, recorder events.EventRec
 	if previous := meta.FindStatusCondition(*conditions, engine.ConditionReady); previous != nil {
 		before = previous.DeepCopy()
 	}
-	reconciler.SetCondition(conditions, generation, engine.ConditionSynced, string(status), reason, message)
-	reconciler.SetCondition(conditions, generation, engine.ConditionReady, string(status), reason, message)
+	reconciler.SetCondition(conditions, generation, engine.ConditionSynced, status, reason, message)
+	reconciler.SetCondition(conditions, generation, engine.ConditionReady, status, reason, message)
 	if !synced && stalledReasons[reason] {
-		reconciler.SetCondition(conditions, generation, engine.ConditionStalled, string(metav1.ConditionTrue), reason, message)
+		reconciler.SetCondition(conditions, generation, engine.ConditionStalled, metav1.ConditionTrue, reason, message)
 	} else {
 		meta.RemoveStatusCondition(conditions, engine.ConditionStalled)
 	}
