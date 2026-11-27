@@ -1,5 +1,7 @@
-// Package pvr holds the Sonarr, Radarr, Lidarr and Readarr controllers, and
-// those for the indexers and download clients defined apart from them.
+// Package pvr holds the Sonarr, Radarr, Lidarr and Readarr controllers, those
+// for the indexers and download clients defined apart from them, and the sync
+// the four apps share: each app's definition, the payloads for each kind, and
+// the stages they are written in.
 package pvr
 
 import (
@@ -12,7 +14,6 @@ import (
 
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
 	pvrv1alpha1 "github.com/kyleseneker/arrchitect/api/pvr/v1alpha1"
-	pvrclient "github.com/kyleseneker/arrchitect/internal/client/pvr"
 	"github.com/kyleseneker/arrchitect/internal/controller/appref"
 	"github.com/kyleseneker/arrchitect/internal/controller/reconciler"
 	"github.com/kyleseneker/arrchitect/internal/httpapi"
@@ -39,9 +40,9 @@ func (r *LidarrReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 func (r *LidarrReconciler) integration() reconciler.Integration[*pvrv1alpha1.Lidarr, *httpapi.HTTPClient] {
-	in := pvrIntegration(r.Client, r.Apps, pvrclient.Lidarr, func(config *pvrv1alpha1.Lidarr) pvrConfig {
+	in := pvrIntegration(r.Client, r.Apps, Lidarr, func(config *pvrv1alpha1.Lidarr) pvrConfig {
 		s := config.Spec
-		return pvrConfig{spec: s, connection: s.Connection, options: pvrclient.Options{
+		return pvrConfig{spec: s, connection: s.Connection, options: Options{
 			RootFolders:            s.RootFolders,
 			RemotePathMappings:     s.RemotePathMappings,
 			QualityProfiles:        s.QualityProfiles,

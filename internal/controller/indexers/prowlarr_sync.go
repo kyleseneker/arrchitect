@@ -1,6 +1,4 @@
-// Package prowlarr reconciles Prowlarr: its definition, the payloads for
-// each kind, and the stages they are written in.
-package prowlarr
+package indexers
 
 import (
 	"context"
@@ -9,13 +7,13 @@ import (
 
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
 	indexersv1alpha1 "github.com/kyleseneker/arrchitect/api/indexers/v1alpha1"
-	pvrclient "github.com/kyleseneker/arrchitect/internal/client/pvr"
 	"github.com/kyleseneker/arrchitect/internal/engine"
 	"github.com/kyleseneker/arrchitect/internal/httpapi"
+	"github.com/kyleseneker/arrchitect/internal/provider"
 )
 
-// Definition returns the AppDefinition for Prowlarr.
-func Definition() engine.AppDefinition {
+// ProwlarrDefinition returns the AppDefinition for Prowlarr.
+func ProwlarrDefinition() engine.AppDefinition {
 	return engine.AppDefinition{
 		HealthPath: "/api/v1/system/status",
 		Resources: []engine.ResourceEndpoint{
@@ -46,40 +44,40 @@ func Definition() engine.AppDefinition {
 	}
 }
 
-// Application is an application to sync indexers to, with the Secret values
+// prowlarrApplication is an application to sync indexers to, with the Secret values
 // its payload carries: apiKey, authUsername and authPassword, by field name.
-type Application struct {
+type prowlarrApplication struct {
 	indexersv1alpha1.ProwlarrApplication
 	Secrets map[string]string
 }
 
-// Proxy is an indexer proxy with its username and password, by field name.
-type Proxy struct {
+// prowlarrProxy is an indexer proxy with its username and password, by field name.
+type prowlarrProxy struct {
 	indexersv1alpha1.ProwlarrProxy
 	Credentials map[string]string
 }
 
-// Options holds all the inputs needed to reconcile Prowlarr.
-type Options struct {
+// prowlarrOptions holds all the inputs needed to reconcile Prowlarr.
+type prowlarrOptions struct {
 	Tags            []commonv1alpha1.Tag
 	AppProfiles     []indexersv1alpha1.ProwlarrAppProfile
-	Applications    []Application
+	Applications    []prowlarrApplication
 	Indexers        []indexersv1alpha1.ProwlarrIndexer
-	Proxies         []Proxy
+	Proxies         []prowlarrProxy
 	DownloadClients []indexersv1alpha1.ProwlarrDownloadClient
 	Notifications   []commonv1alpha1.Notification
 }
 
-// stages are the kinds in the order they're written: every kind but app
+// prowlarrStages are the kinds in the order they're written: every kind but app
 // profiles names tags, and indexers name app profiles.
-var stages = [][]string{
+var prowlarrStages = [][]string{
 	{"tags", "appProfiles"},
 	{"applications", "indexers", "proxies", "downloadClients", "notifications"},
 }
 
-// Reconcile writes the options to Prowlarr. A kind that names a tag or app
+// reconcileProwlarr writes the options to Prowlarr. A kind that names a tag or app
 // profile Prowlarr lacks is left out and reported; the rest still syncs.
-func Reconcile(ctx context.Context, client *httpapi.HTTPClient, opts Options, pass *engine.Pass) []error {
+func reconcileProwlarr(ctx context.Context, client *httpapi.HTTPClient, opts prowlarrOptions, pass *engine.Pass) []error {
 	var plannedTags []string
 	if pass.Observe {
 		for _, t := range opts.Tags {
@@ -87,12 +85,12 @@ func Reconcile(ctx context.Context, client *httpapi.HTTPClient, opts Options, pa
 		}
 	}
 	return engine.Stages{
-		Order: stages, Builders: opts.builders(ctx, client, pass.Observe),
+		Order: prowlarrStages, Builders: opts.builders(ctx, client, pass.Observe),
 		TagPath: "/api/v1/tag", PlannedTags: plannedTags,
-	}.Reconcile(ctx, client, Definition(), pass)
+	}.Reconcile(ctx, client, ProwlarrDefinition(), pass)
 }
 
-func (o Options) builders(ctx context.Context, client *httpapi.HTTPClient, observe bool) map[string]engine.Builder {
+func (o prowlarrOptions) builders(ctx context.Context, client *httpapi.HTTPClient, observe bool) map[string]engine.Builder {
 	return map[string]engine.Builder{
 		"tags": {Count: len(o.Tags), Build: func(engine.NamedIDs) ([]map[string]any, error) {
 			tags := make([]map[string]any, 0, len(o.Tags))
@@ -109,16 +107,16 @@ func (o Options) builders(ctx context.Context, client *httpapi.HTTPClient, obser
 			return profiles, nil
 		}},
 		"applications": taggedKind("applications", o.Applications,
-			func(a Application) (string, []string) { return a.Name, a.TagLabels },
-			func(a Application, tags []int) (map[string]any, error) {
+			func(a prowlarrApplication) (string, []string) { return a.Name, a.TagLabels },
+			func(a prowlarrApplication, tags []int) (map[string]any, error) {
 				return buildApplicationPayload(a.ProwlarrApplication, a.Secrets, tags), nil
 			}),
 		"indexers": taggedKind("indexers", o.Indexers,
 			func(i indexersv1alpha1.ProwlarrIndexer) (string, []string) { return i.Name, i.TagLabels },
 			o.indexerPayload(ctx, client, observe)),
 		"proxies": taggedKind("proxies", o.Proxies,
-			func(p Proxy) (string, []string) { return p.Name, p.TagLabels },
-			func(p Proxy, tags []int) (map[string]any, error) {
+			func(p prowlarrProxy) (string, []string) { return p.Name, p.TagLabels },
+			func(p prowlarrProxy, tags []int) (map[string]any, error) {
 				return buildProxyPayload(p.ProwlarrProxy, p.Credentials, tags), nil
 			}),
 		"downloadClients": taggedKind("downloadClients", o.DownloadClients,
@@ -129,7 +127,7 @@ func (o Options) builders(ctx context.Context, client *httpapi.HTTPClient, obser
 		"notifications": taggedKind("notifications", o.Notifications,
 			func(n commonv1alpha1.Notification) (string, []string) { return n.Name, n.TagLabels },
 			func(n commonv1alpha1.Notification, tags []int) (map[string]any, error) {
-				return pvrclient.BuildNotificationPayload(n, tags), nil
+				return provider.NotificationPayload(n, tags), nil
 			}),
 	}
 }
@@ -168,7 +166,7 @@ func taggedKind[T any](
 // names, reading Prowlarr's profiles the first time one does. In observe mode,
 // profiles the resource declares resolve even when Prowlarr lacks them; see
 // engine.PlannedID.
-func (o Options) indexerPayload(
+func (o prowlarrOptions) indexerPayload(
 	ctx context.Context, client *httpapi.HTTPClient, observe bool,
 ) func(indexersv1alpha1.ProwlarrIndexer, []int) (map[string]any, error) {
 	var profiles engine.NamedIDs
@@ -267,9 +265,9 @@ func buildIndexerPayload(idx indexersv1alpha1.ProwlarrIndexer, tags []int) map[s
 	desired := map[string]any{
 		"name": idx.Name, "implementation": idx.Implementation, "configContract": configContract,
 	}
-	pvrclient.SetOptionalBool(desired, "enable", idx.Enable)
+	provider.SetOptionalBool(desired, "enable", idx.Enable)
 	if idx.Fields != nil {
-		desired["fields"] = pvrclient.BuildFieldsPayload(idx.Fields)
+		desired["fields"] = provider.FieldsPayload(idx.Fields)
 	}
 	setTags(desired, tags)
 	if idx.AppProfileID != nil {
@@ -317,9 +315,9 @@ func buildDownloadClientPayload(dc indexersv1alpha1.ProwlarrDownloadClient, tags
 		"implementation": dc.Implementation,
 		"configContract": configContract,
 	}
-	pvrclient.SetOptionalBool(desired, "enable", dc.Enable)
+	provider.SetOptionalBool(desired, "enable", dc.Enable)
 	if dc.Fields != nil {
-		desired["fields"] = pvrclient.BuildFieldsPayload(dc.Fields)
+		desired["fields"] = provider.FieldsPayload(dc.Fields)
 	}
 	if dc.Categories != nil {
 		categories := make([]map[string]any, 0, len(dc.Categories))

@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
+	"github.com/kyleseneker/arrchitect/internal/provider"
 )
 
 func TestBuildDownloadClientPayload(t *testing.T) {
@@ -110,8 +111,8 @@ func TestBuildDownloadClientPayload(t *testing.T) {
 				Name: "qBit", Protocol: "torrent", Implementation: "QBittorrent",
 				Host: "qbit", Port: 8080, Category: "tv",
 				Fields: []commonv1alpha1.ConfigField{
-					{Name: "host", Value: fieldValue(`"should-be-ignored"`)},
-					{Name: "initialState", Value: fieldValue(`0`)},
+					{Name: "host", Value: rawValue(`"should-be-ignored"`)},
+					{Name: "initialState", Value: rawValue(`0`)},
 				},
 			},
 			categoryField: "tvCategory",
@@ -181,7 +182,7 @@ func TestBuildIndexerPayload(t *testing.T) {
 				EnableAutomaticSearch: new(false), EnableInteractiveSearch: new(false),
 				ConfigContract: "CustomContract", Priority: int32(10),
 				Fields: []commonv1alpha1.ConfigField{
-					{Name: "baseUrl", Value: fieldValue(`"http://nzbgeek.info"`)},
+					{Name: "baseUrl", Value: rawValue(`"http://nzbgeek.info"`)},
 				},
 			},
 			tags: []int{1},
@@ -209,48 +210,6 @@ func TestBuildIndexerPayload(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			p := BuildIndexerPayload(tt.idx, tt.tags)
-			tt.check(t, p)
-		})
-	}
-}
-
-func TestBuildNotificationPayload(t *testing.T) {
-	tests := []struct {
-		name  string
-		n     commonv1alpha1.Notification
-		check func(t *testing.T, p map[string]any)
-	}{
-		{
-			name: "minimal",
-			n:    commonv1alpha1.Notification{Name: "Discord", Implementation: "Discord"},
-			check: func(t *testing.T, p map[string]any) {
-				assert.Equal(t, "Discord", p["name"])
-				assert.Equal(t, "DiscordSettings", p["configContract"])
-				_, hasOnGrab := p["onGrab"]
-				assert.False(t, hasOnGrab, "nil bools should not be set")
-				assert.NotContains(t, p, "fields")
-				assert.NotContains(t, p, "tags")
-			},
-		},
-		{
-			name: "with triggers",
-			n: commonv1alpha1.Notification{
-				Name: "Slack", Implementation: "Slack",
-				OnGrab: new(true), OnDownload: new(false),
-				OnMovieAdded: new(true),
-			},
-			check: func(t *testing.T, p map[string]any) {
-				assert.Equal(t, true, p["onGrab"])
-				assert.Equal(t, false, p["onDownload"])
-				assert.Equal(t, true, p["onMovieAdded"])
-				_, hasOnRename := p["onRename"]
-				assert.False(t, hasOnRename)
-			},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			p := BuildNotificationPayload(tt.n, nil)
 			tt.check(t, p)
 		})
 	}
@@ -412,7 +371,7 @@ func TestBuildCustomFormatPayload(t *testing.T) {
 						Name: "x265", Implementation: "ReleaseTitleSpecification",
 						Negate: new(false), Required: new(true),
 						Fields: []commonv1alpha1.ConfigField{
-							{Name: "value", Value: fieldValue(`"x265"`)},
+							{Name: "value", Value: rawValue(`"x265"`)},
 						},
 					},
 				},
@@ -435,92 +394,6 @@ func TestBuildCustomFormatPayload(t *testing.T) {
 	}
 }
 
-func TestBuildFieldsPayload(t *testing.T) {
-	tests := []struct {
-		name   string
-		fields []commonv1alpha1.ConfigField
-		check  func(t *testing.T, result []map[string]any)
-	}{
-		{
-			name:   "empty",
-			fields: []commonv1alpha1.ConfigField{},
-			check: func(t *testing.T, result []map[string]any) {
-				assert.Empty(t, result)
-			},
-		},
-		{
-			name: "with values",
-			fields: []commonv1alpha1.ConfigField{
-				{Name: "baseUrl", Value: fieldValue(`"http://example.com"`)},
-				{Name: "apiKey", Value: fieldValue(`"secret"`)},
-			},
-			check: func(t *testing.T, result []map[string]any) {
-				require.Len(t, result, 2)
-				assert.Equal(t, "baseUrl", result[0]["name"])
-				assert.Equal(t, "http://example.com", result[0]["value"])
-			},
-		},
-		{
-			name: "nil value",
-			fields: []commonv1alpha1.ConfigField{
-				{Name: "optional"},
-			},
-			check: func(t *testing.T, result []map[string]any) {
-				require.Len(t, result, 1)
-				assert.Nil(t, result[0]["value"])
-			},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := BuildFieldsPayload(tt.fields)
-			tt.check(t, result)
-		})
-	}
-}
-
-func TestBuildTagsPayload(t *testing.T) {
-	tests := []struct {
-		name string
-		tags []int
-		want []any
-	}{
-		{"empty", []int{}, []any{}},
-		{"multiple", []int{1, 5, 10}, []any{1, 5, 10}},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := buildTagsPayload(tt.tags)
-			assert.Equal(t, tt.want, result)
-		})
-	}
-}
-
-func TestSetOptionalBool(t *testing.T) {
-	tests := []struct {
-		name    string
-		val     *bool
-		wantSet bool
-		want    bool
-	}{
-		{"nil not set", nil, false, false},
-		{"true", new(true), true, true},
-		{"false", new(false), true, false},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			p := map[string]any{}
-			SetOptionalBool(p, "key", tt.val)
-			if tt.wantSet {
-				assert.Equal(t, tt.want, p["key"])
-			} else {
-				_, exists := p["key"]
-				assert.False(t, exists)
-			}
-		})
-	}
-}
-
 // TestPayloadsAreJSONSerializable verifies all payload builders produce JSON-safe maps.
 func TestPayloadsAreJSONSerializable(t *testing.T) {
 	dc := BuildDownloadClientPayload(
@@ -528,7 +401,7 @@ func TestPayloadsAreJSONSerializable(t *testing.T) {
 		DownloadClientResolvedSecrets{}, "tvCategory", nil,
 	)
 	idx := BuildIndexerPayload(commonv1alpha1.Indexer{Name: "test", Protocol: "usenet", Implementation: "Newznab"}, nil)
-	notif := BuildNotificationPayload(commonv1alpha1.Notification{Name: "test", Implementation: "Discord"}, nil)
+	notif := provider.NotificationPayload(commonv1alpha1.Notification{Name: "test", Implementation: "Discord"}, nil)
 	cf := buildCustomFormatPayload(commonv1alpha1.CustomFormat{Name: "test"})
 
 	for name, payload := range map[string]any{

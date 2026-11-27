@@ -21,7 +21,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	pvrv1alpha1 "github.com/kyleseneker/arrchitect/api/pvr/v1alpha1"
-	pvrclient "github.com/kyleseneker/arrchitect/internal/client/pvr"
 	"github.com/kyleseneker/arrchitect/internal/controller/pvr"
 	"github.com/kyleseneker/arrchitect/internal/controller/reconciler"
 	"github.com/kyleseneker/arrchitect/internal/httpapi"
@@ -144,7 +143,7 @@ func TestSonarr(t *testing.T) {
 			assert.InDelta(t, 30, profiles["default"]["usenetDelay"], 0)
 			assert.InDelta(t, 10, profiles["default"]["torrentDelay"], 0)
 		},
-		cleanup: ownedGone(testnet.Client(t, sonarr.url(), key), pvrclient.Definition(pvrclient.Sonarr)),
+		cleanup: ownedGone(testnet.Client(t, sonarr.url(), key), pvr.Definition(pvr.Sonarr)),
 	})
 }
 
@@ -232,7 +231,7 @@ func TestRadarr(t *testing.T) {
 			assert.InDelta(t, 120, profiles["kids,uhd"]["usenetDelay"], 0)
 			assert.Equal(t, false, profiles["default"]["bypassIfHighestQuality"])
 		},
-		cleanup: ownedGone(testnet.Client(t, radarr.url(), key), pvrclient.Definition(pvrclient.Radarr)),
+		cleanup: ownedGone(testnet.Client(t, radarr.url(), key), pvr.Definition(pvr.Radarr)),
 	})
 }
 
@@ -332,7 +331,7 @@ func TestLidarr(t *testing.T) {
 		},
 		// The root folder defaults to this profile and is never deleted.
 		// The root folder defaults to these, so the app keeps them.
-		cleanup: ownedGone(testnet.Client(t, lidarr.url(), key), pvrclient.Definition(pvrclient.Lidarr),
+		cleanup: ownedGone(testnet.Client(t, lidarr.url(), key), pvr.Definition(pvr.Lidarr),
 			"qualityProfiles/Music", "metadataProfiles/Albums Only"),
 	})
 }
@@ -404,7 +403,7 @@ func TestReadarr(t *testing.T) {
 		},
 		// The root folder defaults to this profile and is never deleted.
 		// The root folder defaults to these, so the app keeps them.
-		cleanup: ownedGone(testnet.Client(t, readarr.url(), key), pvrclient.Definition(pvrclient.Readarr),
+		cleanup: ownedGone(testnet.Client(t, readarr.url(), key), pvr.Definition(pvr.Readarr),
 			"qualityProfiles/Books", "metadataProfiles/English Books"),
 	})
 }

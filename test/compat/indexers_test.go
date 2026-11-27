@@ -20,7 +20,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	indexersv1alpha1 "github.com/kyleseneker/arrchitect/api/indexers/v1alpha1"
-	prowlarrclient "github.com/kyleseneker/arrchitect/internal/client/prowlarr"
 	"github.com/kyleseneker/arrchitect/internal/controller/indexers"
 	"github.com/kyleseneker/arrchitect/internal/controller/reconciler"
 	"github.com/kyleseneker/arrchitect/internal/testnet"
@@ -90,7 +89,7 @@ func TestProwlarr(t *testing.T) {
 				return fmt.Errorf("sonarr has %d indexers, none synced from Prowlarr", len(items))
 			})
 		},
-		cleanup: ownedGone(testnet.Client(t, prowlarr.url(), key), prowlarrclient.Definition()),
+		cleanup: ownedGone(testnet.Client(t, prowlarr.url(), key), indexers.ProwlarrDefinition()),
 	})
 }
 

@@ -1,4 +1,6 @@
-// Package indexers holds the Prowlarr and FlareSolverr controllers.
+// Package indexers holds the Prowlarr and FlareSolverr controllers, and
+// Prowlarr's sync: its definition, the payloads for each kind, and the stages
+// they are written in.
 package indexers
 
 import (

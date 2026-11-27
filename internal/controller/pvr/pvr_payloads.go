@@ -2,6 +2,7 @@ package pvr
 
 import (
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
+	"github.com/kyleseneker/arrchitect/internal/provider"
 )
 
 // BuildDownloadClientPayload builds the API payload for a download client.
@@ -59,14 +60,14 @@ func BuildDownloadClientPayload(
 		"configContract": configContract,
 		"fields":         fields,
 	}
-	SetOptionalBool(payload, "enable", dc.Enable)
-	SetOptionalBool(payload, "removeCompletedDownloads", dc.RemoveCompletedDownloads)
-	SetOptionalBool(payload, "removeFailedDownloads", dc.RemoveFailedDownloads)
+	provider.SetOptionalBool(payload, "enable", dc.Enable)
+	provider.SetOptionalBool(payload, "removeCompletedDownloads", dc.RemoveCompletedDownloads)
+	provider.SetOptionalBool(payload, "removeFailedDownloads", dc.RemoveFailedDownloads)
 	if dc.Priority != 0 {
 		payload["priority"] = dc.Priority
 	}
 	if tags != nil {
-		payload["tags"] = buildTagsPayload(tags)
+		payload["tags"] = provider.TagsPayload(tags)
 	}
 	return payload
 }
@@ -104,75 +105,14 @@ func BuildIndexerPayload(idx commonv1alpha1.Indexer, tags []int) map[string]any 
 	}
 
 	if idx.Fields != nil {
-		payload["fields"] = BuildFieldsPayload(idx.Fields)
+		payload["fields"] = provider.FieldsPayload(idx.Fields)
 	}
 	if tags != nil {
-		payload["tags"] = buildTagsPayload(tags)
+		payload["tags"] = provider.TagsPayload(tags)
 	}
 	if idx.Priority != 0 {
 		payload["priority"] = idx.Priority
 	}
-
-	return payload
-}
-
-// BuildNotificationPayload builds the API payload for a notification.
-func BuildNotificationPayload(n commonv1alpha1.Notification, tags []int) map[string]any {
-	configContract := n.Implementation + "Settings"
-	if n.ConfigContract != "" {
-		configContract = n.ConfigContract
-	}
-
-	payload := map[string]any{
-		"name":           n.Name,
-		"implementation": n.Implementation,
-		"configContract": configContract,
-	}
-	if n.Fields != nil {
-		payload["fields"] = BuildFieldsPayload(n.Fields)
-	}
-	if tags != nil {
-		payload["tags"] = buildTagsPayload(tags)
-	}
-
-	// Unset event switches are left out, so the merge keeps the app's defaults.
-	SetOptionalBool(payload, "onGrab", n.OnGrab)
-	SetOptionalBool(payload, "onDownload", n.OnDownload)
-	SetOptionalBool(payload, "onUpgrade", n.OnUpgrade)
-	SetOptionalBool(payload, "onRename", n.OnRename)
-	SetOptionalBool(payload, "onHealthIssue", n.OnHealthIssue)
-	SetOptionalBool(payload, "onHealthRestored", n.OnHealthRestored)
-	SetOptionalBool(payload, "onApplicationUpdate", n.OnApplicationUpdate)
-	SetOptionalBool(payload, "onManualInteractionRequired", n.OnManualInteractionRequired)
-	SetOptionalBool(payload, "includeHealthWarnings", n.IncludeHealthWarnings)
-	SetOptionalBool(payload, "includeManualGrabs", n.IncludeManualGrabs)
-	// Sonarr-specific
-	SetOptionalBool(payload, "onSeriesAdd", n.OnSeriesAdd)
-	SetOptionalBool(payload, "onSeriesDelete", n.OnSeriesDelete)
-	SetOptionalBool(payload, "onEpisodeFileDelete", n.OnEpisodeFileDelete)
-	SetOptionalBool(payload, "onEpisodeFileDeleteForUpgrade", n.OnEpisodeFileDeleteForUpgrade)
-	// Radarr-specific
-	SetOptionalBool(payload, "onMovieAdded", n.OnMovieAdded)
-	SetOptionalBool(payload, "onMovieDelete", n.OnMovieDelete)
-	SetOptionalBool(payload, "onMovieFileDelete", n.OnMovieFileDelete)
-	SetOptionalBool(payload, "onMovieFileDeleteForUpgrade", n.OnMovieFileDeleteForUpgrade)
-	SetOptionalBool(payload, "onImportComplete", n.OnImportComplete)
-	// Lidarr and Readarr
-	SetOptionalBool(payload, "onReleaseImport", n.OnReleaseImport)
-	SetOptionalBool(payload, "onDownloadFailure", n.OnDownloadFailure)
-	SetOptionalBool(payload, "onImportFailure", n.OnImportFailure)
-	// Lidarr-specific
-	SetOptionalBool(payload, "onArtistAdd", n.OnArtistAdd)
-	SetOptionalBool(payload, "onArtistDelete", n.OnArtistDelete)
-	SetOptionalBool(payload, "onAlbumDelete", n.OnAlbumDelete)
-	SetOptionalBool(payload, "onTrackRetag", n.OnTrackRetag)
-	// Readarr-specific
-	SetOptionalBool(payload, "onAuthorAdded", n.OnAuthorAdded)
-	SetOptionalBool(payload, "onAuthorDelete", n.OnAuthorDelete)
-	SetOptionalBool(payload, "onBookDelete", n.OnBookDelete)
-	SetOptionalBool(payload, "onBookFileDelete", n.OnBookFileDelete)
-	SetOptionalBool(payload, "onBookFileDeleteForUpgrade", n.OnBookFileDeleteForUpgrade)
-	SetOptionalBool(payload, "onBookRetag", n.OnBookRetag)
 
 	return payload
 }
@@ -210,28 +150,28 @@ func buildImportListPayload(il commonv1alpha1.ImportList, qpIDs map[string]int, 
 		"configContract": configContract,
 	}
 	if il.Fields != nil {
-		payload["fields"] = BuildFieldsPayload(il.Fields)
+		payload["fields"] = provider.FieldsPayload(il.Fields)
 	}
 	if tags != nil {
-		payload["tags"] = buildTagsPayload(tags)
+		payload["tags"] = provider.TagsPayload(tags)
 	}
 
 	if names.Enable != "" {
-		SetOptionalBool(payload, names.Enable, il.Enabled)
+		provider.SetOptionalBool(payload, names.Enable, il.Enabled)
 	}
 	if names.AutomaticAdd != "" {
-		SetOptionalBool(payload, names.AutomaticAdd, il.EnableAutomaticAdd)
+		provider.SetOptionalBool(payload, names.AutomaticAdd, il.EnableAutomaticAdd)
 	}
 	if names.Search != "" {
-		SetOptionalBool(payload, names.Search, il.SearchOnAdd)
+		provider.SetOptionalBool(payload, names.Search, il.SearchOnAdd)
 	}
 	if names.MonitorExisting != "" {
-		SetOptionalBool(payload, names.MonitorExisting, il.MonitorExisting)
+		provider.SetOptionalBool(payload, names.MonitorExisting, il.MonitorExisting)
 	}
 	if il.MonitorNewItems != "" && names.MonitorNewItems != "" {
 		payload[names.MonitorNewItems] = il.MonitorNewItems
 	}
-	SetOptionalBool(payload, "seasonFolder", il.SeasonFolder)
+	provider.SetOptionalBool(payload, "seasonFolder", il.SeasonFolder)
 
 	if value := il.Monitor; value != "" && names.Monitor != "" {
 		payload[names.Monitor] = value
@@ -258,42 +198,10 @@ func buildImportListPayload(il commonv1alpha1.ImportList, qpIDs map[string]int, 
 	return payload
 }
 
-// BuildFieldsPayload converts ConfigField slice to API fields format.
-func BuildFieldsPayload(dcFields []commonv1alpha1.ConfigField) []map[string]any {
-	fields := make([]map[string]any, len(dcFields))
-	for i, f := range dcFields {
-		var val any
-		if f.Value != nil {
-			val = f.Value.ToInterface()
-		}
-		fields[i] = map[string]any{
-			"name":  f.Name,
-			"value": val,
-		}
-	}
-	return fields
-}
-
-// buildTagsPayload converts an int slice to an interface slice for JSON.
-func buildTagsPayload(tagIDs []int) []any {
-	tags := make([]any, len(tagIDs))
-	for i, t := range tagIDs {
-		tags[i] = t
-	}
-	return tags
-}
-
-// SetOptionalBool sets a key in the payload only if the pointer is non-nil.
-func SetOptionalBool(payload map[string]any, key string, val *bool) {
-	if val != nil {
-		payload[key] = *val
-	}
-}
-
 // buildCustomFormatPayload builds the API payload for a custom format.
 func buildCustomFormatPayload(cf commonv1alpha1.CustomFormat) map[string]any {
 	payload := map[string]any{"name": cf.Name}
-	SetOptionalBool(payload, "includeCustomFormatWhenRenaming", cf.IncludeCustomFormatWhenRenaming)
+	provider.SetOptionalBool(payload, "includeCustomFormatWhenRenaming", cf.IncludeCustomFormatWhenRenaming)
 	if cf.Specifications == nil {
 		return payload
 	}
@@ -317,8 +225,8 @@ func buildCustomFormatPayload(cf commonv1alpha1.CustomFormat) map[string]any {
 			"implementation": s.Implementation,
 			"fields":         fields,
 		}
-		SetOptionalBool(specs[i], "negate", s.Negate)
-		SetOptionalBool(specs[i], "required", s.Required)
+		provider.SetOptionalBool(specs[i], "negate", s.Negate)
+		provider.SetOptionalBool(specs[i], "required", s.Required)
 	}
 	payload["specifications"] = specs
 	return payload
