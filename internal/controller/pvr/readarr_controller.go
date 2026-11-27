@@ -10,7 +10,6 @@ import (
 
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
 	pvrv1alpha1 "github.com/kyleseneker/arrchitect/api/pvr/v1alpha1"
-	pvrclient "github.com/kyleseneker/arrchitect/internal/client/pvr"
 	"github.com/kyleseneker/arrchitect/internal/controller/appref"
 	"github.com/kyleseneker/arrchitect/internal/controller/reconciler"
 	"github.com/kyleseneker/arrchitect/internal/httpapi"
@@ -37,9 +36,9 @@ func (r *ReadarrReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 func (r *ReadarrReconciler) integration() reconciler.Integration[*pvrv1alpha1.Readarr, *httpapi.HTTPClient] {
-	in := pvrIntegration(r.Client, r.Apps, pvrclient.Readarr, func(config *pvrv1alpha1.Readarr) pvrConfig {
+	in := pvrIntegration(r.Client, r.Apps, Readarr, func(config *pvrv1alpha1.Readarr) pvrConfig {
 		s := config.Spec
-		return pvrConfig{spec: s, connection: s.Connection, options: pvrclient.Options{
+		return pvrConfig{spec: s, connection: s.Connection, options: Options{
 			RootFolders:             s.RootFolders,
 			RemotePathMappings:      s.RemotePathMappings,
 			QualityProfiles:         s.QualityProfiles,

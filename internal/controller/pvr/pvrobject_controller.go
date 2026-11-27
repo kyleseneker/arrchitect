@@ -22,7 +22,6 @@ import (
 
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
 	pvrv1alpha1 "github.com/kyleseneker/arrchitect/api/pvr/v1alpha1"
-	pvrclient "github.com/kyleseneker/arrchitect/internal/client/pvr"
 	"github.com/kyleseneker/arrchitect/internal/controller/appref"
 	"github.com/kyleseneker/arrchitect/internal/controller/reconciler"
 	"github.com/kyleseneker/arrchitect/internal/controller/secretref"
@@ -184,27 +183,27 @@ type instanceLookup func(ctx context.Context, c client.Client, namespace string,
 
 // ObjectKind is one kind of object resource, such as SonarrIndexer.
 type ObjectKind[O objectResource] struct {
-	app      pvrclient.App
+	app      App
 	path     string
 	newObj   func() O
 	newList  func() client.ObjectList
 	instance client.Object
 	lookup   instanceLookup
-	options  func(ctx context.Context, c client.Client, apps appref.Apps, obj O) (pvrclient.Options, error)
+	options  func(ctx context.Context, c client.Client, apps appref.Apps, obj O) (Options, error)
 	// appRefKinds are the kinds an object's appRef may name.
 	appRefKinds []string
 }
 
 // The object kinds of each PVR app.
 var (
-	SonarrIndexers         = indexerKind[pvrv1alpha1.SonarrIndexer, pvrv1alpha1.SonarrIndexerList](pvrclient.Sonarr, &pvrv1alpha1.Sonarr{}, sonarrInstance)
-	RadarrIndexers         = indexerKind[pvrv1alpha1.RadarrIndexer, pvrv1alpha1.RadarrIndexerList](pvrclient.Radarr, &pvrv1alpha1.Radarr{}, radarrInstance)
-	LidarrIndexers         = indexerKind[pvrv1alpha1.LidarrIndexer, pvrv1alpha1.LidarrIndexerList](pvrclient.Lidarr, &pvrv1alpha1.Lidarr{}, lidarrInstance)
-	ReadarrIndexers        = indexerKind[pvrv1alpha1.ReadarrIndexer, pvrv1alpha1.ReadarrIndexerList](pvrclient.Readarr, &pvrv1alpha1.Readarr{}, readarrInstance)
-	SonarrDownloadClients  = downloadClientKind[pvrv1alpha1.SonarrDownloadClient, pvrv1alpha1.SonarrDownloadClientList](pvrclient.Sonarr, &pvrv1alpha1.Sonarr{}, sonarrInstance)
-	RadarrDownloadClients  = downloadClientKind[pvrv1alpha1.RadarrDownloadClient, pvrv1alpha1.RadarrDownloadClientList](pvrclient.Radarr, &pvrv1alpha1.Radarr{}, radarrInstance)
-	LidarrDownloadClients  = downloadClientKind[pvrv1alpha1.LidarrDownloadClient, pvrv1alpha1.LidarrDownloadClientList](pvrclient.Lidarr, &pvrv1alpha1.Lidarr{}, lidarrInstance)
-	ReadarrDownloadClients = downloadClientKind[pvrv1alpha1.ReadarrDownloadClient, pvrv1alpha1.ReadarrDownloadClientList](pvrclient.Readarr, &pvrv1alpha1.Readarr{}, readarrInstance)
+	SonarrIndexers         = indexerKind[pvrv1alpha1.SonarrIndexer, pvrv1alpha1.SonarrIndexerList](Sonarr, &pvrv1alpha1.Sonarr{}, sonarrInstance)
+	RadarrIndexers         = indexerKind[pvrv1alpha1.RadarrIndexer, pvrv1alpha1.RadarrIndexerList](Radarr, &pvrv1alpha1.Radarr{}, radarrInstance)
+	LidarrIndexers         = indexerKind[pvrv1alpha1.LidarrIndexer, pvrv1alpha1.LidarrIndexerList](Lidarr, &pvrv1alpha1.Lidarr{}, lidarrInstance)
+	ReadarrIndexers        = indexerKind[pvrv1alpha1.ReadarrIndexer, pvrv1alpha1.ReadarrIndexerList](Readarr, &pvrv1alpha1.Readarr{}, readarrInstance)
+	SonarrDownloadClients  = downloadClientKind[pvrv1alpha1.SonarrDownloadClient, pvrv1alpha1.SonarrDownloadClientList](Sonarr, &pvrv1alpha1.Sonarr{}, sonarrInstance)
+	RadarrDownloadClients  = downloadClientKind[pvrv1alpha1.RadarrDownloadClient, pvrv1alpha1.RadarrDownloadClientList](Radarr, &pvrv1alpha1.Radarr{}, radarrInstance)
+	LidarrDownloadClients  = downloadClientKind[pvrv1alpha1.LidarrDownloadClient, pvrv1alpha1.LidarrDownloadClientList](Lidarr, &pvrv1alpha1.Lidarr{}, lidarrInstance)
+	ReadarrDownloadClients = downloadClientKind[pvrv1alpha1.ReadarrDownloadClient, pvrv1alpha1.ReadarrDownloadClientList](Readarr, &pvrv1alpha1.Readarr{}, readarrInstance)
 )
 
 func indexerKind[T, L any, O interface {
@@ -213,15 +212,15 @@ func indexerKind[T, L any, O interface {
 }, PL interface {
 	*L
 	client.ObjectList
-}](app pvrclient.App, instance client.Object, lookup instanceLookup) ObjectKind[O] {
+}](app App, instance client.Object, lookup instanceLookup) ObjectKind[O] {
 	return ObjectKind[O]{
 		app: app, path: "/indexer", instance: instance, lookup: lookup,
 		newObj:  func() O { return O(new(T)) },
 		newList: func() client.ObjectList { return PL(new(L)) },
-		options: func(ctx context.Context, c client.Client, _ appref.Apps, obj O) (pvrclient.Options, error) {
+		options: func(ctx context.Context, c client.Client, _ appref.Apps, obj O) (Options, error) {
 			indexers, err := secretref.ResolveItemFields(ctx, c, obj.GetNamespace(), "indexer", []commonv1alpha1.Indexer{obj.Item()},
 				func(i *commonv1alpha1.Indexer) (string, *[]commonv1alpha1.ConfigField) { return i.Name, &i.Fields })
-			return pvrclient.Options{Indexers: indexers}, err
+			return Options{Indexers: indexers}, err
 		},
 	}
 }
@@ -232,20 +231,20 @@ func downloadClientKind[T, L any, O interface {
 }, PL interface {
 	*L
 	client.ObjectList
-}](app pvrclient.App, instance client.Object, lookup instanceLookup) ObjectKind[O] {
+}](app App, instance client.Object, lookup instanceLookup) ObjectKind[O] {
 	return ObjectKind[O]{
 		app: app, path: "/downloadclient", instance: instance, lookup: lookup,
 		newObj:      func() O { return O(new(T)) },
 		newList:     func() client.ObjectList { return PL(new(L)) },
 		appRefKinds: []string{"QBittorrent", "Sabnzbd"},
-		options: func(ctx context.Context, c client.Client, apps appref.Apps, obj O) (pvrclient.Options, error) {
+		options: func(ctx context.Context, c client.Client, apps appref.Apps, obj O) (Options, error) {
 			dc, err := resolveDownloadClient(ctx, c, apps, obj.GetNamespace(), obj.Item())
 			if err != nil {
-				return pvrclient.Options{}, err
+				return Options{}, err
 			}
 			dcs := []commonv1alpha1.DownloadClient{dc}
 			secrets, err := resolveDownloadClientSecrets(ctx, c, obj.GetNamespace(), dcs)
-			return pvrclient.Options{DownloadClients: dcs, DCSecrets: secrets}, err
+			return Options{DownloadClients: dcs, DCSecrets: secrets}, err
 		},
 	}
 }
@@ -276,7 +275,7 @@ func (r *ObjectReconciler[O]) SetupWithManager(mgr ctrl.Manager) error {
 // once, so the policy and the connection come from the same version of it.
 func (r *ObjectReconciler[O]) integration() reconciler.Integration[O, objectConn] {
 	k := r.kind
-	def := pvrclient.Definition(k.app)
+	def := Definition(k.app)
 	var read struct {
 		sync.Once
 		instance pvrInstance
@@ -337,7 +336,7 @@ func (r *ObjectReconciler[O]) integration() reconciler.Integration[O, objectConn
 				return []error{err}
 			}
 			opts.App = k.app
-			problems := pvrclient.Reconcile(ctx, conn.hc, nil, opts, pass)
+			problems := Reconcile(ctx, conn.hc, nil, opts, pass)
 			if id, ok := idOf(ctx, conn.hc, "/api/"+k.app.APIVersion+k.path, obj.ItemName()); ok {
 				obj.SetItemID(id)
 			}
@@ -408,10 +407,10 @@ func resolveDownloadClient(
 
 // resolveDownloadClientSecrets resolves all secret references for a list of download clients.
 // Returns a map keyed by download client name.
-func resolveDownloadClientSecrets(ctx context.Context, c client.Reader, namespace string, downloadClients []commonv1alpha1.DownloadClient) (map[string]pvrclient.DownloadClientResolvedSecrets, error) {
-	resolved := make(map[string]pvrclient.DownloadClientResolvedSecrets, len(downloadClients))
+func resolveDownloadClientSecrets(ctx context.Context, c client.Reader, namespace string, downloadClients []commonv1alpha1.DownloadClient) (map[string]DownloadClientResolvedSecrets, error) {
+	resolved := make(map[string]DownloadClientResolvedSecrets, len(downloadClients))
 	for _, dc := range downloadClients {
-		var s pvrclient.DownloadClientResolvedSecrets
+		var s DownloadClientResolvedSecrets
 		if dc.UsernameSecretRef != (commonv1alpha1.SecretKeyRef{}) {
 			val, err := secrets.ResolveSecretKeyRef(ctx, c, namespace, dc.UsernameSecretRef)
 			if err != nil {

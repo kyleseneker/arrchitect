@@ -35,9 +35,9 @@ import (
 	transcodev1alpha1 "github.com/kyleseneker/arrchitect/api/transcode/v1alpha1"
 	autobrrclient "github.com/kyleseneker/arrchitect/internal/client/autobrr"
 	bazarrclient "github.com/kyleseneker/arrchitect/internal/client/bazarr"
-	pvrclient "github.com/kyleseneker/arrchitect/internal/client/pvr"
 	qbclient "github.com/kyleseneker/arrchitect/internal/client/qbittorrent"
 	tdarrclient "github.com/kyleseneker/arrchitect/internal/client/tdarr"
+	"github.com/kyleseneker/arrchitect/internal/controller/pvr"
 	"github.com/kyleseneker/arrchitect/internal/controller/secretref"
 	"github.com/kyleseneker/arrchitect/internal/httpapi"
 	"github.com/kyleseneker/arrchitect/internal/secrets"
@@ -108,28 +108,28 @@ type objectKind struct {
 }
 
 var apps = map[string]app{
-	"sonarr": withObjects(pvrApp(pvrclient.Sonarr, func() client.Object { return &pvrv1alpha1.Sonarr{} }),
+	"sonarr": withObjects(pvrApp(pvr.Sonarr, func() client.Object { return &pvrv1alpha1.Sonarr{} }),
 		map[string]objectKind{
 			"indexers": {kind: "SonarrIndexer", ref: "sonarrRef",
 				newObj: func() client.Object { return &pvrv1alpha1.SonarrIndexer{} }},
 			"downloadClients": {kind: "SonarrDownloadClient", ref: "sonarrRef",
 				newObj: func() client.Object { return &pvrv1alpha1.SonarrDownloadClient{} }},
 		}),
-	"radarr": withObjects(pvrApp(pvrclient.Radarr, func() client.Object { return &pvrv1alpha1.Radarr{} }),
+	"radarr": withObjects(pvrApp(pvr.Radarr, func() client.Object { return &pvrv1alpha1.Radarr{} }),
 		map[string]objectKind{
 			"indexers": {kind: "RadarrIndexer", ref: "radarrRef",
 				newObj: func() client.Object { return &pvrv1alpha1.RadarrIndexer{} }},
 			"downloadClients": {kind: "RadarrDownloadClient", ref: "radarrRef",
 				newObj: func() client.Object { return &pvrv1alpha1.RadarrDownloadClient{} }},
 		}),
-	"lidarr": withObjects(pvrApp(pvrclient.Lidarr, func() client.Object { return &pvrv1alpha1.Lidarr{} }),
+	"lidarr": withObjects(pvrApp(pvr.Lidarr, func() client.Object { return &pvrv1alpha1.Lidarr{} }),
 		map[string]objectKind{
 			"indexers": {kind: "LidarrIndexer", ref: "lidarrRef",
 				newObj: func() client.Object { return &pvrv1alpha1.LidarrIndexer{} }},
 			"downloadClients": {kind: "LidarrDownloadClient", ref: "lidarrRef",
 				newObj: func() client.Object { return &pvrv1alpha1.LidarrDownloadClient{} }},
 		}),
-	"readarr": withObjects(pvrApp(pvrclient.Readarr, func() client.Object { return &pvrv1alpha1.Readarr{} }),
+	"readarr": withObjects(pvrApp(pvr.Readarr, func() client.Object { return &pvrv1alpha1.Readarr{} }),
 		map[string]objectKind{
 			"indexers": {kind: "ReadarrIndexer", ref: "readarrRef",
 				newObj: func() client.Object { return &pvrv1alpha1.ReadarrIndexer{} }},

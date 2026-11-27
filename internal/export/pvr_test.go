@@ -15,7 +15,7 @@ import (
 
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
 	pvrv1alpha1 "github.com/kyleseneker/arrchitect/api/pvr/v1alpha1"
-	pvrclient "github.com/kyleseneker/arrchitect/internal/client/pvr"
+	"github.com/kyleseneker/arrchitect/internal/controller/pvr"
 )
 
 const fakeSonarrKey = "sonarr-key"
@@ -237,7 +237,7 @@ func TestPVRImportListUsesTheAppsPropertyNames(t *testing.T) {
 }
 
 func TestPVRRadarrImportListExportsItsSwitchAsEnabled(t *testing.T) {
-	e := &pvrExport{reader: &reader{}, app: pvrclient.Radarr}
+	e := &pvrExport{reader: &reader{}, app: pvr.Radarr}
 	il := e.importList(map[string]any{
 		"name": "List", "implementation": "RadarrImport", "enabled": false, "enableAuto": true, "monitor": "movieOnly",
 	}, nil)
@@ -369,7 +369,7 @@ func TestPVRReadarrLeavesOutDevelopmentOnItsOwnServer(t *testing.T) {
 
 func TestPVRLidarrRootFolderExportsItsDefaults(t *testing.T) {
 	e := &pvrExport{
-		reader: &reader{tags: map[float64]string{7: "flac"}}, app: pvrclient.Lidarr,
+		reader: &reader{tags: map[float64]string{7: "flac"}}, app: pvr.Lidarr,
 		qualityProfiles: map[float64]string{2: "Lossless"}, metadataProfiles: map[float64]string{3: "Standard"},
 	}
 	rf := e.rootFolder(map[string]any{

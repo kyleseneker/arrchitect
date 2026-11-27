@@ -9,7 +9,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
-	pvrclient "github.com/kyleseneker/arrchitect/internal/client/pvr"
 	"github.com/kyleseneker/arrchitect/internal/controller/appref"
 	"github.com/kyleseneker/arrchitect/internal/controller/reconciler"
 	"github.com/kyleseneker/arrchitect/internal/controller/secretref"
@@ -22,13 +21,13 @@ import (
 type pvrConfig struct {
 	spec       any
 	connection commonv1alpha1.AppConnection
-	options    pvrclient.Options
+	options    Options
 }
 
 // pvrIntegration is the Integration every PVR app's resource runs on. describe
 // reads what the pipeline takes from a resource.
 func pvrIntegration[T reconciler.ConfigResource](
-	c client.Client, apps appref.Apps, app pvrclient.App, describe func(T) pvrConfig,
+	c client.Client, apps appref.Apps, app App, describe func(T) pvrConfig,
 ) reconciler.Integration[T, *httpapi.HTTPClient] {
 	return reconciler.Integration[T, *httpapi.HTTPClient]{
 		App: app.Name,
@@ -57,12 +56,12 @@ func pvrIntegration[T reconciler.ConfigResource](
 				}); err != nil {
 				unresolved = append(unresolved, fmt.Errorf("importLists: %w", err))
 			}
-			return append(unresolved, pvrclient.Reconcile(ctx, hc, cfg.spec, opts, pass)...)
+			return append(unresolved, Reconcile(ctx, hc, cfg.spec, opts, pass)...)
 		},
 		Cleanup: func(ctx context.Context, hc *httpapi.HTTPClient, owned *engine.Ownership) error {
-			return engine.DeleteManagedResources(ctx, hc, pvrclient.Definition(app), owned)
+			return engine.DeleteManagedResources(ctx, hc, Definition(app), owned)
 		},
-		Deletable: pvrclient.Definition(app).Deletable,
+		Deletable: Definition(app).Deletable,
 		Prune:     true,
 	}
 }
@@ -130,7 +129,7 @@ func fieldValue(name string, v any) commonv1alpha1.ConfigField {
 
 // connectPVR builds the client for an app's connection.
 func connectPVR(
-	ctx context.Context, c client.Reader, namespace string, conn commonv1alpha1.AppConnection, app pvrclient.App,
+	ctx context.Context, c client.Reader, namespace string, conn commonv1alpha1.AppConnection, app App,
 ) (*httpapi.HTTPClient, error) {
 	return reconciler.Dial(ctx, c, namespace, reconciler.Endpoint{
 		App: app.Name, URL: conn.URL, TLS: conn.TLS, Auth: httpapi.AuthAPIKey, Key: &conn.APIKeySecretRef,
@@ -138,6 +137,6 @@ func connectPVR(
 }
 
 // pingPVR checks an app answers.
-func pingPVR(ctx context.Context, hc *httpapi.HTTPClient, app pvrclient.App) error {
+func pingPVR(ctx context.Context, hc *httpapi.HTTPClient, app App) error {
 	return hc.Ping(ctx, "/api/"+app.APIVersion+"/system/status")
 }
