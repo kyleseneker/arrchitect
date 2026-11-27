@@ -13,8 +13,8 @@ subjects:
   - kind: ServiceAccount
     name: {{ .Values.serviceAccount.name }}
     namespace: {{ .Release.Namespace }}
-{{- range $ns := splitList "," .Values.watchNamespace }}
-{{- with trim $ns }}
+{{- range $ns := splitList "," (include "arrchitect.watchNamespaces" .) }}
+{{- with $ns }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding

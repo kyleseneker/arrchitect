@@ -52,3 +52,72 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 {{- join "," $resources }}
 {{- end }}
+
+{{- define "arrchitect.managerRules" -}}
+{{- $resources := splitList "," (include "arrchitect.resources" .) }}
+- apiGroups:
+    - arrchitect.dev
+  resources:
+    {{- range $resources }}
+    - {{ . }}
+    {{- end }}
+  verbs:
+    - get
+    - list
+    - watch
+    - update
+    - patch
+- apiGroups:
+    - arrchitect.dev
+  resources:
+    {{- range $resources }}
+    - {{ . }}/status
+    {{- end }}
+  verbs:
+    - get
+    - update
+    - patch
+- apiGroups:
+    - arrchitect.dev
+  resources:
+    {{- range $resources }}
+    - {{ . }}/finalizers
+    {{- end }}
+  verbs:
+    - update
+- apiGroups:
+    - ""
+  resources:
+    - events
+  verbs:
+    - create
+    - patch
+- apiGroups:
+    - events.k8s.io
+  resources:
+    - events
+  verbs:
+    - create
+    - patch
+- apiGroups:
+    - ""
+  resources:
+    - secrets
+  verbs:
+    - get
+    - list
+    - watch
+{{- end }}
+
+{{- define "arrchitect.watchNamespaces" -}}
+{{- $namespaces := list }}
+{{- range splitList "," .Values.watchNamespace }}
+{{- with trim . }}
+{{- $namespaces = append $namespaces . }}
+{{- end }}
+{{- end }}
+{{- if and .Values.watchNamespace (not $namespaces) }}
+{{- fail "watchNamespace must list at least one namespace" }}
+{{- end }}
+{{- join "," (uniq $namespaces) }}
+{{- end }}

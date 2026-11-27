@@ -146,7 +146,7 @@ a controller falling behind.
 | --- | --- | --- |
 | `maxConcurrentReconciles` | `2` | How many resources of one kind reconcile at once. Raise it when one slow app holds up others of the same kind. |
 | `reconcileTimeout` | `10m` | How long one reconcile may run before it's cancelled. |
-| `watchNamespace` | every namespace | The namespaces whose resources the operator reconciles. It can then read Secrets only there. |
+| `watchNamespace` | every namespace | The namespaces whose resources the operator reconciles. Its access to resources and Secrets then comes from a Role in each of them instead of a ClusterRole. |
 
 `spec.reconcile.intervalSeconds` on each resource sets how often it's
 compared with its app.

@@ -1,7 +1,9 @@
 suite: RBAC
 templates:
   - templates/clusterrole.yaml
+  - templates/clusterrolebinding.yaml
   - templates/role.yaml
+  - templates/rolebinding.yaml
 release:
   name: arrchitect
   namespace: arrchitect
@@ -20,22 +22,20 @@ tests:
               - get
               - list
               - watch
-  - it: reads Secrets only in the namespaces it watches
+  - it: grants nothing cluster-wide when it watches some namespaces
     set:
       watchNamespace: media, arr
     asserts:
       - template: templates/clusterrole.yaml
-        notContains:
-          path: rules
-          content:
-            apiGroups:
-              - ""
-            resources:
-              - secrets
-            verbs:
-              - get
-              - list
-              - watch
+        hasDocuments:
+          count: 0
+      - template: templates/clusterrolebinding.yaml
+        hasDocuments:
+          count: 0
+  - it: grants its rules only in the namespaces it watches
+    set:
+      watchNamespace: media, arr
+    asserts:
       - template: templates/role.yaml
         hasDocuments:
           count: 3
@@ -49,6 +49,39 @@ tests:
         equal:
           path: metadata.namespace
           value: arr
+      - template: templates/role.yaml
+        documentIndex: 1
+        contains:
+          path: rules[0].resources
+          content: sonarrs
+      - template: templates/role.yaml
+        documentIndex: 1
+        contains:
+          path: rules
+          content:
+            apiGroups:
+              - ""
+            resources:
+              - secrets
+            verbs:
+              - get
+              - list
+              - watch
+      - template: templates/rolebinding.yaml
+        documentIndex: 1
+        equal:
+          path: roleRef
+          value:
+            apiGroup: rbac.authorization.k8s.io
+            kind: Role
+            name: arrchitect
+  - it: refuses a watchNamespace with no namespace in it
+    template: templates/rolebinding.yaml
+    set:
+      watchNamespace: " , ,"
+    asserts:
+      - failedTemplate:
+          errorPattern: watchNamespace must list at least one namespace
   - it: keeps the leader election lease in the release namespace
     template: templates/role.yaml
     documentIndex: 0
@@ -59,6 +92,38 @@ tests:
       - contains:
           path: rules[0].resources
           content: leases
+  - it: records leader election events in the release namespace
+    template: templates/role.yaml
+    documentIndex: 0
+    set:
+      watchNamespace: media
+    asserts:
+      - contains:
+          path: rules
+          content:
+            apiGroups:
+              - ""
+              - events.k8s.io
+            resources:
+              - events
+            verbs:
+              - create
+              - patch
+  - it: grants one Role per namespace when a namespace is listed twice
+    set:
+      watchNamespace: media, arr,media ,
+    asserts:
+      - template: templates/role.yaml
+        hasDocuments:
+          count: 3
+      - template: templates/rolebinding.yaml
+        hasDocuments:
+          count: 3
+      - template: templates/role.yaml
+        documentIndex: 2
+        equal:
+          path: metadata.namespace
+          value: arr
   - it: grants nothing for a turned-off app
     template: templates/clusterrole.yaml
     set:
