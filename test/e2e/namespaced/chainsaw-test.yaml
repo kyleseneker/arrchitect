@@ -95,7 +95,21 @@ spec:
             apiVersion: arrchitect.dev/v1alpha1
             kind: Prowlarr
     - name: leave turned-off apps and other namespaces alone
+      description: >-
+        The chart installs CRDs only for the apps it runs, so the step brings Radarr's, as a cluster
+        that installed it another way has it. Chainsaw deletes it afterwards only if it created it,
+        so the test doesn't depend on another test leaving it behind.
       try:
+        - apply:
+            file: ../../../chart/arrchitect/files/crds/arrchitect.dev_radarrs.yaml
+        - assert:
+            resource:
+              apiVersion: apiextensions.k8s.io/v1
+              kind: CustomResourceDefinition
+              metadata:
+                name: radarrs.arrchitect.dev
+              status:
+                (conditions[?type == 'Established'] | [0].status): "True"
         - apply:
             file: radarr.yaml
         - script:
