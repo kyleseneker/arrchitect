@@ -1,4 +1,4 @@
-{{- $resources := splitList "," (include "arrchitect.resources" .) }}
+{{- if not .Values.watchNamespace }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -6,57 +6,5 @@ metadata:
   labels:
     {{- include "arrchitect.labels" . | nindent 4 }}
 rules:
-  - apiGroups:
-      - arrchitect.dev
-    resources:
-      {{- range $resources }}
-      - {{ . }}
-      {{- end }}
-    verbs:
-      - get
-      - list
-      - watch
-      - update
-      - patch
-  - apiGroups:
-      - arrchitect.dev
-    resources:
-      {{- range $resources }}
-      - {{ . }}/status
-      {{- end }}
-    verbs:
-      - get
-      - update
-      - patch
-  - apiGroups:
-      - arrchitect.dev
-    resources:
-      {{- range $resources }}
-      - {{ . }}/finalizers
-      {{- end }}
-    verbs:
-      - update
-  - apiGroups:
-      - ""
-    resources:
-      - events
-    verbs:
-      - create
-      - patch
-  - apiGroups:
-      - events.k8s.io
-    resources:
-      - events
-    verbs:
-      - create
-      - patch
-{{- if not .Values.watchNamespace }}
-  - apiGroups:
-      - ""
-    resources:
-      - secrets
-    verbs:
-      - get
-      - list
-      - watch
+  {{- include "arrchitect.managerRules" . | nindent 2 }}
 {{- end }}
