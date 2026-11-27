@@ -360,7 +360,7 @@ func (s *delayProfileStage) pruneUnmatched(ctx context.Context, plans []*delayPl
 		}
 	}
 	label := func(id string) string { return names[id] }
-	err := s.Cleanup(s.Owned, delayProfilesKind, unmatched, label, func(id string) error {
+	err := s.PruneOwned(s.Owned, delayProfilesKind, unmatched, label, func(id string) error {
 		return s.client.Delete(ctx, s.path+"/"+id)
 	})
 	kept, rest := engine.SplitKept(err)

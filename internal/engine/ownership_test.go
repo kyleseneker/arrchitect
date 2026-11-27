@@ -3,6 +3,7 @@ package engine
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"testing"
 
 	"github.com/prometheus/client_golang/prometheus/testutil"
@@ -113,6 +114,29 @@ func TestOwnershipRefusesPastTheThreshold(t *testing.T) {
 		return nil
 	})
 	require.ErrorContains(t, err, "refusing to delete 26 feeds")
+
+	err = o.PruneOwned("feeds", existing, func(string) error {
+		require.Fail(t, "deleted past the threshold")
+		return nil
+	})
+	require.ErrorContains(t, err, "refusing to delete 26 feeds")
+}
+
+// deletionPolicy delete asks for everything the operator owns to go, so the
+// threshold that guards prune doesn't hold it back.
+func TestOwnershipCleanupHasNoThreshold(t *testing.T) {
+	existing := make([]string, 0, DefaultMaxPruneCount+1)
+	for i := range DefaultMaxPruneCount + 1 {
+		existing = append(existing, fmt.Sprintf("f%d", i))
+	}
+	o := NewOwnership("ownership-test", map[string][]string{"feeds": slices.Clone(existing)})
+	deleted := 0
+	require.NoError(t, o.Cleanup("feeds", existing, func(string) error {
+		deleted++
+		return nil
+	}))
+	assert.Equal(t, DefaultMaxPruneCount+1, deleted)
+	assert.False(t, o.Owns("feeds"))
 }
 
 func TestOwnershipRecordsWhatItCreatesOnce(t *testing.T) {
