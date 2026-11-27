@@ -3,7 +3,6 @@ package requests
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"maps"
 	"slices"
@@ -91,7 +90,7 @@ func (r *SeerrReconciler) check(ctx context.Context, conn *seerrConn, config *re
 	return r.establishSession(ctx, conn.sc, config, conn.media)
 }
 
-func (r *SeerrReconciler) sync(ctx context.Context, conn *seerrConn, config *requestsv1alpha1.Seerr, pass *engine.Pass) []string {
+func (r *SeerrReconciler) sync(ctx context.Context, conn *seerrConn, config *requestsv1alpha1.Seerr, pass *engine.Pass) []error {
 	logger := log.FromContext(ctx)
 	sc := conn.sc
 	if !conn.initialized {
@@ -101,7 +100,7 @@ func (r *SeerrReconciler) sync(ctx context.Context, conn *seerrConn, config *req
 		})
 		if err != nil {
 			pass.Retry = time.Minute
-			return []string{err.Error()}
+			return []error{err}
 		}
 		if pass.Observe {
 			return nil
@@ -122,21 +121,21 @@ func (r *SeerrReconciler) sync(ctx context.Context, conn *seerrConn, config *req
 			failed = pass.PruneKinds(ctx, []engine.Kind{seerrServiceKind(sc, kind)}, map[string][]string{kind: names}, nil)
 		}
 		for _, problem := range failed {
-			logger.Error(errors.New(problem), "failed to reconcile connection", "service", kind)
+			logger.Error(problem, "failed to reconcile connection", "service", kind)
 		}
 		problems = append(problems, failed...)
 	}
 	if config.Spec.Main != nil {
 		if err := reconcileSeerrMainSettings(ctx, sc, &pass.Writes, config.Spec.Main); err != nil {
 			logger.Error(err, "failed to reconcile main settings")
-			problems = append(problems, fmt.Sprintf("main: %v", err))
+			problems = append(problems, fmt.Errorf("main: %w", err))
 		}
 	}
 	if err := reconcileSeerrNetwork(ctx, sc, &pass.Writes, config.Spec.Network); err != nil {
-		problems = append(problems, fmt.Sprintf("network: %v", err))
+		problems = append(problems, fmt.Errorf("network: %w", err))
 	}
 	if err := reconcileSeerrMetadataProviders(ctx, sc, &pass.Writes, config.Spec.MetadataProviders); err != nil {
-		problems = append(problems, fmt.Sprintf("metadataProviders: %v", err))
+		problems = append(problems, fmt.Errorf("metadataProviders: %w", err))
 	}
 	problems = append(problems, reconcileSeerrJobSchedules(ctx, sc, &pass.Writes, config.Spec.JobSchedules)...)
 	for _, agent := range config.Spec.Notifications {
@@ -146,7 +145,7 @@ func (r *SeerrReconciler) sync(ctx context.Context, conn *seerrConn, config *req
 		}
 		if err != nil {
 			logger.Error(err, "failed to reconcile notification agent", "agent", agent.Agent)
-			problems = append(problems, fmt.Sprintf("notification(%s): %v", agent.Agent, err))
+			problems = append(problems, fmt.Errorf("notification(%s): %w", agent.Agent, err))
 		}
 	}
 	return problems
@@ -202,35 +201,35 @@ func (r *SeerrReconciler) setup(
 	media seerrMediaServer,
 ) error {
 	logger := log.FromContext(ctx)
-	var initErrors []string
+	var initErrors []error
 
 	if media.jellyfin != nil {
 		if err := syncJellyfinLibraries(ctx, sc, writes, media.jellyfin, config.Spec.Libraries); err != nil {
 			logger.Error(err, "failed to configure Jellyfin libraries")
-			initErrors = append(initErrors, err.Error())
+			initErrors = append(initErrors, err)
 		}
 	}
 	if media.plex != nil {
 		if err := syncPlexLibraries(ctx, sc, writes, media.plex, config.Spec.Libraries); err != nil {
 			logger.Error(err, "failed to configure Plex libraries")
-			initErrors = append(initErrors, err.Error())
+			initErrors = append(initErrors, err)
 		}
 	}
 
 	for _, k := range seerrServers(config.Spec) {
 		for _, problem := range r.reconcileServiceConnections(ctx, sc, writes, owned, config, k.kind, k.servers) {
-			logger.Error(errors.New(problem), "failed to configure connection during initialization", "service", k.kind)
-			initErrors = append(initErrors, "init: "+problem)
+			logger.Error(problem, "failed to configure connection during initialization", "service", k.kind)
+			initErrors = append(initErrors, fmt.Errorf("init: %w", problem))
 		}
 	}
 	if config.Spec.Main != nil {
 		if err := reconcileSeerrMainSettings(ctx, sc, writes, config.Spec.Main); err != nil {
 			logger.Error(err, "failed to configure main settings during initialization")
-			initErrors = append(initErrors, fmt.Sprintf("main settings init: %v", err))
+			initErrors = append(initErrors, fmt.Errorf("main settings init: %w", err))
 		}
 	}
 	if len(initErrors) > 0 {
-		return fmt.Errorf("initialization failed: %v", initErrors)
+		return fmt.Errorf("initialization failed: %w", engine.JoinErrors(initErrors...))
 	}
 
 	if _, err := sc.Post(ctx, "/api/v1/settings/initialize", map[string]any{}); err != nil {
@@ -247,16 +246,16 @@ func (r *SeerrReconciler) setup(
 func (r *SeerrReconciler) reconcileServiceConnections(
 	ctx context.Context, sc *seerrclient.Client, w *engine.Writes, owned *engine.Ownership,
 	config *requestsv1alpha1.Seerr, kind string, declared []requestsv1alpha1.SeerrServiceConnection,
-) []string {
+) []error {
 	existing, err := sc.GetList(ctx, "/api/v1/settings/"+kind)
 	if err != nil {
-		return []string{fmt.Sprintf("%s: listing connections: %v", kind, err)}
+		return []error{fmt.Errorf("%s: listing connections: %w", kind, err)}
 	}
-	var problems []string
+	var problems []error
 	for i := range declared {
 		svc := &declared[i]
 		if err := r.reconcileServiceConnection(ctx, sc, w, owned, config.Namespace, kind, svc, existing); err != nil {
-			problems = append(problems, fmt.Sprintf("%s(%s): %v", kind, svc.Name, err))
+			problems = append(problems, fmt.Errorf("%s(%s): %w", kind, svc.Name, err))
 		}
 	}
 	return problems
@@ -333,26 +332,26 @@ func (r *SeerrReconciler) reconcileServiceConnection(
 
 func reconcileSeerrMediaServer(
 	ctx context.Context, sc *seerrclient.Client, w *engine.Writes, media seerrMediaServer, mediaErr error, libraries []string,
-) []string {
+) []error {
 	if mediaErr != nil {
-		return []string{mediaErr.Error()}
+		return []error{mediaErr}
 	}
 	logger := log.FromContext(ctx)
-	var syncErrors []string
+	var syncErrors []error
 	if media.jellyfin != nil {
 		if err := reconcileSeerrJellyfin(ctx, sc, w, media.jellyfin); err != nil {
 			logger.Error(err, "failed to reconcile Jellyfin server")
-			syncErrors = append(syncErrors, fmt.Sprintf("jellyfin: %v", err))
+			syncErrors = append(syncErrors, fmt.Errorf("jellyfin: %w", err))
 		} else if err := reconcileSeerrLibraries(ctx, sc, w, "jellyfin", libraries); err != nil {
-			syncErrors = append(syncErrors, fmt.Sprintf("jellyfin libraries: %v", err))
+			syncErrors = append(syncErrors, fmt.Errorf("jellyfin libraries: %w", err))
 		}
 	}
 	if media.plex != nil {
 		if err := reconcileSeerrPlex(ctx, sc, w, media.plex); err != nil {
 			logger.Error(err, "failed to reconcile Plex server")
-			syncErrors = append(syncErrors, fmt.Sprintf("plex: %v", err))
+			syncErrors = append(syncErrors, fmt.Errorf("plex: %w", err))
 		} else if err := reconcileSeerrLibraries(ctx, sc, w, "plex", libraries); err != nil {
-			syncErrors = append(syncErrors, fmt.Sprintf("plex libraries: %v", err))
+			syncErrors = append(syncErrors, fmt.Errorf("plex libraries: %w", err))
 		}
 	}
 	return syncErrors
@@ -678,13 +677,13 @@ func reconcileSeerrMetadataProviders(
 // the Jellyfin ones, for its media server.
 func reconcileSeerrJobSchedules(
 	ctx context.Context, sc *seerrclient.Client, w *engine.Writes, schedules []requestsv1alpha1.SeerrJobSchedule,
-) []string {
+) []error {
 	if len(schedules) == 0 {
 		return nil
 	}
 	jobs, err := sc.GetList(ctx, "/api/v1/settings/jobs")
 	if err != nil {
-		return []string{fmt.Sprintf("jobSchedules: reading jobs: %v", err)}
+		return []error{fmt.Errorf("jobSchedules: reading jobs: %w", err)}
 	}
 	current := map[string]any{}
 	for _, job := range jobs {
@@ -692,12 +691,12 @@ func reconcileSeerrJobSchedules(
 			current[id] = job["cronSchedule"]
 		}
 	}
-	var errs []string
+	var errs []error
 	for _, js := range schedules {
 		schedule, ok := current[js.ID]
 		switch {
 		case !ok:
-			errs = append(errs, fmt.Sprintf("jobSchedule(%s): Seerr runs no such job; it runs %s",
+			errs = append(errs, fmt.Errorf("jobSchedule(%s): Seerr runs no such job; it runs %s",
 				js.ID, strings.Join(slices.Sorted(maps.Keys(current)), ", ")))
 		case schedule != js.Schedule:
 			err := w.Apply("jobs", js.ID, func() error {
@@ -705,7 +704,7 @@ func reconcileSeerrJobSchedules(
 				return err
 			})
 			if err != nil {
-				errs = append(errs, fmt.Sprintf("jobSchedule(%s): %v", js.ID, err))
+				errs = append(errs, fmt.Errorf("jobSchedule(%s): %w", js.ID, err))
 			}
 		}
 	}

@@ -71,21 +71,21 @@ func (r *BazarrReconciler) connect(ctx context.Context, config *subtitlesv1alpha
 	return bazarrclient.NewClient(hc), nil
 }
 
-func (r *BazarrReconciler) sync(ctx context.Context, bc *bazarrclient.Client, config *subtitlesv1alpha1.Bazarr, pass *engine.Pass) []string {
+func (r *BazarrReconciler) sync(ctx context.Context, bc *bazarrclient.Client, config *subtitlesv1alpha1.Bazarr, pass *engine.Pass) []error {
 	desired, problems := r.bazarrDesired(ctx, config)
 	settings, err := bc.GetSettings(ctx)
 	if err != nil {
-		return append(problems, fmt.Sprintf("reading settings: %v", err))
+		return append(problems, fmt.Errorf("reading settings: %w", err))
 	}
 	var profiles *bazarrProfiles
 	if desired.Has(profilesField) {
 		existing, err := bc.GetLanguageProfiles(ctx)
 		if err != nil {
-			return append(problems, fmt.Sprintf("reading language profiles: %v", err))
+			return append(problems, fmt.Errorf("reading language profiles: %w", err))
 		}
 		profiles, err = planBazarrProfiles(desired.Get(profilesField), existing, pass.PruneEnabled, pass.Owned)
 		if err != nil {
-			problems = append(problems, fmt.Sprintf("languages: %v", err))
+			problems = append(problems, fmt.Errorf("languages: %w", err))
 			desired.Del(profilesField)
 		} else {
 			desired.Set(profilesField, profiles.send)
@@ -94,18 +94,18 @@ func (r *BazarrReconciler) sync(ctx context.Context, bc *bazarrclient.Client, co
 	var enabled []string
 	if desired.Has(bazarrclient.EnabledLanguagesField) {
 		if enabled, err = bc.EnabledLanguages(ctx); err != nil {
-			return append(problems, fmt.Sprintf("reading languages: %v", err))
+			return append(problems, fmt.Errorf("reading languages: %w", err))
 		}
 	}
 	if err := resolveBazarrDefaultProfiles(ctx, bc, config.Spec, desired); err != nil {
-		problems = append(problems, fmt.Sprintf("general: %v", err))
+		problems = append(problems, fmt.Errorf("general: %w", err))
 	}
 	if err := resolveBazarrJellyfinLibraries(ctx, bc, desired); err != nil {
-		problems = append(problems, fmt.Sprintf("jellyfin: %v", err))
+		problems = append(problems, fmt.Errorf("jellyfin: %w", err))
 	}
 	changes := bazarrChanges(desired, settings, profiles.stored(), enabled)
 	if items, err := r.bazarrNotificationChanges(ctx, config.Namespace, config.Spec.Notifications, settings); err != nil {
-		problems = append(problems, fmt.Sprintf("notifications: %v", err))
+		problems = append(problems, fmt.Errorf("notifications: %w", err))
 	} else if len(items) > 0 {
 		changes[notificationsField] = items
 	}
@@ -124,7 +124,7 @@ func (r *BazarrReconciler) sync(ctx context.Context, bc *bazarrclient.Client, co
 	})
 	if err != nil {
 		log.FromContext(ctx).Error(err, "failed to write Bazarr settings")
-		problems = append(problems, fmt.Sprintf("settings: %v", err))
+		problems = append(problems, fmt.Errorf("settings: %w", err))
 	}
 	return problems
 }
@@ -132,10 +132,10 @@ func (r *BazarrReconciler) sync(ctx context.Context, bc *bazarrclient.Client, co
 // bazarrDesired renders every declared setting as the form fields Bazarr's
 // settings endpoint takes. Sections whose Secrets cannot be read are left out
 // and reported, so the rest still reconcile.
-func (r *BazarrReconciler) bazarrDesired(ctx context.Context, config *subtitlesv1alpha1.Bazarr) (url.Values, []string) {
+func (r *BazarrReconciler) bazarrDesired(ctx context.Context, config *subtitlesv1alpha1.Bazarr) (url.Values, []error) {
 	spec := config.Spec
 	form := url.Values{}
-	var problems []string
+	var problems []error
 	merge := func(v url.Values) { maps.Copy(form, v) }
 
 	if spec.General != nil {
@@ -154,12 +154,12 @@ func (r *BazarrReconciler) bazarrDesired(ctx context.Context, config *subtitlesv
 		}
 		conn, err := r.resolveConnection(ctx, config.Namespace, c.conn)
 		if err != nil {
-			problems = append(problems, fmt.Sprintf("%sConnection: %v", c.section, err))
+			problems = append(problems, fmt.Errorf("%sConnection: %w", c.section, err))
 			continue
 		}
 		key, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, *conn.APIKeySecretRef)
 		if err != nil {
-			problems = append(problems, fmt.Sprintf("%sConnection: resolving apiKeySecretRef: %v", c.section, err))
+			problems = append(problems, fmt.Errorf("%sConnection: resolving apiKeySecretRef: %w", c.section, err))
 			continue
 		}
 		merge(bazarrclient.StructToFormData(c.section, conn))
@@ -171,7 +171,7 @@ func (r *BazarrReconciler) bazarrDesired(ctx context.Context, config *subtitlesv
 	if spec.Jellyfin != nil {
 		jellyfin, err := r.bazarrJellyfinForm(ctx, config.Namespace, spec.Jellyfin)
 		if err != nil {
-			problems = append(problems, fmt.Sprintf("jellyfin: %v", err))
+			problems = append(problems, fmt.Errorf("jellyfin: %w", err))
 		} else {
 			merge(jellyfin)
 		}
@@ -179,7 +179,7 @@ func (r *BazarrReconciler) bazarrDesired(ctx context.Context, config *subtitlesv
 	if len(spec.Providers) > 0 {
 		providers, err := r.bazarrProviderForm(ctx, config.Namespace, spec.Providers)
 		if err != nil {
-			problems = append(problems, fmt.Sprintf("providers: %v", err))
+			problems = append(problems, fmt.Errorf("providers: %w", err))
 		} else {
 			merge(providers)
 		}
@@ -187,7 +187,7 @@ func (r *BazarrReconciler) bazarrDesired(ctx context.Context, config *subtitlesv
 	if spec.Languages != nil {
 		languages, err := bazarrclient.LanguagesForm(spec.Languages)
 		if err != nil {
-			problems = append(problems, fmt.Sprintf("languages: %v", err))
+			problems = append(problems, fmt.Errorf("languages: %w", err))
 		} else {
 			merge(languages)
 		}

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"maps"
 	"slices"
@@ -489,8 +490,8 @@ func importListResources(
 	ils := make([]map[string]any, 0, len(opts.ImportLists))
 	for _, il := range opts.ImportLists {
 		if il.Enabled != nil && !*il.Enabled && opts.App.ImportListFields.Enable == "" {
-			return nil, fmt.Errorf("importLists(%s): %s import lists are always active; set enableAutomaticAdd to false so this one adds nothing",
-				il.Name, engine.AppName(opts.App.Name))
+			return nil, engine.InvalidConfig(fmt.Errorf("importLists(%s): %s import lists are always active; set enableAutomaticAdd to false so this one adds nothing",
+				il.Name, engine.AppName(opts.App.Name)))
 		}
 		tags, err := tagIDs.ResolveTags(il.TagLabels)
 		if err != nil {
@@ -519,12 +520,12 @@ func importListResources(
 }
 
 // Reconcile runs the full reconciliation for Sonarr, Radarr, Lidarr or Readarr.
-func Reconcile(ctx context.Context, client *engine.HTTPClient, spec any, opts Options, pass *engine.Pass) []string {
+func Reconcile(ctx context.Context, client *engine.HTTPClient, spec any, opts Options, pass *engine.Pass) []error {
 	apiVersion := opts.App.APIVersion
 	def := Definition(opts.App)
 	sections, err := Sections(spec, opts.App.Choices)
 	if err != nil {
-		return []string{fmt.Sprintf("building sections: %v", err)}
+		return []error{fmt.Errorf("building sections: %w", err)}
 	}
 	opts = withSchemas(ctx, client, apiVersion, opts)
 	if pass.Observe {
@@ -543,9 +544,9 @@ func Reconcile(ctx context.Context, client *engine.HTTPClient, spec any, opts Op
 	// while a declared list sync setting can't be written.
 	listConfig, declared := sections["importListConfig"]
 	delete(sections, "importListConfig")
-	var listProblems []string
+	var listProblems []error
 	if err := resolveListSyncTag(ctx, client, apiVersion, listConfig, opts.planned["tags"]); err != nil {
-		listProblems = []string{fmt.Sprintf("importListConfig: %v", err)}
+		listProblems = []error{fmt.Errorf("importListConfig: %w", err)}
 	} else if declared {
 		listProblems = engine.ReconcileApp(ctx, client, def, map[string]any{"importListConfig": listConfig}, nil, pass)
 	}
@@ -553,7 +554,7 @@ func Reconcile(ctx context.Context, client *engine.HTTPClient, spec any, opts Op
 	problems = append(problems, engine.ReconcileApp(ctx, client, def, sections, nil, pass)...)
 	if len(listProblems) > 0 && len(opts.ImportLists) > 0 {
 		delete(run.Builders, "importLists")
-		problems = append(problems, "importLists: left out until importListConfig syncs")
+		problems = append(problems, errors.New("importLists: left out until importListConfig syncs"))
 	}
 
 	run.Order = stages

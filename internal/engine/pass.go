@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/kyleseneker/arrchitect/internal/reconciler"
@@ -79,6 +80,34 @@ func IsConfigError(err error) bool {
 	_, ok := errors.AsType[*ConfigError](err)
 	return ok
 }
+
+// JoinErrors reports errs as one failure, nil when there are none. Unlike
+// errors.Join it separates them with "; ", which reads on one line in a
+// status message. errors.Is and errors.As still find each one.
+func JoinErrors(errs ...error) error {
+	var kept joinedErrors
+	for _, err := range errs {
+		if err != nil {
+			kept = append(kept, err)
+		}
+	}
+	if len(kept) == 0 {
+		return nil
+	}
+	return kept
+}
+
+type joinedErrors []error
+
+func (e joinedErrors) Error() string {
+	texts := make([]string, len(e))
+	for i, err := range e {
+		texts[i] = err.Error()
+	}
+	return strings.Join(texts, "; ")
+}
+
+func (e joinedErrors) Unwrap() []error { return e }
 
 // ErrUnauthorized is an app refusing the credentials the operator sent.
 var ErrUnauthorized = errors.New("the app refused the credentials")

@@ -43,7 +43,7 @@ func (r *AutobrrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		Check: func(ctx context.Context, ac *autobrrclient.Client, _ *automationv1alpha1.Autobrr) error {
 			return ac.Ping(ctx)
 		},
-		Sync: func(ctx context.Context, ac *autobrrclient.Client, config *automationv1alpha1.Autobrr, pass *engine.Pass) []string {
+		Sync: func(ctx context.Context, ac *autobrrclient.Client, config *automationv1alpha1.Autobrr, pass *engine.Pass) []error {
 			sync := &autobrrSync{
 				Pass: pass, c: r.Client, apps: r.Apps, ac: ac, namespace: config.Namespace,
 			}
@@ -102,7 +102,7 @@ func (s *autobrrSync) created(kind, name string, create func() error) func() err
 
 // run applies the sections in dependency order: filter actions refer to
 // download clients by name.
-func (s *autobrrSync) run(ctx context.Context, spec *automationv1alpha1.AutobrrSpec) []string {
+func (s *autobrrSync) run(ctx context.Context, spec *automationv1alpha1.AutobrrSpec) []error {
 	logger := log.FromContext(ctx)
 	s.declared = map[string][]string{}
 	for _, idx := range spec.Indexers {
@@ -117,11 +117,11 @@ func (s *autobrrSync) run(ctx context.Context, spec *automationv1alpha1.AutobrrS
 	for _, p := range spec.Proxies {
 		s.declared["proxies"] = append(s.declared["proxies"], p.Name)
 	}
-	var syncErrors []string
+	var syncErrors []error
 	failed := map[string]bool{}
 	fail := func(section, name string, err error) {
 		logger.Error(err, "failed to reconcile", "section", section, "name", name)
-		syncErrors = append(syncErrors, fmt.Sprintf("%s(%s): %v", section, name, err))
+		syncErrors = append(syncErrors, fmt.Errorf("%s(%s): %w", section, name, err))
 		kind := section + "s"
 		if section == "proxy" {
 			kind = "proxies"

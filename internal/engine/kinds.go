@@ -70,11 +70,11 @@ func (i Items) ID(name string) (int, error) {
 // PruneKinds prunes each kind in order against what declared names for it. It
 // skips a kind a write failed for this pass, and never lists a kind with
 // nothing declared or nothing owned: a scoped API key may not be allowed to.
-func (p *Pass) PruneKinds(ctx context.Context, kinds []Kind, declared map[string][]string, failed map[string]bool) []string {
+func (p *Pass) PruneKinds(ctx context.Context, kinds []Kind, declared map[string][]string, failed map[string]bool) []error {
 	if !p.PruneEnabled {
 		return nil
 	}
-	var problems []string
+	var problems []error
 	for _, k := range kinds {
 		if failed[k.Name] || len(declared[k.Name]) == 0 || !p.Owned.Owns(k.Name) {
 			continue
@@ -84,7 +84,7 @@ func (p *Pass) PruneKinds(ctx context.Context, kinds []Kind, declared map[string
 			err = p.PruneItems(k.Name, declared[k.Name], items, func(id int) error { return k.Remove(ctx, id) })
 		}
 		if err != nil {
-			problems = append(problems, fmt.Sprintf("%s(prune): %v", k.Name, err))
+			problems = append(problems, fmt.Errorf("%s(prune): %w", k.Name, err))
 		}
 	}
 	return problems

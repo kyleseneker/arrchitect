@@ -30,7 +30,6 @@ import (
 	pvrv1alpha1 "github.com/kyleseneker/arrchitect/api/pvr/v1alpha1"
 	requestsv1alpha1 "github.com/kyleseneker/arrchitect/api/requests/v1alpha1"
 	"github.com/kyleseneker/arrchitect/internal/engine"
-	"github.com/kyleseneker/arrchitect/internal/reconciler"
 )
 
 // App is what an AppRef resolves to: where the app is, how to reach it over
@@ -125,17 +124,10 @@ func InvalidAppRef(format string, args ...any) error {
 // reading the Secrets it names, and when to try again. An invalid reference
 // waits for a spec change, which requeues the resource anyway.
 func AppRefFailure(err error) (string, time.Duration) {
-	_, invalid := errors.AsType[*invalidAppRefError](err)
-	switch {
-	case isAppRefNotFound(err):
-		return engine.ReasonReferenceNotFound, 30 * time.Second
-	case invalid:
-		return engine.ReasonInvalidConfig, 0
-	case reconciler.IsSecretError(err):
-		return engine.ReasonSecretNotFound, 30 * time.Second
-	default:
-		return engine.ReasonSyncFailed, 30 * time.Second
+	if reason, after, ok := failureReason(err); ok {
+		return reason, after
 	}
+	return engine.ReasonSyncFailed, 30 * time.Second
 }
 
 // ResolveAppRef reads the resource ref names in namespace. Its errors name the

@@ -113,8 +113,8 @@ func TestValidateOptionFieldsReportsTypedFieldName(t *testing.T) {
 
 	problems := validateOptionFields(context.Background(), schemaServer(t), "v3", opts)
 	require.Len(t, problems, 1, "expected one problem")
-	assert.Contains(t, problems[0], "qbit", "problem does not identify the resource")
-	assert.Contains(t, problems[0], "tvCatagory", "problem does not identify the field")
+	assert.ErrorContains(t, problems[0], "qbit", "problem does not identify the resource")
+	assert.ErrorContains(t, problems[0], "tvCatagory", "problem does not identify the field")
 }
 
 func TestValidateOptionFieldsPassesKnownFields(t *testing.T) {

@@ -34,40 +34,12 @@ type PrunedResource struct {
 	ID   int
 }
 
-// ReconcileResult holds the outcome of a reconciliation pass.
-type ReconcileResult struct {
-	Synced []string
-	Errors []string
-	// Drift lists what observe mode found differing and left alone.
-	Drift []string
-}
-
-// Success returns true if no errors occurred.
-func (r *ReconcileResult) Success() bool {
-	return len(r.Errors) == 0
-}
-
-// Message returns a human-readable summary including what synced and what failed.
-func (r *ReconcileResult) Message() string {
-	if r.Success() {
-		if len(r.Synced) > 0 {
-			return fmt.Sprintf("synced: %v", r.Synced)
-		}
-		return "all configuration sections synced"
-	}
-	msg := fmt.Sprintf("errors: %v", r.Errors)
-	if len(r.Synced) > 0 {
-		msg = fmt.Sprintf("synced: %v; %s", r.Synced, msg)
-	}
-	return msg
-}
-
 // ReconcileApp brings an app's settings and list resources in line through
 // pass, and returns what failed. sections maps setting endpoint names to their
 // desired state; resources maps resource endpoint names to the items declared.
-func ReconcileApp(ctx context.Context, client *HTTPClient, def AppDefinition, sections map[string]any, resources map[string][]map[string]any, pass *Pass) []string {
+func ReconcileApp(ctx context.Context, client *HTTPClient, def AppDefinition, sections map[string]any, resources map[string][]map[string]any, pass *Pass) []error {
 	logger := log.FromContext(ctx)
-	var problems []string
+	var problems []error
 	for _, s := range def.Settings {
 		desired, ok := sections[s.Name]
 		if !ok || isNilInterface(desired) {
@@ -77,7 +49,7 @@ func ReconcileApp(ctx context.Context, client *HTTPClient, def AppDefinition, se
 		if err := reconcileSetting(ctx, client, pass, s, desired); err != nil {
 			logger.Error(err, "failed to reconcile setting", "section", s.Name)
 			logAPIErrorDetail(ctx, err)
-			problems = append(problems, fmt.Sprintf("%s: %v", s.Name, err))
+			problems = append(problems, fmt.Errorf("%s: %w", s.Name, err))
 			continue
 		}
 		if len(pass.Drift()) == drift {
@@ -92,7 +64,7 @@ func ReconcileApp(ctx context.Context, client *HTTPClient, def AppDefinition, se
 		}
 		existing, err := client.GetJSONList(ctx, r.Path)
 		if err != nil {
-			problems = append(problems, fmt.Sprintf("%s: listing: %v", r.Name, err))
+			problems = append(problems, fmt.Errorf("%s: listing: %w", r.Name, err))
 			continue
 		}
 		failed := false
@@ -102,7 +74,7 @@ func ReconcileApp(ctx context.Context, client *HTTPClient, def AppDefinition, se
 				failed = true
 				logger.Error(err, "failed to reconcile resource", "type", r.Name, "match", key)
 				logAPIErrorDetail(ctx, err)
-				problems = append(problems, fmt.Sprintf("%s(%v): %v", r.Name, key, err))
+				problems = append(problems, fmt.Errorf("%s(%v): %w", r.Name, key, err))
 				continue
 			}
 			if len(pass.Drift()) == drift {
@@ -117,7 +89,7 @@ func ReconcileApp(ctx context.Context, client *HTTPClient, def AppDefinition, se
 		if err := pruneEndpoint(ctx, client, pass, r, items, existing); err != nil {
 			logger.Error(err, "failed to prune resources", "type", r.Name)
 			logAPIErrorDetail(ctx, err)
-			problems = append(problems, fmt.Sprintf("%s(prune): %v", r.Name, err))
+			problems = append(problems, fmt.Errorf("%s(prune): %w", r.Name, err))
 		}
 	}
 	return problems

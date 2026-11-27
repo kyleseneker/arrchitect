@@ -143,7 +143,7 @@ func TestStagesReadTagsAgainAfterAStageFailedToRead(t *testing.T) {
 
 	problems := stages.Reconcile(context.Background(), hc, stagesDefinition(), NewPass("test", "", SyncPolicy{}, nil))
 	require.Len(t, problems, 1)
-	assert.True(t, strings.HasPrefix(problems[0], "indexers: "), problems[0])
+	assert.True(t, strings.HasPrefix(problems[0].Error(), "indexers: "), problems[0].Error())
 	items, _ := app.snapshot()
 	assert.Empty(t, items["/indexers"])
 	assert.Len(t, items["/clients"], 1)
@@ -165,7 +165,7 @@ func TestStagesLeaveOutAKindThatCantBeBuilt(t *testing.T) {
 
 	problems := stages.Reconcile(context.Background(), hc, stagesDefinition(), NewPass("test", "", SyncPolicy{}, nil))
 	require.Len(t, problems, 1)
-	assert.Contains(t, problems[0], `the app has no item named "missing"`)
+	assert.ErrorContains(t, problems[0], `the app has no item named "missing"`)
 	items, _ := app.snapshot()
 	assert.Empty(t, items["/indexers"])
 	assert.Len(t, items["/clients"], 1)
@@ -201,8 +201,8 @@ func TestStagesReportATagListFailureAgainstEachTaggedKind(t *testing.T) {
 
 	problems := stages.Reconcile(context.Background(), hc, stagesDefinition(), NewPass("test", "", SyncPolicy{}, nil))
 	require.Len(t, problems, 2)
-	assert.True(t, strings.HasPrefix(problems[0], "indexers: "), problems[0])
-	assert.True(t, strings.HasPrefix(problems[1], "clients: "), problems[1])
+	assert.True(t, strings.HasPrefix(problems[0].Error(), "indexers: "), problems[0].Error())
+	assert.True(t, strings.HasPrefix(problems[1].Error(), "clients: "), problems[1].Error())
 }
 
 func TestStagesPlanDeclaredTagsInObserveMode(t *testing.T) {

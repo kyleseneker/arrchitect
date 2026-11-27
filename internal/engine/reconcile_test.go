@@ -19,58 +19,6 @@ import (
 	"github.com/kyleseneker/arrchitect/internal/reconciler"
 )
 
-func TestReconcileResult_Success(t *testing.T) {
-	tests := []struct {
-		name   string
-		result ReconcileResult
-		want   bool
-	}{
-		{"no errors", ReconcileResult{Synced: []string{"a"}}, true},
-		{"empty", ReconcileResult{}, true},
-		{"with errors", ReconcileResult{Errors: []string{"fail"}}, false},
-		{"synced and errors", ReconcileResult{Synced: []string{"a"}, Errors: []string{"b"}}, false},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, tt.result.Success())
-		})
-	}
-}
-
-func TestReconcileResult_Message(t *testing.T) {
-	tests := []struct {
-		name   string
-		result ReconcileResult
-		want   string
-	}{
-		{
-			name:   "all synced",
-			result: ReconcileResult{Synced: []string{"mediaManagement", "naming"}},
-			want:   "synced: [mediaManagement naming]",
-		},
-		{
-			name:   "nothing synced no errors",
-			result: ReconcileResult{},
-			want:   "all configuration sections synced",
-		},
-		{
-			name:   "errors only",
-			result: ReconcileResult{Errors: []string{"naming: failed"}},
-			want:   "errors: [naming: failed]",
-		},
-		{
-			name:   "synced and errors",
-			result: ReconcileResult{Synced: []string{"ui"}, Errors: []string{"naming: fail"}},
-			want:   "synced: [ui]; errors: [naming: fail]",
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, tt.result.Message())
-		})
-	}
-}
-
 func TestIsNilInterface(t *testing.T) {
 	tests := []struct {
 		name string
@@ -990,7 +938,7 @@ func run(
 	pass := NewPass(hc.AppLabel(), "", policy, managed)
 	errs := ReconcileApp(ctx, hc, def, sections, resources, pass)
 	return outcome{
-		Synced: pass.SyncedItems(), Errors: errs, Drift: pass.Drift(), Pruned: pass.Owned.Pruned(), Managed: pass.Owned.Managed(),
+		Synced: pass.SyncedItems(), Errors: messages(errs), Drift: pass.Drift(), Pruned: pass.Owned.Pruned(), Managed: pass.Owned.Managed(),
 	}
 }
 
@@ -1024,11 +972,26 @@ func pruneResources(
 }
 
 // outcome is a pass's result, with what it deleted and the ownership it ended
-// with.
+// with. Errors holds the failures' messages.
 type outcome struct {
-	ReconcileResult
+	Synced  []string
+	Errors  []string
+	Drift   []string
 	Pruned  []PrunedResource
 	Managed map[string][]string
+}
+
+func (o outcome) Success() bool { return len(o.Errors) == 0 }
+
+func (o outcome) Message() string { return strings.Join(o.Errors, "; ") }
+
+// messages lists the text of each error.
+func messages(errs []error) []string {
+	out := make([]string, 0, len(errs))
+	for _, err := range errs {
+		out = append(out, err.Error())
+	}
+	return out
 }
 
 func TestReconcileAppListsEachEndpointOncePerPass(t *testing.T) {

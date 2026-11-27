@@ -76,19 +76,19 @@ func (r *SabnzbdReconciler) check(ctx context.Context, sc *sabnzbdclient.Client,
 	return sc.Ping(ctx)
 }
 
-func (r *SabnzbdReconciler) sync(ctx context.Context, sc *sabnzbdclient.Client, config *downloadsv1alpha1.Sabnzbd, pass *engine.Pass) []string {
+func (r *SabnzbdReconciler) sync(ctx context.Context, sc *sabnzbdclient.Client, config *downloadsv1alpha1.Sabnzbd, pass *engine.Pass) []error {
 	current, err := sc.GetConfig(ctx)
 	if err != nil {
-		return []string{fmt.Sprintf("reading config: %v", err)}
+		return []error{fmt.Errorf("reading config: %w", err)}
 	}
 	servers, problems := r.resolveSabnzbdServers(ctx, config)
 	apprise, err := r.sabnzbdAppriseValues(ctx, config)
 	if err != nil {
-		problems = append(problems, fmt.Sprintf("apprise: %v", err))
+		problems = append(problems, fmt.Errorf("apprise: %w", err))
 	}
 	login, err := r.sabnzbdLoginValues(ctx, config)
 	if err != nil {
-		problems = append(problems, fmt.Sprintf("login: %v", err))
+		problems = append(problems, fmt.Errorf("login: %w", err))
 	}
 	plan := func(current map[string]any) []sabWrite {
 		writes := planSabnzbd(current, config.Spec, servers, pass.Owner)
@@ -101,7 +101,7 @@ func (r *SabnzbdReconciler) sync(ctx context.Context, sc *sabnzbdclient.Client, 
 	// write and discards that write, so check once more after writing.
 	if len(writes) > 0 && len(problems) == 0 && !pass.Observe {
 		if current, err = sc.GetConfig(ctx); err != nil {
-			problems = append(problems, fmt.Sprintf("re-reading config: %v", err))
+			problems = append(problems, fmt.Errorf("re-reading config: %w", err))
 		} else {
 			again, refused := sabnzbdRefused(writes, plan(current))
 			problems = append(problems, refused...)
@@ -113,7 +113,7 @@ func (r *SabnzbdReconciler) sync(ctx context.Context, sc *sabnzbdclient.Client, 
 	}
 	if !pass.Observe {
 		if current, err = sc.GetConfig(ctx); err != nil {
-			return append(problems, fmt.Sprintf("reading config to prune: %v", err))
+			return append(problems, fmt.Errorf("reading config to prune: %w", err))
 		}
 	}
 	return append(problems, pruneSabnzbd(ctx, sc, current, config.Spec, pass)...)
@@ -252,7 +252,7 @@ func sabnzbdQuotaValues(q downloadsv1alpha1.SabnzbdQuota) map[string]string {
 // script it can't find, as if it took it, so a setting that still differs
 // after being written is reported instead of rewritten every pass. Servers and
 // categories are retried: a fresh SABnzbd drops the first category write.
-func sabnzbdRefused(first, again []sabWrite) ([]sabWrite, []string) {
+func sabnzbdRefused(first, again []sabWrite) ([]sabWrite, []error) {
 	written := map[string]string{}
 	for _, w := range first {
 		if w.section == "misc" || w.section == "apprise" {
@@ -260,10 +260,10 @@ func sabnzbdRefused(first, again []sabWrite) ([]sabWrite, []string) {
 		}
 	}
 	var retry []sabWrite
-	var refused []string
+	var refused []error
 	for _, w := range again {
 		if v, ok := written[w.section+"."+w.name]; ok && v == w.values["value"] {
-			refused = append(refused, fmt.Sprintf("%s(%s.%s): SABnzbd didn't keep the value written", w.resourceType, w.section, w.name))
+			refused = append(refused, fmt.Errorf("%s(%s.%s): SABnzbd didn't keep the value written", w.resourceType, w.section, w.name))
 			continue
 		}
 		retry = append(retry, w)
@@ -272,8 +272,8 @@ func sabnzbdRefused(first, again []sabWrite) ([]sabWrite, []string) {
 }
 
 // applySabnzbd performs the planned writes and returns the failures.
-func applySabnzbd(ctx context.Context, sc *sabnzbdclient.Client, pass *engine.Pass, writes []sabWrite) []string {
-	var problems []string
+func applySabnzbd(ctx context.Context, sc *sabnzbdclient.Client, pass *engine.Pass, writes []sabWrite) []error {
+	var problems []error
 	for _, w := range writes {
 		err := pass.Apply(w.resourceType, w.name, func() error {
 			var err error
@@ -293,7 +293,7 @@ func applySabnzbd(ctx context.Context, sc *sabnzbdclient.Client, pass *engine.Pa
 		})
 		if err != nil {
 			log.FromContext(ctx).Error(err, "failed to write SABnzbd config", "section", w.section, "name", w.name)
-			problems = append(problems, fmt.Sprintf("%s(%s): %v", w.resourceType, w.name, err))
+			problems = append(problems, fmt.Errorf("%s(%s): %w", w.resourceType, w.name, err))
 		}
 	}
 	return problems
@@ -301,7 +301,7 @@ func applySabnzbd(ctx context.Context, sc *sabnzbdclient.Client, pass *engine.Pa
 
 // pruneSabnzbd deletes the servers and categories the operator created that the
 // spec no longer declares.
-func pruneSabnzbd(ctx context.Context, sc *sabnzbdclient.Client, current map[string]any, spec downloadsv1alpha1.SabnzbdSpec, pass *engine.Pass) []string {
+func pruneSabnzbd(ctx context.Context, sc *sabnzbdclient.Client, current map[string]any, spec downloadsv1alpha1.SabnzbdSpec, pass *engine.Pass) []error {
 	declared := map[string][]string{}
 	for _, s := range spec.Servers {
 		declared["servers"] = append(declared["servers"], s.Name)
@@ -309,13 +309,13 @@ func pruneSabnzbd(ctx context.Context, sc *sabnzbdclient.Client, current map[str
 	for _, c := range spec.Categories {
 		declared["categories"] = append(declared["categories"], c.Name)
 	}
-	var problems []string
+	var problems []error
 	for _, section := range []string{"servers", "categories"} {
 		err := pass.Prune(pass.Owned, section, declared[section], sabnzbdNames(current, section), func(name string) error {
 			return sc.DeleteNamed(ctx, section, name)
 		})
 		if err != nil {
-			problems = append(problems, fmt.Sprintf("%s(prune): %v", section, err))
+			problems = append(problems, fmt.Errorf("%s(prune): %w", section, err))
 		}
 	}
 	return problems
@@ -364,9 +364,9 @@ type sabWrite struct {
 // cannot be read is skipped and reported, so the rest still reconcile.
 func (r *SabnzbdReconciler) resolveSabnzbdServers(
 	ctx context.Context, config *downloadsv1alpha1.Sabnzbd,
-) (map[string]map[string]string, []string) {
+) (map[string]map[string]string, []error) {
 	servers := map[string]map[string]string{}
-	var problems []string
+	var problems []error
 	for _, srv := range config.Spec.Servers {
 		vals := sabnzbdServerValues(srv)
 		ok := true
@@ -376,7 +376,7 @@ func (r *SabnzbdReconciler) resolveSabnzbdServers(
 			}
 			value, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, *ref)
 			if err != nil {
-				problems = append(problems, fmt.Sprintf("server(%s).%s: %v", srv.Name, field, err))
+				problems = append(problems, fmt.Errorf("server(%s).%s: %w", srv.Name, field, err))
 				ok = false
 				continue
 			}

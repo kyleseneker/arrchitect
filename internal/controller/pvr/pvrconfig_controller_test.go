@@ -367,7 +367,7 @@ func TestReconcileMissingItemSecretSkipsOnlyItsKind(t *testing.T) {
 			require.NoError(t, c.Get(context.Background(), types.NamespacedName{Name: "app", Namespace: "media"}, obj))
 			synced := apimeta.FindStatusCondition(obj.GetConfigStatus().Conditions, "Synced")
 			require.NotNil(t, synced)
-			assert.Equal(t, "SyncFailed", synced.Reason)
+			assert.Equal(t, "SecretNotFound", synced.Reason)
 			assert.Contains(t, synced.Message, `notifications: notification Webhook field "url": secret "missing" not found`)
 		})
 	}

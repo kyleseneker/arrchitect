@@ -65,35 +65,35 @@ func (r *ProwlarrReconciler) connect(ctx context.Context, config *indexersv1alph
 	return hc, nil
 }
 
-func (r *ProwlarrReconciler) sync(ctx context.Context, hc *engine.HTTPClient, config *indexersv1alpha1.Prowlarr, pass *engine.Pass) []string {
+func (r *ProwlarrReconciler) sync(ctx context.Context, hc *engine.HTTPClient, config *indexersv1alpha1.Prowlarr, pass *engine.Pass) []error {
 	namespace := config.Namespace
 	opts := prowlarrclient.Options{Tags: config.Spec.Tags, AppProfiles: config.Spec.AppProfiles}
 	// A kind whose items name a Secret or app that can't be read is left out of
 	// the pass, neither written nor pruned, and reported; the rest still syncs.
-	var unresolved []string
+	var unresolved []error
 	var err error
 	if opts.Indexers, err = ctrlcommon.ResolveItemFields(ctx, r.Client, namespace, "indexer", config.Spec.Indexers,
 		func(i *indexersv1alpha1.ProwlarrIndexer) (string, *[]commonv1alpha1.ConfigField) {
 			return i.Name, &i.Fields
 		},
 	); err != nil {
-		unresolved = append(unresolved, fmt.Sprintf("indexers: %v", err))
+		unresolved = append(unresolved, fmt.Errorf("indexers: %w", err))
 	}
 	if opts.DownloadClients, err = ctrlcommon.ResolveItemFields(ctx, r.Client, namespace, "download client", config.Spec.DownloadClients,
 		func(dc *indexersv1alpha1.ProwlarrDownloadClient) (string, *[]commonv1alpha1.ConfigField) {
 			return dc.Name, &dc.Fields
 		},
 	); err != nil {
-		unresolved = append(unresolved, fmt.Sprintf("downloadClients: %v", err))
+		unresolved = append(unresolved, fmt.Errorf("downloadClients: %w", err))
 	}
 	if opts.Notifications, err = ctrlcommon.ResolveNotificationSecrets(ctx, r.Client, namespace, config.Spec.Notifications); err != nil {
-		unresolved = append(unresolved, fmt.Sprintf("notifications: %v", err))
+		unresolved = append(unresolved, fmt.Errorf("notifications: %w", err))
 	}
 	if opts.Applications, err = r.resolveApplications(ctx, hc, config); err != nil {
-		unresolved = append(unresolved, fmt.Sprintf("applications: %v", err))
+		unresolved = append(unresolved, fmt.Errorf("applications: %w", err))
 	}
 	if opts.Proxies, err = r.resolveProxies(ctx, config); err != nil {
-		unresolved = append(unresolved, fmt.Sprintf("proxies: %v", err))
+		unresolved = append(unresolved, fmt.Errorf("proxies: %w", err))
 	}
 	return append(unresolved, prowlarrclient.Reconcile(ctx, hc, opts, pass)...)
 }

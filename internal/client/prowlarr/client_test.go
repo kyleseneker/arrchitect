@@ -67,7 +67,7 @@ func TestABadTagLeavesOutOnlyItsKind(t *testing.T) {
 
 	problems := Reconcile(context.Background(), hc, opts, engine.NewPass("prowlarr", "", engine.SyncPolicy{}, nil))
 	require.Len(t, problems, 1)
-	assert.Contains(t, problems[0], "indexers(idx): tag")
+	assert.ErrorContains(t, problems[0], "indexers(idx): tag")
 	assert.Empty(t, app.items["/api/v1/indexer"])
 	assert.Len(t, app.items["/api/v1/downloadclient"], 1)
 }
@@ -115,7 +115,7 @@ func TestObserveModePlansWhatTheResourceDeclares(t *testing.T) {
 	opts.Indexers[0].TagLabels = []string{"typo"}
 	problems := Reconcile(context.Background(), hc, opts, engine.NewPass("prowlarr", "", observe, nil))
 	require.Len(t, problems, 1)
-	assert.Contains(t, problems[0], `the app has no item named "typo"`, "a name the resource doesn't declare still fails")
+	assert.ErrorContains(t, problems[0], `the app has no item named "typo"`, "a name the resource doesn't declare still fails")
 }
 
 func TestBuildProwlarrApplicationPayload(t *testing.T) {

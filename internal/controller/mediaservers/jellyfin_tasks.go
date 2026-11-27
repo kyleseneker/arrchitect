@@ -28,7 +28,7 @@ type jellyfinTaskChange struct {
 // Jellyfin's, and reports a task Jellyfin doesn't have.
 func jellyfinTaskChanges(
 	ctx context.Context, jf *jellyfinclient.Client, tasks []mediaserversv1alpha1.JellyfinScheduledTask,
-) ([]jellyfinTaskChange, []string, error) {
+) ([]jellyfinTaskChange, []error, error) {
 	if len(tasks) == 0 {
 		return nil, nil, nil
 	}
@@ -43,11 +43,11 @@ func jellyfinTaskChanges(
 		}
 	}
 	var changes []jellyfinTaskChange
-	var problems []string
+	var problems []error
 	for _, task := range tasks {
 		existing, ok := byKey[task.Key]
 		if !ok {
-			problems = append(problems, fmt.Sprintf("scheduledTask(%s): Jellyfin has no such task; it has %s",
+			problems = append(problems, fmt.Errorf("scheduledTask(%s): Jellyfin has no such task; it has %s",
 				task.Key, strings.Join(slices.Sorted(maps.Keys(byKey)), ", ")))
 			continue
 		}
@@ -65,17 +65,17 @@ func jellyfinTaskChanges(
 // differ, or in observe mode records them as differences.
 func reconcileJellyfinTasks(
 	ctx context.Context, jf *jellyfinclient.Client, tasks []mediaserversv1alpha1.JellyfinScheduledTask, w *engine.Writes,
-) []string {
+) []error {
 	changes, problems, err := jellyfinTaskChanges(ctx, jf, tasks)
 	if err != nil {
-		return []string{err.Error()}
+		return []error{err}
 	}
 	for _, change := range changes {
 		err := w.Apply("scheduledTasks", change.key, func() error {
 			return jf.SetTaskTriggers(ctx, change.id, change.triggers)
 		})
 		if err != nil {
-			problems = append(problems, fmt.Sprintf("scheduledTask(%s): %v", change.key, err))
+			problems = append(problems, fmt.Errorf("scheduledTask(%s): %w", change.key, err))
 		}
 	}
 	return problems

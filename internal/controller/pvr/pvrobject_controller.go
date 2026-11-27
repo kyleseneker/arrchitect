@@ -125,10 +125,14 @@ func reconcilePVRObject(ctx context.Context, c client.Client, recorder events.Ev
 	}
 	ctrlcommon.UpdateStatusManaged(obj, pass.Owned.Managed())
 	ctrlcommon.EmitPruneEvents(recorder, obj, pass.Owned.Pruned())
-	ctrlcommon.ReportResult(ctx, c, recorder, obj, policy.Observe, engine.ReconcileResult{
+	retry := ctrlcommon.ReportResult(ctx, c, recorder, obj, policy.Observe, ctrlcommon.Result{
 		Synced: pass.SyncedItems(), Errors: problems, Drift: pass.Drift(),
 	})
-	return ctrl.Result{RequeueAfter: ctrlcommon.NextSync(instance.policy)}, nil
+	after := ctrlcommon.NextSync(instance.policy)
+	if retry > 0 && retry < after {
+		after = retry
+	}
+	return ctrl.Result{RequeueAfter: after}, nil
 }
 
 // olderClaim names an older resource of the same kind that configures the same

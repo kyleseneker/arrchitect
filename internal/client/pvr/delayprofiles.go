@@ -55,15 +55,15 @@ type delayProfileStage struct {
 // a profile before any joins another.
 func reconcileDelayProfiles(
 	ctx context.Context, client *engine.HTTPClient, apiVersion string, declared []commonv1alpha1.DelayProfile, pass *engine.Pass, plannedTags []string,
-) []string {
+) []error {
 	s := &delayProfileStage{Pass: pass, client: client, path: fmt.Sprintf("/api/%s/delayprofile", apiVersion)}
 	return s.run(ctx, fmt.Sprintf("/api/%s/tag", apiVersion), declared, plannedTags)
 }
 
-func (s *delayProfileStage) run(ctx context.Context, tagPath string, declared []commonv1alpha1.DelayProfile, plannedTags []string) []string {
+func (s *delayProfileStage) run(ctx context.Context, tagPath string, declared []commonv1alpha1.DelayProfile, plannedTags []string) []error {
 	tags, err := engine.FetchNamedIDs(ctx, s.client, tagPath, "label")
 	if err != nil {
-		return []string{fmt.Sprintf("%s: %v", delayProfilesKind, err)}
+		return []error{fmt.Errorf("%s: %w", delayProfilesKind, err)}
 	}
 	tags.Plan(plannedTags...)
 	s.labels = map[int]string{}
@@ -74,21 +74,21 @@ func (s *delayProfileStage) run(ctx context.Context, tagPath string, declared []
 	}
 	existing, err := s.client.GetJSONList(ctx, s.path)
 	if err != nil {
-		return []string{fmt.Sprintf("%s: listing: %v", delayProfilesKind, err)}
+		return []error{fmt.Errorf("%s: listing: %w", delayProfilesKind, err)}
 	}
 	plans, err := planDelayProfiles(declared, tags, existing)
 	if err != nil {
-		return []string{err.Error()}
+		return []error{err}
 	}
 
 	if err := s.pruneUnmatched(ctx, plans, existing); err != nil {
-		return []string{fmt.Sprintf("%s(prune): %v", delayProfilesKind, err)}
+		return []error{fmt.Errorf("%s(prune): %w", delayProfilesKind, err)}
 	}
-	var errs []string
+	var errs []error
 	if !s.Observe {
 		for _, p := range plans {
 			if err := s.releaseTags(ctx, p); err != nil {
-				return []string{fmt.Sprintf("%s(%s): %v", delayProfilesKind, p.name, err)}
+				return []error{fmt.Errorf("%s(%s): %w", delayProfilesKind, p.name, err)}
 			}
 		}
 	}
@@ -96,19 +96,19 @@ func (s *delayProfileStage) run(ctx context.Context, tagPath string, declared []
 	for _, p := range plans {
 		if p.current == nil && template == nil && hasProtocolItems(existing) {
 			if template, err = s.client.GetJSON(ctx, s.path+"/schema"); err != nil {
-				errs = append(errs, fmt.Sprintf("%s(%s): reading the schema: %v", delayProfilesKind, p.name, err))
+				errs = append(errs, fmt.Errorf("%s(%s): reading the schema: %w", delayProfilesKind, p.name, err))
 				continue
 			}
 		}
 		if err := s.apply(ctx, p, template, hasProtocolItems(existing)); err != nil {
-			errs = append(errs, fmt.Sprintf("%s(%s): %v", delayProfilesKind, p.name, err))
+			errs = append(errs, fmt.Errorf("%s(%s): %w", delayProfilesKind, p.name, err))
 		}
 	}
 	if len(errs) > 0 {
 		return errs
 	}
 	if err := s.order(ctx, plans); err != nil {
-		return []string{fmt.Sprintf("%s(order): %v", delayProfilesKind, err)}
+		return []error{fmt.Errorf("%s(order): %w", delayProfilesKind, err)}
 	}
 	return nil
 }
