@@ -218,16 +218,29 @@ func matchDelayProfiles(plans []*delayPlan, profiles []map[string]any, prunable 
 	for i := range match {
 		match[i] = -1
 	}
-	if len(plans) == 0 || len(profiles) == 0 {
+	// Only a profile holding a declared tag can be matched. A tag sits in one
+	// profile, so there are no more of these than declared tags, however many
+	// profiles the app has.
+	var declared []int
+	for _, p := range plans {
+		declared = append(declared, p.tags...)
+	}
+	var candidates []int
+	for j, profile := range profiles {
+		if overlap(profileTags(profile), declared) > 0 {
+			candidates = append(candidates, j)
+		}
+	}
+	if len(plans) == 0 || len(candidates) == 0 {
 		return match
 	}
-	byOrder := slices.Clone(profiles)
-	slices.SortStableFunc(byOrder, func(a, b map[string]any) int { return cmp.Compare(num(a["order"]), num(b["order"])) })
-	rank := map[string]int64{}
-	for i, profile := range byOrder {
-		rank[delayProfileID(profile)] = int64(len(byOrder) - i)
+	byOrder := slices.Clone(candidates)
+	slices.SortStableFunc(byOrder, func(a, b int) int { return cmp.Compare(num(profiles[a]["order"]), num(profiles[b]["order"])) })
+	rank := map[int]int64{}
+	for i, j := range byOrder {
+		rank[j] = int64(len(byOrder) - i)
 	}
-	n, m := int64(len(plans)), int64(len(profiles))
+	n, m := int64(len(plans)), int64(len(candidates))
 	maxOverlap := int64(0)
 	for _, p := range plans {
 		maxOverlap = max(maxOverlap, int64(len(p.tags)))
@@ -238,22 +251,22 @@ func matchDelayProfiles(plans []*delayPlan, profiles []map[string]any, prunable 
 	perTag := n*m + 1
 	perMatch := n*(maxOverlap*perTag+m) + 1
 	perKept := n*(perMatch+maxOverlap*perTag+m) + 1
-	cols := max(len(plans), len(profiles))
+	cols := max(len(plans), len(candidates))
 	weights := make([][]int64, len(plans))
 	for i, p := range plans {
 		weights[i] = make([]int64, cols)
-		for j, profile := range profiles {
-			if shared := int64(overlap(profileTags(profile), p.tags)); shared > 0 {
-				weights[i][j] = perMatch + shared*perTag + rank[delayProfileID(profile)]
-				if !prunable(profile) {
-					weights[i][j] += perKept
+		for c, j := range candidates {
+			if shared := int64(overlap(profileTags(profiles[j]), p.tags)); shared > 0 {
+				weights[i][c] = perMatch + shared*perTag + rank[j]
+				if !prunable(profiles[j]) {
+					weights[i][c] += perKept
 				}
 			}
 		}
 	}
-	for i, j := range maxWeightAssignment(weights) {
-		if j < len(profiles) && weights[i][j] > 0 {
-			match[i] = j
+	for i, c := range maxWeightAssignment(weights) {
+		if c < len(candidates) && weights[i][c] > 0 {
+			match[i] = candidates[c]
 		}
 	}
 	return match

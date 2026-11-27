@@ -413,6 +413,20 @@ func TestDelayProfilesRefuseAPlanThatCantFinish(t *testing.T) {
 	assert.True(t, engine.IsConfigError(err))
 }
 
+// Profiles holding no declared tag never enter the match, so its size
+// follows the spec, not how many profiles the app returns.
+func TestMatchDelayProfilesWeighsOnlyProfilesHoldingDeclaredTags(t *testing.T) {
+	profiles := make([]map[string]any, 0, 10001)
+	for i := range 10000 {
+		profiles = append(profiles, map[string]any{"id": float64(i + 2), "order": float64(i), "tags": []any{float64(i + 100)}})
+	}
+	profiles = append(profiles, map[string]any{"id": float64(20000), "order": float64(20000), "tags": []any{float64(1)}})
+	plans := []*delayPlan{{name: "a", tags: []int{1}}, {name: "b", tags: []int{2}}}
+
+	match := matchDelayProfiles(plans, profiles, func(map[string]any) bool { return false })
+	assert.Equal(t, []int{10000, -1}, match)
+}
+
 func TestMaxWeightAssignment(t *testing.T) {
 	assert.Equal(t, []int{1, 0}, maxWeightAssignment([][]int64{{5, 4}, {4, 0}}), "the best single pick isn't the best total")
 	assert.Equal(t, []int{0, 1}, maxWeightAssignment([][]int64{{3, 1, 0}, {2, 4, 1}}))
