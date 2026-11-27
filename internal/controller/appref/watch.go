@@ -50,7 +50,11 @@ func Watch(
 	c := mgr.GetClient()
 	watched := watchable(apps, mgr.GetScheme(), mgr.GetRESTMapper(), kinds)
 	for _, k := range watched {
-		b = b.Watches(appKinds[k].newObj(), handler.EnqueueRequestsFromMapFunc(referrersOf(c, list, k)),
+		target := appKinds[k].newObj()
+		if err := secretref.Index(mgr, target); err != nil {
+			return nil, err
+		}
+		b = b.Watches(target, handler.EnqueueRequestsFromMapFunc(referrersOf(c, list, k)),
 			builder.WithPredicates(predicate.GenerationChangedPredicate{}))
 	}
 	if len(watched) > 0 {
@@ -88,23 +92,23 @@ func referrersOf(c client.Reader, list client.ObjectList, kind string) handler.M
 }
 
 // secretUsers requeues the resources that refer to an app resource of one of
-// kinds that uses a changed Secret.
+// kinds that uses a changed Secret, which Watch indexed by Secret name.
 func secretUsers(c client.Reader, list client.ObjectList, kinds []string) handler.MapFunc {
 	return func(ctx context.Context, secret client.Object) []reconcile.Request {
 		var reqs []reconcile.Request
 		for _, k := range kinds {
 			targets := appKinds[k].newList()
-			if err := c.List(ctx, targets, client.InNamespace(secret.GetNamespace())); err != nil {
-				log.FromContext(ctx).Error(err, "listing app resources that may use a changed Secret")
+			if err := c.List(ctx, targets, client.InNamespace(secret.GetNamespace()), secretref.Using(secret.GetName())); err != nil {
+				log.FromContext(ctx).Error(err, "listing app resources that use a changed Secret")
 				continue
 			}
 			items, err := meta.ExtractList(targets)
 			if err != nil {
-				log.FromContext(ctx).Error(err, "reading app resources that may use a changed Secret")
+				log.FromContext(ctx).Error(err, "reading app resources that use a changed Secret")
 				continue
 			}
 			for _, item := range items {
-				if target, ok := item.(client.Object); ok && secretref.Uses(target, secret.GetName()) {
+				if target, ok := item.(client.Object); ok {
 					reqs = append(reqs, referrers(ctx, c, list, k, target)...)
 				}
 			}

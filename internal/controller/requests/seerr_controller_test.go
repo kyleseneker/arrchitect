@@ -617,12 +617,12 @@ func TestSeerrFirstRunWaitsForJellyfinLibraries(t *testing.T) {
 	assert.False(t, app.saw("POST", "/api/v1/settings/initialize"), "completed initialization with no libraries to enable")
 }
 
-// A setup that fails while Jellyfin has no libraries yet tries again in a
-// minute. Mixed with a missing Secret, it waits for the resource's interval,
-// as any mix of failures does.
+// A setup Seerr refuses, as while Jellyfin has no libraries yet, waits for the
+// resource's interval, as does a mix with a missing Secret. Refused
+// credentials wait too.
 func TestSeerrFailedSetupRetriesByItsReason(t *testing.T) {
 	plain, _ := reconcileSeerr(t, firstRunJellyfinConfig((&fakeSeerr{}).serve(t)))
-	assert.Equal(t, time.Minute, plain.RequeueAfter, "a setup that failed for no reason of its own retries in a minute")
+	assert.GreaterOrEqual(t, plain.RequeueAfter, 5*time.Minute, "a setup Seerr refused retried before the interval")
 
 	cfg := firstRunJellyfinConfig((&fakeSeerr{}).serve(t))
 	port := int32(8989)
@@ -641,7 +641,7 @@ func TestSeerrFailedSetupRetriesByItsReason(t *testing.T) {
 	ready = meta.FindStatusCondition(got.Status.Conditions, "Ready")
 	require.NotNil(t, ready)
 	assert.Equal(t, "Unauthorized", ready.Reason)
-	assert.GreaterOrEqual(t, refused.RequeueAfter, 5*time.Minute, "refused credentials retried before the 5 minutes they wait")
+	assert.GreaterOrEqual(t, refused.RequeueAfter, 5*time.Minute, "refused credentials retried before the interval")
 }
 
 func TestSeerrFailedSetupKeepsTrackOfTheServersItCreated(t *testing.T) {

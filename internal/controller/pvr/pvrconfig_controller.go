@@ -14,8 +14,8 @@ import (
 	"github.com/kyleseneker/arrchitect/internal/controller/reconciler"
 	"github.com/kyleseneker/arrchitect/internal/controller/secretref"
 	"github.com/kyleseneker/arrchitect/internal/engine"
+	"github.com/kyleseneker/arrchitect/internal/failure"
 	"github.com/kyleseneker/arrchitect/internal/httpapi"
-	"github.com/kyleseneker/arrchitect/internal/secrets"
 )
 
 // pvrConfig is what the PVR pipeline takes from an app's resource.
@@ -33,7 +33,7 @@ func pvrIntegration[T reconciler.ConfigResource](
 	return reconciler.Integration[T, *httpapi.HTTPClient]{
 		App: app.Name,
 		Connect: func(ctx context.Context, obj T) (*httpapi.HTTPClient, error) {
-			return connectPVR(ctx, c, obj, describe(obj).connection, app)
+			return connectPVR(ctx, c, obj.GetNamespace(), describe(obj).connection, app)
 		},
 		Check: func(ctx context.Context, hc *httpapi.HTTPClient, _ T) error { return pingPVR(ctx, hc, app) },
 		Sync: func(ctx context.Context, hc *httpapi.HTTPClient, obj T, pass *engine.Pass) []error {
@@ -93,7 +93,7 @@ func resolveNotifications(
 		}
 		for _, f := range n.Fields {
 			if slices.Contains(notificationAddressFields, f.Name) {
-				return nil, appref.Invalid("notification %q: appRef fills in %s, so leave that field out", n.Name, f.Name)
+				return nil, failure.InvalidConfig.Errorf("notification %q: appRef fills in %s, so leave that field out", n.Name, f.Name)
 			}
 		}
 		app, addr, err := appref.ResolveAddress(ctx, c, apps, namespace, n.AppRef)
@@ -104,13 +104,13 @@ func resolveNotifications(
 		switch app.Kind {
 		case "Jellyfin":
 			if app.APIKeySecretRef == nil {
-				return nil, appref.Invalid("notification %q appRef: Jellyfin %q sets no API key Secret", n.Name, n.AppRef.Name)
+				return nil, failure.InvalidConfig.Errorf("notification %q appRef: Jellyfin %q sets no API key Secret", n.Name, n.AppRef.Name)
 			}
 			n.Implementation, key.Name, key.ValueFrom.SecretKeyRef = "MediaBrowser", "apiKey", *app.APIKeySecretRef
 		case "Plex":
 			n.Implementation, key.ValueFrom.SecretKeyRef = "PlexServer", *app.TokenSecretRef
 		default:
-			return nil, appref.Invalid("notification %q appRef: %s isn't a media server", n.Name, app.Kind)
+			return nil, failure.InvalidConfig.Errorf("notification %q appRef: %s isn't a media server", n.Name, app.Kind)
 		}
 		n.Fields = append(slices.Clone(n.Fields),
 			fieldValue("host", addr.Host), fieldValue("port", addr.Port), fieldValue("useSsl", addr.TLS), key)
@@ -130,23 +130,11 @@ func fieldValue(name string, v any) commonv1alpha1.ConfigField {
 
 // connectPVR builds the client for an app's connection.
 func connectPVR(
-	ctx context.Context, c client.Reader, obj reconciler.ConfigResource, conn commonv1alpha1.AppConnection, app pvrclient.App,
+	ctx context.Context, c client.Reader, namespace string, conn commonv1alpha1.AppConnection, app pvrclient.App,
 ) (*httpapi.HTTPClient, error) {
-	namespace := obj.GetNamespace()
-	apiKey, err := secrets.ResolveSecretKeyRef(ctx, c, namespace, conn.APIKeySecretRef)
-	if err != nil {
-		return nil, err
-	}
-	tlsCfg, err := reconciler.ResolveTLSConfig(ctx, c, namespace, conn.TLS)
-	if err != nil {
-		return nil, err
-	}
-	hc, err := httpapi.NewHTTPClient(conn.URL, httpapi.AuthAPIKey,
-		httpapi.WithAPIKey(apiKey), httpapi.WithTLSConfig(tlsCfg), httpapi.WithAppLabel(app.Name))
-	if err != nil {
-		return nil, err
-	}
-	return hc, nil
+	return reconciler.Dial(ctx, c, namespace, reconciler.Endpoint{
+		App: app.Name, URL: conn.URL, TLS: conn.TLS, Auth: httpapi.AuthAPIKey, Key: &conn.APIKeySecretRef,
+	})
 }
 
 // pingPVR checks an app answers.

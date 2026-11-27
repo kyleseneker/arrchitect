@@ -34,12 +34,9 @@ func (r *SeerrReconciler) resolvedServicePayload(
 		scheme = "https"
 	}
 	endpoint := url.URL{Scheme: scheme, Host: net.JoinHostPort(svc.Hostname, strconv.Itoa(int(*svc.Port))), Path: "/" + strings.Trim(svc.BaseURL, "/")}
-	tlsCfg, err := reconciler.ResolveTLSConfig(ctx, r.Client, namespace, tlsSpec)
-	if err != nil {
-		return nil, err
-	}
-	hc, err := httpapi.NewHTTPClient(endpoint.String(), httpapi.AuthAPIKey, httpapi.WithAPIKey(apiKey),
-		httpapi.WithTLSConfig(tlsCfg), httpapi.WithAppLabel(kind))
+	hc, err := reconciler.Dial(ctx, r.Client, namespace, reconciler.Endpoint{
+		App: kind, URL: endpoint.String(), TLS: tlsSpec, Auth: httpapi.AuthAPIKey, Options: []httpapi.HTTPClientOption{httpapi.WithAPIKey(apiKey)},
+	})
 	if err != nil {
 		return nil, err
 	}

@@ -14,11 +14,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/events"
-	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/kyleseneker/arrchitect/internal/engine"
 	"github.com/kyleseneker/arrchitect/internal/metrics"
@@ -28,41 +25,42 @@ import (
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 // +kubebuilder:rbac:groups=events.k8s.io,resources=events,verbs=create;patch
 
-// Result is what a pass did: the items it brought in line, what failed, and
-// what observe mode found differing.
-type Result struct {
-	Synced []string
-	Errors []error
-	Drift  []string
+// state is how a pass ended, as the Synced condition says it.
+type state struct {
+	synced  bool
+	reason  string
+	message string
+	stalled bool
 }
 
-// ReportResult records a pass's result in obj's status, and returns how soon
-// a failure asks for the next pass, or zero for the resource's interval.
-func ReportResult(ctx context.Context, c client.Client, recorder events.EventRecorder, obj ConfigResource, observe bool, result Result) time.Duration {
-	reason, after := syncFailure(result.Errors)
-	failures := make([]string, 0, len(result.Errors))
-	for _, err := range result.Errors {
-		failures = append(failures, err.Error())
+// failedState is the state of a pass that failed with errs, which takes its
+// reason from out. An observe pass that failed says so.
+func failedState(out outcome, errs []error, observing bool) state {
+	messages := make([]string, 0, len(errs))
+	for _, err := range errs {
+		messages = append(messages, err.Error())
 	}
+	message := listed(messages, "; ")
+	if observing {
+		message = "observation failed: " + message
+	}
+	return state{reason: out.reason, message: message, stalled: out.stalled}
+}
+
+// passState is the state of a pass that ran without failing: the items it
+// brought in line, or what observe mode found differing.
+func passState(observe bool, synced, drift []string) state {
 	switch {
-	case len(failures) > 0 && observe:
-		UpdateStatus(ctx, c, recorder, obj, false, reason, "observation failed: "+listed(failures, "; "))
-	case len(failures) > 0:
-		UpdateStatus(ctx, c, recorder, obj, false, reason, listed(failures, "; "))
-	case observe && len(result.Drift) > 0:
-		UpdateStatus(ctx, c, recorder, obj, false, ReasonDriftDetected,
-			"differs: "+listed(result.Drift, ", ")+"; observe policy prevents application writes")
+	case observe && len(drift) > 0:
+		return state{reason: ReasonDriftDetected,
+			message: "differs: " + listed(drift, ", ") + "; observe policy prevents application writes"}
 	case observe:
-		UpdateStatus(ctx, c, recorder, obj, true, ReasonObserved, "observable configuration matches; no application writes performed")
-	case len(result.Synced) > 0:
-		UpdateStatus(ctx, c, recorder, obj, true, ReasonSynced, "synced: "+listed(result.Synced, ", "))
+		return state{synced: true, reason: ReasonObserved, message: "observable configuration matches; no application writes performed"}
+	case len(synced) > 0:
+		return state{synced: true, reason: ReasonSynced, message: "synced: " + listed(synced, ", ")}
 	default:
-		UpdateStatus(ctx, c, recorder, obj, true, ReasonSynced, "all configuration sections synced")
+		return state{synced: true, reason: ReasonSynced, message: "all configuration sections synced"}
 	}
-	if after == 0 {
-		return 0
-	}
-	return wait.Jitter(after, jitter)
 }
 
 // maxListed caps how many items a status message names, which also keeps a
@@ -83,13 +81,58 @@ func listed(items []string, sep string) string {
 	return fmt.Sprintf("%s and %d more", strings.Join(unique[:maxListed], sep), len(unique)-maxListed)
 }
 
-// UpdateStatusManaged records the resources the operator now manages, so prune
-// can distinguish them from resources created outside the operator.
-func UpdateStatusManaged(obj ConfigResource, managed map[string][]string) {
-	if managed == nil {
-		return
+// record writes st to obj's status and records a change of Ready as an event.
+// A resource deleted mid-pass gets neither.
+// Synced says whether the app matches the resource. Ready repeats it as the
+// summary GitOps tools read, and Stalled marks a failure no retry fixes. base
+// is obj as the pass found it, which the status is patched over.
+func record(ctx context.Context, c client.Client, recorder events.EventRecorder, obj ConfigResource, base client.Object, st state) error {
+	cs := obj.GetConfigStatus()
+	status := metav1.ConditionFalse
+	if st.synced {
+		status = metav1.ConditionTrue
+		now := metav1.Now()
+		cs.LastSyncTime = &now
 	}
-	obj.GetConfigStatus().SetManagedResources(managed)
+	generation := obj.GetGeneration()
+	conditions := &cs.Conditions
+	var before *metav1.Condition
+	if previous := meta.FindStatusCondition(*conditions, ConditionReady); previous != nil {
+		before = previous.DeepCopy()
+	}
+	setCondition(conditions, generation, ConditionSynced, status, st.reason, st.message)
+	setCondition(conditions, generation, ConditionReady, status, st.reason, st.message)
+	if st.stalled {
+		setCondition(conditions, generation, ConditionStalled, metav1.ConditionTrue, st.reason, st.message)
+	} else {
+		meta.RemoveStatusCondition(conditions, ConditionStalled)
+	}
+	cs.ObservedGeneration = generation
+	recordSynced(obj, st.synced)
+	recordManaged(obj)
+	err := writeStatus(ctx, c, obj, base)
+	if apierrors.IsNotFound(err) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	emitTransition(recorder, obj, before, st.synced, st.reason)
+	return nil
+}
+
+// statusWriteTimeout bounds a status write, which runs on after its reconcile
+// is cancelled.
+const statusWriteTimeout = 10 * time.Second
+
+// writeStatus patches obj's status over base. A merge patch carries no
+// resourceVersion, so a spec edit mid-pass can't conflict with it. The write
+// outlives a reconcile cancelled mid-pass, which would otherwise lose the
+// ownership the pass recorded.
+func writeStatus(ctx context.Context, c client.Client, obj, base client.Object) error {
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), statusWriteTimeout)
+	defer cancel()
+	return c.Status().Patch(ctx, obj, client.MergeFrom(base))
 }
 
 // recordManaged sets the managed_resources series from the ownership obj's
@@ -105,51 +148,38 @@ func recordManaged(obj ConfigResource) {
 	}
 }
 
-// resourceLabels identifies a resource in metrics. TypeMeta is cleared on
-// typed objects after a client round-trip, so the Go type names the kind.
-func resourceLabels(namespace, name string, obj ConfigResource) prometheus.Labels {
-	return prometheus.Labels{"kind": reflect.TypeOf(obj).Elem().Name(), "namespace": namespace, "name": name}
-}
-
-// stalledReasons are failures no retry fixes: the spec, a Secret or the app
-// has to change first.
-var stalledReasons = map[string]bool{
-	ReasonInvalidConfig: true,
-	ReasonNameConflict:  true,
-	ReasonUnauthorized:  true,
-}
-
-// UpdateStatus records the outcome of a pass and persists it. Synced says
-// whether the app matches the resource. Ready repeats it as the summary that
-// GitOps tools read, and Stalled marks a failure no retry fixes. Each change
-// of Ready is recorded as an event.
-func UpdateStatus(ctx context.Context, c client.Client, recorder events.EventRecorder, obj ConfigResource, synced bool, reason, message string) {
-	cs := obj.GetConfigStatus()
-	status := metav1.ConditionFalse
+func recordSynced(obj ConfigResource, synced bool) {
+	v := 0.0
 	if synced {
-		status = metav1.ConditionTrue
-		now := metav1.Now()
-		cs.LastSyncTime = &now
+		v = 1.0
 	}
-	generation := obj.GetGeneration()
-	conditions := &cs.Conditions
-	var before *metav1.Condition
-	if previous := meta.FindStatusCondition(*conditions, ConditionReady); previous != nil {
-		before = previous.DeepCopy()
+	metrics.ConfigSynced.WithLabelValues(kindOf(obj), obj.GetNamespace(), obj.GetName()).Set(v)
+}
+
+// resourceLabels identifies a resource in metrics.
+func resourceLabels(namespace, name string, obj ConfigResource) prometheus.Labels {
+	return prometheus.Labels{"kind": kindOf(obj), "namespace": namespace, "name": name}
+}
+
+// kindOf names obj's kind. TypeMeta is cleared on typed objects after a client
+// round-trip, so the Go type names it.
+func kindOf(obj client.Object) string {
+	return reflect.TypeOf(obj).Elem().Name()
+}
+
+// forgetDeleted is client.IgnoreNotFound for a reconcile's first read. A
+// resource that is gone also loses its metric series, so an alert on a deleted
+// resource clears, and the state kept for it between passes.
+func forgetDeleted(obj ConfigResource, key types.NamespacedName, err error) error {
+	if apierrors.IsNotFound(err) {
+		metrics.ConfigSynced.DeleteLabelValues(kindOf(obj), key.Namespace, key.Name)
+		metrics.ManagedResources.DeletePartialMatch(resourceLabels(key.Namespace, key.Name, obj))
+		obj.SetNamespace(key.Namespace)
+		obj.SetName(key.Name)
+		forgetOwnership(obj)
+		secrets.ForgetSecrets(ownerPrefix(obj))
 	}
-	SetCondition(conditions, generation, ConditionSynced, status, reason, message)
-	SetCondition(conditions, generation, ConditionReady, status, reason, message)
-	if !synced && stalledReasons[reason] {
-		SetCondition(conditions, generation, ConditionStalled, metav1.ConditionTrue, reason, message)
-	} else {
-		meta.RemoveStatusCondition(conditions, ConditionStalled)
-	}
-	cs.ObservedGeneration = generation
-	recordSynced(obj, synced)
-	recordManaged(obj)
-	if writeStatus(ctx, c, obj) {
-		emitTransition(recorder, obj, before, synced, reason)
-	}
+	return client.IgnoreNotFound(err)
 }
 
 // transitionNotes say in a fixed sentence what each reason means. An event
@@ -186,77 +216,10 @@ func emitTransition(recorder events.EventRecorder, obj ConfigResource, before *m
 	}
 }
 
-// IgnoreDeleted is client.IgnoreNotFound for a reconcile's first read. A
-// resource that is gone also loses its config_synced series, so an alert on a
-// deleted resource clears, and the state kept for it between passes.
-func IgnoreDeleted(obj ConfigResource, key types.NamespacedName, err error) error {
-	if apierrors.IsNotFound(err) {
-		metrics.ConfigSynced.DeleteLabelValues(reflect.TypeOf(obj).Elem().Name(), key.Namespace, key.Name)
-		metrics.ManagedResources.DeletePartialMatch(resourceLabels(key.Namespace, key.Name, obj))
-		obj.SetNamespace(key.Namespace)
-		obj.SetName(key.Name)
-		forget(obj)
-		secrets.ForgetSecrets(ownerPrefix(obj))
-	}
-	return client.IgnoreNotFound(err)
-}
-
-func recordSynced(obj ConfigResource, synced bool) {
-	v := 0.0
-	if synced {
-		v = 1.0
-	}
-	// TypeMeta is cleared on typed objects after a client round-trip, so the
-	// concrete Go type is the reliable source for the kind label.
-	kind := reflect.TypeOf(obj).Elem().Name()
-	metrics.ConfigSynced.WithLabelValues(kind, obj.GetNamespace(), obj.GetName()).Set(v)
-}
-
-// statusWriteTimeout bounds a status write, which runs on after its reconcile
-// is cancelled.
-const statusWriteTimeout = 10 * time.Second
-
-// writeStatus persists obj's status and reports whether it did. Only this
-// controller writes the status, so a conflict means only that something else
-// changed the object mid-pass, most often a spec edit. Losing the write would
-// also lose any ownership this pass recorded in status.managedResources, and a
-// resource the operator created but no longer tracks can never be pruned or
-// cleaned up. So retry against the latest resourceVersion; the status
-// subresource ignores everything but status. The latest version is read past
-// the cache, which can still hold the version from before the edit, and the
-// write outlives a reconcile cancelled mid-pass.
-func writeStatus(ctx context.Context, c client.Client, obj ConfigResource) bool {
-	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), statusWriteTimeout)
-	defer cancel()
-	var latestReader client.Reader = c
-	if live, ok := c.(interface{ APIReader() client.Reader }); ok {
-		latestReader = live.APIReader()
-	}
-	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		err := c.Status().Update(ctx, obj)
-		if !apierrors.IsConflict(err) {
-			return err
-		}
-		latest, ok := obj.DeepCopyObject().(client.Object)
-		if !ok {
-			return err
-		}
-		if getErr := latestReader.Get(ctx, client.ObjectKeyFromObject(obj), latest); getErr != nil {
-			return getErr
-		}
-		obj.SetResourceVersion(latest.GetResourceVersion())
-		return err
-	})
-	if err != nil && !apierrors.IsNotFound(err) {
-		log.FromContext(ctx).Error(err, "failed to update status")
-	}
-	return err == nil
-}
-
-// EmitPruneEvents emits a Warning event for each resource the operator deleted
-// from the app, by prune or by deletionPolicy delete. Either only ever deletes
-// resources the operator created.
-func EmitPruneEvents(recorder events.EventRecorder, obj client.Object, pruned []engine.PrunedResource) {
+// emitPruneEvents emits a Warning event for each resource the operator
+// deleted from the app, by prune or by deletionPolicy delete. Either only ever
+// deletes resources the operator created.
+func emitPruneEvents(recorder events.EventRecorder, obj client.Object, pruned []engine.PrunedResource) {
 	if recorder == nil {
 		return
 	}

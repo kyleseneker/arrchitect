@@ -9,7 +9,6 @@ import (
 
 	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
@@ -18,7 +17,6 @@ import (
 	maintainerrclient "github.com/kyleseneker/arrchitect/internal/client/maintainerr"
 	"github.com/kyleseneker/arrchitect/internal/controller/appref"
 	"github.com/kyleseneker/arrchitect/internal/controller/reconciler"
-	"github.com/kyleseneker/arrchitect/internal/controller/secretref"
 	"github.com/kyleseneker/arrchitect/internal/engine"
 	"github.com/kyleseneker/arrchitect/internal/failure"
 	"github.com/kyleseneker/arrchitect/internal/httpapi"
@@ -46,9 +44,22 @@ type MaintainerrReconciler struct {
 // +kubebuilder:rbac:groups=arrchitect.dev,resources=sonarrs;radarrs;seerrs;plexes;jellyfins,verbs=get;list;watch
 
 func (r *MaintainerrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	integration := reconciler.Integration[*curationv1alpha1.Maintainerr, *maintainerrclient.Client]{
-		App:     maintainerrApp,
-		Connect: r.connect,
+	return r.integration().Reconcile(ctx, r.Client, r.Recorder, req)
+}
+
+// SetupWithManager sets up the controller with the Manager.
+func (r *MaintainerrReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	return r.integration().SetupWithManager(mgr, r.Apps, r)
+}
+
+func (r *MaintainerrReconciler) integration() reconciler.Integration[*curationv1alpha1.Maintainerr, *maintainerrclient.Client] {
+	return reconciler.Integration[*curationv1alpha1.Maintainerr, *maintainerrclient.Client]{
+		App:      maintainerrApp,
+		New:      func() *curationv1alpha1.Maintainerr { return &curationv1alpha1.Maintainerr{} },
+		NewList:  func() client.ObjectList { return &curationv1alpha1.MaintainerrList{} },
+		AppRefs:  maintainerrAppRefs,
+		RefKinds: []string{"Sonarr", "Radarr", "Seerr", "Plex", "Jellyfin"},
+		Connect:  r.connect,
 		Check: func(ctx context.Context, mc *maintainerrclient.Client, _ *curationv1alpha1.Maintainerr) error {
 			return mc.Ping(ctx)
 		},
@@ -61,17 +72,13 @@ func (r *MaintainerrReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		},
 		Prune: true,
 	}
-	return integration.Reconcile(ctx, r.Client, r.Recorder, req, &curationv1alpha1.Maintainerr{})
 }
 
 func (r *MaintainerrReconciler) connect(ctx context.Context, config *curationv1alpha1.Maintainerr) (*maintainerrclient.Client, error) {
-	tlsCfg, err := reconciler.ResolveTLSConfig(ctx, r.Client, config.Namespace, config.Spec.Connection.TLS)
-	if err != nil {
-		return nil, err
-	}
 	// Maintainerr has no API authentication.
-	hc, err := httpapi.NewHTTPClient(config.Spec.Connection.URL, httpapi.AuthNone,
-		httpapi.WithTLSConfig(tlsCfg), httpapi.WithAppLabel(maintainerrApp))
+	hc, err := reconciler.Dial(ctx, r.Client, config.Namespace, reconciler.Endpoint{
+		App: maintainerrApp, URL: config.Spec.Connection.URL, TLS: config.Spec.Connection.TLS, Auth: httpapi.AuthNone,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -210,7 +217,7 @@ func (s *maintainerrSync) jellyfin(ctx context.Context, jf *curationv1alpha1.Mai
 			return fmt.Errorf("Jellyfin appRef: %w", err)
 		}
 		if app.APIKeySecretRef == nil {
-			return appref.Invalid("Jellyfin appRef: Jellyfin %q sets no API key Secret", jf.AppRef.Name)
+			return failure.InvalidConfig.Errorf("Jellyfin appRef: Jellyfin %q sets no API key Secret", jf.AppRef.Name)
 		}
 		resolved := *jf
 		resolved.URL, resolved.APIKeySecretRef = app.URL, app.APIKeySecretRef
@@ -410,7 +417,7 @@ func (s *maintainerrSync) seerrConnection(
 			return curationv1alpha1.MaintainerrServiceConnection{}, fmt.Errorf("appRef: %w", err)
 		}
 		if app.APIKeySecretRef == nil {
-			return curationv1alpha1.MaintainerrServiceConnection{}, appref.Invalid("appRef: Seerr %q sets no API key Secret", conn.AppRef.Name)
+			return curationv1alpha1.MaintainerrServiceConnection{}, failure.InvalidConfig.Errorf("appRef: Seerr %q sets no API key Secret", conn.AppRef.Name)
 		}
 		conn.URL, conn.APIKeySecretRef = app.URL, app.APIKeySecretRef
 	}
@@ -464,21 +471,4 @@ func buildMaintainerrJobs(jobs *curationv1alpha1.MaintainerrJobs) map[string]any
 // serviceURL is a URL as Maintainerr stores it: trimmed, without trailing slashes.
 func serviceURL(url string) string {
 	return strings.TrimRight(strings.TrimSpace(url), "/")
-}
-
-// SetupWithManager sets up the controller with the Manager.
-func (r *MaintainerrReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	b := ctrl.NewControllerManagedBy(mgr).
-		For(&curationv1alpha1.Maintainerr{}, builder.WithPredicates(reconciler.ConfigChangedPredicate()))
-	b, err := secretref.Watch(mgr, b, &curationv1alpha1.Maintainerr{}, &curationv1alpha1.MaintainerrList{})
-	if err != nil {
-		return err
-	}
-	b, err = appref.Watch(mgr, b, r.Apps, &curationv1alpha1.Maintainerr{}, &curationv1alpha1.MaintainerrList{}, maintainerrAppRefs, "Sonarr", "Radarr", "Seerr", "Plex", "Jellyfin")
-	if err != nil {
-		return err
-	}
-	return b.
-		Named("maintainerr").
-		Complete(r)
 }

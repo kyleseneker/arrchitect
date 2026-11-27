@@ -45,7 +45,7 @@ func TestResolveConfigFieldsRejectsBothValueAndValueFrom(t *testing.T) {
 	}}
 	_, err := ResolveConfigFields(context.Background(), c, "arr", "indexer x", fields)
 	require.Error(t, err, "expected an error when both value and valueFrom are set")
-	assert.True(t, failure.IsConfigError(err), "only a spec change fixes it")
+	assert.Equal(t, failure.InvalidConfig, failure.KindOf(err), "only a spec change fixes it")
 }
 
 func TestResolveConfigFieldsMissingSecret(t *testing.T) {

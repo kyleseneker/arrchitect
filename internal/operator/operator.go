@@ -56,15 +56,6 @@ type Deps struct {
 	Apps     map[string]bool
 }
 
-// apiReaderClient is the manager's client with its uncached reader attached,
-// for the status writes that must read an object's latest version.
-type apiReaderClient struct {
-	client.Client
-	reader client.Reader
-}
-
-func (c apiReaderClient) APIReader() client.Reader { return c.reader }
-
 // Controller is one integration the manager runs.
 type Controller struct {
 	Name string
@@ -211,7 +202,7 @@ func Run(addToSchemes []func(*runtime.Scheme) error, controllers ...Controller) 
 			continue
 		}
 		reconciler := c.New(Deps{
-			Client:   apiReaderClient{Client: mgr.GetClient(), reader: mgr.GetAPIReader()},
+			Client:   mgr.GetClient(),
 			Recorder: mgr.GetEventRecorder(c.Name + "-controller"),
 			Apps:     enabled,
 		})

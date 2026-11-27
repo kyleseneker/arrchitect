@@ -6,7 +6,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
@@ -14,7 +13,7 @@ import (
 	pvrclient "github.com/kyleseneker/arrchitect/internal/client/pvr"
 	"github.com/kyleseneker/arrchitect/internal/controller/appref"
 	"github.com/kyleseneker/arrchitect/internal/controller/reconciler"
-	"github.com/kyleseneker/arrchitect/internal/controller/secretref"
+	"github.com/kyleseneker/arrchitect/internal/httpapi"
 )
 
 type SonarrReconciler struct {
@@ -30,7 +29,15 @@ type SonarrReconciler struct {
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
 
 func (r *SonarrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	integration := pvrIntegration(r.Client, r.Apps, pvrclient.Sonarr, func(config *pvrv1alpha1.Sonarr) pvrConfig {
+	return r.integration().Reconcile(ctx, r.Client, r.Recorder, req)
+}
+
+func (r *SonarrReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	return r.integration().SetupWithManager(mgr, r.Apps, r)
+}
+
+func (r *SonarrReconciler) integration() reconciler.Integration[*pvrv1alpha1.Sonarr, *httpapi.HTTPClient] {
+	in := pvrIntegration(r.Client, r.Apps, pvrclient.Sonarr, func(config *pvrv1alpha1.Sonarr) pvrConfig {
 		s := config.Spec
 		return pvrConfig{spec: s, connection: s.Connection, options: pvrclient.Options{
 			RootFolders:        s.RootFolders,
@@ -47,21 +54,10 @@ func (r *SonarrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 			ReleaseProfiles:    s.ReleaseProfiles,
 		}}
 	})
-	return integration.Reconcile(ctx, r.Client, r.Recorder, req, &pvrv1alpha1.Sonarr{})
-}
-
-func (r *SonarrReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	b := ctrl.NewControllerManagedBy(mgr).
-		For(&pvrv1alpha1.Sonarr{}, builder.WithPredicates(reconciler.ConfigChangedPredicate()))
-	b, err := secretref.Watch(mgr, b, &pvrv1alpha1.Sonarr{}, &pvrv1alpha1.SonarrList{})
-	if err != nil {
-		return err
-	}
-	b, err = appref.Watch(mgr, b, r.Apps, &pvrv1alpha1.Sonarr{}, &pvrv1alpha1.SonarrList{}, sonarrAppRefs, "Jellyfin", "Plex")
-	if err != nil {
-		return err
-	}
-	return b.Named("sonarr").Complete(r)
+	in.New = func() *pvrv1alpha1.Sonarr { return &pvrv1alpha1.Sonarr{} }
+	in.NewList = func() client.ObjectList { return &pvrv1alpha1.SonarrList{} }
+	in.AppRefs, in.RefKinds = sonarrAppRefs, []string{"Jellyfin", "Plex"}
+	return in
 }
 
 func sonarrAppRefs(o client.Object) []commonv1alpha1.AppRef {

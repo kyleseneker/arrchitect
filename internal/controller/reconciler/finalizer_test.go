@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/events"
@@ -21,6 +20,7 @@ import (
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
 	pvrv1alpha1 "github.com/kyleseneker/arrchitect/api/pvr/v1alpha1"
 	"github.com/kyleseneker/arrchitect/internal/engine"
+	"github.com/kyleseneker/arrchitect/internal/failure"
 )
 
 func newConfig(policy string, deletedAgo time.Duration) *pvrv1alpha1.Sonarr {
@@ -47,12 +47,11 @@ func TestOrphanIsTheDefaultAndDoesNotRemove(t *testing.T) {
 	c := newConfig("", time.Minute)
 	cl := testClient(c).Build()
 	called := false
-	handled, err := handleDeletion(context.Background(), cl, nil, c, func(context.Context) error {
+	err := handleDeletion(context.Background(), cl, nil, c, func(context.Context) error {
 		called = true
 		return nil
 	})
 	require.NoError(t, err)
-	require.True(t, handled)
 	assert.False(t, called, "remove must not run under the default orphan policy")
 	assert.False(t, controllerutil.ContainsFinalizer(c, Finalizer), "finalizer should have been released")
 }
@@ -61,12 +60,11 @@ func TestDeletePolicyRemovesThenReleases(t *testing.T) {
 	c := newConfig(DeletionPolicyDelete, time.Minute)
 	cl := testClient(c).Build()
 	called := false
-	handled, err := handleDeletion(context.Background(), cl, nil, c, func(context.Context) error {
+	err := handleDeletion(context.Background(), cl, nil, c, func(context.Context) error {
 		called = true
 		return nil
 	})
 	require.NoError(t, err)
-	require.True(t, handled)
 	assert.True(t, called, "remove should run under the delete policy")
 	assert.False(t, controllerutil.ContainsFinalizer(c, Finalizer), "finalizer should have been released")
 }
@@ -75,11 +73,10 @@ func TestDeletePolicyWithNothingOwnedSkipsTheApp(t *testing.T) {
 	c := newConfig(DeletionPolicyDelete, time.Minute)
 	c.Status.SetManagedResources(map[string][]string{"indexers": {}})
 	cl := testClient(c).Build()
-	handled, err := handleDeletion(context.Background(), cl, nil, c, func(context.Context) error {
+	err := handleDeletion(context.Background(), cl, nil, c, func(context.Context) error {
 		return errors.New("app is gone")
 	})
 	require.NoError(t, err)
-	require.True(t, handled)
 	assert.False(t, controllerutil.ContainsFinalizer(c, Finalizer), "a resource that owns nothing must not wait on its app")
 }
 
@@ -88,7 +85,7 @@ func TestUnreachableAppRetriesButDoesNotWedgeForever(t *testing.T) {
 	c := newConfig(DeletionPolicyDelete, time.Minute)
 	cl := testClient(c).Build()
 	recorder := events.NewFakeRecorder(1)
-	_, err := handleDeletion(context.Background(), cl, recorder, c, func(context.Context) error {
+	err := handleDeletion(context.Background(), cl, recorder, c, func(context.Context) error {
 		return errors.New("app unreachable")
 	})
 	assert.Error(t, err, "expected an error so the request is retried")
@@ -102,14 +99,13 @@ func TestUnreachableAppRetriesButDoesNotWedgeForever(t *testing.T) {
 	}
 
 	// Past the give-up window: release regardless.
-	c2 := newConfig(DeletionPolicyDelete, DeletionGiveUpAfter+time.Minute)
+	c2 := newConfig(DeletionPolicyDelete, deletionGiveUpAfter+time.Minute)
 	cl2 := testClient(c2).Build()
 	recorder2 := events.NewFakeRecorder(1)
-	handled, err := handleDeletion(context.Background(), cl2, recorder2, c2, func(context.Context) error {
+	err = handleDeletion(context.Background(), cl2, recorder2, c2, func(context.Context) error {
 		return errors.New("app still unreachable")
 	})
 	require.NoError(t, err)
-	require.True(t, handled)
 	assert.False(t, controllerutil.ContainsFinalizer(c2, Finalizer), "a dead app must not wedge deletion past the give-up window")
 	assert.Equal(t, "Warning FinalizerReleased Released the finalizer after 10m0s without removing remote resources: app still unreachable",
 		<-recorder2.Events)
@@ -122,7 +118,7 @@ func TestDeletionReportsWhatTheAppRefusesAndReleases(t *testing.T) {
 	cl := testClient(c).Build()
 	recorder := events.NewFakeRecorder(1)
 
-	_, err := handleDeletion(context.Background(), cl, recorder, c, func(context.Context) error {
+	err := handleDeletion(context.Background(), cl, recorder, c, func(context.Context) error {
 		return &engine.KeptError{App: "seerr", Kept: []engine.KeptResource{{
 			Type: "sonarr", Name: "Sonarr", Reason: "Seerr refused to delete it: in use",
 		}}}
@@ -137,7 +133,7 @@ func TestUnsupportedOrObserveDeletionDoesNotSilentlySucceed(t *testing.T) {
 	for _, observe := range []bool{false, true} {
 		t.Run(fmt.Sprint(observe), func(t *testing.T) {
 			obj := newConfig(DeletionPolicyDelete, time.Minute)
-			policy := DriftPolicyObserve
+			policy := driftPolicyObserve
 			if observe {
 				obj.Spec.Reconcile.DriftPolicy = policy
 			}
@@ -147,7 +143,7 @@ func TestUnsupportedOrObserveDeletionDoesNotSilentlySucceed(t *testing.T) {
 			if observe {
 				remove = func(context.Context) error { called = true; return nil }
 			}
-			_, err := handleDeletion(context.Background(), c, nil, obj, remove)
+			err := handleDeletion(context.Background(), c, nil, obj, remove)
 			require.Error(t, err, "expected explicit cleanup failure")
 			require.False(t, called, "observe mode must not invoke cleanup")
 			require.True(t, controllerutil.ContainsFinalizer(obj, Finalizer), "finalizer released without reporting failure")
@@ -155,24 +151,30 @@ func TestUnsupportedOrObserveDeletionDoesNotSilentlySucceed(t *testing.T) {
 	}
 }
 
-func TestLifecycleRejectsInvalidDeletionPolicies(t *testing.T) {
-	for _, observe := range []bool{false, true} {
-		obj := newConfig(DeletionPolicyDelete, 0)
-		policy := DriftPolicyObserve
-		if observe {
-			obj.Spec.Reconcile.DriftPolicy = policy
-		}
-		c := testClient(obj).WithStatusSubresource(obj).Build()
-		var remove func(context.Context) error
-		if observe {
-			remove = func(context.Context) error { require.Fail(t, "normal reconcile must not clean up"); return nil }
-		}
-		done, after := HandleLifecycle(context.Background(), c, nil, obj, Lifecycle{Remove: remove, Prune: true})
-		require.True(t, done, "invalid policy was not stopped")
-		require.Positive(t, after, "invalid policy was not stopped")
-		condition := meta.FindStatusCondition(obj.Status.Conditions, "Synced")
-		require.NotNil(t, condition, "missing invalid config condition: %+v", obj.Status.Conditions)
-		require.Equal(t, "InvalidConfig", condition.Reason, "missing invalid config condition")
+func TestLifecycleRefusesInvalidDeletionPolicies(t *testing.T) {
+	remove := func(context.Context) error { return nil }
+	for _, tc := range []struct {
+		name string
+		rc   *commonv1alpha1.ReconcileConfig
+		lc   lifecycle
+		want string
+	}{
+		{"delete where unsupported", &commonv1alpha1.ReconcileConfig{DeletionPolicy: DeletionPolicyDelete}, lifecycle{prune: true},
+			"deletionPolicy delete is not supported by this integration; use orphan"},
+		{"delete in observe mode", &commonv1alpha1.ReconcileConfig{DeletionPolicy: DeletionPolicyDelete, DriftPolicy: driftPolicyObserve},
+			lifecycle{remove: remove, prune: true}, "deletionPolicy delete conflicts with driftPolicy observe; use orphan"},
+		{"delete", &commonv1alpha1.ReconcileConfig{DeletionPolicy: DeletionPolicyDelete}, lifecycle{remove: remove}, ""},
+		{"orphan where delete is unsupported", nil, lifecycle{}, ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := refusal(tc.rc, tc.lc)
+			if tc.want == "" {
+				assert.NoError(t, err)
+				return
+			}
+			assert.EqualError(t, err, tc.want)
+			assert.Equal(t, failure.InvalidConfig, failure.KindOf(err))
+		})
 	}
 }
 
@@ -180,19 +182,19 @@ func TestLifecycleRejectsInvalidDeletionPolicies(t *testing.T) {
 // the operator or deleting its namespace never leaves the rest in Terminating.
 func TestOnlyASupportedDeletePolicyHoldsTheFinalizer(t *testing.T) {
 	remove := func(context.Context) error { return nil }
-	observe := DriftPolicyObserve
+	observe := driftPolicyObserve
 	for _, tc := range []struct {
 		name    string
 		policy  string
 		observe bool
-		lc      Lifecycle
+		lc      lifecycle
 		want    bool
 	}{
-		{name: "orphan by default", lc: Lifecycle{Remove: remove}},
-		{name: "orphan", policy: "orphan", lc: Lifecycle{Remove: remove}},
-		{name: "delete", policy: DeletionPolicyDelete, lc: Lifecycle{Remove: remove}, want: true},
+		{name: "orphan by default", lc: lifecycle{remove: remove}},
+		{name: "orphan", policy: "orphan", lc: lifecycle{remove: remove}},
+		{name: "delete", policy: DeletionPolicyDelete, lc: lifecycle{remove: remove}, want: true},
 		{name: "delete where unsupported", policy: DeletionPolicyDelete},
-		{name: "delete in observe mode", policy: DeletionPolicyDelete, observe: true, lc: Lifecycle{Remove: remove}},
+		{name: "delete in observe mode", policy: DeletionPolicyDelete, observe: true, lc: lifecycle{remove: remove}},
 	} {
 		for _, had := range []bool{false, true} {
 			t.Run(fmt.Sprintf("%s/had=%v", tc.name, had), func(t *testing.T) {
@@ -205,7 +207,8 @@ func TestOnlyASupportedDeletePolicyHoldsTheFinalizer(t *testing.T) {
 				}
 				c := testClient(obj).WithStatusSubresource(obj).Build()
 
-				HandleLifecycle(context.Background(), c, nil, obj, tc.lc)
+				_, err := handleLifecycle(context.Background(), c, nil, obj, tc.lc)
+				require.NoError(t, err)
 
 				assert.Equal(t, tc.want, controllerutil.ContainsFinalizer(obj, Finalizer))
 			})
@@ -215,49 +218,27 @@ func TestOnlyASupportedDeletePolicyHoldsTheFinalizer(t *testing.T) {
 
 // An integration that cannot prune must say so: ignoring prune would leave
 // resources removed from the spec in place while the spec claims otherwise.
-func TestLifecycleRejectsPruneWhereUnsupported(t *testing.T) {
-	for _, tc := range []struct {
-		name     string
-		lc       Lifecycle
-		rejected bool
-	}{
-		{"unsupported", Lifecycle{}, true},
-		{"supported", Lifecycle{Prune: true}, false},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			obj := newConfig("", 0)
-			obj.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{Prune: new(true)}
-			c := testClient(obj).WithStatusSubresource(obj).Build()
-
-			done, _ := HandleLifecycle(context.Background(), c, nil, obj, tc.lc)
-
-			assert.Equal(t, tc.rejected, done)
-			condition := meta.FindStatusCondition(obj.Status.Conditions, "Synced")
-			if !tc.rejected {
-				assert.Nil(t, condition, "a supported prune was reported: %+v", condition)
-				return
-			}
-			require.NotNil(t, condition)
-			assert.Equal(t, "InvalidConfig", condition.Reason)
-			assert.Contains(t, condition.Message, "prune is not supported")
-		})
-	}
+func TestLifecycleRefusesPruneWhereUnsupported(t *testing.T) {
+	rc := &commonv1alpha1.ReconcileConfig{Prune: new(true)}
+	err := refusal(rc, lifecycle{})
+	assert.EqualError(t, err, "prune is not supported by this integration; remove spec.reconcile.prune")
+	assert.Equal(t, failure.InvalidConfig, failure.KindOf(err))
+	assert.NoError(t, refusal(rc, lifecycle{prune: true}))
 }
 
 // Cleanup that runs out the reconcile's deadline must not keep the finalizer
-// past DeletionGiveUpAfter.
+// past deletionGiveUpAfter.
 func TestFinalizerIsReleasedAfterCleanupUsesUpTheDeadline(t *testing.T) {
-	c := newConfig(DeletionPolicyDelete, DeletionGiveUpAfter+time.Minute)
+	c := newConfig(DeletionPolicyDelete, deletionGiveUpAfter+time.Minute)
 	cl := testClient(c).Build()
 	ctx, cancel := context.WithCancel(context.Background())
 
-	handled, err := handleDeletion(ctx, cl, nil, c, func(context.Context) error {
+	err := handleDeletion(ctx, cl, nil, c, func(context.Context) error {
 		cancel()
 		return context.Canceled
 	})
 
 	require.NoError(t, err)
-	require.True(t, handled)
 	err = cl.Get(context.Background(), client.ObjectKeyFromObject(c), &pvrv1alpha1.Sonarr{})
 	assert.True(t, apierrors.IsNotFound(err), "the finalizer was released, so the resource is gone")
 }

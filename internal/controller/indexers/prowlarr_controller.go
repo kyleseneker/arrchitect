@@ -6,7 +6,6 @@ import (
 
 	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
@@ -34,9 +33,22 @@ type ProwlarrReconciler struct {
 // +kubebuilder:rbac:groups=arrchitect.dev,resources=sonarrs;radarrs;lidarrs;readarrs,verbs=get;list;watch
 
 func (r *ProwlarrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	integration := reconciler.Integration[*indexersv1alpha1.Prowlarr, *httpapi.HTTPClient]{
-		App:     "prowlarr",
-		Connect: r.connect,
+	return r.integration().Reconcile(ctx, r.Client, r.Recorder, req)
+}
+
+// SetupWithManager sets up the controller with the Manager.
+func (r *ProwlarrReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	return r.integration().SetupWithManager(mgr, r.Apps, r)
+}
+
+func (r *ProwlarrReconciler) integration() reconciler.Integration[*indexersv1alpha1.Prowlarr, *httpapi.HTTPClient] {
+	return reconciler.Integration[*indexersv1alpha1.Prowlarr, *httpapi.HTTPClient]{
+		App:      "prowlarr",
+		New:      func() *indexersv1alpha1.Prowlarr { return &indexersv1alpha1.Prowlarr{} },
+		NewList:  func() client.ObjectList { return &indexersv1alpha1.ProwlarrList{} },
+		AppRefs:  prowlarrAppRefs,
+		RefKinds: []string{"Sonarr", "Radarr", "Lidarr", "Readarr"},
+		Connect:  r.connect,
 		Check: func(ctx context.Context, hc *httpapi.HTTPClient, _ *indexersv1alpha1.Prowlarr) error {
 			return hc.Ping(ctx, prowlarrclient.Definition().HealthPath)
 		},
@@ -47,24 +59,13 @@ func (r *ProwlarrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		Deletable: prowlarrclient.Definition().Deletable,
 		Prune:     true,
 	}
-	return integration.Reconcile(ctx, r.Client, r.Recorder, req, &indexersv1alpha1.Prowlarr{})
 }
 
 func (r *ProwlarrReconciler) connect(ctx context.Context, config *indexersv1alpha1.Prowlarr) (*httpapi.HTTPClient, error) {
-	apiKey, err := secrets.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, config.Spec.Connection.APIKeySecretRef)
-	if err != nil {
-		return nil, err
-	}
-	tlsCfg, err := reconciler.ResolveTLSConfig(ctx, r.Client, config.Namespace, config.Spec.Connection.TLS)
-	if err != nil {
-		return nil, err
-	}
-	hc, err := httpapi.NewHTTPClient(config.Spec.Connection.URL, httpapi.AuthAPIKey,
-		httpapi.WithAPIKey(apiKey), httpapi.WithTLSConfig(tlsCfg), httpapi.WithAppLabel("prowlarr"))
-	if err != nil {
-		return nil, err
-	}
-	return hc, nil
+	conn := config.Spec.Connection
+	return reconciler.Dial(ctx, r.Client, config.Namespace, reconciler.Endpoint{
+		App: "prowlarr", URL: conn.URL, TLS: conn.TLS, Auth: httpapi.AuthAPIKey, Key: &conn.APIKeySecretRef,
+	})
 }
 
 func (r *ProwlarrReconciler) sync(ctx context.Context, hc *httpapi.HTTPClient, config *indexersv1alpha1.Prowlarr, pass *engine.Pass) []error {
@@ -199,20 +200,4 @@ func prowlarrAppRefs(o client.Object) []commonv1alpha1.AppRef {
 		}
 	}
 	return refs
-}
-
-func (r *ProwlarrReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	b := ctrl.NewControllerManagedBy(mgr).
-		For(&indexersv1alpha1.Prowlarr{}, builder.WithPredicates(reconciler.ConfigChangedPredicate()))
-	b, err := secretref.Watch(mgr, b, &indexersv1alpha1.Prowlarr{}, &indexersv1alpha1.ProwlarrList{})
-	if err != nil {
-		return err
-	}
-	b, err = appref.Watch(mgr, b, r.Apps, &indexersv1alpha1.Prowlarr{}, &indexersv1alpha1.ProwlarrList{}, prowlarrAppRefs, "Sonarr", "Radarr", "Lidarr", "Readarr")
-	if err != nil {
-		return err
-	}
-	return b.
-		Named("prowlarr").
-		Complete(r)
 }

@@ -19,7 +19,7 @@ import (
 	subtitlesv1alpha1 "github.com/kyleseneker/arrchitect/api/subtitles/v1alpha1"
 )
 
-func TestUsesFindsEveryReference(t *testing.T) {
+func TestRefsFindsEveryReference(t *testing.T) {
 	ref := commonv1alpha1.SecretKeyRef{Name: "target", Key: "k"}
 	for name, config := range map[string]any{
 		"an optional TLS CA": &pvrv1alpha1.Sonarr{Spec: pvrv1alpha1.SonarrSpec{
@@ -41,8 +41,7 @@ func TestUsesFindsEveryReference(t *testing.T) {
 			}}},
 		},
 	} {
-		assert.True(t, Uses(config, "target"), name)
-		assert.False(t, Uses(config, "other"), name)
+		assert.Equal(t, []commonv1alpha1.SecretKeyRef{ref}, Refs(config), name)
 	}
 }
 
@@ -58,7 +57,7 @@ func TestUsersQueuesOnlyResourcesThatUseTheSecret(t *testing.T) {
 	c := fake.NewClientBuilder().WithScheme(s).WithObjects(
 		withCA("uses", "media"), withCA("elsewhere", "other"),
 		&pvrv1alpha1.Sonarr{Name: "unrelated", Namespace: "media"},
-	).WithIndex(&pvrv1alpha1.Sonarr{}, index, names).Build()
+	).WithIndex(&pvrv1alpha1.Sonarr{}, IndexField, Names).Build()
 
 	reqs := users(c, &pvrv1alpha1.SonarrList{})(context.Background(), &metav1.PartialObjectMetadata{Name: "ca", Namespace: "media"})
 	assert.Equal(t, []reconcile.Request{{Name: "uses", Namespace: "media"}}, reqs, "Secrets are watched by metadata only")
@@ -69,6 +68,6 @@ func TestNamesListsEachSecretOnce(t *testing.T) {
 		APIKeySecretRef: commonv1alpha1.SecretKeyRef{Name: "sonarr", Key: "api-key"},
 		TLS:             &commonv1alpha1.TLSConfig{CASecretRef: commonv1alpha1.SecretKeyRef{Name: "sonarr", Key: "ca.crt"}},
 	}}}
-	assert.Equal(t, []string{"sonarr"}, names(obj))
-	assert.Empty(t, names(&pvrv1alpha1.Sonarr{}))
+	assert.Equal(t, []string{"sonarr"}, Names(obj))
+	assert.Empty(t, Names(&pvrv1alpha1.Sonarr{}))
 }

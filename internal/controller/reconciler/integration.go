@@ -1,27 +1,40 @@
 // Package reconciler runs the pass every controller shares: reading the
 // resource, its lifecycle and finalizer, connecting, syncing, and reporting
-// the outcome in its status, with when to try again.
+// the outcome in its status, with when to try again. It also sets up each
+// controller's watches and builds its connections.
 package reconciler
 
 import (
+	"cmp"
 	"context"
-	"errors"
 	"reflect"
 	"slices"
 	"time"
 
 	"k8s.io/client-go/tools/events"
+	"k8s.io/client-go/util/workqueue"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
 	"github.com/kyleseneker/arrchitect/internal/controller/appref"
+	"github.com/kyleseneker/arrchitect/internal/controller/secretref"
 	"github.com/kyleseneker/arrchitect/internal/engine"
 	"github.com/kyleseneker/arrchitect/internal/failure"
 	"github.com/kyleseneker/arrchitect/internal/httpapi"
-	"github.com/kyleseneker/arrchitect/internal/secrets"
+)
+
+// A failure that backs off is retried after 30 seconds, doubling each time it
+// fails again, up to 10 minutes.
+const (
+	minBackoff = 30 * time.Second
+	maxBackoff = 10 * time.Minute
 )
 
 // Integration is how the operator reaches one app and syncs a resource to it.
@@ -29,13 +42,31 @@ import (
 type Integration[T ConfigResource, C any] struct {
 	// App is the app's label, such as "sonarr".
 	App string
+	// Name names the controller, App when empty.
+	Name string
+	// New returns an empty resource of the kind, and NewList an empty list of
+	// them.
+	New     func() T
+	NewList func() client.ObjectList
+	// AppRefs returns the app resources a resource refers to, which are of
+	// RefKinds. Nil when the kind takes no appRef.
+	AppRefs  func(client.Object) []commonv1alpha1.AppRef
+	RefKinds []string
+	// Watches adds the kind's own watches, such as an object's instance.
+	Watches func(mgr ctrl.Manager, b *builder.Builder) (*builder.Builder, error)
+	// Governor, when set, reads the reconcile settings of the resource that
+	// governs obj, such as an indexer's Sonarr: its drift policy and interval
+	// apply to obj, and the finalizer is dropped while it observes. obj's own
+	// settings decide only its deletion policy, and a pass always prunes, so a
+	// renamed item is replaced. Nil settings, as for a governor that's missing,
+	// read as the defaults.
+	Governor func(ctx context.Context, obj T) (*commonv1alpha1.ReconcileConfig, error)
 	// Connect builds the app's client and signs in where the app needs it.
-	// Cleanup uses it too. Its error sets the status reason and when to retry,
-	// through Classify.
+	// Cleanup uses it too.
 	Connect func(ctx context.Context, obj T) (C, error)
 	// Check runs after Connect before a sync, never before cleanup: a health
 	// probe, and spec checks that mustn't block deleting what the operator
-	// created. Its error is classified like Connect's.
+	// created.
 	Check func(ctx context.Context, conn C, obj T) error
 	// Sync brings the app in line with obj, through pass, and returns what
 	// failed. Each failure leaves the rest of the pass to run.
@@ -51,18 +82,33 @@ type Integration[T ConfigResource, C any] struct {
 	Prune bool
 }
 
-// Reconcile reads the resource req names into obj and runs one pass.
-func (in Integration[T, C]) Reconcile(
-	ctx context.Context, c client.Client, recorder events.EventRecorder, req ctrl.Request, obj T,
-) (ctrl.Result, error) {
-	if err := c.Get(ctx, req.NamespacedName, obj); err != nil {
-		return ctrl.Result{}, IgnoreDeleted(obj, req.NamespacedName, err)
-	}
+// settings are what a pass runs with: its drift policy and prune, and the
+// reconcile settings its interval comes from.
+type settings struct {
+	policy   engine.SyncPolicy
+	interval *commonv1alpha1.ReconcileConfig
+	governed bool
+}
 
-	lifecycle := Lifecycle{Prune: in.Prune}
+func (in Integration[T, C]) settings(ctx context.Context, obj T) (settings, error) {
+	rc := obj.GetReconcileConfig()
+	if in.Governor == nil {
+		return settings{policy: policy(rc), interval: rc}, nil
+	}
+	governing, err := in.Governor(ctx, obj)
+	if err != nil {
+		return settings{}, err
+	}
+	p := policy(governing)
+	p.Prune = true
+	return settings{policy: p, interval: governing, governed: true}, nil
+}
+
+func (in Integration[T, C]) lifecycle(recorder events.EventRecorder, obj T, s settings) lifecycle {
+	lc := lifecycle{prune: in.Prune || s.governed, observe: s.governed && s.policy.Observe}
 	if in.Cleanup != nil {
-		lifecycle.Remove = func(ctx context.Context) error {
-			owned := engine.NewOwnership(in.App, obj.GetConfigStatus().GetManagedResources())
+		lc.remove = func(ctx context.Context) error {
+			owned := engine.NewOwnership(in.App, owned(obj))
 			if in.Deletable != nil && !in.Deletable(owned) {
 				return nil
 			}
@@ -71,48 +117,111 @@ func (in Integration[T, C]) Reconcile(
 				return err
 			}
 			err = in.Cleanup(ctx, conn, owned)
-			EmitPruneEvents(recorder, obj, owned.Pruned())
+			emitPruneEvents(recorder, obj, owned.Pruned())
 			return err
 		}
 	}
-	if done, after := HandleLifecycle(ctx, c, recorder, obj, lifecycle); done {
-		return ctrl.Result{RequeueAfter: after}, nil
+	return lc
+}
+
+// Reconcile reads the resource req names and runs one pass over it.
+func (in Integration[T, C]) Reconcile(ctx context.Context, c client.Client, recorder events.EventRecorder, req ctrl.Request) (ctrl.Result, error) {
+	obj := in.New()
+	if err := c.Get(ctx, req.NamespacedName, obj); err != nil {
+		return ctrl.Result{}, forgetDeleted(obj, req.NamespacedName, err)
+	}
+	s, err := in.settings(ctx, obj)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	lc := in.lifecycle(recorder, obj, s)
+	if deleting, err := handleLifecycle(ctx, c, recorder, obj, lc); deleting || err != nil {
+		return ctrl.Result{}, err
 	}
 
+	base, ok := obj.DeepCopyObject().(client.Object)
+	if !ok {
+		return ctrl.Result{}, nil
+	}
+	if err := refusal(obj.GetReconcileConfig(), lc); err != nil {
+		return in.finish(ctx, c, recorder, obj, base, s, nil, []error{err})
+	}
 	conn, err := in.Connect(ctx, obj)
 	if err == nil && in.Check != nil {
 		err = in.Check(ctx, conn, obj)
 	}
 	if err != nil {
-		reason, base := Classify(err)
-		after := RetryAfter(obj, base)
-		log.FromContext(ctx).Info("Couldn't reach "+httpapi.AppName(in.App), "reason", reason, "error", err.Error(), "retryAfter", after)
-		UpdateStatus(ctx, c, recorder, obj, false, reason, err.Error())
-		return ctrl.Result{RequeueAfter: after}, nil
+		log.FromContext(ctx).Info("Couldn't reach "+httpapi.AppName(in.App), "error", err.Error())
+		return in.finish(ctx, c, recorder, obj, base, s, nil, []error{err})
 	}
-	Reached(obj)
 
-	rc := obj.GetReconcileConfig()
-	pass := engine.NewPass(in.App, OwnerKey(obj), Policy(rc), obj.GetConfigStatus().GetManagedResources())
+	pass := engine.NewPass(in.App, ownerKey(obj), s.policy, owned(obj))
 	problems := in.Sync(ctx, conn, obj, pass)
-	UpdateStatusManaged(obj, pass.Owned.Managed())
-	EmitPruneEvents(recorder, obj, pass.Owned.Pruned())
-	retry := ReportResult(ctx, c, recorder, obj, pass.Observe, Result{
-		Synced: pass.SyncedItems(), Errors: problems, Drift: pass.Drift(),
-	})
-	after := NextSync(rc)
-	for _, sooner := range []time.Duration{pass.Retry, retry} {
-		if sooner > 0 && sooner < after {
-			after = sooner
-		}
+	if managed := pass.Owned.Managed(); managed != nil {
+		obj.GetConfigStatus().SetManagedResources(managed)
 	}
-	return ctrl.Result{RequeueAfter: after}, nil
+	emitPruneEvents(recorder, obj, pass.Owned.Pruned())
+	return in.finish(ctx, c, recorder, obj, base, s, pass, problems)
 }
 
-// ConfigChangedPredicate ignores status-only updates generated by reconciliation.
-// Deletion and finalizer changes must still enqueue even without a generation
-// change. Apply this to the CR watch only, never to Secret watches.
-func ConfigChangedPredicate() predicate.Predicate {
+// finish records how a pass ended, from errs or else from what pass did, and
+// says when to reconcile again: through the rate limiter for a failure that
+// backs off or a status that couldn't be written, else at the interval. pass
+// is nil when the pass ended before syncing.
+func (in Integration[T, C]) finish(
+	ctx context.Context, c client.Client, recorder events.EventRecorder, obj T, base client.Object,
+	s settings, pass *engine.Pass, errs []error,
+) (ctrl.Result, error) {
+	var out outcome
+	var st state
+	if len(errs) > 0 {
+		out = outcomeOf(errs)
+		st = failedState(out, errs, pass != nil && s.policy.Observe)
+	} else {
+		st = passState(s.policy.Observe, pass.SyncedItems(), pass.Drift())
+	}
+	err := record(ctx, c, recorder, obj, base, st)
+	if pass != nil {
+		remember(obj, pass.Owned.Managed(), err == nil)
+	}
+	switch {
+	case err != nil:
+		return ctrl.Result{}, err
+	case out.backoff:
+		return ctrl.Result{}, failure.Join(errs...)
+	}
+	return ctrl.Result{RequeueAfter: nextSync(s.interval)}, nil
+}
+
+// SetupWithManager registers r as the kind's controller. It watches the kind,
+// the Secrets its resources name and the app resources their appRefs name,
+// and backs a failure off from 30 seconds, doubling to 10 minutes.
+func (in Integration[T, C]) SetupWithManager(mgr ctrl.Manager, apps appref.Apps, r reconcile.Reconciler) error {
+	b := ctrl.NewControllerManagedBy(mgr).
+		For(in.New(), builder.WithPredicates(configChanged())).
+		WithOptions(controller.Options{
+			RateLimiter: workqueue.NewTypedItemExponentialFailureRateLimiter[reconcile.Request](minBackoff, maxBackoff),
+		})
+	b, err := secretref.Watch(mgr, b, in.New(), in.NewList())
+	if err != nil {
+		return err
+	}
+	if in.AppRefs != nil {
+		if b, err = appref.Watch(mgr, b, apps, in.New(), in.NewList(), in.AppRefs, in.RefKinds...); err != nil {
+			return err
+		}
+	}
+	if in.Watches != nil {
+		if b, err = in.Watches(mgr, b); err != nil {
+			return err
+		}
+	}
+	return b.Named(cmp.Or(in.Name, in.App)).Complete(r)
+}
+
+// configChanged ignores the status-only updates reconciling makes. A deletion,
+// finalizer or annotation change still enqueues without a generation change.
+func configChanged() predicate.Predicate {
 	return predicate.Funcs{UpdateFunc: func(e event.UpdateEvent) bool {
 		if e.ObjectOld == nil || e.ObjectNew == nil {
 			return false
@@ -122,117 +231,4 @@ func ConfigChangedPredicate() predicate.Predicate {
 			!slices.Equal(e.ObjectOld.GetFinalizers(), e.ObjectNew.GetFinalizers()) ||
 			!reflect.DeepEqual(e.ObjectOld.GetAnnotations(), e.ObjectNew.GetAnnotations())
 	}}
-}
-
-// Classify is the status reason for a failure to reach an app, and when to try
-// again. A spec problem waits for the spec to change, which requeues the
-// resource anyway.
-func Classify(err error) (string, time.Duration) {
-	if reason, after, ok := failureReason(err); ok {
-		return reason, after
-	}
-	return ReasonAppUnreachable, 60 * time.Second
-}
-
-// AppRefFailure is the status reason for an error following an appRef or
-// reading the Secrets it names, and when to try again. An invalid reference
-// waits for a spec change, which requeues the resource anyway.
-func AppRefFailure(err error) (string, time.Duration) {
-	if reason, after, ok := failureReason(err); ok {
-		return reason, after
-	}
-	return ReasonSyncFailed, 30 * time.Second
-}
-
-// syncFailure is the status reason for what a pass failed to sync, and how
-// soon to try again, or zero for the resource's interval. Failures that all
-// have one reason of their own, such as a missing Secret, report it and its
-// retry. Any other mix reads SyncFailed and waits for the interval, so a
-// write the app refused isn't sent again sooner because something else is
-// missing. Refused credentials wait for the interval too: their delay slows
-// down connecting, and mustn't speed up a resource that syncs less often.
-// Failures joined into one count apart.
-func syncFailure(errs []error) (string, time.Duration) {
-	leaves := make([]error, 0, len(errs))
-	for _, err := range errs {
-		leaves = append(leaves, failureLeaves(err)...)
-	}
-	var reason string
-	var retry time.Duration
-	for i, err := range leaves {
-		r, after, ok := failureReason(err)
-		if !ok || (i > 0 && r != reason) {
-			return ReasonSyncFailed, 0
-		}
-		reason, retry = r, after
-	}
-	if reason == ReasonUnauthorized {
-		retry = 0
-	}
-	return reason, retry
-}
-
-// SetupRetry is how soon to try a first-time setup again after err. A minute,
-// as for an app still starting, when nothing in err has a reason of its own;
-// otherwise zero, so the retry ReportResult picks for the reason applies.
-func SetupRetry(err error) time.Duration {
-	for _, leaf := range failureLeaves(err) {
-		if _, _, ok := failureReason(leaf); ok {
-			return 0
-		}
-	}
-	return time.Minute
-}
-
-// failureLeaves splits err into the failures joined into it. A failure with a
-// reason of its own stays whole, with whatever it wraps.
-func failureLeaves(err error) []error {
-	for e := err; e != nil; {
-		if hasOwnReason(e) {
-			return []error{e}
-		}
-		switch u := e.(type) {
-		case interface{ Unwrap() []error }:
-			var leaves []error
-			for _, child := range u.Unwrap() {
-				leaves = append(leaves, failureLeaves(child)...)
-			}
-			return leaves
-		case interface{ Unwrap() error }:
-			e = u.Unwrap()
-		default:
-			return []error{err}
-		}
-	}
-	return []error{err}
-}
-
-// hasOwnReason reports whether err itself, not what it wraps, is a failure
-// failureReason names.
-func hasOwnReason(err error) bool {
-	switch e := err.(type) {
-	case *failure.ConfigError, *secrets.SecretError:
-		return true
-	case *httpapi.APIError:
-		return httpapi.IsUnauthorized(e)
-	}
-	return err == appref.ErrNotFound || err == httpapi.ErrUnauthorized
-}
-
-// failureReason is the status reason for a failure that has one of its own,
-// and when to try again.
-func failureReason(err error) (string, time.Duration, bool) {
-	switch {
-	case errors.Is(err, appref.ErrNotFound):
-		return ReasonReferenceNotFound, 30 * time.Second, true
-	case failure.IsConfigError(err):
-		return ReasonInvalidConfig, 0, true
-	case secrets.IsSecretError(err):
-		return ReasonSecretNotFound, 30 * time.Second, true
-	case httpapi.IsUnauthorized(err):
-		// A Secret change requeues the resource, and some apps lock out a
-		// client that keeps failing to sign in.
-		return ReasonUnauthorized, 5 * time.Minute, true
-	}
-	return "", 0, false
 }

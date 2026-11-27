@@ -503,8 +503,11 @@ func TestMaintainerrMarksUnhealthyAppNotReady(t *testing.T) {
 	}))
 
 	run := newMaintainerrRun(t, jellyfinSpec(srv.URL))
-	run.reconcile(t)
-	assert.NotEqual(t, conditionTrue, string(run.condition(t, "Ready").Status), "Ready = True for an app failing its health check")
+	_, err := run.r.Reconcile(context.Background(), ctrl.Request{Name: "maintainerr", Namespace: "media"})
+	require.Error(t, err, "an app that's down backs off")
+	ready := run.condition(t, "Ready")
+	assert.NotEqual(t, conditionTrue, string(ready.Status), "Ready = True for an app failing its health check")
+	assert.Equal(t, reconciler.ReasonAppUnreachable, ready.Reason)
 }
 
 func observeSpec(spec curationv1alpha1.MaintainerrSpec) curationv1alpha1.MaintainerrSpec {

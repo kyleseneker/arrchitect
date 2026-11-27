@@ -15,7 +15,6 @@ import (
 
 	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
@@ -46,9 +45,22 @@ type BazarrReconciler struct {
 // +kubebuilder:rbac:groups=arrchitect.dev,resources=sonarrs;radarrs;jellyfins,verbs=get;list;watch
 
 func (r *BazarrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	integration := reconciler.Integration[*subtitlesv1alpha1.Bazarr, *bazarrclient.Client]{
-		App:     "bazarr",
-		Connect: r.connect,
+	return r.integration().Reconcile(ctx, r.Client, r.Recorder, req)
+}
+
+// SetupWithManager sets up the controller with the Manager.
+func (r *BazarrReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	return r.integration().SetupWithManager(mgr, r.Apps, r)
+}
+
+func (r *BazarrReconciler) integration() reconciler.Integration[*subtitlesv1alpha1.Bazarr, *bazarrclient.Client] {
+	return reconciler.Integration[*subtitlesv1alpha1.Bazarr, *bazarrclient.Client]{
+		App:      "bazarr",
+		New:      func() *subtitlesv1alpha1.Bazarr { return &subtitlesv1alpha1.Bazarr{} },
+		NewList:  func() client.ObjectList { return &subtitlesv1alpha1.BazarrList{} },
+		AppRefs:  bazarrAppRefs,
+		RefKinds: []string{"Sonarr", "Radarr", "Jellyfin"},
+		Connect:  r.connect,
 		Check: func(ctx context.Context, bc *bazarrclient.Client, _ *subtitlesv1alpha1.Bazarr) error {
 			return bc.Ping(ctx)
 		},
@@ -56,20 +68,14 @@ func (r *BazarrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		Cleanup: cleanupBazarr,
 		Prune:   true,
 	}
-	return integration.Reconcile(ctx, r.Client, r.Recorder, req, &subtitlesv1alpha1.Bazarr{})
 }
 
 func (r *BazarrReconciler) connect(ctx context.Context, config *subtitlesv1alpha1.Bazarr) (*bazarrclient.Client, error) {
-	apiKey, err := secrets.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, config.Spec.Connection.APIKeySecretRef)
-	if err != nil {
-		return nil, err
-	}
-	tlsCfg, err := reconciler.ResolveTLSConfig(ctx, r.Client, config.Namespace, config.Spec.Connection.TLS)
-	if err != nil {
-		return nil, err
-	}
-	hc, err := httpapi.NewHTTPClient(config.Spec.Connection.URL, httpapi.AuthAPIKey,
-		append(bazarrclient.HTTPOptions(), httpapi.WithAPIKey(apiKey), httpapi.WithTLSConfig(tlsCfg))...)
+	conn := config.Spec.Connection
+	hc, err := reconciler.Dial(ctx, r.Client, config.Namespace, reconciler.Endpoint{
+		App: "bazarr", URL: conn.URL, TLS: conn.TLS, Auth: httpapi.AuthAPIKey, Key: &conn.APIKeySecretRef,
+		Options: bazarrclient.HTTPOptions(),
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -246,7 +252,7 @@ func (r *BazarrReconciler) bazarrJellyfinForm(
 			return nil, fmt.Errorf("appRef: %w", err)
 		}
 		if app.APIKeySecretRef == nil {
-			return nil, appref.Invalid("appRef: Jellyfin %q sets no API key Secret", jf.AppRef.Name)
+			return nil, failure.InvalidConfig.Errorf("appRef: Jellyfin %q sets no API key Secret", jf.AppRef.Name)
 		}
 		resolved := *jf
 		resolved.URL, resolved.APIKeySecretRef = app.URL, app.APIKeySecretRef
@@ -618,21 +624,4 @@ func sameBazarrProfiles(current []map[string]any, desiredJSON string) bool {
 	byID(have)
 	byID(want)
 	return jsondiff.Covers(any(have), any(want))
-}
-
-// SetupWithManager sets up the controller with the Manager.
-func (r *BazarrReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	b := ctrl.NewControllerManagedBy(mgr).
-		For(&subtitlesv1alpha1.Bazarr{}, builder.WithPredicates(reconciler.ConfigChangedPredicate()))
-	b, err := secretref.Watch(mgr, b, &subtitlesv1alpha1.Bazarr{}, &subtitlesv1alpha1.BazarrList{})
-	if err != nil {
-		return err
-	}
-	b, err = appref.Watch(mgr, b, r.Apps, &subtitlesv1alpha1.Bazarr{}, &subtitlesv1alpha1.BazarrList{}, bazarrAppRefs, "Sonarr", "Radarr", "Jellyfin")
-	if err != nil {
-		return err
-	}
-	return b.
-		Named("bazarr").
-		Complete(r)
 }

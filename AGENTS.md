@@ -76,8 +76,8 @@ targets, plus compat and e2e.
 - `internal/controller/<group>/`: one controller per app, with the payloads
   and API-model helpers only that app uses.
 - `internal/controller/reconciler/`: the pass every controller shares: the
-  skeleton, lifecycle and finalizers, status, conditions and events, retries
-  and TLS.
+  skeleton, lifecycle and finalizers, the failure table, status, conditions
+  and events, each controller's watches, and building connections (`Dial`).
 - `internal/controller/appref/`: following an appRef, and the watches that
   requeue a resource when the app it refers to, or a Secret that app uses,
   changes.
@@ -107,18 +107,21 @@ targets, plus compat and e2e.
 Copy these when you add something similar:
 
 - A controller: `TdarrReconciler` in
-  `internal/controller/transcode/tdarr_controller.go`. It declares a
-  `reconciler.Integration`. `Connect` builds the client and signs in, and
-  cleanup reuses it. `Check` probes the app before a sync, and holds any spec
-  check that mustn't block cleanup. `Sync` writes through the `engine.Pass`
-  it's given. `Integration.Reconcile` does the lifecycle, status, events and
-  requeue, with the reasons in `internal/controller/reconciler/reasons.go`. An
-  app that needs its own header, timeout or redirect handling exports them as
-  `HTTPOptions()` from its client package, which `arrchitect export` uses too.
-- appRef resolution: `appref.Resolve` in `internal/controller/appref/`, and
-  `appref.Watch` beside `secretref.Watch` in `SetupWithManager`. A failure
-  goes through `reconciler.AppRefFailure`, which picks the reason and the
-  requeue.
+  `internal/controller/transcode/tdarr_controller.go`. Its `integration()`
+  declares a `reconciler.Integration`: the kind (`New`, `NewList`), what its
+  appRefs name (`AppRefs`, `RefKinds`), and `Connect`, `Check`, `Sync` and
+  `Cleanup`. `Connect` builds the client with `reconciler.Dial` and signs in,
+  and cleanup reuses it. `Check` probes the app before a sync, and holds any
+  spec check that mustn't block cleanup. `Sync` writes through the
+  `engine.Pass` it's given. `Reconcile` and `SetupWithManager` hand off to the
+  integration, which does the lifecycle, status, events, requeue and watches.
+  An app that needs its own header, timeout or redirect handling exports them
+  as `HTTPOptions()` from its client package, which `arrchitect export` uses
+  too.
+- An object that belongs to an app resource, such as a SonarrIndexer: the
+  `ObjectReconciler` in `internal/controller/pvr/pvrobject_controller.go`.
+  Its `Governor` reads the app resource's drift policy and interval.
+- appRef resolution: `appref.Resolve` in `internal/controller/appref/`.
 - A compat case: `compatCase` in `test/compat/main_test.go`. A case has a
   fixture, an `update` patch that changes what the first reconcile created,
   `newerFields` for fields older releases lack, and an `export` check.
@@ -179,19 +182,17 @@ Never edit these by hand. Change the source, then regenerate.
   `Maintainerr has no Radarr server named "M"`,
   `Tdarr has more than one node named "T"`. The lint config allows a capital
   first letter in an error string only for an app name.
-- Keep the existing requeue policy. `reconciler.Classify` picks a base delay
-  from what `Connect` returns: 30 seconds for a missing Secret or reference, 60
-  when an app is unreachable, 5 minutes for refused credentials, and none for
-  `InvalidConfig`. `reconciler.RetryAfter` doubles it for each failure in a row,
-  up to 10 minutes. Wrap a spec problem in `failure.InvalidConfig`, and refused
-  credentials in `httpapi.ErrUnauthorized` when the app doesn't answer 401.
+- Mark a failure with its kind where it happens, such as
+  `failure.InvalidConfig.Errorf` for a spec problem, or `failure.Unauthorized`
+  for refused credentials an app doesn't answer with 401 or 403. `httpapi`,
+  `secrets` and `appref` mark their own. The table in
+  `internal/controller/reconciler/outcome.go` turns a kind into the status
+  reason and when to try again. Nothing else decides either.
 - `Sync` returns each failure as an `error`, wrapped with `%w` and prefixed
-  with the kind and item, such as `notifications(Discord): %w`. The status
-  reason and retry come from the errors: a pass whose only failure is a
-  missing Secret reads `SecretNotFound` and retries in 30 seconds, and a mix
-  of reasons reads `SyncFailed` and waits for the interval. Join errors with
-  `failure.Join`, not `errors.Join`, which keeps a status message on one
-  line.
+  with the kind and item, such as `notifications(Discord): %w`. A pass whose
+  failures are all of one kind takes that kind's reason, and any mix reads
+  `SyncFailed` and waits for the interval. Join errors with `failure.Join`,
+  not `errors.Join`, which keeps a status message on one line.
 - Send every write to an app through `engine.Writes` (`Apply`, `Sync`,
   `Prune`), so observe mode reports exactly what enforce mode would write.
   Don't add a separate observe path.

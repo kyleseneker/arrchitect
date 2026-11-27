@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -27,6 +26,7 @@ import (
 	"github.com/kyleseneker/arrchitect/internal/controller/reconciler"
 	"github.com/kyleseneker/arrchitect/internal/controller/secretref"
 	"github.com/kyleseneker/arrchitect/internal/engine"
+	"github.com/kyleseneker/arrchitect/internal/failure"
 	"github.com/kyleseneker/arrchitect/internal/httpapi"
 	"github.com/kyleseneker/arrchitect/internal/secrets"
 )
@@ -41,128 +41,19 @@ type pvrInstance struct {
 	policy     *commonv1alpha1.ReconcileConfig
 }
 
-// pvrObject is one object in an app, such as an indexer, reconciled through
-// the instance it names.
-type pvrObject struct {
-	app pvrclient.App
-	obj reconciler.ConfigResource
-	// instanceKind and instanceName name the instance for status messages.
-	instanceKind, instanceName string
-	instance                   func(context.Context) (pvrInstance, error)
-	// path lists the app's objects of this kind, to find this one's ID by name.
-	path, name string
-	// list and claim find other resources of this kind naming the same object:
-	// claim returns the instance and object a resource of this kind names.
-	list  client.ObjectList
-	claim func(client.Object) (instance, name string)
-	// options returns the object as the engine applies it, with its Secrets
-	// resolved.
-	options func(context.Context) (pvrclient.Options, error)
-	setID   func(int32)
+// objectConn is how an object reaches the instance it names: the instance's
+// client, or the object itself when the instance is missing, which leaves
+// nothing to remove from it.
+type objectConn struct {
+	hc     *httpapi.HTTPClient
+	orphan client.Object
 }
 
-// cleanupPVR deletes what obj owns in the app behind conn, for deletionPolicy
-// delete. It reads only the connection's Secrets, and none when there's
-// nothing to delete.
-func cleanupPVR(
-	ctx context.Context, c client.Reader, recorder events.EventRecorder, obj reconciler.ConfigResource,
-	conn commonv1alpha1.AppConnection, app pvrclient.App,
-) error {
-	def := pvrclient.Definition(app)
-	owned := engine.NewOwnership(app.Name, obj.GetConfigStatus().GetManagedResources())
-	if !def.Deletable(owned) {
-		return nil
-	}
-	hc, err := connectPVR(ctx, c, obj, conn, app)
-	if err != nil {
-		return err
-	}
-	err = engine.DeleteManagedResources(ctx, hc, def, owned)
-	reconciler.EmitPruneEvents(recorder, obj, owned.Pruned())
-	return err
-}
-
-func reconcilePVRObject(ctx context.Context, c client.Client, recorder events.EventRecorder, o pvrObject) (ctrl.Result, error) {
-	obj := o.obj
-	instance, err := o.instance(ctx)
-	missing := apierrors.IsNotFound(err)
-	if err != nil && !missing {
-		return ctrl.Result{}, err
-	}
-
-	cleanup := func(ctx context.Context) error {
-		if missing {
-			recorder.Eventf(obj, nil, corev1.EventTypeWarning, reconciler.ReasonInstanceMissing, "Delete",
-				"%s %q is gone, so nothing was removed from it", o.instanceKind, o.instanceName)
-			return nil
-		}
-		return cleanupPVR(ctx, c, recorder, obj, instance.connection, o.app)
-	}
-	if done, after := reconciler.HandleLifecycle(ctx, c, recorder, obj, reconciler.Lifecycle{Remove: cleanup, Observe: reconciler.Policy(instance.policy).Observe}); done {
-		return ctrl.Result{RequeueAfter: after}, nil
-	}
-	if missing {
-		reconciler.UpdateStatus(ctx, c, recorder, obj, false, reconciler.ReasonReferenceNotFound,
-			fmt.Sprintf("%s %q not found", o.instanceKind, o.instanceName))
-		return ctrl.Result{RequeueAfter: reconciler.RetryAfter(obj, 30*time.Second)}, nil
-	}
-
-	claimant, err := olderClaim(ctx, c, o)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-	if claimant != "" {
-		reconciler.UpdateStatus(ctx, c, recorder, obj, false, reconciler.ReasonNameConflict,
-			fmt.Sprintf("%q already configures %q in %s %q", claimant, o.name, o.instanceKind, o.instanceName))
-		return ctrl.Result{RequeueAfter: reconciler.RetryAfter(obj, 30*time.Second)}, nil
-	}
-
-	hc, err := connectPVR(ctx, c, obj, instance.connection, o.app)
-	if err == nil {
-		err = pingPVR(ctx, hc, o.app)
-	}
-	if err != nil {
-		reason, base := reconciler.Classify(err)
-		after := reconciler.RetryAfter(obj, base)
-		log.FromContext(ctx).Info("Couldn't reach "+o.instanceKind, "reason", reason, "error", err.Error(), "retryAfter", after)
-		reconciler.UpdateStatus(ctx, c, recorder, obj, false, reason, err.Error())
-		return ctrl.Result{RequeueAfter: after}, nil
-	}
-	opts, err := o.options(ctx)
-	if err != nil {
-		reason, base := reconciler.AppRefFailure(err)
-		reconciler.UpdateStatus(ctx, c, recorder, obj, false, reason, err.Error())
-		return ctrl.Result{RequeueAfter: reconciler.RetryAfter(obj, base)}, nil
-	}
-	reconciler.Reached(obj)
-	opts.App = o.app
-
-	policy := reconciler.Policy(instance.policy)
-	// The object owns only the item it names, so prune replaces it on a rename.
-	policy.Prune = true
-	pass := engine.NewPass(o.app.Name, reconciler.OwnerKey(obj), policy, obj.GetConfigStatus().GetManagedResources())
-	problems := pvrclient.Reconcile(ctx, hc, nil, opts, pass)
-	if id, ok := idOf(ctx, hc, "/api/"+o.app.APIVersion+o.path, o.name); ok {
-		o.setID(id)
-	}
-	reconciler.UpdateStatusManaged(obj, pass.Owned.Managed())
-	reconciler.EmitPruneEvents(recorder, obj, pass.Owned.Pruned())
-	retry := reconciler.ReportResult(ctx, c, recorder, obj, policy.Observe, reconciler.Result{
-		Synced: pass.SyncedItems(), Errors: problems, Drift: pass.Drift(),
-	})
-	after := reconciler.NextSync(instance.policy)
-	if retry > 0 && retry < after {
-		after = retry
-	}
-	return ctrl.Result{RequeueAfter: after}, nil
-}
-
-// olderClaim names an older resource of the same kind that configures the same
-// object in the same instance. That one keeps the object, so two resources
-// never take turns rewriting it or delete it from under each other.
-func olderClaim(ctx context.Context, c client.Client, o pvrObject) (string, error) {
-	list := o.list.DeepCopyObject().(client.ObjectList)
-	if err := c.List(ctx, list, client.InNamespace(o.obj.GetNamespace())); err != nil {
+// olderClaim names an older resource in list that configures the same item in
+// the same instance as obj. That one keeps the item, so two resources never
+// take turns rewriting it or delete it from under each other.
+func olderClaim(ctx context.Context, c client.Client, list client.ObjectList, obj objectResource) (string, error) {
+	if err := c.List(ctx, list, client.InNamespace(obj.GetNamespace())); err != nil {
 		return "", err
 	}
 	items, err := apimeta.ExtractList(list)
@@ -171,11 +62,11 @@ func olderClaim(ctx context.Context, c client.Client, o pvrObject) (string, erro
 	}
 	var claimant client.Object
 	for _, item := range items {
-		other, ok := item.(client.Object)
-		if !ok || other.GetName() == o.obj.GetName() || !older(other, o.obj) {
+		other, ok := item.(objectResource)
+		if !ok || other.GetName() == obj.GetName() || !older(other, obj) {
 			continue
 		}
-		if instance, name := o.claim(other); instance != o.instanceName || name != o.name {
+		if other.InstanceName() != obj.InstanceName() || other.ItemName() != obj.ItemName() {
 			continue
 		}
 		if claimant == nil || older(other, claimant) {
@@ -372,49 +263,101 @@ func NewObjectReconciler[O objectResource](kind ObjectKind[O], c client.Client, 
 }
 
 func (r *ObjectReconciler[O]) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	obj := r.kind.newObj()
-	if err := r.Get(ctx, req.NamespacedName, obj); err != nil {
-		return ctrl.Result{}, reconciler.IgnoreDeleted(obj, req.NamespacedName, err)
-	}
-	ref := commonv1alpha1.LocalObjectReference{Name: obj.InstanceName()}
-	return reconcilePVRObject(ctx, r.Client, r.Recorder, pvrObject{
-		app: r.kind.app, obj: obj,
-		instanceKind: r.kind.app.Kind, instanceName: ref.Name,
-		instance: func(ctx context.Context) (pvrInstance, error) {
-			return r.kind.lookup(ctx, r.Client, obj.GetNamespace(), ref)
-		},
-		path: r.kind.path, name: obj.ItemName(),
-		list: r.kind.newList(),
-		claim: func(o client.Object) (string, string) {
-			other := o.(O)
-			return other.InstanceName(), other.ItemName()
-		},
-		options: func(ctx context.Context) (pvrclient.Options, error) {
-			return r.kind.options(ctx, r.Client, r.Apps, obj)
-		},
-		setID: obj.SetItemID,
-	})
+	return r.integration().Reconcile(ctx, r.Client, r.Recorder, req)
 }
 
 func (r *ObjectReconciler[O]) SetupWithManager(mgr ctrl.Manager) error {
+	return r.integration().SetupWithManager(mgr, r.Apps, r)
+}
+
+// integration reconciles an object through the instance it names, whose drift
+// policy and interval govern it.
+func (r *ObjectReconciler[O]) integration() reconciler.Integration[O, objectConn] {
 	k := r.kind
-	err := mgr.GetFieldIndexer().IndexField(context.Background(), k.newObj(), instanceRefIndex,
-		func(o client.Object) []string { return []string{o.(O).InstanceName()} })
-	if err != nil {
-		return err
-	}
-	b := ctrl.NewControllerManagedBy(mgr).
-		For(k.newObj(), builder.WithPredicates(reconciler.ConfigChangedPredicate())).
-		Watches(k.instance, handler.EnqueueRequestsFromMapFunc(objectsOf(r.Client, k.newList())), builder.WithPredicates(instanceChanged()))
-	if b, err = secretref.Watch(mgr, b, k.newObj(), k.newList()); err != nil {
-		return err
+	def := pvrclient.Definition(k.app)
+	in := reconciler.Integration[O, objectConn]{
+		App:     k.app.Name,
+		Name:    strings.ToLower(k.app.Kind) + strings.TrimPrefix(k.path, "/"),
+		New:     k.newObj,
+		NewList: k.newList,
+		Watches: func(mgr ctrl.Manager, b *builder.Builder) (*builder.Builder, error) {
+			err := mgr.GetFieldIndexer().IndexField(context.Background(), k.newObj(), instanceRefIndex,
+				func(o client.Object) []string { return []string{o.(O).InstanceName()} })
+			if err != nil {
+				return nil, err
+			}
+			return b.Watches(k.instance, handler.EnqueueRequestsFromMapFunc(objectsOf(r.Client, k.newList())),
+				builder.WithPredicates(instanceChanged())), nil
+		},
+		Governor: func(ctx context.Context, obj O) (*commonv1alpha1.ReconcileConfig, error) {
+			instance, err := r.instance(ctx, obj)
+			if apierrors.IsNotFound(err) {
+				return nil, nil
+			}
+			return instance.policy, err
+		},
+		Connect: func(ctx context.Context, obj O) (objectConn, error) {
+			instance, err := r.instance(ctx, obj)
+			if apierrors.IsNotFound(err) {
+				return objectConn{orphan: obj}, nil
+			}
+			if err != nil {
+				return objectConn{}, err
+			}
+			hc, err := connectPVR(ctx, r.Client, obj.GetNamespace(), instance.connection, k.app)
+			return objectConn{hc: hc}, err
+		},
+		Check: func(ctx context.Context, conn objectConn, obj O) error {
+			if conn.orphan != nil {
+				return failure.ReferenceNotFound.Errorf("%s %q not found", k.app.Kind, obj.InstanceName())
+			}
+			claimant, err := olderClaim(ctx, r.Client, k.newList(), obj)
+			if err != nil {
+				return failure.Transient.Errorf("listing %s resources: %w", k.app.Kind, err)
+			}
+			if claimant != "" {
+				return failure.NameConflict.Errorf("%q already configures %q in %s %q", claimant, obj.ItemName(), k.app.Kind, obj.InstanceName())
+			}
+			return pingPVR(ctx, conn.hc, k.app)
+		},
+		Sync: func(ctx context.Context, conn objectConn, obj O, pass *engine.Pass) []error {
+			opts, err := k.options(ctx, r.Client, r.Apps, obj)
+			if err != nil {
+				return []error{err}
+			}
+			opts.App = k.app
+			problems := pvrclient.Reconcile(ctx, conn.hc, nil, opts, pass)
+			if id, ok := idOf(ctx, conn.hc, "/api/"+k.app.APIVersion+k.path, obj.ItemName()); ok {
+				obj.SetItemID(id)
+			}
+			return problems
+		},
+		Cleanup: func(ctx context.Context, conn objectConn, owned *engine.Ownership) error {
+			if conn.orphan != nil {
+				if r.Recorder != nil {
+					r.Recorder.Eventf(conn.orphan, nil, corev1.EventTypeWarning, reconciler.ReasonInstanceMissing, "Delete",
+						"%s %q is gone, so nothing was removed from it", k.app.Kind, conn.orphan.(O).InstanceName())
+				}
+				return nil
+			}
+			return engine.DeleteManagedResources(ctx, conn.hc, def, owned)
+		},
+		Deletable: def.Deletable,
 	}
 	if len(k.appRefKinds) > 0 {
-		if b, err = appref.Watch(mgr, b, r.Apps, k.newObj(), k.newList(), downloadClientAppRefs, k.appRefKinds...); err != nil {
-			return err
-		}
+		in.AppRefs, in.RefKinds = downloadClientAppRefs, k.appRefKinds
 	}
-	return b.Named(strings.ToLower(k.app.Kind) + strings.TrimPrefix(k.path, "/")).Complete(r)
+	return in
+}
+
+// instance reads the instance obj names. A failure other than its absence is
+// Transient.
+func (r *ObjectReconciler[O]) instance(ctx context.Context, obj O) (pvrInstance, error) {
+	instance, err := r.kind.lookup(ctx, r.Client, obj.GetNamespace(), commonv1alpha1.LocalObjectReference{Name: obj.InstanceName()})
+	if err != nil && !apierrors.IsNotFound(err) {
+		return pvrInstance{}, failure.Transient.Errorf("reading %s %q: %w", r.kind.app.Kind, obj.InstanceName(), err)
+	}
+	return instance, err
 }
 
 // downloadClientAppRefs returns the app a download client's appRef names.
@@ -447,7 +390,7 @@ func resolveDownloadClient(
 		dc.Protocol = "usenet"
 		dc.APIKeySecretRef = *app.APIKeySecretRef
 	default:
-		return dc, appref.Invalid("download client %q appRef: %s isn't a download client", dc.Name, app.Kind)
+		return dc, failure.InvalidConfig.Errorf("download client %q appRef: %s isn't a download client", dc.Name, app.Kind)
 	}
 	return dc, nil
 }

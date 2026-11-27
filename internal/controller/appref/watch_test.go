@@ -17,10 +17,11 @@ import (
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
 	indexersv1alpha1 "github.com/kyleseneker/arrchitect/api/indexers/v1alpha1"
 	pvrv1alpha1 "github.com/kyleseneker/arrchitect/api/pvr/v1alpha1"
+	"github.com/kyleseneker/arrchitect/internal/controller/secretref"
 )
 
 // watchClient serves objs, with Prowlarrs indexed by the app resources they
-// refer to.
+// refer to and Sonarrs by the Secrets they name.
 func watchClient(t *testing.T, objs ...client.Object) client.Client {
 	t.Helper()
 	s := runtime.NewScheme()
@@ -28,6 +29,7 @@ func watchClient(t *testing.T, objs ...client.Object) client.Client {
 	require.NoError(t, indexersv1alpha1.AddToScheme(s))
 	return fake.NewClientBuilder().WithScheme(s).WithObjects(objs...).
 		WithIndex(&indexersv1alpha1.Prowlarr{}, index, func(o client.Object) []string { return keys(prowlarrRefs(o)) }).
+		WithIndex(&pvrv1alpha1.Sonarr{}, secretref.IndexField, secretref.Names).
 		Build()
 }
 
@@ -52,8 +54,9 @@ func TestReferrersOfMatchesKindNameAndNamespace(t *testing.T) {
 	assert.Equal(t, []reconcile.Request{{Name: "refers", Namespace: "media"}}, reqs)
 }
 
-// A Secret an app resource uses requeues the resources that refer to it.
-// Resources that name the Secret themselves are requeued by secretref.Watch.
+// A Secret an app resource uses requeues the resources that refer to it,
+// found through both indexes. Resources that name the Secret themselves are
+// requeued by secretref.Watch.
 func TestSecretUsersFollowReferences(t *testing.T) {
 	sonarr := func(name, namespace, secret string) *pvrv1alpha1.Sonarr {
 		return &pvrv1alpha1.Sonarr{Name: name, Namespace: namespace, Spec: pvrv1alpha1.SonarrSpec{
