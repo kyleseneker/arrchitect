@@ -3,7 +3,6 @@ package pvr
 import (
 	"context"
 
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -13,13 +12,15 @@ import (
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
 	pvrv1alpha1 "github.com/kyleseneker/arrchitect/api/pvr/v1alpha1"
 	pvrclient "github.com/kyleseneker/arrchitect/internal/client/pvr"
-	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
+	"github.com/kyleseneker/arrchitect/internal/controller/appref"
+	"github.com/kyleseneker/arrchitect/internal/controller/reconciler"
+	"github.com/kyleseneker/arrchitect/internal/controller/secretref"
 )
 
 type ReadarrReconciler struct {
 	client.Client
 	Recorder events.EventRecorder
-	Apps     ctrlcommon.Apps
+	Apps     appref.Apps
 }
 
 // +kubebuilder:rbac:groups=arrchitect.dev,resources=readarrs,verbs=get;list;watch;update;patch
@@ -49,9 +50,12 @@ func (r *ReadarrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 func (r *ReadarrReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	b := ctrl.NewControllerManagedBy(mgr).
-		For(&pvrv1alpha1.Readarr{}, builder.WithPredicates(ctrlcommon.ConfigChangedPredicate())).
-		WatchesMetadata(&corev1.Secret{}, ctrlcommon.EnqueueForSecretThroughRefs(r.Client, r.Apps, &pvrv1alpha1.ReadarrList{}, readarrAppRefs))
-	b, err := ctrlcommon.WatchAppRefs(mgr, b, r.Apps, &pvrv1alpha1.Readarr{}, &pvrv1alpha1.ReadarrList{}, readarrAppRefs, "Plex")
+		For(&pvrv1alpha1.Readarr{}, builder.WithPredicates(reconciler.ConfigChangedPredicate()))
+	b, err := secretref.Watch(mgr, b, &pvrv1alpha1.Readarr{}, &pvrv1alpha1.ReadarrList{})
+	if err != nil {
+		return err
+	}
+	b, err = appref.Watch(mgr, b, r.Apps, &pvrv1alpha1.Readarr{}, &pvrv1alpha1.ReadarrList{}, readarrAppRefs, "Plex")
 	if err != nil {
 		return err
 	}

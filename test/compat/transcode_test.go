@@ -18,7 +18,7 @@ import (
 
 	transcodev1alpha1 "github.com/kyleseneker/arrchitect/api/transcode/v1alpha1"
 	tdarrclient "github.com/kyleseneker/arrchitect/internal/client/tdarr"
-	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
+	"github.com/kyleseneker/arrchitect/internal/controller/reconciler"
 	"github.com/kyleseneker/arrchitect/internal/controller/transcode"
 	"github.com/kyleseneker/arrchitect/internal/httpapi"
 )
@@ -61,7 +61,7 @@ func TestTdarr(t *testing.T) {
 		// Tdarr 3 enables authentication on a fresh config; this runs it without, as
 		// homelab does. The key is still required by the CRD.
 		secrets: map[string]string{"api-key": "unused", "discord-webhook": "http://discord.invalid/hook"},
-		newObj:  func() ctrlcommon.ConfigResource { return &transcodev1alpha1.Tdarr{} },
+		newObj:  func() reconciler.ConfigResource { return &transcodev1alpha1.Tdarr{} },
 		reconciler: func(c client.Client) reconcile.Reconciler {
 			return &transcode.TdarrReconciler{Client: c, Recorder: events.NewFakeRecorder(100)}
 		},

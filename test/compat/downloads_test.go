@@ -21,8 +21,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	downloadsv1alpha1 "github.com/kyleseneker/arrchitect/api/downloads/v1alpha1"
-	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
 	"github.com/kyleseneker/arrchitect/internal/controller/downloads"
+	"github.com/kyleseneker/arrchitect/internal/controller/reconciler"
 	"github.com/kyleseneker/arrchitect/internal/httpapi"
 )
 
@@ -65,7 +65,7 @@ func TestSabnzbd(t *testing.T) {
 			"api-key": key, "usenet-username": "compat", "usenet-password": "usenet-secret",
 			"apprise-urls": "discord://compat/token", "sab-username": "compat-admin", "sab-password": "sab-secret",
 		},
-		newObj: func() ctrlcommon.ConfigResource { return &downloadsv1alpha1.Sabnzbd{} },
+		newObj: func() reconciler.ConfigResource { return &downloadsv1alpha1.Sabnzbd{} },
 		reconciler: func(c client.Client) reconcile.Reconciler {
 			return &downloads.SabnzbdReconciler{Client: c, Recorder: events.NewFakeRecorder(100)}
 		},
@@ -191,7 +191,7 @@ func TestQBittorrent(t *testing.T) {
 			"username": qbittorrentUser, "password": password,
 			"proxy-username": "compat-proxy", "proxy-password": "proxy-secret",
 		},
-		newObj: func() ctrlcommon.ConfigResource { return &downloadsv1alpha1.QBittorrent{} },
+		newObj: func() reconciler.ConfigResource { return &downloadsv1alpha1.QBittorrent{} },
 		reconciler: func(c client.Client) reconcile.Reconciler {
 			return &downloads.QBittorrentReconciler{Client: c, Recorder: events.NewFakeRecorder(100)}
 		},

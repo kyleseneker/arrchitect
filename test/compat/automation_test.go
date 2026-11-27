@@ -23,7 +23,7 @@ import (
 	automationv1alpha1 "github.com/kyleseneker/arrchitect/api/automation/v1alpha1"
 	autobrrclient "github.com/kyleseneker/arrchitect/internal/client/autobrr"
 	"github.com/kyleseneker/arrchitect/internal/controller/automation"
-	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
+	"github.com/kyleseneker/arrchitect/internal/controller/reconciler"
 	"github.com/kyleseneker/arrchitect/internal/httpapi"
 )
 
@@ -64,7 +64,7 @@ func TestAutobrr(t *testing.T) {
 			"edge-username": "compat", "edge-password": randomKey(), "feed-cookie": "session=" + randomKey(),
 			"irc-server-password": randomKey(),
 		},
-		newObj: func() ctrlcommon.ConfigResource { return &automationv1alpha1.Autobrr{} },
+		newObj: func() reconciler.ConfigResource { return &automationv1alpha1.Autobrr{} },
 		reconciler: func(c client.Client) reconcile.Reconciler {
 			return &automation.AutobrrReconciler{Client: c, Recorder: events.NewFakeRecorder(100)}
 		},

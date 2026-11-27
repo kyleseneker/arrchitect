@@ -73,9 +73,16 @@ targets, plus compat and e2e.
 
 - `api/<group>/v1alpha1/`: the API types. `api/common/v1alpha1/` holds the
   types several apps share.
-- `internal/controller/<group>/`: one controller per app.
-  `internal/controller/common/` holds the shared reconcile skeleton, status
-  reasons and conditions, appRef, TLS and finalizer helpers.
+- `internal/controller/<group>/`: one controller per app, with the payloads
+  and API-model helpers only that app uses.
+- `internal/controller/reconciler/`: the pass every controller shares: the
+  skeleton, lifecycle and finalizers, status, conditions and events, retries
+  and TLS.
+- `internal/controller/appref/`: following an appRef, and the watches that
+  requeue a resource when the app it refers to, or a Secret that app uses,
+  changes.
+- `internal/controller/secretref/`: reading the Secrets a spec's fields name,
+  and the indexed watch that requeues a resource when one of them changes.
 - `internal/client/<app>/`: a client for each app's HTTP API.
 - `internal/engine/`: the sync engine: app definitions, passes and their
   writes, ownership tracking, stages and name lookups.
@@ -101,15 +108,17 @@ Copy these when you add something similar:
 
 - A controller: `TdarrReconciler` in
   `internal/controller/transcode/tdarr_controller.go`. It declares a
-  `ctrlcommon.Integration`. `Connect` builds the client and signs in, and
+  `reconciler.Integration`. `Connect` builds the client and signs in, and
   cleanup reuses it. `Check` probes the app before a sync, and holds any spec
   check that mustn't block cleanup. `Sync` writes through the `engine.Pass`
   it's given. `Integration.Reconcile` does the lifecycle, status, events and
-  requeue, with the reasons in `internal/controller/common/reasons.go`. An
+  requeue, with the reasons in `internal/controller/reconciler/reasons.go`. An
   app that needs its own header, timeout or redirect handling exports them as
   `HTTPOptions()` from its client package, which `arrchitect export` uses too.
-- appRef resolution: `internal/controller/common/appref.go`. A failure goes
-  through `AppRefFailure`, which picks the reason and the requeue.
+- appRef resolution: `appref.Resolve` in `internal/controller/appref/`, and
+  `appref.Watch` beside `secretref.Watch` in `SetupWithManager`. A failure
+  goes through `reconciler.AppRefFailure`, which picks the reason and the
+  requeue.
 - A compat case: `compatCase` in `test/compat/main_test.go`. A case has a
   fixture, an `update` patch that changes what the first reconcile created,
   `newerFields` for fields older releases lack, and an `export` check.
@@ -170,10 +179,10 @@ Never edit these by hand. Change the source, then regenerate.
   `Maintainerr has no Radarr server named "M"`,
   `Tdarr has more than one node named "T"`. The lint config allows a capital
   first letter in an error string only for an app name.
-- Keep the existing requeue policy. `ctrlcommon.Classify` picks a base delay
+- Keep the existing requeue policy. `reconciler.Classify` picks a base delay
   from what `Connect` returns: 30 seconds for a missing Secret or reference, 60
   when an app is unreachable, 5 minutes for refused credentials, and none for
-  `InvalidConfig`. `ctrlcommon.RetryAfter` doubles it for each failure in a row,
+  `InvalidConfig`. `reconciler.RetryAfter` doubles it for each failure in a row,
   up to 10 minutes. Wrap a spec problem in `failure.InvalidConfig`, and refused
   credentials in `httpapi.ErrUnauthorized` when the app doesn't answer 401.
 - `Sync` returns each failure as an `error`, wrapped with `%w` and prefixed

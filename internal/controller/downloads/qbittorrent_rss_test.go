@@ -15,7 +15,7 @@ import (
 
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
 	downloadsv1alpha1 "github.com/kyleseneker/arrchitect/api/downloads/v1alpha1"
-	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
+	"github.com/kyleseneker/arrchitect/internal/controller/reconciler"
 	"github.com/kyleseneker/arrchitect/internal/testnet"
 )
 
@@ -285,11 +285,11 @@ func TestQBDeletionPolicyRemovesTheRSSItCreated(t *testing.T) {
 		rules: map[string]map[string]any{"Ours": {}, "Theirs": {}},
 	}
 	cfg := qbConfig(app.serve(t))
-	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{DeletionPolicy: ctrlcommon.DeletionPolicyDelete}
+	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{DeletionPolicy: reconciler.DeletionPolicyDelete}
 	cfg.Status.SetManagedResources(map[string][]string{"rssFeeds": {"Ours"}, "rssRules": {"Ours"}})
 	now := metav1.NewTime(time.Now())
 	cfg.DeletionTimestamp = &now
-	cfg.Finalizers = []string{ctrlcommon.Finalizer}
+	cfg.Finalizers = []string{reconciler.Finalizer}
 
 	runQB(t, cfg)
 

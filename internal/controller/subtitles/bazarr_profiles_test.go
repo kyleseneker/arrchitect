@@ -14,7 +14,7 @@ import (
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
 	subtitlesv1alpha1 "github.com/kyleseneker/arrchitect/api/subtitles/v1alpha1"
 	bazarrclient "github.com/kyleseneker/arrchitect/internal/client/bazarr"
-	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
+	"github.com/kyleseneker/arrchitect/internal/controller/reconciler"
 )
 
 func storedProfile(id int, name string) map[string]any {
@@ -164,12 +164,12 @@ func TestBazarrObserveReportsAProfilePruneWouldDelete(t *testing.T) {
 func TestBazarrDeletionPolicyRemovesTheProfilesItCreated(t *testing.T) {
 	app := &fakeBazarr{profiles: []map[string]any{storedProfile(1, "created"), storedProfile(2, "hand-made")}}
 	cfg := profilesConfig(app.serve(t), 1)
-	policy := ctrlcommon.DeletionPolicyDelete
+	policy := reconciler.DeletionPolicyDelete
 	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{DeletionPolicy: policy}
 	cfg.Status.SetManagedResources(map[string][]string{profilesKind: {"1"}})
 	now := metav1.NewTime(time.Now())
 	cfg.DeletionTimestamp = &now
-	cfg.Finalizers = []string{ctrlcommon.Finalizer}
+	cfg.Finalizers = []string{reconciler.Finalizer}
 
 	runBazarr(t, cfg, bazarrSecrets())
 

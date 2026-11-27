@@ -18,7 +18,7 @@ import (
 	requestsv1alpha1 "github.com/kyleseneker/arrchitect/api/requests/v1alpha1"
 	jellyfinclient "github.com/kyleseneker/arrchitect/internal/client/jellyfin"
 	seerrclient "github.com/kyleseneker/arrchitect/internal/client/seerr"
-	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
+	"github.com/kyleseneker/arrchitect/internal/controller/reconciler"
 	"github.com/kyleseneker/arrchitect/internal/controller/requests"
 	"github.com/kyleseneker/arrchitect/internal/httpapi"
 	"github.com/kyleseneker/arrchitect/internal/testnet"
@@ -98,7 +98,7 @@ func TestSeerr(t *testing.T) {
 			"jellyfin-username": jellyfinAdmin, "jellyfin-password": jellyfinPassword,
 			"sonarr-api-key": sonarrKey, "radarr-api-key": radarrKey, "discord-webhook": fakes + "/webhook",
 		},
-		newObj: func() ctrlcommon.ConfigResource { return &requestsv1alpha1.Seerr{} },
+		newObj: func() reconciler.ConfigResource { return &requestsv1alpha1.Seerr{} },
 		reconciler: func(c client.Client) reconcile.Reconciler {
 			return &requests.SeerrReconciler{Client: c, Recorder: events.NewFakeRecorder(100)}
 		},

@@ -25,8 +25,8 @@ import (
 
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
 	downloadsv1alpha1 "github.com/kyleseneker/arrchitect/api/downloads/v1alpha1"
-	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
 	"github.com/kyleseneker/arrchitect/internal/controller/internal/contract"
+	"github.com/kyleseneker/arrchitect/internal/controller/reconciler"
 	"github.com/kyleseneker/arrchitect/internal/metrics"
 	"github.com/kyleseneker/arrchitect/internal/secrets"
 	"github.com/kyleseneker/arrchitect/internal/testnet"
@@ -391,12 +391,12 @@ func TestSabnzbdDeletionPolicyRemovesWhatItCreated(t *testing.T) {
 		"servers": sabnzbdEntries("old", "hand-made"), "categories": sabnzbdEntries("*", "tv", "movies"),
 	}}
 	cfg := sabnzbdConfig(app.serve(t))
-	policy := ctrlcommon.DeletionPolicyDelete
+	policy := reconciler.DeletionPolicyDelete
 	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{DeletionPolicy: policy}
 	cfg.Status.SetManagedResources(map[string][]string{"servers": {"old"}, "categories": {"tv"}})
 	now := metav1.NewTime(time.Now())
 	cfg.DeletionTimestamp = &now
-	cfg.Finalizers = []string{ctrlcommon.Finalizer}
+	cfg.Finalizers = []string{reconciler.Finalizer}
 
 	runSabnzbdConfig(t, cfg)
 
@@ -583,4 +583,20 @@ func TestSabnzbdReportsSettingsSABnzbdDidNotKeep(t *testing.T) {
 	}
 	assert.Equal(t, metav1.ConditionFalse, synced.Status)
 	assert.Contains(t, synced.Message, "settings(misc.pre_script): SABnzbd didn't keep the value written")
+}
+
+func TestBoolTo01(t *testing.T) {
+	tests := []struct {
+		name string
+		b    bool
+		want string
+	}{
+		{"true", true, "1"},
+		{"false", false, "0"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, boolTo01(tt.b))
+		})
+	}
 }

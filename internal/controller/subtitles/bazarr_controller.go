@@ -13,7 +13,6 @@ import (
 	"strconv"
 	"strings"
 
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -23,7 +22,9 @@ import (
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
 	subtitlesv1alpha1 "github.com/kyleseneker/arrchitect/api/subtitles/v1alpha1"
 	bazarrclient "github.com/kyleseneker/arrchitect/internal/client/bazarr"
-	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
+	"github.com/kyleseneker/arrchitect/internal/controller/appref"
+	"github.com/kyleseneker/arrchitect/internal/controller/reconciler"
+	"github.com/kyleseneker/arrchitect/internal/controller/secretref"
 	"github.com/kyleseneker/arrchitect/internal/engine"
 	"github.com/kyleseneker/arrchitect/internal/failure"
 	"github.com/kyleseneker/arrchitect/internal/httpapi"
@@ -35,7 +36,7 @@ import (
 type BazarrReconciler struct {
 	client.Client
 	Recorder events.EventRecorder
-	Apps     ctrlcommon.Apps
+	Apps     appref.Apps
 }
 
 // +kubebuilder:rbac:groups=arrchitect.dev,resources=bazarrs,verbs=get;list;watch;update;patch
@@ -45,7 +46,7 @@ type BazarrReconciler struct {
 // +kubebuilder:rbac:groups=arrchitect.dev,resources=sonarrs;radarrs;jellyfins,verbs=get;list;watch
 
 func (r *BazarrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	integration := ctrlcommon.Integration[*subtitlesv1alpha1.Bazarr, *bazarrclient.Client]{
+	integration := reconciler.Integration[*subtitlesv1alpha1.Bazarr, *bazarrclient.Client]{
 		App:     "bazarr",
 		Connect: r.connect,
 		Check: func(ctx context.Context, bc *bazarrclient.Client, _ *subtitlesv1alpha1.Bazarr) error {
@@ -63,7 +64,7 @@ func (r *BazarrReconciler) connect(ctx context.Context, config *subtitlesv1alpha
 	if err != nil {
 		return nil, err
 	}
-	tlsCfg, err := ctrlcommon.ResolveTLSConfig(ctx, r.Client, config.Namespace, config.Spec.Connection.TLS)
+	tlsCfg, err := reconciler.ResolveTLSConfig(ctx, r.Client, config.Namespace, config.Spec.Connection.TLS)
 	if err != nil {
 		return nil, err
 	}
@@ -207,7 +208,7 @@ func (r *BazarrReconciler) resolveConnection(
 	ctx context.Context, namespace string, conn subtitlesv1alpha1.BazarrAppConnection,
 ) (subtitlesv1alpha1.BazarrAppConnection, error) {
 	if conn.AppRef != nil {
-		app, addr, err := ctrlcommon.ResolveAppAddress(ctx, r.Client, r.Apps, namespace, *conn.AppRef)
+		app, addr, err := appref.ResolveAddress(ctx, r.Client, r.Apps, namespace, *conn.AppRef)
 		if err != nil {
 			return conn, fmt.Errorf("appRef: %w", err)
 		}
@@ -240,12 +241,12 @@ func (r *BazarrReconciler) bazarrJellyfinForm(
 	ctx context.Context, namespace string, jf *subtitlesv1alpha1.BazarrJellyfin,
 ) (url.Values, error) {
 	if jf.AppRef != nil {
-		app, err := ctrlcommon.ResolveAppRef(ctx, r.Client, r.Apps, namespace, *jf.AppRef)
+		app, err := appref.Resolve(ctx, r.Client, r.Apps, namespace, *jf.AppRef)
 		if err != nil {
 			return nil, fmt.Errorf("appRef: %w", err)
 		}
 		if app.APIKeySecretRef == nil {
-			return nil, ctrlcommon.InvalidAppRef("appRef: Jellyfin %q sets no API key Secret", jf.AppRef.Name)
+			return nil, appref.Invalid("appRef: Jellyfin %q sets no API key Secret", jf.AppRef.Name)
 		}
 		resolved := *jf
 		resolved.URL, resolved.APIKeySecretRef = app.URL, app.APIKeySecretRef
@@ -439,7 +440,7 @@ func (r *BazarrReconciler) bazarrProviderForm(ctx context.Context, namespace str
 		if p.Enabled == nil || *p.Enabled {
 			form.Add("settings-general-enabled_providers", p.Name)
 		}
-		values, err := ctrlcommon.FieldValues(ctx, r.Client, namespace, "provider "+p.Name, p.Settings)
+		values, err := secretref.FieldValues(ctx, r.Client, namespace, "provider "+p.Name, p.Settings)
 		if err != nil {
 			return nil, err
 		}
@@ -622,9 +623,12 @@ func sameBazarrProfiles(current []map[string]any, desiredJSON string) bool {
 // SetupWithManager sets up the controller with the Manager.
 func (r *BazarrReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	b := ctrl.NewControllerManagedBy(mgr).
-		For(&subtitlesv1alpha1.Bazarr{}, builder.WithPredicates(ctrlcommon.ConfigChangedPredicate())).
-		WatchesMetadata(&corev1.Secret{}, ctrlcommon.EnqueueForSecretThroughRefs(r.Client, r.Apps, &subtitlesv1alpha1.BazarrList{}, bazarrAppRefs))
-	b, err := ctrlcommon.WatchAppRefs(mgr, b, r.Apps, &subtitlesv1alpha1.Bazarr{}, &subtitlesv1alpha1.BazarrList{}, bazarrAppRefs, "Sonarr", "Radarr", "Jellyfin")
+		For(&subtitlesv1alpha1.Bazarr{}, builder.WithPredicates(reconciler.ConfigChangedPredicate()))
+	b, err := secretref.Watch(mgr, b, &subtitlesv1alpha1.Bazarr{}, &subtitlesv1alpha1.BazarrList{})
+	if err != nil {
+		return err
+	}
+	b, err = appref.Watch(mgr, b, r.Apps, &subtitlesv1alpha1.Bazarr{}, &subtitlesv1alpha1.BazarrList{}, bazarrAppRefs, "Sonarr", "Radarr", "Jellyfin")
 	if err != nil {
 		return err
 	}

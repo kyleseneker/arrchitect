@@ -8,7 +8,7 @@ import (
 
 	curationv1alpha1 "github.com/kyleseneker/arrchitect/api/curation/v1alpha1"
 	maintainerrclient "github.com/kyleseneker/arrchitect/internal/client/maintainerr"
-	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
+	"github.com/kyleseneker/arrchitect/internal/controller/secretref"
 	"github.com/kyleseneker/arrchitect/internal/engine"
 	"github.com/kyleseneker/arrchitect/internal/jsondiff"
 )
@@ -40,7 +40,7 @@ func (s *maintainerrSync) notifications(ctx context.Context, declared []curation
 }
 
 func (s *maintainerrSync) notification(ctx context.Context, n *curationv1alpha1.MaintainerrNotification, stored []map[string]any) error {
-	values, err := ctrlcommon.FieldValues(ctx, s.c, s.namespace, "notification "+n.Name, n.Options)
+	values, err := secretref.FieldValues(ctx, s.c, s.namespace, "notification "+n.Name, n.Options)
 	if err != nil {
 		return err
 	}

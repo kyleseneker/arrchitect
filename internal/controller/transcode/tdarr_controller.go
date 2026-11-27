@@ -11,7 +11,6 @@ import (
 	"strings"
 	"time"
 
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -21,7 +20,8 @@ import (
 
 	transcodev1alpha1 "github.com/kyleseneker/arrchitect/api/transcode/v1alpha1"
 	tdarrclient "github.com/kyleseneker/arrchitect/internal/client/tdarr"
-	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
+	"github.com/kyleseneker/arrchitect/internal/controller/reconciler"
+	"github.com/kyleseneker/arrchitect/internal/controller/secretref"
 	"github.com/kyleseneker/arrchitect/internal/engine"
 	"github.com/kyleseneker/arrchitect/internal/failure"
 	"github.com/kyleseneker/arrchitect/internal/httpapi"
@@ -41,7 +41,7 @@ type TdarrReconciler struct {
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
 
 func (r *TdarrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	integration := ctrlcommon.Integration[*transcodev1alpha1.Tdarr, *tdarrclient.Client]{
+	integration := reconciler.Integration[*transcodev1alpha1.Tdarr, *tdarrclient.Client]{
 		App:     "tdarr",
 		Connect: r.connect,
 		Check: func(ctx context.Context, tc *tdarrclient.Client, _ *transcodev1alpha1.Tdarr) error {
@@ -59,7 +59,7 @@ func (r *TdarrReconciler) connect(ctx context.Context, config *transcodev1alpha1
 	if err != nil {
 		return nil, err
 	}
-	tlsCfg, err := ctrlcommon.ResolveTLSConfig(ctx, r.Client, config.Namespace, config.Spec.Connection.TLS)
+	tlsCfg, err := reconciler.ResolveTLSConfig(ctx, r.Client, config.Namespace, config.Spec.Connection.TLS)
 	if err != nil {
 		return nil, err
 	}
@@ -597,9 +597,11 @@ func (s *tdarrSync) convergeWorkerLimit(ctx context.Context, nodeID, workerType 
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *TdarrReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
-		For(&transcodev1alpha1.Tdarr{}, builder.WithPredicates(ctrlcommon.ConfigChangedPredicate())).
-		WatchesMetadata(&corev1.Secret{}, ctrlcommon.EnqueueForSecret(r.Client, &transcodev1alpha1.TdarrList{})).
-		Named("tdarr").
-		Complete(r)
+	b := ctrl.NewControllerManagedBy(mgr).
+		For(&transcodev1alpha1.Tdarr{}, builder.WithPredicates(reconciler.ConfigChangedPredicate()))
+	b, err := secretref.Watch(mgr, b, &transcodev1alpha1.Tdarr{}, &transcodev1alpha1.TdarrList{})
+	if err != nil {
+		return err
+	}
+	return b.Named("tdarr").Complete(r)
 }

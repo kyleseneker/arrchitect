@@ -24,7 +24,7 @@ import (
 
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
 	indexersv1alpha1 "github.com/kyleseneker/arrchitect/api/indexers/v1alpha1"
-	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
+	"github.com/kyleseneker/arrchitect/internal/controller/reconciler"
 	"github.com/kyleseneker/arrchitect/internal/testnet"
 )
 
@@ -184,7 +184,7 @@ func TestFlareSolverrDeletePolicyAndOwnership(t *testing.T) {
 	cfg := flareConfig(app.serve(t), false, []string{"owned"})
 	policy := "delete"
 	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{DeletionPolicy: policy}
-	cfg.Finalizers = []string{ctrlcommon.Finalizer}
+	cfg.Finalizers = []string{reconciler.Finalizer}
 	now := metav1.Now()
 	cfg.DeletionTimestamp = &now
 	c := runFlare(t, cfg)
@@ -226,13 +226,13 @@ func TestFlareSolverrClientSaysWhyItCantConnect(t *testing.T) {
 	withCA.Spec.Connection.TLS = &commonv1alpha1.TLSConfig{CASecretRef: commonv1alpha1.SecretKeyRef{Name: "ca", Key: "ca.crt"}}
 	_, err := r.connect(context.Background(), withCA)
 	require.Error(t, err)
-	reason, _ := ctrlcommon.Classify(err)
-	assert.Equal(t, ctrlcommon.ReasonSecretNotFound, reason)
+	reason, _ := reconciler.Classify(err)
+	assert.Equal(t, reconciler.ReasonSecretNotFound, reason)
 
 	_, err = r.connect(context.Background(), flareConfig("ftp://flaresolverr", false, nil))
 	require.Error(t, err)
-	reason, after := ctrlcommon.Classify(err)
-	assert.Equal(t, ctrlcommon.ReasonInvalidConfig, reason)
+	reason, after := reconciler.Classify(err)
+	assert.Equal(t, reconciler.ReasonInvalidConfig, reason)
 	assert.Zero(t, after, "a spec problem waits for the spec to change")
 
 	fc, err := r.connect(context.Background(), flareConfig("http://flaresolverr:8191", false, nil))

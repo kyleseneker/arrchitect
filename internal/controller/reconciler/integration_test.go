@@ -1,4 +1,4 @@
-package common
+package reconciler
 
 import (
 	"context"
@@ -13,12 +13,15 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
 	pvrv1alpha1 "github.com/kyleseneker/arrchitect/api/pvr/v1alpha1"
+	"github.com/kyleseneker/arrchitect/internal/controller/appref"
 	"github.com/kyleseneker/arrchitect/internal/engine"
 	"github.com/kyleseneker/arrchitect/internal/failure"
 	"github.com/kyleseneker/arrchitect/internal/httpapi"
@@ -35,8 +38,8 @@ func TestClassify(t *testing.T) {
 		reason string
 		after  time.Duration
 	}{
-		{"missing appRef target", fmt.Errorf("Sonarr %q %w", "sonarr", errAppRefNotFound), ReasonReferenceNotFound, 30 * time.Second},
-		{"appRef that can't be followed", InvalidAppRef("Plex %q: unsupported kind", "plex"), ReasonInvalidConfig, 0},
+		{"missing appRef target", fmt.Errorf("Sonarr %q %w", "sonarr", appref.ErrNotFound), ReasonReferenceNotFound, 30 * time.Second},
+		{"appRef that can't be followed", appref.Invalid("Plex %q: unsupported kind", "plex"), ReasonInvalidConfig, 0},
 		{"spec problem", failure.InvalidConfig(errors.New("bad URL")), ReasonInvalidConfig, 0},
 		{"missing Secret", fmt.Errorf("authentication: %w", missingSecret), ReasonSecretNotFound, 30 * time.Second},
 		{"refused credentials", &httpapi.APIError{StatusCode: 401}, ReasonUnauthorized, 5 * time.Minute},
@@ -47,6 +50,48 @@ func TestClassify(t *testing.T) {
 			reason, after := Classify(tc.err)
 			assert.Equal(t, tc.reason, reason)
 			assert.Equal(t, tc.after, after)
+		})
+	}
+}
+
+func TestAppRefFailureSaysWhatToFix(t *testing.T) {
+	s := runtime.NewScheme()
+	require.NoError(t, scheme.AddToScheme(s))
+	require.NoError(t, pvrv1alpha1.AddToScheme(s))
+	c := fake.NewClientBuilder().WithScheme(s).WithObjects(
+		&pvrv1alpha1.Sonarr{Name: "nourl", Namespace: "media", Spec: pvrv1alpha1.SonarrSpec{
+			Connection: commonv1alpha1.AppConnection{URL: "http://:8989"},
+		}},
+		&pvrv1alpha1.Sonarr{Name: "sonarr", Namespace: "media", Spec: pvrv1alpha1.SonarrSpec{
+			Connection: commonv1alpha1.AppConnection{URL: "http://sonarr:8989"},
+		}},
+	).Build()
+	resolve := func(apps appref.Apps, kind, name string) error {
+		_, _, err := appref.ResolveAddress(context.Background(), c, apps, "media", commonv1alpha1.AppRef{Kind: kind, Name: name})
+		return fmt.Errorf("download client %q appRef: %w", "client", err)
+	}
+	_, secretErr := secrets.ResolveSecretKeyRef(context.Background(), c, "media", commonv1alpha1.SecretKeyRef{Name: "missing", Key: "key"})
+
+	tests := []struct {
+		name   string
+		err    error
+		reason string
+		after  time.Duration
+	}{
+		{"missing resource", resolve(nil, "Sonarr", "gone"), ReasonReferenceNotFound, 30 * time.Second},
+		{"unsupported kind", resolve(nil, "Tdarr", "tdarr"), ReasonInvalidConfig, 0},
+		{"app the operator doesn't run", resolve(appref.Apps{"radarr": true}, "Sonarr", "sonarr"), ReasonInvalidConfig, 0},
+		{"no usable URL", resolve(nil, "Sonarr", "nourl"), ReasonInvalidConfig, 0},
+		{"kind the connection doesn't take", fmt.Errorf("notification %q appRef: %w", "Sonarr", appref.Invalid("Sonarr isn't a media server")), ReasonInvalidConfig, 0},
+		{"missing Secret", fmt.Errorf("download client %q password: %w", "client", secretErr), ReasonSecretNotFound, 30 * time.Second},
+		{"other failure", errors.New("reading Sonarr \"sonarr\": timeout"), ReasonSyncFailed, 30 * time.Second},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Error(t, tt.err)
+			reason, after := AppRefFailure(tt.err)
+			assert.Equal(t, tt.reason, reason, tt.err.Error())
+			assert.Equal(t, tt.after, after)
 		})
 	}
 }
@@ -157,4 +202,33 @@ func deletingSonarr(t *testing.T) (*pvrv1alpha1.Sonarr, client.Client) {
 	s := runtime.NewScheme()
 	require.NoError(t, pvrv1alpha1.AddToScheme(s))
 	return obj, fake.NewClientBuilder().WithScheme(s).WithObjects(obj).WithStatusSubresource(obj).Build()
+}
+
+func TestConfigChangedPredicate(t *testing.T) {
+	old := &pvrv1alpha1.Sonarr{Name: "sonarr", Namespace: "media", Generation: 1, Finalizers: []string{Finalizer}}
+	cases := []struct {
+		name   string
+		change func(*pvrv1alpha1.Sonarr)
+		want   bool
+	}{
+		{"status", func(c *pvrv1alpha1.Sonarr) { now := metav1.Now(); c.Status.LastSyncTime = &now }, false},
+		{"resource version", func(c *pvrv1alpha1.Sonarr) { c.ResourceVersion = "2" }, false},
+		{"spec", func(c *pvrv1alpha1.Sonarr) { c.Generation++ }, true},
+		{"deletion", func(c *pvrv1alpha1.Sonarr) { now := metav1.Now(); c.DeletionTimestamp = &now }, true},
+		{"finalizers", func(c *pvrv1alpha1.Sonarr) { c.Finalizers = nil }, true},
+		{"annotation", func(c *pvrv1alpha1.Sonarr) { c.Annotations = map[string]string{"reconcile": "now"} }, true},
+	}
+	p := ConfigChangedPredicate()
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			next := old.DeepCopy()
+			tt.change(next)
+			assert.Equal(t, tt.want, p.Update(event.UpdateEvent{ObjectOld: old, ObjectNew: next}))
+		})
+	}
+	assert.False(t, p.Update(event.UpdateEvent{ObjectOld: old}))
+	assert.False(t, p.Update(event.UpdateEvent{ObjectNew: old}))
+	assert.True(t, p.Create(event.CreateEvent{Object: old}))
+	assert.True(t, p.Delete(event.DeleteEvent{Object: old}))
+	assert.True(t, p.Generic(event.GenericEvent{Object: old}))
 }

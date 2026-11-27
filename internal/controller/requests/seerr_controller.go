@@ -10,7 +10,6 @@ import (
 	"strconv"
 	"strings"
 
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -20,7 +19,9 @@ import (
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
 	requestsv1alpha1 "github.com/kyleseneker/arrchitect/api/requests/v1alpha1"
 	seerrclient "github.com/kyleseneker/arrchitect/internal/client/seerr"
-	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
+	"github.com/kyleseneker/arrchitect/internal/controller/appref"
+	"github.com/kyleseneker/arrchitect/internal/controller/reconciler"
+	"github.com/kyleseneker/arrchitect/internal/controller/secretref"
 	"github.com/kyleseneker/arrchitect/internal/engine"
 	"github.com/kyleseneker/arrchitect/internal/failure"
 	"github.com/kyleseneker/arrchitect/internal/httpapi"
@@ -32,7 +33,7 @@ import (
 type SeerrReconciler struct {
 	client.Client
 	Recorder events.EventRecorder
-	Apps     ctrlcommon.Apps
+	Apps     appref.Apps
 }
 
 // +kubebuilder:rbac:groups=arrchitect.dev,resources=seerrs,verbs=get;list;watch;update;patch
@@ -42,7 +43,7 @@ type SeerrReconciler struct {
 // +kubebuilder:rbac:groups=arrchitect.dev,resources=sonarrs;radarrs;jellyfins;plexes,verbs=get;list;watch
 
 func (r *SeerrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	integration := ctrlcommon.Integration[*requestsv1alpha1.Seerr, *seerrConn]{
+	integration := reconciler.Integration[*requestsv1alpha1.Seerr, *seerrConn]{
 		App:     "seerr",
 		Connect: r.connect,
 		Check:   r.check,
@@ -64,7 +65,7 @@ type seerrConn struct {
 }
 
 func (r *SeerrReconciler) connect(ctx context.Context, config *requestsv1alpha1.Seerr) (*seerrConn, error) {
-	tlsCfg, err := ctrlcommon.ResolveTLSConfig(ctx, r.Client, config.Namespace, config.Spec.Connection.TLS)
+	tlsCfg, err := reconciler.ResolveTLSConfig(ctx, r.Client, config.Namespace, config.Spec.Connection.TLS)
 	if err != nil {
 		return nil, err
 	}
@@ -81,7 +82,7 @@ func (r *SeerrReconciler) check(ctx context.Context, conn *seerrConn, config *re
 	if conn.initialized, err = conn.sc.IsInitialized(ctx); err != nil {
 		return err
 	}
-	if !conn.initialized && ctrlcommon.ObserveOnly(config.Spec.Reconcile) {
+	if !conn.initialized && reconciler.ObserveOnly(config.Spec.Reconcile) {
 		// Signing in to a Seerr that has not been set up configures its media
 		// server, so observe mode goes no further.
 		return nil
@@ -102,7 +103,7 @@ func (r *SeerrReconciler) sync(ctx context.Context, conn *seerrConn, config *req
 			return r.setup(ctx, sc, &pass.Writes, pass.Owned, config, conn.media)
 		})
 		if err != nil {
-			pass.Retry = ctrlcommon.SetupRetry(err)
+			pass.Retry = reconciler.SetupRetry(err)
 			return []error{err}
 		}
 		if pass.Observe {
@@ -142,7 +143,7 @@ func (r *SeerrReconciler) sync(ctx context.Context, conn *seerrConn, config *req
 	}
 	problems = append(problems, reconcileSeerrJobSchedules(ctx, sc, &pass.Writes, config.Spec.JobSchedules)...)
 	for _, agent := range config.Spec.Notifications {
-		options, err := ctrlcommon.FieldValues(ctx, r.Client, config.Namespace, "notification "+agent.Agent, agent.Options)
+		options, err := secretref.FieldValues(ctx, r.Client, config.Namespace, "notification "+agent.Agent, agent.Options)
 		if err == nil {
 			err = reconcileSeerrNotificationAgent(ctx, sc, &pass.Writes, agent, options)
 		}
@@ -431,7 +432,7 @@ func (r *SeerrReconciler) resolveService(
 ) (requestsv1alpha1.SeerrServiceConnection, *commonv1alpha1.TLSConfig, error) {
 	var tlsSpec *commonv1alpha1.TLSConfig
 	if svc.AppRef != nil {
-		app, addr, err := ctrlcommon.ResolveAppAddress(ctx, r.Client, r.Apps, namespace, *svc.AppRef)
+		app, addr, err := appref.ResolveAddress(ctx, r.Client, r.Apps, namespace, *svc.AppRef)
 		if err != nil {
 			return svc, nil, fmt.Errorf("appRef: %w", err)
 		}
@@ -454,7 +455,7 @@ func (r *SeerrReconciler) mediaServer(ctx context.Context, config *requestsv1alp
 	var m seerrMediaServer
 	if auth := config.Spec.JellyfinAuth; auth != (requestsv1alpha1.SeerrJellyfinAuth{}) {
 		if auth.AppRef != nil {
-			app, addr, err := ctrlcommon.ResolveAppAddress(ctx, r.Client, r.Apps, config.Namespace, *auth.AppRef)
+			app, addr, err := appref.ResolveAddress(ctx, r.Client, r.Apps, config.Namespace, *auth.AppRef)
 			if err != nil {
 				return m, fmt.Errorf("jellyfinAuth appRef: %w", err)
 			}
@@ -467,7 +468,7 @@ func (r *SeerrReconciler) mediaServer(ctx context.Context, config *requestsv1alp
 	}
 	if auth := config.Spec.PlexAuth; auth != (requestsv1alpha1.SeerrPlexAuth{}) {
 		if auth.AppRef != nil {
-			app, addr, err := ctrlcommon.ResolveAppAddress(ctx, r.Client, r.Apps, config.Namespace, *auth.AppRef)
+			app, addr, err := appref.ResolveAddress(ctx, r.Client, r.Apps, config.Namespace, *auth.AppRef)
 			if err != nil {
 				return m, fmt.Errorf("plexAuth appRef: %w", err)
 			}
@@ -765,9 +766,12 @@ func seerrDiffers(current, payload map[string]any) bool {
 // SetupWithManager sets up the controller with the Manager.
 func (r *SeerrReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	b := ctrl.NewControllerManagedBy(mgr).
-		For(&requestsv1alpha1.Seerr{}, builder.WithPredicates(ctrlcommon.ConfigChangedPredicate())).
-		WatchesMetadata(&corev1.Secret{}, ctrlcommon.EnqueueForSecretThroughRefs(r.Client, r.Apps, &requestsv1alpha1.SeerrList{}, seerrAppRefs))
-	b, err := ctrlcommon.WatchAppRefs(mgr, b, r.Apps, &requestsv1alpha1.Seerr{}, &requestsv1alpha1.SeerrList{}, seerrAppRefs, "Sonarr", "Radarr", "Jellyfin", "Plex")
+		For(&requestsv1alpha1.Seerr{}, builder.WithPredicates(reconciler.ConfigChangedPredicate()))
+	b, err := secretref.Watch(mgr, b, &requestsv1alpha1.Seerr{}, &requestsv1alpha1.SeerrList{})
+	if err != nil {
+		return err
+	}
+	b, err = appref.Watch(mgr, b, r.Apps, &requestsv1alpha1.Seerr{}, &requestsv1alpha1.SeerrList{}, seerrAppRefs, "Sonarr", "Radarr", "Jellyfin", "Plex")
 	if err != nil {
 		return err
 	}

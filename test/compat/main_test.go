@@ -53,7 +53,7 @@ import (
 	requestsv1alpha1 "github.com/kyleseneker/arrchitect/api/requests/v1alpha1"
 	subtitlesv1alpha1 "github.com/kyleseneker/arrchitect/api/subtitles/v1alpha1"
 	transcodev1alpha1 "github.com/kyleseneker/arrchitect/api/transcode/v1alpha1"
-	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
+	"github.com/kyleseneker/arrchitect/internal/controller/reconciler"
 	"github.com/kyleseneker/arrchitect/internal/engine"
 	"github.com/kyleseneker/arrchitect/internal/export"
 	"github.com/kyleseneker/arrchitect/internal/httpapi"
@@ -138,7 +138,7 @@ type compatCase struct {
 	vars    map[string]string
 	// secrets become one Secret named "compat-credentials" in the test namespace.
 	secrets    map[string]string
-	newObj     func() ctrlcommon.ConfigResource
+	newObj     func() reconciler.ConfigResource
 	reconciler func(client.Client) reconcile.Reconciler
 	objects    map[string]compatKind
 	proxy      *recordingProxy
@@ -171,20 +171,20 @@ type compatCase struct {
 
 // compatKind is a kind of object a fixture can hold besides the case's own.
 type compatKind struct {
-	newObj     func() ctrlcommon.ConfigResource
+	newObj     func() reconciler.ConfigResource
 	reconciler func(client.Client) reconcile.Reconciler
 }
 
 // resource is one fixture document as created in the test namespace.
 type resource struct {
 	key        types.NamespacedName
-	newObj     func() ctrlcommon.ConfigResource
+	newObj     func() reconciler.ConfigResource
 	reconciler reconcile.Reconciler
 }
 
 // create creates obj, decoded from a fixture or export, along with what
 // reconciles it.
-func (tc compatCase) create(t *testing.T, obj ctrlcommon.ConfigResource) resource {
+func (tc compatCase) create(t *testing.T, obj reconciler.ConfigResource) resource {
 	t.Helper()
 	kind := tc.kindOf(t, obj)
 	require.NoError(t, k8s.Create(context.Background(), obj),
@@ -204,7 +204,7 @@ func (tc compatCase) kindOf(t *testing.T, obj client.Object) compatKind {
 }
 
 // decode reads a document of the case's own kind or one of its objects' kinds.
-func (tc compatCase) decode(t *testing.T, doc string) ctrlcommon.ConfigResource {
+func (tc compatCase) decode(t *testing.T, doc string) reconciler.ConfigResource {
 	t.Helper()
 	var meta metav1.TypeMeta
 	require.NoError(t, yaml.Unmarshal([]byte(doc), &meta))
@@ -328,7 +328,7 @@ func checkUpdate(t *testing.T, tc compatCase, resources []resource, read isRead)
 }
 
 // newObjAt reads the resource as stored.
-func (r resource) newObjAt(t *testing.T) ctrlcommon.ConfigResource {
+func (r resource) newObjAt(t *testing.T) reconciler.ConfigResource {
 	t.Helper()
 	obj := r.newObj()
 	require.NoError(t, k8s.Get(context.Background(), r.key, obj), "reading %s", r.key)
@@ -441,14 +441,14 @@ func checkExport(t *testing.T, tc compatCase, fixture []client.Object, read isRe
 	if res.Secret != nil {
 		require.NoError(t, k8s.Create(ctx, res.Secret), "creating the exported Secret")
 	}
-	obj, ok := res.Config.(ctrlcommon.ConfigResource)
+	obj, ok := res.Config.(reconciler.ConfigResource)
 	require.True(t, ok)
 	resources := make([]resource, 0, 1+len(res.Objects))
 	resources = append(resources, tc.create(t, obj))
 	patch := client.RawPatch(types.MergePatchType, []byte(`{"spec":{"reconcile":{"driftPolicy":"observe"}}}`))
 	require.NoError(t, k8s.Patch(ctx, obj, patch), "switching the exported config to observe")
 	for _, o := range res.Objects {
-		cr, ok := o.(ctrlcommon.ConfigResource)
+		cr, ok := o.(reconciler.ConfigResource)
 		require.True(t, ok)
 		resources = append(resources, tc.create(t, cr))
 	}
@@ -465,8 +465,8 @@ func checkExport(t *testing.T, tc compatCase, fixture []client.Object, read isRe
 // reconcileUntilCurrent reconciles until status describes the current generation;
 // the first pass may only add the finalizer.
 func reconcileUntilCurrent(
-	t *testing.T, r reconcile.Reconciler, key types.NamespacedName, newObj func() ctrlcommon.ConfigResource,
-) ctrlcommon.ConfigResource {
+	t *testing.T, r reconcile.Reconciler, key types.NamespacedName, newObj func() reconciler.ConfigResource,
+) reconciler.ConfigResource {
 	t.Helper()
 	// Debug verbosity includes each failed request's full response, which status
 	// conditions omit because an application may echo credentials back.
@@ -484,10 +484,10 @@ func reconcileUntilCurrent(
 	return nil
 }
 
-func assertSynced(t *testing.T, obj ctrlcommon.ConfigResource, stage string) bool {
+func assertSynced(t *testing.T, obj reconciler.ConfigResource, stage string) bool {
 	t.Helper()
 	for _, c := range obj.GetConfigStatus().Conditions {
-		if c.Type == ctrlcommon.ConditionSynced {
+		if c.Type == reconciler.ConditionSynced {
 			return assert.Equal(t, metav1.ConditionTrue, c.Status,
 				"%s: Synced=%s (%s): %s", stage, c.Status, c.Reason, c.Message)
 		}

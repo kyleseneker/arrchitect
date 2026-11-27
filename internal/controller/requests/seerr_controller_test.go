@@ -32,8 +32,8 @@ import (
 	mediaserversv1alpha1 "github.com/kyleseneker/arrchitect/api/mediaservers/v1alpha1"
 	pvrv1alpha1 "github.com/kyleseneker/arrchitect/api/pvr/v1alpha1"
 	requestsv1alpha1 "github.com/kyleseneker/arrchitect/api/requests/v1alpha1"
-	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
 	"github.com/kyleseneker/arrchitect/internal/controller/internal/contract"
+	"github.com/kyleseneker/arrchitect/internal/controller/reconciler"
 	"github.com/kyleseneker/arrchitect/internal/metrics"
 	"github.com/kyleseneker/arrchitect/internal/testnet"
 )
@@ -887,12 +887,12 @@ func TestSeerrDeletionPolicyRemovesTheConnectionsItCreated(t *testing.T) {
 		"sonarr": {{"id": float64(0), "name": "Sonarr"}, {"id": float64(1), "name": "Hand-made"}},
 	}}
 	cfg := seerrWithAPIKey(app.serve(t))
-	policy := ctrlcommon.DeletionPolicyDelete
+	policy := reconciler.DeletionPolicyDelete
 	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{DeletionPolicy: policy}
 	cfg.Status.SetManagedResources(map[string][]string{"sonarr": {"Sonarr"}})
 	now := metav1.NewTime(time.Now())
 	cfg.DeletionTimestamp = &now
-	cfg.Finalizers = []string{ctrlcommon.Finalizer}
+	cfg.Finalizers = []string{reconciler.Finalizer}
 
 	runSeerr(t, cfg)
 

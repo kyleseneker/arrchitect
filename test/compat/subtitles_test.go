@@ -18,7 +18,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	subtitlesv1alpha1 "github.com/kyleseneker/arrchitect/api/subtitles/v1alpha1"
-	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
+	"github.com/kyleseneker/arrchitect/internal/controller/reconciler"
 	"github.com/kyleseneker/arrchitect/internal/controller/subtitles"
 	"github.com/kyleseneker/arrchitect/internal/httpapi"
 )
@@ -73,7 +73,7 @@ func TestBazarr(t *testing.T) {
 			"api-key": key, "sonarr-api-key": sonarrKey, "radarr-api-key": radarrKey, "discord-url": "discord://compat/token",
 			"jellyfin-api-key": "compat-jellyfin-key",
 		},
-		newObj: func() ctrlcommon.ConfigResource { return &subtitlesv1alpha1.Bazarr{} },
+		newObj: func() reconciler.ConfigResource { return &subtitlesv1alpha1.Bazarr{} },
 		reconciler: func(c client.Client) reconcile.Reconciler {
 			return &subtitles.BazarrReconciler{Client: c, Recorder: events.NewFakeRecorder(100)}
 		},

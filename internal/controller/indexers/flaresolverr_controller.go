@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"slices"
 
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -15,7 +14,8 @@ import (
 
 	indexersv1alpha1 "github.com/kyleseneker/arrchitect/api/indexers/v1alpha1"
 	flaresolverrclient "github.com/kyleseneker/arrchitect/internal/client/flaresolverr"
-	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
+	"github.com/kyleseneker/arrchitect/internal/controller/reconciler"
+	"github.com/kyleseneker/arrchitect/internal/controller/secretref"
 	"github.com/kyleseneker/arrchitect/internal/engine"
 	"github.com/kyleseneker/arrchitect/internal/httpapi"
 )
@@ -32,7 +32,7 @@ type FlareSolverrReconciler struct {
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
 
 func (r *FlareSolverrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	integration := ctrlcommon.Integration[*indexersv1alpha1.FlareSolverr, *flaresolverrclient.Client]{
+	integration := reconciler.Integration[*indexersv1alpha1.FlareSolverr, *flaresolverrclient.Client]{
 		App:     "flaresolverr",
 		Connect: r.connect,
 		Check: func(ctx context.Context, fc *flaresolverrclient.Client, _ *indexersv1alpha1.FlareSolverr) error {
@@ -46,7 +46,7 @@ func (r *FlareSolverrReconciler) Reconcile(ctx context.Context, req ctrl.Request
 }
 
 func (r *FlareSolverrReconciler) connect(ctx context.Context, config *indexersv1alpha1.FlareSolverr) (*flaresolverrclient.Client, error) {
-	tlsCfg, err := ctrlcommon.ResolveTLSConfig(ctx, r.Client, config.Namespace, config.Spec.Connection.TLS)
+	tlsCfg, err := reconciler.ResolveTLSConfig(ctx, r.Client, config.Namespace, config.Spec.Connection.TLS)
 	if err != nil {
 		return nil, err
 	}
@@ -112,11 +112,13 @@ func sessionNames(sessions []indexersv1alpha1.FlareSolverrSession) []string {
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *FlareSolverrReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
-		For(&indexersv1alpha1.FlareSolverr{}, builder.WithPredicates(ctrlcommon.ConfigChangedPredicate())).
-		WatchesMetadata(&corev1.Secret{}, ctrlcommon.EnqueueForSecret(r.Client, &indexersv1alpha1.FlareSolverrList{})).
-		Named("flaresolverr").
-		Complete(r)
+	b := ctrl.NewControllerManagedBy(mgr).
+		For(&indexersv1alpha1.FlareSolverr{}, builder.WithPredicates(reconciler.ConfigChangedPredicate()))
+	b, err := secretref.Watch(mgr, b, &indexersv1alpha1.FlareSolverr{}, &indexersv1alpha1.FlareSolverrList{})
+	if err != nil {
+		return err
+	}
+	return b.Named("flaresolverr").Complete(r)
 }
 
 // cleanupFlareSolverr destroys the sessions the operator created, for
