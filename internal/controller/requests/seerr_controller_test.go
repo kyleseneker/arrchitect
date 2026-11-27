@@ -614,7 +614,7 @@ func TestSeerrFailedSetupKeepsTrackOfTheServersItCreated(t *testing.T) {
 	got := runSeerr(t, cfg)
 
 	require.Equal(t, []string{"Sonarr"}, seerrServiceNames(app, "sonarr"))
-	assert.Equal(t, []string{"Sonarr"}, got.GetManagedResources()["sonarr"], "prune and deletion could never remove it")
+	assert.Equal(t, []string{"Sonarr"}, got.Status.GetManagedResources()["sonarr"], "prune and deletion could never remove it")
 }
 
 func TestSeerrReportsARefusedAPIKeyAsUnauthorized(t *testing.T) {
@@ -834,7 +834,7 @@ func TestSeerrPrunesTheConnectionItCreatedUnderAnOldName(t *testing.T) {
 		APIKeySecretRef: &commonv1alpha1.SecretKeyRef{Name: "seerr-secrets", Key: "api-key"},
 	}}
 	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{Prune: new(true)}
-	cfg.SetManagedResources(map[string][]string{"sonarr": {"Old"}})
+	cfg.Status.SetManagedResources(map[string][]string{"sonarr": {"Old"}})
 
 	runSeerr(t, cfg)
 
@@ -848,7 +848,7 @@ func TestSeerrDeletionPolicyRemovesTheConnectionsItCreated(t *testing.T) {
 	cfg := seerrWithAPIKey(app.serve(t))
 	policy := ctrlcommon.DeletionPolicyDelete
 	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{DeletionPolicy: policy}
-	cfg.SetManagedResources(map[string][]string{"sonarr": {"Sonarr"}})
+	cfg.Status.SetManagedResources(map[string][]string{"sonarr": {"Sonarr"}})
 	now := metav1.NewTime(time.Now())
 	cfg.DeletionTimestamp = &now
 	cfg.Finalizers = []string{ctrlcommon.Finalizer}
@@ -870,7 +870,7 @@ func TestSeerrObserveReportsAConnectionPruneWouldDelete(t *testing.T) {
 	}}
 	observe := "observe"
 	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{Prune: new(true), DriftPolicy: observe}
-	cfg.SetManagedResources(map[string][]string{"sonarr": {"ObserveOld"}})
+	cfg.Status.SetManagedResources(map[string][]string{"sonarr": {"ObserveOld"}})
 	observed := metrics.DriftObservedTotal.WithLabelValues("seerr", "sonarr", "ObserveOld")
 	before := testutil.ToFloat64(observed)
 

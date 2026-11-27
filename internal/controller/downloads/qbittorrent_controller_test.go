@@ -389,12 +389,12 @@ func TestQBPrunesOnlyCategoriesItCreated(t *testing.T) {
 	app := &fakeQB{categories: qbCategories("tv", "old", "hand-made")}
 	cfg := qbConfig(app.serve(t), "tv")
 	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{Prune: new(true)}
-	cfg.SetManagedResources(map[string][]string{"categories": {"tv", "old"}})
+	cfg.Status.SetManagedResources(map[string][]string{"categories": {"tv", "old"}})
 
 	got := runQB(t, cfg)
 
 	assert.Equal(t, []string{"old"}, app.removed)
-	assert.Equal(t, []string{"tv"}, got.GetManagedResources()["categories"])
+	assert.Equal(t, []string{"tv"}, got.Status.GetManagedResources()["categories"])
 }
 
 func TestQBRecordsTheCategoriesItCreates(t *testing.T) {
@@ -403,7 +403,7 @@ func TestQBRecordsTheCategoriesItCreates(t *testing.T) {
 	got := runQB(t, qbConfig(app.serve(t), "adopted", "created"))
 
 	assert.Equal(t, []string{"POST /api/v2/torrents/createCategory"}, app.writes)
-	assert.Equal(t, []string{"created"}, got.GetManagedResources()["categories"])
+	assert.Equal(t, []string{"created"}, got.Status.GetManagedResources()["categories"])
 }
 
 func TestQBLeavesAnUndeclaredCategorySavePathAlone(t *testing.T) {
@@ -426,7 +426,7 @@ func TestQBObserveReportsACategoryPruneWouldDelete(t *testing.T) {
 	cfg := qbConfig(app.serve(t), "tv")
 	observe := "observe"
 	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{Prune: new(true), DriftPolicy: observe}
-	cfg.SetManagedResources(map[string][]string{"categories": {"old"}})
+	cfg.Status.SetManagedResources(map[string][]string{"categories": {"old"}})
 
 	got := runQB(t, cfg)
 
@@ -442,7 +442,7 @@ func TestQBDeletionPolicyRemovesWhatItCreated(t *testing.T) {
 	cfg := qbConfig(app.serve(t), "tv")
 	policy := ctrlcommon.DeletionPolicyDelete
 	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{DeletionPolicy: policy}
-	cfg.SetManagedResources(map[string][]string{"categories": {"tv"}})
+	cfg.Status.SetManagedResources(map[string][]string{"categories": {"tv"}})
 	now := metav1.NewTime(time.Now())
 	cfg.DeletionTimestamp = &now
 	cfg.Finalizers = []string{ctrlcommon.Finalizer}

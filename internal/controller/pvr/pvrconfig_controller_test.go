@@ -99,7 +99,7 @@ var pvrApps = []pvrApp{
 				yes := true
 				c.Spec.Naming = &pvrv1alpha1.SonarrNaming{RenameEpisodes: &yes}
 			}
-			c.SetManagedResources(o.managed)
+			c.Status.SetManagedResources(o.managed)
 			return c
 		},
 	},
@@ -119,7 +119,7 @@ var pvrApps = []pvrApp{
 				yes := true
 				c.Spec.Naming = &pvrv1alpha1.RadarrNaming{RenameMovies: &yes}
 			}
-			c.SetManagedResources(o.managed)
+			c.Status.SetManagedResources(o.managed)
 			return c
 		},
 	},
@@ -139,7 +139,7 @@ var pvrApps = []pvrApp{
 				yes := true
 				c.Spec.Naming = &pvrv1alpha1.LidarrNaming{RenameTracks: &yes}
 			}
-			c.SetManagedResources(o.managed)
+			c.Status.SetManagedResources(o.managed)
 			return c
 		},
 	},
@@ -159,7 +159,7 @@ var pvrApps = []pvrApp{
 				yes := true
 				c.Spec.Naming = &pvrv1alpha1.ReadarrNaming{RenameBooks: &yes}
 			}
-			c.SetManagedResources(o.managed)
+			c.Status.SetManagedResources(o.managed)
 			return c
 		},
 	},
@@ -298,7 +298,7 @@ func conditionStatus(t *testing.T, c client.Client, app pvrApp, condType string)
 	t.Helper()
 	obj := app.empty()
 	require.NoError(t, c.Get(context.Background(), types.NamespacedName{Name: "app", Namespace: "media"}, obj), "fetching config")
-	for _, cond := range *obj.GetConditions() {
+	for _, cond := range obj.GetConfigStatus().Conditions {
 		if cond.Type == condType {
 			return string(cond.Status)
 		}
@@ -321,8 +321,8 @@ func TestReconcileWritesDeclaredResources(t *testing.T) {
 
 			obj := app.empty()
 			require.NoError(t, c.Get(context.Background(), types.NamespacedName{Name: "app", Namespace: "media"}, obj), "fetching config")
-			assert.NotEmpty(t, (obj.GetManagedResources())["notifications"],
-				"managedResources did not record the notification: %+v", obj.GetManagedResources())
+			assert.NotEmpty(t, (obj.GetConfigStatus().GetManagedResources())["notifications"],
+				"managedResources did not record the notification: %+v", obj.GetConfigStatus().GetManagedResources())
 		})
 	}
 }
@@ -365,7 +365,7 @@ func TestReconcileMissingItemSecretSkipsOnlyItsKind(t *testing.T) {
 
 			obj := app.empty()
 			require.NoError(t, c.Get(context.Background(), types.NamespacedName{Name: "app", Namespace: "media"}, obj))
-			synced := apimeta.FindStatusCondition(*obj.GetConditions(), "Synced")
+			synced := apimeta.FindStatusCondition(obj.GetConfigStatus().Conditions, "Synced")
 			require.NotNil(t, synced)
 			assert.Equal(t, "SyncFailed", synced.Reason)
 			assert.Contains(t, synced.Message, `notifications: notification Webhook field "url": secret "missing" not found`)
@@ -492,7 +492,7 @@ func TestReleaseProfilesResolveTheirIndexerAndTags(t *testing.T) {
 			assert.Equal(t, true, sent[0]["enabled"], "a new profile is enabled")
 			obj := app.empty()
 			require.NoError(t, c.Get(context.Background(), types.NamespacedName{Name: "app", Namespace: "media"}, obj))
-			assert.Equal(t, []string{"No x265"}, obj.GetManagedResources()["releaseProfiles"])
+			assert.Equal(t, []string{"No x265"}, obj.GetConfigStatus().GetManagedResources()["releaseProfiles"])
 		})
 	}
 }

@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"maps"
 	"slices"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // ReconcileConfig holds common reconciliation settings shared across all config CRDs.
@@ -1156,6 +1158,42 @@ func ManagedList(m map[string][]string) []ManagedResource {
 		}
 	}
 	return out
+}
+
+// ConfigStatus holds the status fields every resource reports.
+type ConfigStatus struct {
+	// conditions represent the current state of the resource.
+	// +listType=map
+	// +listMapKey=type
+	// +optional
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
+
+	// observedGeneration is the most recent generation observed.
+	// +optional
+	// +kubebuilder:validation:Minimum=1
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
+
+	// lastSyncTime is the timestamp of the last successful reconciliation.
+	// +optional
+	LastSyncTime *metav1.Time `json:"lastSyncTime,omitempty"`
+
+	// managedResources records the items the operator created, keyed by
+	// resource type. Prune and deletion only remove items listed here, so
+	// items created outside the operator are never deleted.
+	// +optional
+	// +listType=map
+	// +listMapKey=type
+	ManagedResources []ManagedResource `json:"managedResources,omitempty"`
+}
+
+// GetManagedResources returns the managed resources keyed by type.
+func (s *ConfigStatus) GetManagedResources() map[string][]string {
+	return ManagedMap(s.ManagedResources)
+}
+
+// SetManagedResources records managed resources keyed by type.
+func (s *ConfigStatus) SetManagedResources(m map[string][]string) {
+	s.ManagedResources = ManagedList(m)
 }
 
 // AppRef names another app's resource in the same namespace, whose connection

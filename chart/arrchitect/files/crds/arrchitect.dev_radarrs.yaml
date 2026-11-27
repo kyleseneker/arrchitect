@@ -1648,8 +1648,7 @@ spec:
             minProperties: 1
             properties:
               conditions:
-                description: conditions represent the current state of the Radarr
-                  resource.
+                description: conditions represent the current state of the resource.
                 items:
                   description: Condition contains details for one aspect of the current
                     state of this API Resource.
@@ -1715,9 +1714,9 @@ spec:
                 type: string
               managedResources:
                 description: |-
-                  managedResources records the resources this operator created, keyed by
-                  resource type. Prune only removes entries listed here, so resources
-                  created outside the operator are never deleted.
+                  managedResources records the items the operator created, keyed by
+                  resource type. Prune and deletion only remove items listed here, so
+                  items created outside the operator are never deleted.
                 items:
                   description: ManagedResource lists the items of one type the operator
                     created.

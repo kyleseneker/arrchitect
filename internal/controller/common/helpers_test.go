@@ -194,7 +194,7 @@ func TestUpdateStatusSurvivesASpecEditMidPass(t *testing.T) {
 
 	got := &pvrv1alpha1.Sonarr{}
 	require.NoError(t, cl.Get(ctx, key, got))
-	assert.Equal(t, map[string][]string{"downloadClients": {"qbit"}}, got.GetManagedResources(), "ownership was lost")
+	assert.Equal(t, map[string][]string{"downloadClients": {"qbit"}}, got.Status.GetManagedResources(), "ownership was lost")
 	condition := meta.FindStatusCondition(got.Status.Conditions, "Synced")
 	require.NotNil(t, condition)
 	assert.Equal(t, metav1.ConditionTrue, condition.Status)
@@ -233,7 +233,7 @@ func TestUpdateStatusReadsPastALaggingCache(t *testing.T) {
 
 	got := &pvrv1alpha1.Sonarr{}
 	require.NoError(t, cl.Get(ctx, key, got))
-	assert.Equal(t, map[string][]string{"downloadClients": {"qbit"}}, got.GetManagedResources(),
+	assert.Equal(t, map[string][]string{"downloadClients": {"qbit"}}, got.Status.GetManagedResources(),
 		"retrying against the cached version kept conflicting, and the ownership was lost")
 }
 
@@ -248,7 +248,7 @@ func TestUpdateStatusOutlivesACancelledReconcile(t *testing.T) {
 
 	got := &pvrv1alpha1.Sonarr{}
 	require.NoError(t, cl.Get(context.Background(), client.ObjectKeyFromObject(obj), got))
-	assert.Equal(t, map[string][]string{"downloadClients": {"qbit"}}, got.GetManagedResources())
+	assert.Equal(t, map[string][]string{"downloadClients": {"qbit"}}, got.Status.GetManagedResources())
 }
 
 func TestReportResultMessages(t *testing.T) {
@@ -563,7 +563,7 @@ func TestEventNotesKeepTheAppsWordsOut(t *testing.T) {
 func TestManagedResourcesGaugeSurvivesARestartWhileTheAppIsDown(t *testing.T) {
 	obj, c := statusSonarr(t)
 	obj.Name = "restarted"
-	obj.SetManagedResources(map[string][]string{"tags": {"a", "b"}})
+	obj.Status.SetManagedResources(map[string][]string{"tags": {"a", "b"}})
 
 	UpdateStatus(context.Background(), c, nil, obj, false, engine.ReasonAppUnreachable, "connection refused")
 

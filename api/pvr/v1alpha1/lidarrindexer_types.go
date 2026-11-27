@@ -26,32 +26,12 @@ type LidarrIndexerSpec struct {
 // LidarrIndexerStatus is the observed state of a LidarrIndexer.
 // +kubebuilder:validation:MinProperties=1
 type LidarrIndexerStatus struct {
-	// conditions represent the current state of the indexer.
-	// +listType=map
-	// +listMapKey=type
-	// +optional
-	Conditions []metav1.Condition `json:"conditions,omitempty"`
-
-	// observedGeneration is the most recent generation observed.
-	// +optional
-	// +kubebuilder:validation:Minimum=1
-	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
-
-	// lastSyncTime is the timestamp of the last successful reconciliation.
-	// +optional
-	LastSyncTime *metav1.Time `json:"lastSyncTime,omitempty"`
+	commonv1alpha1.ConfigStatus `json:",inline"`
 
 	// id is the indexer's ID in Lidarr.
 	// +optional
 	// +kubebuilder:validation:Minimum=1
 	ID int32 `json:"id,omitempty"`
-
-	// managedResources records what the operator created for this resource,
-	// so deletion only removes what it created.
-	// +optional
-	// +listType=map
-	// +listMapKey=type
-	ManagedResources []commonv1alpha1.ManagedResource `json:"managedResources,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -88,19 +68,9 @@ type LidarrIndexerList struct {
 	Items           []LidarrIndexer `json:"items"`
 }
 
-func (c *LidarrIndexer) GetConditions() *[]metav1.Condition { return &c.Status.Conditions }
-func (c *LidarrIndexer) GetObservedGeneration() *int64      { return &c.Status.ObservedGeneration }
-func (c *LidarrIndexer) GetLastSyncTime() **metav1.Time     { return &c.Status.LastSyncTime }
-func (c *LidarrIndexer) GetManagedResources() map[string][]string {
-	return commonv1alpha1.ManagedMap(c.Status.ManagedResources)
-}
-
-func (c *LidarrIndexer) SetManagedResources(m map[string][]string) {
-	c.Status.ManagedResources = commonv1alpha1.ManagedList(m)
-}
-
 // GetReconcileConfig carries only the deletion policy: the interval and drift
 // policy come from the Lidarr the indexer belongs to.
+func (c *LidarrIndexer) GetConfigStatus() *commonv1alpha1.ConfigStatus { return &c.Status.ConfigStatus }
 func (c *LidarrIndexer) GetReconcileConfig() *commonv1alpha1.ReconcileConfig {
 	return &commonv1alpha1.ReconcileConfig{DeletionPolicy: c.Spec.DeletionPolicy}
 }

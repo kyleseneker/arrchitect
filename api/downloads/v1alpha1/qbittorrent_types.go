@@ -691,28 +691,7 @@ type QBittorrentRSSTorrentParams struct {
 // QBittorrentStatus defines the observed state of QBittorrent.
 // +kubebuilder:validation:MinProperties=1
 type QBittorrentStatus struct {
-	// conditions represent the current state of the QBittorrent resource.
-	// +listType=map
-	// +listMapKey=type
-	// +optional
-	Conditions []metav1.Condition `json:"conditions,omitempty"`
-
-	// observedGeneration is the most recent generation observed.
-	// +optional
-	// +kubebuilder:validation:Minimum=1
-	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
-
-	// lastSyncTime is the timestamp of the last successful reconciliation.
-	// +optional
-	LastSyncTime *metav1.Time `json:"lastSyncTime,omitempty"`
-
-	// managedResources records the resources this operator created, keyed by
-	// resource type. Prune only removes entries listed here, so resources
-	// created outside the operator are never deleted.
-	// +optional
-	// +listType=map
-	// +listMapKey=type
-	ManagedResources []commonv1alpha1.ManagedResource `json:"managedResources,omitempty"`
+	commonv1alpha1.ConfigStatus `json:",inline"`
 }
 
 // +kubebuilder:object:root=true
@@ -749,16 +728,7 @@ type QBittorrentList struct {
 	Items           []QBittorrent `json:"items"`
 }
 
-func (c *QBittorrent) GetConditions() *[]metav1.Condition { return &c.Status.Conditions }
-func (c *QBittorrent) GetObservedGeneration() *int64      { return &c.Status.ObservedGeneration }
-func (c *QBittorrent) GetLastSyncTime() **metav1.Time     { return &c.Status.LastSyncTime }
+func (c *QBittorrent) GetConfigStatus() *commonv1alpha1.ConfigStatus { return &c.Status.ConfigStatus }
 func (c *QBittorrent) GetReconcileConfig() *commonv1alpha1.ReconcileConfig {
 	return c.Spec.Reconcile
-}
-func (c *QBittorrent) GetManagedResources() map[string][]string {
-	return commonv1alpha1.ManagedMap(c.Status.ManagedResources)
-}
-
-func (c *QBittorrent) SetManagedResources(m map[string][]string) {
-	c.Status.ManagedResources = commonv1alpha1.ManagedList(m)
 }

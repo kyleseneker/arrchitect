@@ -96,7 +96,7 @@ func deletingSonarr(t *testing.T) (*pvrv1alpha1.Sonarr, client.Client) {
 	deleted := metav1.NewTime(time.Now().Add(-time.Minute))
 	obj := &pvrv1alpha1.Sonarr{Name: "sonarr", Namespace: "media", Finalizers: []string{Finalizer}, DeletionTimestamp: &deleted}
 	obj.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{DeletionPolicy: DeletionPolicyDelete}
-	obj.SetManagedResources(map[string][]string{"indexers": {"created"}})
+	obj.Status.SetManagedResources(map[string][]string{"indexers": {"created"}})
 	s := runtime.NewScheme()
 	require.NoError(t, pvrv1alpha1.AddToScheme(s))
 	return obj, fake.NewClientBuilder().WithScheme(s).WithObjects(obj).WithStatusSubresource(obj).Build()

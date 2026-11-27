@@ -190,8 +190,8 @@ func TestProwlarrCreatesDeclaredIndexer(t *testing.T) {
 	var got indexersv1alpha1.Prowlarr
 	require.NoError(t, c.Get(context.Background(), types.NamespacedName{Name: "prowlarr", Namespace: "media"}, &got),
 		"fetching config")
-	assert.NotEmpty(t, got.GetManagedResources()["indexers"],
-		"indexer not recorded as managed: %+v", got.GetManagedResources())
+	assert.NotEmpty(t, got.Status.GetManagedResources()["indexers"],
+		"indexer not recorded as managed: %+v", got.Status.GetManagedResources())
 }
 
 func TestProwlarrPruneLeavesUnmanagedIndexerAlone(t *testing.T) {
@@ -226,7 +226,7 @@ func TestProwlarrDeletePolicyCleansTrackedResources(t *testing.T) {
 	cfg := prowlarrConfig(app.serve(t))
 	policy := "delete"
 	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{DeletionPolicy: policy}
-	cfg.SetManagedResources(map[string][]string{"indexers": {"owned"}})
+	cfg.Status.SetManagedResources(map[string][]string{"indexers": {"owned"}})
 	cfg.Finalizers = []string{ctrlcommon.Finalizer}
 	now := metav1.Now()
 	cfg.DeletionTimestamp = &now
@@ -251,7 +251,7 @@ func TestProwlarrProfileCreatedBeforeIndexer(t *testing.T) {
 	require.Equal(t, float64(42), posts[0]["appProfileId"])
 	var got indexersv1alpha1.Prowlarr
 	require.NoError(t, c.Get(context.Background(), types.NamespacedName{Name: "prowlarr", Namespace: "media"}, &got))
-	require.Equal(t, []string{"Search"}, got.GetManagedResources()["appProfiles"])
+	require.Equal(t, []string{"Search"}, got.Status.GetManagedResources()["appProfiles"])
 	require.Equal(t, int32(7), *got.Spec.Indexers[0].AppProfileID)
 }
 
@@ -272,7 +272,7 @@ func TestProwlarrProfileReferenceFailuresPreserveOwnership(t *testing.T) {
 			require.Empty(t, app.postsTo("/api/v1/indexer"))
 			var got indexersv1alpha1.Prowlarr
 			require.NoError(t, c.Get(context.Background(), types.NamespacedName{Name: "prowlarr", Namespace: "media"}, &got))
-			require.Equal(t, []string{"new"}, got.GetManagedResources()["tags"])
+			require.Equal(t, []string{"new"}, got.Status.GetManagedResources()["tags"])
 			for _, condition := range got.Status.Conditions {
 				if condition.Type == "Synced" {
 					require.Equal(t, metav1.ConditionFalse, condition.Status)

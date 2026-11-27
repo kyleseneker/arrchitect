@@ -53,33 +53,12 @@ type FlareSolverrSession struct {
 // FlareSolverrStatus defines the observed state of FlareSolverr.
 // +kubebuilder:validation:MinProperties=1
 type FlareSolverrStatus struct {
-	// conditions represent the current state of the FlareSolverr resource.
-	// +listType=map
-	// +listMapKey=type
-	// +optional
-	Conditions []metav1.Condition `json:"conditions,omitempty"`
-
-	// observedGeneration is the most recent generation observed.
-	// +optional
-	// +kubebuilder:validation:Minimum=1
-	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
-
-	// lastSyncTime is the timestamp of the last successful reconciliation.
-	// +optional
-	LastSyncTime *metav1.Time `json:"lastSyncTime,omitempty"`
+	commonv1alpha1.ConfigStatus `json:",inline"`
 
 	// activeSessions is the number of active sessions managed by this resource.
 	// +optional
 	// +kubebuilder:validation:Minimum=1
 	ActiveSessions int32 `json:"activeSessions,omitempty"`
-
-	// managedResources records the resources this operator created, keyed by
-	// resource type. Prune only removes entries listed here, so resources
-	// created outside the operator are never deleted.
-	// +optional
-	// +listType=map
-	// +listMapKey=type
-	ManagedResources []commonv1alpha1.ManagedResource `json:"managedResources,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -117,16 +96,7 @@ type FlareSolverrList struct {
 	Items           []FlareSolverr `json:"items"`
 }
 
-func (c *FlareSolverr) GetConditions() *[]metav1.Condition { return &c.Status.Conditions }
-func (c *FlareSolverr) GetObservedGeneration() *int64      { return &c.Status.ObservedGeneration }
-func (c *FlareSolverr) GetLastSyncTime() **metav1.Time     { return &c.Status.LastSyncTime }
+func (c *FlareSolverr) GetConfigStatus() *commonv1alpha1.ConfigStatus { return &c.Status.ConfigStatus }
 func (c *FlareSolverr) GetReconcileConfig() *commonv1alpha1.ReconcileConfig {
 	return c.Spec.Reconcile
-}
-func (c *FlareSolverr) GetManagedResources() map[string][]string {
-	return commonv1alpha1.ManagedMap(c.Status.ManagedResources)
-}
-
-func (c *FlareSolverr) SetManagedResources(m map[string][]string) {
-	c.Status.ManagedResources = commonv1alpha1.ManagedList(m)
 }

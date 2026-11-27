@@ -82,7 +82,7 @@ func flareConfig(url string, prune bool, managed []string, sessions ...string) *
 		cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{Prune: &yes}
 	}
 	if managed != nil {
-		cfg.SetManagedResources(map[string][]string{"sessions": managed})
+		cfg.Status.SetManagedResources(map[string][]string{"sessions": managed})
 	}
 	return cfg
 }
@@ -112,7 +112,7 @@ func TestFlareSolverrCreatesDeclaredSessions(t *testing.T) {
 	assert.True(t, app.ran("sessions.create", "indexer-a"), "declared session was never created")
 	var cfg indexersv1alpha1.FlareSolverr
 	require.NoError(t, c.Get(context.Background(), types.NamespacedName{Name: "flaresolverr", Namespace: "media"}, &cfg), "fetching config")
-	assert.Contains(t, cfg.GetManagedResources()["sessions"], "indexer-a", "session not recorded as managed")
+	assert.Contains(t, cfg.Status.GetManagedResources()["sessions"], "indexer-a", "session not recorded as managed")
 }
 
 // Prowlarr opens FlareSolverr sessions on demand. Destroying one mid-request
@@ -169,7 +169,7 @@ func TestFlareSolverrObserveDoesNotCreatePruneOrClaimSessions(t *testing.T) {
 	c := runFlare(t, cfg)
 	require.NoError(t, c.Get(context.Background(), types.NamespacedName{Name: cfg.Name, Namespace: cfg.Namespace}, cfg))
 	require.Equal(t, int32(2), cfg.Status.ActiveSessions, "active sessions")
-	require.Equal(t, []string{"owned"}, cfg.GetManagedResources()["sessions"], "ownership changed")
+	require.Equal(t, []string{"owned"}, cfg.Status.GetManagedResources()["sessions"], "ownership changed")
 	app.mu.Lock()
 	defer app.mu.Unlock()
 	for _, cmd := range app.commands {
@@ -200,7 +200,7 @@ func TestFlareSolverrDoesNotAdoptExistingSessions(t *testing.T) {
 	cfg := flareConfig(app.serve(t), false, nil, "manual")
 	c := runFlare(t, cfg)
 	require.NoError(t, c.Get(context.Background(), client.ObjectKeyFromObject(cfg), cfg))
-	require.Empty(t, cfg.GetManagedResources()["sessions"], "manual session adopted")
+	require.Empty(t, cfg.Status.GetManagedResources()["sessions"], "manual session adopted")
 }
 
 func TestFlareSolverrPruneLimitPreservesOwnership(t *testing.T) {
@@ -212,7 +212,7 @@ func TestFlareSolverrPruneLimitPreservesOwnership(t *testing.T) {
 	cfg := flareConfig(app.serve(t), true, names)
 	c := runFlare(t, cfg)
 	require.NoError(t, c.Get(context.Background(), client.ObjectKeyFromObject(cfg), cfg))
-	require.Equal(t, names, cfg.GetManagedResources()["sessions"], "ownership lost when pruning was refused")
+	require.Equal(t, names, cfg.Status.GetManagedResources()["sessions"], "ownership lost when pruning was refused")
 	for _, name := range names {
 		require.False(t, app.ran("sessions.destroy", name), "prune limit ignored")
 	}

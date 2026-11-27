@@ -423,7 +423,7 @@ func TestLibraryVariablesPruneOnlyWhatTheOperatorCreated(t *testing.T) {
 		ID: "movies", Name: "Movies", Folder: "/data/media/movies",
 		Variables: map[string]string{"bitrate_1080p": "2500"},
 	}}
-	cfg.SetManagedResources(map[string][]string{variablesResource: {"movies/bitrate_1080p", "movies/stale_key"}})
+	cfg.Status.SetManagedResources(map[string][]string{variablesResource: {"movies/bitrate_1080p", "movies/stale_key"}})
 	c := runTdarr(t, cfg, true)
 
 	writes := app.varWrites()
@@ -447,7 +447,7 @@ func TestLibraryVariablesKeptWithoutPrune(t *testing.T) {
 		ID: "movies", Name: "Movies", Folder: "/data/media/movies",
 		Variables: map[string]string{"bitrate_1080p": "2500"},
 	}}
-	cfg.SetManagedResources(map[string][]string{variablesResource: {"movies/stale_key"}})
+	cfg.Status.SetManagedResources(map[string][]string{variablesResource: {"movies/stale_key"}})
 	runTdarr(t, cfg, true)
 
 	assert.Empty(t, app.varWrites(), "deleted a variable with prune off")
@@ -479,7 +479,7 @@ func TestTdarrDeletionPolicyRemovesTheVariablesItCreated(t *testing.T) {
 	cfg := tdarrConfig(app.serve(t))
 	policy := ctrlcommon.DeletionPolicyDelete
 	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{DeletionPolicy: policy}
-	cfg.SetManagedResources(map[string][]string{variablesResource: {"movies/created", "tv/created"}})
+	cfg.Status.SetManagedResources(map[string][]string{variablesResource: {"movies/created", "tv/created"}})
 	now := metav1.NewTime(time.Now())
 	cfg.DeletionTimestamp = &now
 	cfg.Finalizers = []string{ctrlcommon.Finalizer}
@@ -499,7 +499,7 @@ func tdarrManaged(t *testing.T, c client.Client) map[string][]string {
 	t.Helper()
 	var cfg transcodev1alpha1.Tdarr
 	require.NoError(t, c.Get(context.Background(), types.NamespacedName{Name: "tdarr", Namespace: "media"}, &cfg), "fetching config")
-	return cfg.GetManagedResources()
+	return cfg.Status.GetManagedResources()
 }
 
 func TestLibraryDocDecisionMode(t *testing.T) {
@@ -708,7 +708,7 @@ func TestLibraryVariablesObserveReportsWhatPruneWouldDelete(t *testing.T) {
 		ID: "movies", Name: "Movies", Folder: "/data/media/movies",
 		Variables: map[string]string{"bitrate_1080p": "2500"},
 	}}
-	cfg.SetManagedResources(map[string][]string{variablesResource: {"movies/observe_stale"}})
+	cfg.Status.SetManagedResources(map[string][]string{variablesResource: {"movies/observe_stale"}})
 	observed := metrics.DriftObservedTotal.WithLabelValues("tdarr", variablesResource, "movies/observe_stale")
 	before := testutil.ToFloat64(observed)
 

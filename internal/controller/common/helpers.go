@@ -116,7 +116,7 @@ func UpdateStatusManaged(obj ConfigResource, managed map[string][]string) {
 	if managed == nil {
 		return
 	}
-	obj.SetManagedResources(managed)
+	obj.GetConfigStatus().SetManagedResources(managed)
 }
 
 // recordManaged sets the managed_resources series from the ownership obj's
@@ -125,7 +125,7 @@ func UpdateStatusManaged(obj ConfigResource, managed map[string][]string) {
 func recordManaged(obj ConfigResource) {
 	labels := resourceLabels(obj.GetNamespace(), obj.GetName(), obj)
 	metrics.ManagedResources.DeletePartialMatch(labels)
-	for resourceType, names := range obj.GetManagedResources() {
+	for resourceType, names := range obj.GetConfigStatus().GetManagedResources() {
 		if len(names) > 0 {
 			metrics.ManagedResources.WithLabelValues(labels["kind"], labels["namespace"], labels["name"], resourceType).Set(float64(len(names)))
 		}
@@ -151,14 +151,15 @@ var stalledReasons = map[string]bool{
 // GitOps tools read, and Stalled marks a failure no retry fixes. Each change
 // of Ready is recorded as an event.
 func UpdateStatus(ctx context.Context, c client.Client, recorder events.EventRecorder, obj ConfigResource, synced bool, reason, message string) {
+	cs := obj.GetConfigStatus()
 	status := metav1.ConditionFalse
 	if synced {
 		status = metav1.ConditionTrue
 		now := metav1.Now()
-		*obj.GetLastSyncTime() = &now
+		cs.LastSyncTime = &now
 	}
 	generation := obj.GetGeneration()
-	conditions := obj.GetConditions()
+	conditions := &cs.Conditions
 	var before *metav1.Condition
 	if previous := meta.FindStatusCondition(*conditions, engine.ConditionReady); previous != nil {
 		before = previous.DeepCopy()
@@ -170,7 +171,7 @@ func UpdateStatus(ctx context.Context, c client.Client, recorder events.EventRec
 	} else {
 		meta.RemoveStatusCondition(conditions, engine.ConditionStalled)
 	}
-	*obj.GetObservedGeneration() = generation
+	cs.ObservedGeneration = generation
 	recordSynced(obj, synced)
 	recordManaged(obj)
 	if writeStatus(ctx, c, obj) {

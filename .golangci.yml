@@ -69,6 +69,11 @@ linters:
       - linters:
           - kubeapilinter
         text: 'requiredfields: field \w+\.(Connection|\w*Ref) has a valid zero value \(\{\}\)'
+      # It also reads the shared status embedded inline as a field named "", so
+      # it takes an empty status as valid and asks for a pointer or omitempty.
+      - linters:
+          - kubeapilinter
+        text: 'optionalfields: field \w+\.Status (has a valid zero value \(\{"": \{\}\}\)|should have the omitempty tag)'
 
       - linters:
           - dupl

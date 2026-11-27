@@ -182,7 +182,7 @@ func HandleLifecycle(ctx context.Context, c client.Client, recorder events.Event
 // unrelated Secret in the spec can't block it, and with nothing to delete it
 // doesn't connect at all.
 func CleanupApp(ctx context.Context, c client.Reader, recorder events.EventRecorder, obj ConfigResource, connection commonv1alpha1.AppConnection, def engine.AppDefinition, app string) error {
-	owned := engine.NewOwnership(app, obj.GetManagedResources())
+	owned := engine.NewOwnership(app, obj.GetConfigStatus().GetManagedResources())
 	if !def.Deletable(owned) {
 		return nil
 	}
@@ -218,7 +218,7 @@ func emitKeptEvents(recorder events.EventRecorder, obj ConfigResource, kept []en
 // ownsNothing reports whether status.managedResources records nothing, so
 // deletion has nothing to remove and needs no connection to the app.
 func ownsNothing(obj ConfigResource) bool {
-	for _, names := range obj.GetManagedResources() {
+	for _, names := range obj.GetConfigStatus().GetManagedResources() {
 		if len(names) > 0 {
 			return false
 		}

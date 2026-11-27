@@ -510,8 +510,10 @@ func TestControllersPersistStatusAndReleaseOnDelete(t *testing.T) {
 
 			got := tc.newObj()
 			require.NoError(t, c.Get(ctx, key, got), "re-reading CR")
-			conditions := got.(interface{ GetConditions() *[]metav1.Condition }).GetConditions()
-			assert.NotNil(t, apimeta.FindStatusCondition(*conditions, engine.ConditionReady),
+			conditions := got.(interface {
+				GetConfigStatus() *commonv1alpha1.ConfigStatus
+			}).GetConfigStatus().Conditions
+			assert.NotNil(t, apimeta.FindStatusCondition(conditions, engine.ConditionReady),
 				"no Ready condition persisted; the status subresource write did not land")
 			require.Empty(t, got.GetFinalizers(), "an orphan resource must not wait on the operator to be deleted")
 

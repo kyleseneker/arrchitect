@@ -52,7 +52,7 @@ func TestMaintainerrCreatesNotificationsAndLinksThemToRuleGroups(t *testing.T) {
 
 	var cfg curationv1alpha1.Maintainerr
 	require.NoError(t, run.c.Get(context.Background(), types.NamespacedName{Name: "maintainerr", Namespace: "media"}, &cfg))
-	assert.Equal(t, []string{"Discord"}, cfg.GetManagedResources()[notificationsKind])
+	assert.Equal(t, []string{"Discord"}, cfg.Status.GetManagedResources()[notificationsKind])
 
 	app.resetRequests()
 	run.reconcile(t)
@@ -92,7 +92,7 @@ func TestMaintainerrPrunesOnlyTheNotificationsItCreated(t *testing.T) {
 	run := newMaintainerrRun(t, spec)
 	var cfg curationv1alpha1.Maintainerr
 	require.NoError(t, run.c.Get(context.Background(), types.NamespacedName{Name: "maintainerr", Namespace: "media"}, &cfg))
-	cfg.SetManagedResources(map[string][]string{notificationsKind: {"Old"}})
+	cfg.Status.SetManagedResources(map[string][]string{notificationsKind: {"Old"}})
 	require.NoError(t, run.c.Status().Update(context.Background(), &cfg))
 
 	run.reconcile(t)

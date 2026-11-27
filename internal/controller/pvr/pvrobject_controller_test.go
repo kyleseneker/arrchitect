@@ -108,7 +108,7 @@ func TestObjectCreatesItsItemAndOwnsIt(t *testing.T) {
 	got := reconcileDownloadClient(t, apiKeySecret(), sonarrInstanceAt(url, nil), sonarrDownloadClient())
 
 	assert.True(t, fa.saw("POST", fa.path("downloadclient")))
-	assert.Equal(t, []string{"qBittorrent"}, got.GetManagedResources()["downloadClients"])
+	assert.Equal(t, []string{"qBittorrent"}, got.Status.GetManagedResources()["downloadClients"])
 	assert.Equal(t, metav1.ConditionTrue, synced(t, got.Status.Conditions).Status)
 	assert.Contains(t, got.Finalizers, ctrlcommon.Finalizer)
 }
@@ -122,7 +122,7 @@ func TestObjectAdoptsAnExistingItemWithoutOwningIt(t *testing.T) {
 	assert.False(t, fa.saw("POST", fa.path("downloadclient")))
 	assert.True(t, fa.sawPrefix("PUT", fa.path("downloadclient/7")))
 	assert.Equal(t, int32(7), got.Status.ID)
-	assert.Empty(t, got.GetManagedResources()["downloadClients"], "an adopted item must never be deleted with the object")
+	assert.Empty(t, got.Status.GetManagedResources()["downloadClients"], "an adopted item must never be deleted with the object")
 }
 
 func TestObjectWaitsForItsInstance(t *testing.T) {
@@ -172,12 +172,12 @@ func TestObjectRenameReplacesItsOldItem(t *testing.T) {
 		"downloadclient": {{"id": float64(7), "name": "qBit"}},
 	})
 	dc := sonarrDownloadClient()
-	dc.SetManagedResources(map[string][]string{"downloadClients": {"qBit"}})
+	dc.Status.SetManagedResources(map[string][]string{"downloadClients": {"qBit"}})
 	got := reconcileDownloadClient(t, apiKeySecret(), sonarrInstanceAt(url, nil), dc)
 
 	assert.True(t, fa.saw("POST", fa.path("downloadclient")))
 	assert.True(t, fa.saw("DELETE", fa.path("downloadclient/7")))
-	assert.Equal(t, []string{"qBittorrent"}, got.GetManagedResources()["downloadClients"])
+	assert.Equal(t, []string{"qBittorrent"}, got.Status.GetManagedResources()["downloadClients"])
 }
 
 func TestObjectDeletion(t *testing.T) {
@@ -201,7 +201,7 @@ func TestObjectDeletion(t *testing.T) {
 			})
 			dc := sonarrDownloadClient()
 			dc.Spec.DeletionPolicy = tc.policy
-			dc.SetManagedResources(map[string][]string{"downloadClients": tc.managed})
+			dc.Status.SetManagedResources(map[string][]string{"downloadClients": tc.managed})
 			dc.Finalizers = []string{ctrlcommon.Finalizer}
 			now := metav1.Now()
 			dc.DeletionTimestamp = &now
@@ -215,7 +215,7 @@ func TestObjectDeletion(t *testing.T) {
 
 func TestObjectDeletionWithoutItsInstanceReleasesTheFinalizer(t *testing.T) {
 	dc := sonarrDownloadClient()
-	dc.SetManagedResources(map[string][]string{"downloadClients": {"qBittorrent"}})
+	dc.Status.SetManagedResources(map[string][]string{"downloadClients": {"qBittorrent"}})
 	dc.Finalizers = []string{ctrlcommon.Finalizer}
 	now := metav1.Now()
 	dc.DeletionTimestamp = &now
@@ -249,7 +249,7 @@ func TestIndexerObjectReadsItsFieldsFromSecrets(t *testing.T) {
 
 	assert.True(t, fa.saw("POST", fa.path("indexer")))
 	require.NoError(t, c.Get(context.Background(), client.ObjectKeyFromObject(idx), idx))
-	assert.Equal(t, []string{"NZBgeek"}, idx.GetManagedResources()["indexers"])
+	assert.Equal(t, []string{"NZBgeek"}, idx.Status.GetManagedResources()["indexers"])
 }
 
 func reconcileIndexerWithClient(t *testing.T, clientName string) (*fakeArr, *pvrv1alpha1.SonarrIndexer) {
@@ -430,7 +430,7 @@ func TestEveryPVRAppsObjectsReachItsApp(t *testing.T) {
 				require.NoError(t, err)
 				obj := app.objects[i].DeepCopyObject().(ctrlcommon.ConfigResource)
 				require.NoError(t, missing.Get(ctx, client.ObjectKeyFromObject(obj), obj))
-				assert.Equal(t, app.kind+` "app" not found`, synced(t, *obj.GetConditions()).Message)
+				assert.Equal(t, app.kind+` "app" not found`, synced(t, obj.GetConfigStatus().Conditions).Message)
 			}
 
 			fa, url := newFakeArr(t, app.apiVer, nil)

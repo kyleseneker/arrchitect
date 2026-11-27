@@ -53,7 +53,7 @@ func bazarrManaged(t *testing.T, cfg *subtitlesv1alpha1.Bazarr) map[string][]str
 	c := runBazarr(t, cfg, bazarrSecrets())
 	var got subtitlesv1alpha1.Bazarr
 	require.NoError(t, c.Get(context.Background(), types.NamespacedName{Name: "bazarr", Namespace: "media"}, &got))
-	return got.GetManagedResources()
+	return got.Status.GetManagedResources()
 }
 
 func TestBazarrKeepsProfilesItDoesNotDeclare(t *testing.T) {
@@ -121,7 +121,7 @@ func TestBazarrPrunesOnlyProfilesItCreated(t *testing.T) {
 	}}
 	cfg := profilesConfig(app.serve(t), 1)
 	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{Prune: new(true)}
-	cfg.SetManagedResources(map[string][]string{profilesKind: {"1", "2"}})
+	cfg.Status.SetManagedResources(map[string][]string{profilesKind: {"1", "2"}})
 
 	managed := bazarrManaged(t, cfg)
 
@@ -147,7 +147,7 @@ func TestBazarrObserveReportsAProfilePruneWouldDelete(t *testing.T) {
 			cfg := profilesConfig(app.serve(t), 1)
 			observe := "observe"
 			cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{Prune: new(true), DriftPolicy: observe}
-			cfg.SetManagedResources(map[string][]string{profilesKind: tt.owned})
+			cfg.Status.SetManagedResources(map[string][]string{profilesKind: tt.owned})
 
 			c := runBazarr(t, cfg, bazarrSecrets())
 
@@ -166,7 +166,7 @@ func TestBazarrDeletionPolicyRemovesTheProfilesItCreated(t *testing.T) {
 	cfg := profilesConfig(app.serve(t), 1)
 	policy := ctrlcommon.DeletionPolicyDelete
 	cfg.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{DeletionPolicy: policy}
-	cfg.SetManagedResources(map[string][]string{profilesKind: {"1"}})
+	cfg.Status.SetManagedResources(map[string][]string{profilesKind: {"1"}})
 	now := metav1.NewTime(time.Now())
 	cfg.DeletionTimestamp = &now
 	cfg.Finalizers = []string{ctrlcommon.Finalizer}
