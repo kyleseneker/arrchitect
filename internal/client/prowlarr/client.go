@@ -76,7 +76,7 @@ var stages = [][]string{
 
 // Reconcile writes the options to Prowlarr. A kind that names a tag or app
 // profile Prowlarr lacks is left out and reported; the rest still syncs.
-func Reconcile(ctx context.Context, client *engine.HTTPClient, opts Options, pass *engine.Pass) []string {
+func Reconcile(ctx context.Context, client *engine.HTTPClient, opts Options, pass *engine.Pass) []error {
 	var plannedTags []string
 	if pass.Observe {
 		for _, t := range opts.Tags {

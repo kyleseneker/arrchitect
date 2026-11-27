@@ -85,7 +85,7 @@ func TestJellyfinTasksReplaceOnlyTheTriggersThatDiffer(t *testing.T) {
 	assert.Equal(t, []string{"RefreshChapterImages"}, app.writes, "only the task whose triggers differ is written")
 	assert.Empty(t, app.tasks[1]["Triggers"], "an empty list leaves the task to run by hand")
 	require.Len(t, problems, 1)
-	assert.Equal(t, "scheduledTask(NoSuchTask): Jellyfin has no such task; it has RefreshChapterImages, RefreshLibrary", problems[0])
+	assert.EqualError(t, problems[0], "scheduledTask(NoSuchTask): Jellyfin has no such task; it has RefreshChapterImages, RefreshLibrary")
 
 	reconcileJellyfinTasks(context.Background(), jf, tasks[:2], &engine.Writes{App: "jellyfin"})
 	assert.Len(t, app.writes, 1, "second pass must not write")

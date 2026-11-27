@@ -3,6 +3,7 @@ package pvr
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -130,7 +131,7 @@ func TestSettingsGoBeforeTheKindsTheyGovern(t *testing.T) {
 	spec := pvrv1alpha1.RadarrSpec{ImportListConfig: pvrv1alpha1.RadarrImportListConfig{ListSyncLevel: "logOnly"}}
 	opts := Options{App: Radarr, ImportLists: []commonv1alpha1.ImportList{{Name: "Trakt", Implementation: "TraktListImport"}}}
 
-	require.Empty(t, Reconcile(context.Background(), hc, spec, opts, engine.NewPass("radarr", engine.SyncPolicy{}, nil)))
+	require.Empty(t, Reconcile(context.Background(), hc, spec, opts, engine.NewPass("radarr", "", engine.SyncPolicy{}, nil)))
 	app.mu.Lock()
 	writes := slices.Clone(app.writes)
 	app.mu.Unlock()
@@ -147,12 +148,14 @@ func TestImportListsWaitForTheirSyncSetting(t *testing.T) {
 			hc := app.client(t)
 			spec := pvrv1alpha1.RadarrSpec{ImportListConfig: pvrv1alpha1.RadarrImportListConfig{ListSyncLevel: "logOnly"}}
 			opts := Options{App: Radarr, ImportLists: []commonv1alpha1.ImportList{{Name: "Trakt", Implementation: "TraktListImport"}}}
-			pass := engine.NewPass("radarr", engine.SyncPolicy{Prune: true}, map[string][]string{"importLists": {"Old"}})
+			pass := engine.NewPass("radarr", "", engine.SyncPolicy{Prune: true}, map[string][]string{"importLists": {"Old"}})
 
 			problems := Reconcile(context.Background(), hc, spec, opts, pass)
 			require.Len(t, problems, 2)
-			assert.Contains(t, problems[0], "importListConfig: ")
-			assert.Equal(t, "importLists: left out until importListConfig syncs", problems[1])
+			assert.ErrorContains(t, problems[0], "importListConfig: ")
+			assert.EqualError(t, problems[1], "importLists: left out until importListConfig syncs")
+			_, carriesCause := errors.AsType[*engine.APIError](problems[1])
+			assert.True(t, carriesCause, "the notice takes the reason of the failure that held the lists back")
 			app.mu.Lock()
 			defer app.mu.Unlock()
 			assert.NotContains(t, app.writes, "POST importlist", "a list changed under the old sync level")
@@ -172,6 +175,7 @@ func TestOnlyRadarrTurnsAnImportListOff(t *testing.T) {
 			}}}
 
 			result := reconcileOnce(context.Background(), hc, opts, engine.SyncPolicy{}, nil)
+			_, buildErr := importListResources(context.Background(), hc, app.APIVersion, opts, engine.NamedIDs{})
 			api.mu.Lock()
 			defer api.mu.Unlock()
 			if app.ImportListFields.Enable != "" {
@@ -183,6 +187,7 @@ func TestOnlyRadarrTurnsAnImportListOff(t *testing.T) {
 			require.Len(t, result.Errors, 1)
 			assert.Contains(t, result.Errors[0], engine.AppName(app.Name)+" import lists are always active")
 			assert.NotContains(t, api.writes, "POST importlist", "a list declared off must not be created active")
+			assert.True(t, engine.IsConfigError(buildErr), "only a spec change fixes it: %v", buildErr)
 		})
 	}
 }
@@ -824,17 +829,28 @@ func reconcileOnce(ctx context.Context, hc *engine.HTTPClient, opts Options, pol
 	if opts.App.Name == "" {
 		opts.App = Sonarr
 	}
-	pass := engine.NewPass(hc.AppLabel(), policy, managed)
+	pass := engine.NewPass(hc.AppLabel(), "", policy, managed)
 	errs := Reconcile(ctx, hc, struct{}{}, opts, pass)
 	return outcome{
-		Synced: pass.SyncedItems(), Errors: errs, Drift: pass.Drift(), Pruned: pass.Owned.Pruned(), Managed: pass.Owned.Managed(),
+		Synced: pass.SyncedItems(), Errors: messages(errs), Drift: pass.Drift(), Pruned: pass.Owned.Pruned(), Managed: pass.Owned.Managed(),
 	}
 }
 
 // outcome is a pass's result, with what it deleted and the ownership it ended
-// with.
+// with. Errors holds the failures' messages.
 type outcome struct {
-	engine.ReconcileResult
+	Synced  []string
+	Errors  []string
+	Drift   []string
 	Pruned  []engine.PrunedResource
 	Managed map[string][]string
+}
+
+// messages lists the text of each error.
+func messages(errs []error) []string {
+	out := make([]string, 0, len(errs))
+	for _, err := range errs {
+		out = append(out, err.Error())
+	}
+	return out
 }

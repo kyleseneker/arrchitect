@@ -16,59 +16,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kyleseneker/arrchitect/internal/metrics"
+	"github.com/kyleseneker/arrchitect/internal/reconciler"
 )
-
-func TestReconcileResult_Success(t *testing.T) {
-	tests := []struct {
-		name   string
-		result ReconcileResult
-		want   bool
-	}{
-		{"no errors", ReconcileResult{Synced: []string{"a"}}, true},
-		{"empty", ReconcileResult{}, true},
-		{"with errors", ReconcileResult{Errors: []string{"fail"}}, false},
-		{"synced and errors", ReconcileResult{Synced: []string{"a"}, Errors: []string{"b"}}, false},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, tt.result.Success())
-		})
-	}
-}
-
-func TestReconcileResult_Message(t *testing.T) {
-	tests := []struct {
-		name   string
-		result ReconcileResult
-		want   string
-	}{
-		{
-			name:   "all synced",
-			result: ReconcileResult{Synced: []string{"mediaManagement", "naming"}},
-			want:   "synced: [mediaManagement naming]",
-		},
-		{
-			name:   "nothing synced no errors",
-			result: ReconcileResult{},
-			want:   "all configuration sections synced",
-		},
-		{
-			name:   "errors only",
-			result: ReconcileResult{Errors: []string{"naming: failed"}},
-			want:   "errors: [naming: failed]",
-		},
-		{
-			name:   "synced and errors",
-			result: ReconcileResult{Synced: []string{"ui"}, Errors: []string{"naming: fail"}},
-			want:   "synced: [ui]; errors: [naming: fail]",
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, tt.result.Message())
-		})
-	}
-}
 
 func TestIsNilInterface(t *testing.T) {
 	tests := []struct {
@@ -208,9 +157,11 @@ func TestMaskedSecretCacheIncludesOwner(t *testing.T) {
 	var writes []string
 	hc := maskingServer(t, "recreated", &writes)
 	ep := ResourceEndpoint{Name: "downloadClients", Path: "/api/v3/downloadclient", MatchField: "name", Policy: CreateOrUpdate}
-	for _, owner := range []string{"ns/config/uid-1", "ns/config/uid-1", "ns/config/uid-2"} {
-		WithOwner(owner)(hc)
-		require.NoError(t, reconcileResource(context.Background(), hc, ep, desiredWithPassword("recreated", "password"), false))
+	prefix := "Sonarr/ns/" + t.Name() + "/"
+	t.Cleanup(func() { reconciler.ForgetSecrets(prefix) })
+	for _, owner := range []string{prefix + "uid-1", prefix + "uid-1", prefix + "uid-2"} {
+		pass := NewPass(hc.AppLabel(), owner, SyncPolicy{}, nil)
+		require.NoError(t, reconcileWith(context.Background(), hc, pass, ep, desiredWithPassword("recreated", "password")))
 	}
 	assert.Len(t, writes, 2, "a recreated CR must seed its secret independently")
 }
@@ -327,7 +278,7 @@ func TestReconcileSetting_NoChange(t *testing.T) {
 	}
 
 	hc := newTestServer(t, handler)
-	err := reconcileSetting(context.Background(), hc, NewPass("test", SyncPolicy{}, nil), namingSetting, map[string]any{
+	err := reconcileSetting(context.Background(), hc, NewPass("test", "", SyncPolicy{}, nil), namingSetting, map[string]any{
 		"rename": true, "createEmpty": false,
 	})
 	assert.NoError(t, err)
@@ -352,7 +303,7 @@ func TestReconcileSetting_WithChange(t *testing.T) {
 	}
 
 	hc := newTestServer(t, handler)
-	err := reconcileSetting(context.Background(), hc, NewPass("test", SyncPolicy{}, nil), namingSetting, map[string]any{
+	err := reconcileSetting(context.Background(), hc, NewPass("test", "", SyncPolicy{}, nil), namingSetting, map[string]any{
 		"rename": true,
 	})
 	require.NoError(t, err)
@@ -365,7 +316,7 @@ func TestReconcileSetting_NoID(t *testing.T) {
 	hc := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]any{"rename": true})
 	})
-	err := reconcileSetting(context.Background(), hc, NewPass("test", SyncPolicy{}, nil), namingSetting, map[string]any{"rename": true})
+	err := reconcileSetting(context.Background(), hc, NewPass("test", "", SyncPolicy{}, nil), namingSetting, map[string]any{"rename": true})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "no id")
 }
@@ -496,7 +447,7 @@ func TestObserveReportsAnEntryAnExactListWouldRemove(t *testing.T) {
 		Name: "customFormats", Path: "/api/v3/customformat", MatchField: "name", Policy: CreateOrUpdate,
 		ExactLists: []string{"specifications"},
 	}
-	pass := NewPass("test", SyncPolicy{Observe: true}, nil)
+	pass := NewPass("test", "", SyncPolicy{Observe: true}, nil)
 	require.NoError(t, reconcileWith(context.Background(), hc, pass, endpoint,
 		map[string]any{"name": "x265", "specifications": []map[string]any{{"name": "HEVC"}}}))
 	assert.Equal(t, []string{"customFormats(x265)"}, pass.Drift())
@@ -966,8 +917,7 @@ func TestCreatedSecretIsNotRewrittenOnTheNextPass(t *testing.T) {
 		_ = json.NewEncoder(w).Encode(body)
 	}))
 	t.Cleanup(srv.Close)
-	hc, err := NewHTTPClient(srv.URL, AuthAPIKey, WithAPIKey("k"), WithAppLabel("sonarr"),
-		WithOwner("default/created/uid"), WithTransport(&http.Transport{}))
+	hc, err := NewHTTPClient(srv.URL, AuthAPIKey, WithAPIKey("k"), WithAppLabel("sonarr"), WithTransport(&http.Transport{}))
 	require.NoError(t, err)
 	ep := ResourceEndpoint{Name: "downloadClients", Path: "/api/v3/downloadclient", MatchField: "name", Policy: CreateOrUpdate}
 
@@ -985,10 +935,10 @@ func run(
 	ctx context.Context, hc *HTTPClient, def AppDefinition, sections map[string]any, resources map[string][]map[string]any,
 	policy SyncPolicy, managed map[string][]string,
 ) outcome {
-	pass := NewPass(hc.AppLabel(), policy, managed)
+	pass := NewPass(hc.AppLabel(), "", policy, managed)
 	errs := ReconcileApp(ctx, hc, def, sections, resources, pass)
 	return outcome{
-		Synced: pass.SyncedItems(), Errors: errs, Drift: pass.Drift(), Pruned: pass.Owned.Pruned(), Managed: pass.Owned.Managed(),
+		Synced: pass.SyncedItems(), Errors: messages(errs), Drift: pass.Drift(), Pruned: pass.Owned.Pruned(), Managed: pass.Owned.Managed(),
 	}
 }
 
@@ -1004,7 +954,7 @@ func reconcileWith(ctx context.Context, hc *HTTPClient, pass *Pass, endpoint Res
 
 // reconcileResource reconciles one declared item in a pass of its own.
 func reconcileResource(ctx context.Context, hc *HTTPClient, endpoint ResourceEndpoint, desired map[string]any, observe bool) error {
-	return reconcileWith(ctx, hc, NewPass(hc.AppLabel(), SyncPolicy{Observe: observe}, nil), endpoint, desired)
+	return reconcileWith(ctx, hc, NewPass(hc.AppLabel(), "", SyncPolicy{Observe: observe}, nil), endpoint, desired)
 }
 
 // pruneResources prunes endpoint against desired, with managed as what the
@@ -1012,7 +962,7 @@ func reconcileResource(ctx context.Context, hc *HTTPClient, endpoint ResourceEnd
 func pruneResources(
 	ctx context.Context, hc *HTTPClient, endpoint ResourceEndpoint, desired []map[string]any, managed []string,
 ) ([]PrunedResource, error) {
-	pass := NewPass(hc.AppLabel(), SyncPolicy{Prune: true}, map[string][]string{endpoint.Name: managed})
+	pass := NewPass(hc.AppLabel(), "", SyncPolicy{Prune: true}, map[string][]string{endpoint.Name: managed})
 	existing, err := hc.GetJSONList(ctx, endpoint.Path)
 	if err != nil {
 		return nil, err
@@ -1022,11 +972,26 @@ func pruneResources(
 }
 
 // outcome is a pass's result, with what it deleted and the ownership it ended
-// with.
+// with. Errors holds the failures' messages.
 type outcome struct {
-	ReconcileResult
+	Synced  []string
+	Errors  []string
+	Drift   []string
 	Pruned  []PrunedResource
 	Managed map[string][]string
+}
+
+func (o outcome) Success() bool { return len(o.Errors) == 0 }
+
+func (o outcome) Message() string { return strings.Join(o.Errors, "; ") }
+
+// messages lists the text of each error.
+func messages(errs []error) []string {
+	out := make([]string, 0, len(errs))
+	for _, err := range errs {
+		out = append(out, err.Error())
+	}
+	return out
 }
 
 func TestReconcileAppListsEachEndpointOncePerPass(t *testing.T) {

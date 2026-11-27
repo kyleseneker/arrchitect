@@ -43,9 +43,9 @@ func (r *AutobrrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		Check: func(ctx context.Context, ac *autobrrclient.Client, _ *automationv1alpha1.Autobrr) error {
 			return ac.Ping(ctx)
 		},
-		Sync: func(ctx context.Context, ac *autobrrclient.Client, config *automationv1alpha1.Autobrr, pass *engine.Pass) []string {
+		Sync: func(ctx context.Context, ac *autobrrclient.Client, config *automationv1alpha1.Autobrr, pass *engine.Pass) []error {
 			sync := &autobrrSync{
-				Pass: pass, c: r.Client, apps: r.Apps, ac: ac, namespace: config.Namespace, owner: config.Namespace + "/" + config.Name,
+				Pass: pass, c: r.Client, apps: r.Apps, ac: ac, namespace: config.Namespace,
 			}
 			return sync.run(ctx, &config.Spec)
 		},
@@ -82,7 +82,6 @@ type autobrrSync struct {
 	apps      ctrlcommon.Apps
 	ac        *autobrrclient.Client
 	namespace string
-	owner     string
 	// declared names the indexers and download clients the spec declares, which
 	// observe mode may find missing while other items refer to them.
 	declared map[string][]string
@@ -103,7 +102,7 @@ func (s *autobrrSync) created(kind, name string, create func() error) func() err
 
 // run applies the sections in dependency order: filter actions refer to
 // download clients by name.
-func (s *autobrrSync) run(ctx context.Context, spec *automationv1alpha1.AutobrrSpec) []string {
+func (s *autobrrSync) run(ctx context.Context, spec *automationv1alpha1.AutobrrSpec) []error {
 	logger := log.FromContext(ctx)
 	s.declared = map[string][]string{}
 	for _, idx := range spec.Indexers {
@@ -118,11 +117,11 @@ func (s *autobrrSync) run(ctx context.Context, spec *automationv1alpha1.AutobrrS
 	for _, p := range spec.Proxies {
 		s.declared["proxies"] = append(s.declared["proxies"], p.Name)
 	}
-	var syncErrors []string
+	var syncErrors []error
 	failed := map[string]bool{}
 	fail := func(section, name string, err error) {
 		logger.Error(err, "failed to reconcile", "section", section, "name", name)
-		syncErrors = append(syncErrors, fmt.Sprintf("%s(%s): %v", section, name, err))
+		syncErrors = append(syncErrors, fmt.Errorf("%s(%s): %w", section, name, err))
 		kind := section + "s"
 		if section == "proxy" {
 			kind = "proxies"
@@ -372,7 +371,7 @@ func (s *autobrrSync) indexer(ctx context.Context, idx automationv1alpha1.Autobr
 			return err
 		}
 		key := s.secretKey("indexer", idx.Name)
-		if autobrrCovers(current, desired) && !reconciler.SecretsDiffer(key, out.SecretDigest, s.Observe) {
+		if autobrrCovers(current, desired) && !s.SecretsDiffer(key, out.SecretDigest) {
 			return nil
 		}
 		return s.Apply("indexer", idx.Name, func() error {
@@ -380,7 +379,7 @@ func (s *autobrrSync) indexer(ctx context.Context, idx automationv1alpha1.Autobr
 			if err := s.ac.UpdateIndexer(ctx, int(id), out.Merged); err != nil {
 				return err
 			}
-			reconciler.RecordSecrets(key, out.SecretDigest)
+			s.RecordSecrets(key, out.SecretDigest)
 			return nil
 		})
 	}
@@ -1059,14 +1058,14 @@ func (s *autobrrSync) upsert(ctx context.Context, kind, key string, existing []m
 		if err != nil {
 			return err
 		}
-		if autobrrCovers(e, desired) && !reconciler.SecretsDiffer(secretKey, out.SecretDigest, s.Observe) {
+		if autobrrCovers(e, desired) && !s.SecretsDiffer(secretKey, out.SecretDigest) {
 			return nil
 		}
 		return s.Apply(kind, name, func() error {
 			if err := update(int(id), e); err != nil {
 				return err
 			}
-			reconciler.RecordSecrets(secretKey, out.SecretDigest)
+			s.RecordSecrets(secretKey, out.SecretDigest)
 			return nil
 		})
 	}
@@ -1093,7 +1092,7 @@ func (s *autobrrSync) rememberCreated(
 			continue
 		}
 		if out, err := reconciler.MergeDesired(e, obj); err == nil {
-			reconciler.RecordSecrets(secretKey, out.SecretDigest)
+			s.RecordSecrets(secretKey, out.SecretDigest)
 		}
 		return
 	}
@@ -1107,7 +1106,7 @@ func (s *autobrrSync) planned(kind, name string) bool {
 }
 
 func (s *autobrrSync) secretKey(kind, name string) string {
-	return fmt.Sprintf("autobrr/%q/%q/%q", s.owner, kind, name)
+	return fmt.Sprintf("%q/%q", kind, name)
 }
 
 func setEnabled(obj map[string]any, enable *bool) {

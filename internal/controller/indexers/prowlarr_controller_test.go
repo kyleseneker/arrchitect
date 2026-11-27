@@ -361,7 +361,7 @@ func TestProwlarrMissingItemSecretSkipsOnlyItsKind(t *testing.T) {
 	ready := meta.FindStatusCondition(got.Status.Conditions, "Ready")
 	require.NotNil(t, ready)
 	assert.Equal(t, metav1.ConditionFalse, ready.Status)
-	assert.Equal(t, "SyncFailed", ready.Reason, "Prowlarr was reached; one kind failed")
+	assert.Equal(t, "SecretNotFound", ready.Reason, "the one failure was a missing Secret")
 	assert.Contains(t, ready.Message, `downloadClients: download client qBittorrent field "password": secret "missing" not found`)
 }
 
@@ -422,7 +422,7 @@ func TestProwlarrMissingAppRefSkipsOnlyApplications(t *testing.T) {
 	require.NoError(t, c.Get(context.Background(), types.NamespacedName{Name: "prowlarr", Namespace: "media"}, &got))
 	synced := meta.FindStatusCondition(got.Status.Conditions, "Synced")
 	require.NotNil(t, synced)
-	assert.Equal(t, "SyncFailed", synced.Reason)
+	assert.Equal(t, "ReferenceNotFound", synced.Reason)
 	assert.Contains(t, synced.Message, `applications: application "Radarr" appRef: Radarr "radarr" not found`)
 }
 

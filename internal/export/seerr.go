@@ -36,12 +36,12 @@ const (
 func exportSeerr(r *reader) (map[string]any, error) {
 	sc := seerrclient.NewClient(r.hc)
 	sc.SetAPIKey(r.apiKey)
-	main, err := sc.Get(r.ctx, "/api/v1/settings/main")
+	main, err := sc.Settings(r.ctx, "main")
 	if err != nil {
 		return nil, err
 	}
 	spec := map[string]any{"main": r.seerrMain(main)}
-	network, err := sc.Get(r.ctx, "/api/v1/settings/network")
+	network, err := sc.Settings(r.ctx, "network")
 	if err != nil {
 		return nil, err
 	}
@@ -54,7 +54,7 @@ func exportSeerr(r *reader) (map[string]any, error) {
 
 	switch int(num(main["mediaServerType"])) {
 	case seerrJellyfin:
-		jf, err := sc.Get(r.ctx, "/api/v1/settings/jellyfin")
+		jf, err := sc.Settings(r.ctx, "jellyfin")
 		if err != nil {
 			return nil, err
 		}
@@ -67,7 +67,7 @@ func exportSeerr(r *reader) (map[string]any, error) {
 			return nil, err
 		}
 	case seerrPlex:
-		plex, err := sc.Get(r.ctx, "/api/v1/settings/plex")
+		plex, err := sc.Settings(r.ctx, "plex")
 		if err != nil {
 			return nil, err
 		}
@@ -81,7 +81,7 @@ func exportSeerr(r *reader) (map[string]any, error) {
 	}
 
 	for _, service := range []string{"sonarr", "radarr"} {
-		servers, err := sc.GetList(r.ctx, "/api/v1/settings/"+service)
+		servers, err := sc.Services(r.ctx, service)
 		if err != nil {
 			return nil, err
 		}
@@ -97,7 +97,7 @@ func exportSeerr(r *reader) (map[string]any, error) {
 
 	var notifications []any
 	for _, agent := range seerrNotificationAgents {
-		settings, err := sc.Get(r.ctx, "/api/v1/settings/notifications/"+agent)
+		settings, err := sc.NotificationSettings(r.ctx, agent)
 		var apiErr *engine.APIError
 		if errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusNotFound {
 			continue
@@ -127,7 +127,7 @@ func exportSeerr(r *reader) (map[string]any, error) {
 
 // seerrLibraries exports the libraries Seerr has enabled.
 func seerrLibraries(r *reader, sc *seerrclient.Client, spec map[string]any, server string) error {
-	libraries, err := sc.GetList(r.ctx, "/api/v1/settings/"+server+"/library")
+	libraries, err := sc.Libraries(r.ctx, server)
 	if err != nil {
 		return err
 	}
@@ -259,14 +259,14 @@ func (r *reader) seerrNotificationTypes(agent string, bits int) []any {
 // seerrMetadataAndJobs exports the metadata providers and the schedule of each
 // job Seerr runs.
 func (r *reader) seerrMetadataAndJobs(sc *seerrclient.Client, spec map[string]any) error {
-	metadata, err := sc.Get(r.ctx, "/api/v1/settings/metadatas")
+	metadata, err := sc.MetadataSettings(r.ctx)
 	if err != nil {
 		return err
 	}
 	if providers := pick(metadata, "tv", "anime"); len(providers) > 0 {
 		spec["metadataProviders"] = providers
 	}
-	jobs, err := sc.GetList(r.ctx, "/api/v1/settings/jobs")
+	jobs, err := sc.Jobs(r.ctx)
 	if err != nil {
 		return err
 	}

@@ -47,7 +47,7 @@ func (r *MaintainerrReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		Check: func(ctx context.Context, mc *maintainerrclient.Client, _ *curationv1alpha1.Maintainerr) error {
 			return mc.Ping(ctx)
 		},
-		Sync: func(ctx context.Context, mc *maintainerrclient.Client, config *curationv1alpha1.Maintainerr, pass *engine.Pass) []string {
+		Sync: func(ctx context.Context, mc *maintainerrclient.Client, config *curationv1alpha1.Maintainerr, pass *engine.Pass) []error {
 			sync := &maintainerrSync{Pass: pass, c: r.Client, apps: r.Apps, mc: mc, namespace: config.Namespace}
 			return sync.run(ctx, &config.Spec)
 		},
@@ -95,13 +95,13 @@ func (s *maintainerrSync) created(kind, name string, create func() error) func()
 	}
 }
 
-func (s *maintainerrSync) run(ctx context.Context, spec *curationv1alpha1.MaintainerrSpec) []string {
+func (s *maintainerrSync) run(ctx context.Context, spec *curationv1alpha1.MaintainerrSpec) []error {
 	logger := log.FromContext(ctx)
-	var syncErrors []string
+	var syncErrors []error
 	failed := map[string]bool{}
 	fail := func(section string, err error) {
 		logger.Error(err, "failed to reconcile", "section", section)
-		syncErrors = append(syncErrors, fmt.Sprintf("%s: %v", section, err))
+		syncErrors = append(syncErrors, fmt.Errorf("%s: %w", section, err))
 		failed[section] = true
 	}
 
@@ -304,11 +304,11 @@ func (s *maintainerrSync) arrServers(
 		return nil, fmt.Errorf("listing servers: %w", err)
 	}
 	added := false
-	var errs []string
+	var errs []error
 	for _, server := range declared {
 		wasAdded, err := s.arrServer(ctx, kind, server, stored)
 		if err != nil {
-			errs = append(errs, fmt.Sprintf("%s: %v", server.Name, err))
+			errs = append(errs, fmt.Errorf("%s: %w", server.Name, err))
 		}
 		added = added || wasAdded
 	}
@@ -319,7 +319,7 @@ func (s *maintainerrSync) arrServers(
 	}
 	ids := engine.NamedIDsOf(stored, "serverName")
 	if len(errs) > 0 {
-		return ids, fmt.Errorf("%s", strings.Join(errs, "; "))
+		return ids, engine.JoinErrors(errs...)
 	}
 	return ids, nil
 }

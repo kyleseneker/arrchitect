@@ -15,6 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/events"
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -57,57 +58,59 @@ func Policy(rc *commonv1alpha1.ReconcileConfig) engine.SyncPolicy {
 	return engine.SyncPolicy{Prune: PruneEnabled(rc), Observe: ObserveOnly(rc)}
 }
 
-// updateObservationStatus reports comparison results without claiming drift was
-// corrected. Read failures take precedence over any differences already found.
-func updateObservationStatus(ctx context.Context, c client.Client, recorder events.EventRecorder, obj ConfigResource, drift []string, err error) {
-	if err != nil {
-		UpdateStatus(ctx, c, recorder, obj, false, engine.ReasonSyncFailed, "observation failed: "+err.Error())
-	} else if len(drift) > 0 {
-		UpdateStatus(ctx, c, recorder, obj, false, engine.ReasonDriftDetected, "differs: "+driftSummary(drift)+"; observe policy prevents application writes")
-	} else {
+// Result is what a pass did: the items it brought in line, what failed, and
+// what observe mode found differing.
+type Result struct {
+	Synced []string
+	Errors []error
+	Drift  []string
+}
+
+// ReportResult records a pass's result in obj's status, and returns how soon
+// a failure asks for the next pass, or zero for the resource's interval.
+func ReportResult(ctx context.Context, c client.Client, recorder events.EventRecorder, obj ConfigResource, observe bool, result Result) time.Duration {
+	reason, after := syncFailure(result.Errors)
+	failures := make([]string, 0, len(result.Errors))
+	for _, err := range result.Errors {
+		failures = append(failures, err.Error())
+	}
+	switch {
+	case len(failures) > 0 && observe:
+		UpdateStatus(ctx, c, recorder, obj, false, reason, "observation failed: "+listed(failures, "; "))
+	case len(failures) > 0:
+		UpdateStatus(ctx, c, recorder, obj, false, reason, listed(failures, "; "))
+	case observe && len(result.Drift) > 0:
+		UpdateStatus(ctx, c, recorder, obj, false, engine.ReasonDriftDetected,
+			"differs: "+listed(result.Drift, ", ")+"; observe policy prevents application writes")
+	case observe:
 		UpdateStatus(ctx, c, recorder, obj, true, engine.ReasonObserved, "observable configuration matches; no application writes performed")
+	case len(result.Synced) > 0:
+		UpdateStatus(ctx, c, recorder, obj, true, engine.ReasonSynced, "synced: "+listed(result.Synced, ", "))
+	default:
+		UpdateStatus(ctx, c, recorder, obj, true, engine.ReasonSynced, "all configuration sections synced")
 	}
+	if after == 0 {
+		return 0
+	}
+	return wait.Jitter(after, jitter)
 }
 
-// ReportResult is UpdateResultStatus for an object whose drift policy is set
-// somewhere other than on the object itself.
-func ReportResult(ctx context.Context, c client.Client, recorder events.EventRecorder, obj ConfigResource, observe bool, result engine.ReconcileResult) {
-	if observe {
-		updateObservationStatus(ctx, c, recorder, obj, result.Drift, syncError(result.Errors))
-		return
-	}
-	UpdateStatus(ctx, c, recorder, obj, result.Success(), resultReason(result), result.Message())
-}
+// maxListed caps how many items a status message names, which also keeps a
+// pass with many failures inside a condition message's 32 KiB.
+const maxListed = 10
 
-// maxDriftListed caps how many differences a status message names.
-const maxDriftListed = 10
-
-func driftSummary(drift []string) string {
+// listed joins the distinct items with sep, naming at most maxListed.
+func listed(items []string, sep string) string {
 	var unique []string
-	for _, d := range drift {
-		if !slices.Contains(unique, d) {
-			unique = append(unique, d)
+	for _, item := range items {
+		if !slices.Contains(unique, item) {
+			unique = append(unique, item)
 		}
 	}
-	if len(unique) <= maxDriftListed {
-		return strings.Join(unique, ", ")
+	if len(unique) <= maxListed {
+		return strings.Join(unique, sep)
 	}
-	return fmt.Sprintf("%s and %d more", strings.Join(unique[:maxDriftListed], ", "), len(unique)-maxDriftListed)
-}
-
-func syncError(syncErrors []string) error {
-	if len(syncErrors) == 0 {
-		return nil
-	}
-	return fmt.Errorf("%v", syncErrors)
-}
-
-// ResultReason returns the appropriate status reason for a reconcile result.
-func resultReason(r engine.ReconcileResult) string {
-	if r.Success() {
-		return engine.ReasonSynced
-	}
-	return engine.ReasonSyncFailed
+	return fmt.Sprintf("%s and %d more", strings.Join(unique[:maxListed], sep), len(unique)-maxListed)
 }
 
 // UpdateStatusManaged records the resources the operator now manages, so prune
@@ -215,7 +218,7 @@ func emitTransition(recorder events.EventRecorder, obj ConfigResource, before *m
 
 // IgnoreDeleted is client.IgnoreNotFound for a reconcile's first read. A
 // resource that is gone also loses its config_synced series, so an alert on a
-// deleted resource clears.
+// deleted resource clears, and the state kept for it between passes.
 func IgnoreDeleted(obj ConfigResource, key types.NamespacedName, err error) error {
 	if apierrors.IsNotFound(err) {
 		metrics.ConfigSynced.DeleteLabelValues(reflect.TypeOf(obj).Elem().Name(), key.Namespace, key.Name)
@@ -223,6 +226,7 @@ func IgnoreDeleted(obj ConfigResource, key types.NamespacedName, err error) erro
 		obj.SetNamespace(key.Namespace)
 		obj.SetName(key.Name)
 		forget(obj)
+		reconciler.ForgetSecrets(ownerPrefix(obj))
 	}
 	return client.IgnoreNotFound(err)
 }
@@ -310,7 +314,7 @@ func ResolveConfigFields(ctx context.Context, c client.Reader, namespace, owner 
 			continue
 		}
 		if out[i].Value != nil {
-			return nil, fmt.Errorf("%s field %q: value and valueFrom are mutually exclusive", owner, out[i].Name)
+			return nil, engine.InvalidConfig(fmt.Errorf("%s field %q: value and valueFrom are mutually exclusive", owner, out[i].Name))
 		}
 		val, err := reconciler.ResolveSecretKeyRef(ctx, c, namespace, out[i].ValueFrom.SecretKeyRef)
 		if err != nil {

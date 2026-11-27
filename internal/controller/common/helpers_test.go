@@ -3,7 +3,9 @@ package common
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -33,6 +35,7 @@ import (
 	subtitlesv1alpha1 "github.com/kyleseneker/arrchitect/api/subtitles/v1alpha1"
 	"github.com/kyleseneker/arrchitect/internal/engine"
 	"github.com/kyleseneker/arrchitect/internal/metrics"
+	"github.com/kyleseneker/arrchitect/internal/reconciler"
 )
 
 func TestReconcileInterval(t *testing.T) {
@@ -71,22 +74,6 @@ func TestPruneEnabled(t *testing.T) {
 	}
 }
 
-func TestResultReason(t *testing.T) {
-	tests := []struct {
-		name   string
-		result engine.ReconcileResult
-		want   string
-	}{
-		{"success", engine.ReconcileResult{Synced: []string{"a"}}, engine.ReasonSynced},
-		{"failure", engine.ReconcileResult{Errors: []string{"fail"}}, engine.ReasonSyncFailed},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, resultReason(tt.result))
-		})
-	}
-}
-
 func TestBoolTo01(t *testing.T) {
 	tests := []struct {
 		name string
@@ -114,48 +101,18 @@ func TestEmitPruneEvents(t *testing.T) {
 		"a resource without a numeric id reported one")
 }
 
-func TestObservationStatus(t *testing.T) {
-	for _, tt := range []struct {
-		name    string
-		drift   []string
-		err     error
-		reason  string
-		synced  metav1.ConditionStatus
-		message string
-	}{
-		{"matching", nil, nil, "Observed", metav1.ConditionTrue, ""},
-		{"drift", []string{"indexers(Torznab)", "naming", "indexers(Torznab)"}, nil, "DriftDetected", metav1.ConditionFalse,
-			"differs: indexers(Torznab), naming; observe policy prevents application writes"},
-		{"error precedes drift", []string{"naming"}, fmt.Errorf("read failed"), engine.ReasonSyncFailed, metav1.ConditionFalse, ""},
-	} {
-		t.Run(tt.name, func(t *testing.T) {
-			obj := newConfig("", 0)
-			c := testClient(obj).WithStatusSubresource(obj).Build()
-			updateObservationStatus(context.Background(), c, nil, obj, tt.drift, tt.err)
-			require.NoError(t, c.Get(context.Background(), client.ObjectKeyFromObject(obj), obj))
-			condition := meta.FindStatusCondition(obj.Status.Conditions, "Synced")
-			require.NotNil(t, condition)
-			assert.Equal(t, tt.reason, condition.Reason)
-			assert.Equal(t, tt.synced, condition.Status)
-			if tt.message != "" {
-				assert.Equal(t, tt.message, condition.Message)
-			}
-		})
-	}
-}
-
 func TestReportResultReportsObservedDrift(t *testing.T) {
 	for _, tc := range []struct {
 		name   string
 		policy string
-		result engine.ReconcileResult
+		result Result
 		status metav1.ConditionStatus
 		reason string
 	}{
-		{"enforce", "enforce", engine.ReconcileResult{Synced: []string{"naming"}}, metav1.ConditionTrue, engine.ReasonSynced},
-		{"observe drift", DriftPolicyObserve, engine.ReconcileResult{Drift: []string{"naming"}}, metav1.ConditionFalse, "DriftDetected"},
-		{"observe match", DriftPolicyObserve, engine.ReconcileResult{Synced: []string{"naming"}}, metav1.ConditionTrue, "Observed"},
-		{"observe error", DriftPolicyObserve, engine.ReconcileResult{Errors: []string{"x"}}, metav1.ConditionFalse, engine.ReasonSyncFailed},
+		{"enforce", "enforce", Result{Synced: []string{"naming"}}, metav1.ConditionTrue, engine.ReasonSynced},
+		{"observe drift", DriftPolicyObserve, Result{Drift: []string{"naming"}}, metav1.ConditionFalse, "DriftDetected"},
+		{"observe match", DriftPolicyObserve, Result{Synced: []string{"naming"}}, metav1.ConditionTrue, "Observed"},
+		{"observe error", DriftPolicyObserve, Result{Errors: []error{errors.New("x")}}, metav1.ConditionFalse, engine.ReasonSyncFailed},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			obj := newConfig("", 0)
@@ -252,26 +209,48 @@ func TestUpdateStatusOutlivesACancelledReconcile(t *testing.T) {
 }
 
 func TestReportResultMessages(t *testing.T) {
+	missing := &reconciler.SecretError{}
 	for _, tc := range []struct {
 		name    string
 		observe bool
-		drift   []string
-		errors  []string
+		result  Result
 		status  metav1.ConditionStatus
 		reason  string
 		message string
 	}{
-		{"synced", false, nil, nil, metav1.ConditionTrue, engine.ReasonSynced, "all configuration sections synced"},
-		{"partial failure", false, nil, []string{"flow(a): x"}, metav1.ConditionFalse, engine.ReasonSyncFailed, "errors: [flow(a): x]"},
-		{"observe match", true, nil, nil, metav1.ConditionTrue, "Observed", ""},
-		{"observe drift", true, []string{"flows(a)"}, nil, metav1.ConditionFalse, "DriftDetected",
-			"differs: flows(a); observe policy prevents application writes"},
-		{"observe error precedes drift", true, []string{"flows(a)"}, []string{"x"}, metav1.ConditionFalse, engine.ReasonSyncFailed, "observation failed: [x]"},
+		{"synced", false, Result{}, metav1.ConditionTrue, engine.ReasonSynced, "all configuration sections synced"},
+		{"synced items", false, Result{Synced: []string{"naming", "indexers(a)"}}, metav1.ConditionTrue, engine.ReasonSynced,
+			"synced: naming, indexers(a)"},
+		{"partial failure", false, Result{Synced: []string{"naming"}, Errors: []error{errors.New("flow(a): x"), errors.New("flow(b): y")}},
+			metav1.ConditionFalse, engine.ReasonSyncFailed, "flow(a): x; flow(b): y"},
+		{"failures that share a reason", false, Result{Errors: []error{
+			fmt.Errorf("settings: %w", missing), fmt.Errorf("library(a): %w", missing),
+		}}, metav1.ConditionFalse, engine.ReasonSecretNotFound, ""},
+		{"failures with different reasons", false, Result{Errors: []error{
+			fmt.Errorf("settings: %w", missing), errors.New("flow(a): x"),
+		}}, metav1.ConditionFalse, engine.ReasonSyncFailed, ""},
+		{"joined failures with different reasons", false, Result{Errors: []error{
+			fmt.Errorf("general: %w", engine.JoinErrors(fmt.Errorf("series: %w", missing), &engine.APIError{StatusCode: 401})),
+		}}, metav1.ConditionFalse, engine.ReasonSyncFailed, ""},
+		{"joined failures that share a reason", false, Result{Errors: []error{
+			fmt.Errorf("sonarr: %w", engine.JoinErrors(fmt.Errorf("a: %w", missing), fmt.Errorf("b: %w", missing))),
+		}}, metav1.ConditionFalse, engine.ReasonSecretNotFound, ""},
+		{"joined failures read on one line", false, Result{Errors: []error{
+			fmt.Errorf("general: %w", engine.JoinErrors(errors.New("series: 503"), errors.New("movies: 503"))),
+		}}, metav1.ConditionFalse, engine.ReasonSyncFailed, "general: series: 503; movies: 503"},
+		{"a spec problem around joined failures", false, Result{Errors: []error{
+			engine.InvalidConfig(engine.JoinErrors(errors.New("a"), &engine.APIError{StatusCode: 401})),
+		}}, metav1.ConditionFalse, engine.ReasonInvalidConfig, ""},
+		{"observe match", true, Result{}, metav1.ConditionTrue, "Observed", ""},
+		{"observe drift", true, Result{Drift: []string{"flows(a)", "naming", "flows(a)"}}, metav1.ConditionFalse, "DriftDetected",
+			"differs: flows(a), naming; observe policy prevents application writes"},
+		{"observe error precedes drift", true, Result{Drift: []string{"flows(a)"}, Errors: []error{errors.New("x")}},
+			metav1.ConditionFalse, engine.ReasonSyncFailed, "observation failed: x"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			obj := newConfig("", 0)
 			c := testClient(obj).WithStatusSubresource(obj).Build()
-			ReportResult(context.Background(), c, nil, obj, tc.observe, engine.ReconcileResult{Errors: tc.errors, Drift: tc.drift})
+			ReportResult(context.Background(), c, nil, obj, tc.observe, tc.result)
 			require.NoError(t, c.Get(context.Background(), client.ObjectKeyFromObject(obj), obj))
 			condition := meta.FindStatusCondition(obj.Status.Conditions, "Synced")
 			require.NotNil(t, condition)
@@ -282,6 +261,53 @@ func TestReportResultMessages(t *testing.T) {
 			}
 		})
 	}
+}
+
+// A failure that a retry can fix sooner than the resource's interval, such as
+// a Secret not created yet, asks for the next pass in its own time. Mixed with
+// a write the app refused, it waits for the interval, so the refused write
+// isn't sent again sooner.
+func TestReportResultRetriesSoonerOnlyForASharedReason(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		errors []error
+		min    time.Duration
+		max    time.Duration
+	}{
+		{"none", nil, 0, 0},
+		{"the app refused", []error{errors.New("flow(a): x")}, 0, 0},
+		{"a missing Secret", []error{fmt.Errorf("settings: %w", &reconciler.SecretError{})}, 30 * time.Second, 33 * time.Second},
+		{"a missing Secret and a refused write", []error{errors.New("flow(a): x"), fmt.Errorf("settings: %w", &reconciler.SecretError{})}, 0, 0},
+		{"refused credentials", []error{fmt.Errorf("flow(a): %w", &engine.APIError{StatusCode: 401})}, 0, 0},
+		{"a missing Secret and refused credentials", []error{
+			fmt.Errorf("settings: %w", &reconciler.SecretError{}), fmt.Errorf("flow(a): %w", &engine.APIError{StatusCode: 401}),
+		}, 0, 0},
+		{"a spec problem", []error{fmt.Errorf("importLists(a): %w", engine.InvalidConfig(errors.New("x")))}, 0, 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			obj := newConfig("", 0)
+			c := testClient(obj).WithStatusSubresource(obj).Build()
+			retry := ReportResult(context.Background(), c, nil, obj, false, Result{Errors: tc.errors})
+			assert.GreaterOrEqual(t, retry, tc.min)
+			assert.LessOrEqual(t, retry, tc.max)
+		})
+	}
+}
+
+// A pass with a great many failures still fits in a condition message.
+func TestReportResultNamesTheFirstTenFailures(t *testing.T) {
+	obj := newConfig("", 0)
+	c := testClient(obj).WithStatusSubresource(obj).Build()
+	errs := make([]error, 0, 500)
+	for i := range 500 {
+		errs = append(errs, fmt.Errorf("indexers(%d): %s", i, strings.Repeat("x", 200)))
+	}
+	ReportResult(context.Background(), c, nil, obj, false, Result{Errors: errs})
+	require.NoError(t, c.Get(context.Background(), client.ObjectKeyFromObject(obj), obj))
+	condition := meta.FindStatusCondition(obj.Status.Conditions, "Synced")
+	require.NotNil(t, condition)
+	assert.True(t, strings.HasSuffix(condition.Message, " and 490 more"), condition.Message)
+	assert.Less(t, len(condition.Message), 32768)
 }
 
 func TestConfigChangedPredicate(t *testing.T) {
@@ -390,6 +416,7 @@ func TestResolveConfigFieldsRejectsBothValueAndValueFrom(t *testing.T) {
 	}}
 	_, err := ResolveConfigFields(context.Background(), c, "arr", "indexer x", fields)
 	require.Error(t, err, "expected an error when both value and valueFrom are set")
+	assert.True(t, engine.IsConfigError(err), "only a spec change fixes it")
 }
 
 func TestResolveConfigFieldsMissingSecret(t *testing.T) {
@@ -419,13 +446,13 @@ func TestConfigSyncedGaugeTracksOutcome(t *testing.T) {
 		"expected gauge 0 after failure")
 }
 
-func TestDriftSummaryNamesTheFirstTen(t *testing.T) {
+func TestListedNamesTheFirstTen(t *testing.T) {
 	drift := make([]string, 0, 13)
 	for i := range 13 {
 		drift = append(drift, fmt.Sprintf("indexers(%d)", i))
 	}
 	assert.Equal(t, "indexers(0), indexers(1), indexers(2), indexers(3), indexers(4), indexers(5), "+
-		"indexers(6), indexers(7), indexers(8), indexers(9) and 3 more", driftSummary(drift))
+		"indexers(6), indexers(7), indexers(8), indexers(9) and 3 more", listed(drift, ", "))
 }
 
 func TestIgnoreDeletedDropsTheSyncedSeries(t *testing.T) {
@@ -440,6 +467,19 @@ func TestIgnoreDeletedDropsTheSyncedSeries(t *testing.T) {
 	metrics.ConfigSynced.WithLabelValues("Sonarr", "media", "gone").Set(0)
 	assert.NoError(t, IgnoreDeleted(obj, key, apierrors.NewNotFound(schema.GroupResource{Resource: "sonarrs"}, "gone")))
 	assert.False(t, metrics.ConfigSynced.DeleteLabelValues("Sonarr", "media", "gone"), "the series outlived the resource")
+}
+
+// The secrets a resource wrote are remembered by its OwnerKey, which a
+// deletion drops for every incarnation of it.
+func TestIgnoreDeletedForgetsTheSecretsTheResourceWrote(t *testing.T) {
+	obj := &pvrv1alpha1.Sonarr{Name: t.Name(), Namespace: "media", UID: "uid-1"}
+	key := types.NamespacedName{Name: t.Name(), Namespace: "media"}
+	reconciler.RecordSecrets(OwnerKey(obj), "settings/host", "digest")
+	require.False(t, reconciler.SecretsDiffer(OwnerKey(obj), "settings/host", "digest", false))
+
+	require.NoError(t, IgnoreDeleted(&pvrv1alpha1.Sonarr{}, key, apierrors.NewNotFound(schema.GroupResource{Resource: "sonarrs"}, t.Name())))
+
+	assert.True(t, reconciler.SecretsDiffer(OwnerKey(obj), "settings/host", "digest", false), "the deleted resource's record outlived it")
 }
 
 // statusSonarr is a Sonarr in a fake API server that serves its status.

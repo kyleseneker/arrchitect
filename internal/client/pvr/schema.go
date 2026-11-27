@@ -143,8 +143,8 @@ func fetchSchema(ctx context.Context, client *engine.HTTPClient, apiVersion, kin
 // validateOptionFields checks each resource's free-form fields against the app's
 // own schema. Failures are returned as messages rather than an error, so one bad
 // field does not abandon the rest of the reconcile.
-func validateOptionFields(ctx context.Context, client *engine.HTTPClient, apiVersion string, opts Options) []string {
-	var problems []string
+func validateOptionFields(ctx context.Context, client *engine.HTTPClient, apiVersion string, opts Options) []error {
+	var problems []error
 
 	check := func(kind, name, implementation string, fields []commonv1alpha1.ConfigField, schema []map[string]any) {
 		if len(fields) == 0 {
@@ -155,7 +155,7 @@ func validateOptionFields(ctx context.Context, client *engine.HTTPClient, apiVer
 			names = append(names, f.Name)
 		}
 		if err := validateFieldNames(schema, implementation, names); err != nil {
-			problems = append(problems, fmt.Sprintf("%s(%s): %v", kind, name, err))
+			problems = append(problems, fmt.Errorf("%s(%s): %w", kind, name, err))
 		}
 	}
 
@@ -176,7 +176,7 @@ func validateOptionFields(ctx context.Context, client *engine.HTTPClient, apiVer
 		for _, n := range opts.Notifications {
 			check("notification", n.Name, n.Implementation, n.Fields, schema)
 			if events := unsupportedEvents(schema, n.Implementation, BuildNotificationPayload(n, nil)); len(events) > 0 {
-				problems = append(problems, fmt.Sprintf("notification(%s): %s has no %s event; it was not sent",
+				problems = append(problems, fmt.Errorf("notification(%s): %s has no %s event; it was not sent",
 					n.Name, n.Implementation, strings.Join(events, ", ")))
 			}
 		}

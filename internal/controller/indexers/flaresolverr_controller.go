@@ -55,11 +55,11 @@ func (r *FlareSolverrReconciler) connect(ctx context.Context, config *indexersv1
 	return flaresolverrclient.NewClient(hc), nil
 }
 
-func syncFlareSolverr(ctx context.Context, fc *flaresolverrclient.Client, config *indexersv1alpha1.FlareSolverr, pass *engine.Pass) []string {
-	var problems []string
+func syncFlareSolverr(ctx context.Context, fc *flaresolverrclient.Client, config *indexersv1alpha1.FlareSolverr, pass *engine.Pass) []error {
+	var problems []error
 	if err := reconcileFlareSolverrSessions(ctx, fc, pass, config.Spec.Sessions); err != nil {
 		log.FromContext(ctx).Error(err, "failed to reconcile sessions")
-		problems = append(problems, fmt.Sprintf("sessions: %v", err))
+		problems = append(problems, fmt.Errorf("sessions: %w", err))
 	}
 	if sessions, err := fc.ListSessions(ctx); err == nil {
 		config.Status.ActiveSessions = int32(len(sessions))

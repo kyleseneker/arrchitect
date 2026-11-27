@@ -40,8 +40,8 @@ func (r *PlexReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 		Check: func(ctx context.Context, pc *plexclient.Client, _ *mediaserversv1alpha1.Plex) error {
 			return pc.Ping(ctx)
 		},
-		Sync: func(ctx context.Context, pc *plexclient.Client, config *mediaserversv1alpha1.Plex, pass *engine.Pass) []string {
-			problems := reconcilePlexPreferences(ctx, pc, &pass.Writes, string(config.UID), buildPlexPreferences(config.Spec))
+		Sync: func(ctx context.Context, pc *plexclient.Client, config *mediaserversv1alpha1.Plex, pass *engine.Pass) []error {
+			problems := reconcilePlexPreferences(ctx, pc, pass, buildPlexPreferences(config.Spec))
 			return append(problems, reconcilePlexLibraries(ctx, pc, &pass.Writes, config.Spec.Libraries)...)
 		},
 	}
@@ -73,15 +73,15 @@ func (r *PlexReconciler) connect(ctx context.Context, config *mediaserversv1alph
 // one's agent, scanner, language and folders as declared.
 func reconcilePlexLibraries(
 	ctx context.Context, pc *plexclient.Client, w *engine.Writes, libraries []mediaserversv1alpha1.PlexLibrary,
-) []string {
+) []error {
 	if len(libraries) == 0 {
 		return nil
 	}
 	existing, err := pc.ListLibraries(ctx)
 	if err != nil {
-		return []string{fmt.Sprintf("listLibraries: %v", err)}
+		return []error{fmt.Errorf("listLibraries: %w", err)}
 	}
-	var syncErrors []string
+	var syncErrors []error
 	for _, lib := range libraries {
 		current, err := singleLibrary(existing, "Plex", "title", lib.Name)
 		switch {
@@ -95,7 +95,7 @@ func reconcilePlexLibraries(
 			err = updatePlexLibrary(ctx, pc, w, lib, current)
 		}
 		if err != nil {
-			syncErrors = append(syncErrors, fmt.Sprintf("library(%s): %v", lib.Name, err))
+			syncErrors = append(syncErrors, fmt.Errorf("library(%s): %w", lib.Name, err))
 		}
 	}
 	return syncErrors
@@ -232,39 +232,39 @@ func plexPreferenceChanges(desired, current map[string]string) (map[string]strin
 // Plex doesn't list is compared with what the operator last wrote, so observe
 // mode reports one only after it has been written once.
 func reconcilePlexPreferences(
-	ctx context.Context, pc *plexclient.Client, w *engine.Writes, owner string, desiredPrefs map[string]string,
-) []string {
+	ctx context.Context, pc *plexclient.Client, pass *engine.Pass, desiredPrefs map[string]string,
+) []error {
 	logger := log.FromContext(ctx)
-	var syncErrors []string
+	var syncErrors []error
 	if len(desiredPrefs) > 0 {
 		current, err := pc.GetSettings(ctx)
 		if err != nil {
-			syncErrors = append(syncErrors, fmt.Sprintf("reading preferences: %v", err))
+			syncErrors = append(syncErrors, fmt.Errorf("reading preferences: %w", err))
 		} else {
 			changes, unlisted := plexPreferenceChanges(desiredPrefs, current)
 			// Some settings (secureConnections, the hardware switches) are accepted
 			// but never listed, so what was last written is remembered instead.
-			remember := func(key string) string { return fmt.Sprintf("plex/%s/pref/%s", owner, key) }
+			remember := func(key string) string { return "pref/" + key }
 			for _, key := range unlisted {
-				if reconciler.SecretsDiffer(remember(key), desiredPrefs[key], w.Observe) {
+				if pass.SecretsDiffer(remember(key), desiredPrefs[key]) {
 					changes[key] = desiredPrefs[key]
 				}
 			}
 			// One key per request: Plex rejects a whole update over one setting it
 			// does not have, which would block every other setting.
 			for _, key := range slices.Sorted(maps.Keys(changes)) {
-				err := w.Apply("settings", key, func() error {
+				err := pass.Apply("settings", key, func() error {
 					if err := pc.SetPreferences(ctx, map[string]string{key: changes[key]}); err != nil {
 						return err
 					}
 					if slices.Contains(unlisted, key) {
-						reconciler.RecordSecrets(remember(key), changes[key])
+						pass.RecordSecrets(remember(key), changes[key])
 					}
 					return nil
 				})
 				if err != nil {
 					logger.Error(err, "Plex rejected a preference", "setting", key)
-					syncErrors = append(syncErrors, fmt.Sprintf("preference %s: Plex rejected it (%v); it may need Plex Pass or not exist in this version", key, err))
+					syncErrors = append(syncErrors, fmt.Errorf("preference %s: Plex rejected it (%w); it may need Plex Pass or not exist in this version", key, err))
 				}
 			}
 		}

@@ -14,10 +14,10 @@ import (
 
 // reconcileQBRSSFeeds adds and updates the declared feeds. It prunes first, so
 // a feed renamed in the resource frees its URL before the new name is added.
-func reconcileQBRSSFeeds(ctx context.Context, qb *qbclient.Client, pass *engine.Pass, feeds []downloadsv1alpha1.QBittorrentRSSFeed) []string {
+func reconcileQBRSSFeeds(ctx context.Context, qb *qbclient.Client, pass *engine.Pass, feeds []downloadsv1alpha1.QBittorrentRSSFeed) []error {
 	current, folders, err := qb.RSSItems(ctx)
 	if err != nil {
-		return []string{fmt.Sprintf("listing RSS feeds: %v", err)}
+		return []error{fmt.Errorf("listing RSS feeds: %w", err)}
 	}
 	names, present := qbRSSFeedNames(feeds), slices.Collect(maps.Keys(current))
 	planned := pass.Owned.Candidates("rssFeeds", names, present)
@@ -28,16 +28,16 @@ func reconcileQBRSSFeeds(ctx context.Context, qb *qbclient.Client, pass *engine.
 			return qb.RemoveRSSItem(ctx, path)
 		})
 		if err != nil {
-			return []string{fmt.Sprintf("rssFeeds(prune): %v", err)}
+			return []error{fmt.Errorf("rssFeeds(prune): %w", err)}
 		}
 		for _, path := range planned {
 			delete(current, path)
 		}
 	}
-	var errs []string
+	var errs []error
 	for _, feed := range feeds {
 		if err := reconcileQBRSSFeed(ctx, qb, pass, current, folders, feed); err != nil {
-			errs = append(errs, fmt.Sprintf("rssFeed(%s): %v", feed.Name, err))
+			errs = append(errs, fmt.Errorf("rssFeed(%s): %w", feed.Name, err))
 		}
 	}
 	return errs
@@ -120,12 +120,12 @@ func qbRSSFeedNames(feeds []downloadsv1alpha1.QBittorrentRSSFeed) []string {
 // reconcileQBRSSRules adds and updates the declared rules. qBittorrent rebuilds
 // a rule from what it is sent, so an update sends the declared fields merged
 // over the rule as it stands, keeping its last match and matched episodes.
-func reconcileQBRSSRules(ctx context.Context, qb *qbclient.Client, pass *engine.Pass, rules []downloadsv1alpha1.QBittorrentRSSRule) []string {
+func reconcileQBRSSRules(ctx context.Context, qb *qbclient.Client, pass *engine.Pass, rules []downloadsv1alpha1.QBittorrentRSSRule) []error {
 	current, err := qb.RSSRules(ctx)
 	if err != nil {
-		return []string{fmt.Sprintf("listing RSS rules: %v", err)}
+		return []error{fmt.Errorf("listing RSS rules: %w", err)}
 	}
-	var errs []string
+	var errs []error
 	for _, rule := range rules {
 		existing, _ := current[rule.Name].(map[string]any)
 		err := pass.Sync("rssRules", rule.Name, existing, qbRSSRuleDef(rule), func(merged map[string]any) error {
@@ -138,7 +138,7 @@ func reconcileQBRSSRules(ctx context.Context, qb *qbclient.Client, pass *engine.
 			return nil
 		})
 		if err != nil {
-			errs = append(errs, fmt.Sprintf("rssRule(%s): %v", rule.Name, err))
+			errs = append(errs, fmt.Errorf("rssRule(%s): %w", rule.Name, err))
 		}
 	}
 	if !pass.PruneEnabled || len(errs) > 0 {
@@ -148,7 +148,7 @@ func reconcileQBRSSRules(ctx context.Context, qb *qbclient.Client, pass *engine.
 		return qb.RemoveRSSRule(ctx, name)
 	})
 	if err != nil {
-		return []string{fmt.Sprintf("rssRules(prune): %v", err)}
+		return []error{fmt.Errorf("rssRules(prune): %w", err)}
 	}
 	return nil
 }

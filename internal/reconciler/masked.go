@@ -25,57 +25,68 @@ func IsMasked(v any) bool {
 	return strings.Trim(s, "*") == "" || s == "<redacted>"
 }
 
-// secretDigest holds the hashes of the secret values the operator last wrote,
-// keyed by resource. A masked field cannot be compared against the app, so the
-// only way to notice a rotated secret is to remember what was last sent.
+// secretDigests holds the hashes of the secret values the operator last wrote,
+// by owning resource and then by item. A masked field cannot be compared
+// against the app, so the only way to notice a rotated secret is to remember
+// what was last sent. ForgetSecrets drops a deleted resource's entries.
 //
 // The store is process-scoped: after a restart the first pass rewrites each
 // secret once and then goes quiet. That is a bounded, converging cost, unlike
-// persisting a secret-derived hash into the status of all fourteen CRDs.
-var secretDigest = struct {
+// persisting a secret-derived hash into the status of every CRD.
+var secretDigests = struct {
 	sync.Mutex
-	hashes map[string]string
-}{hashes: map[string]string{}}
+	byOwner map[string]map[string]string
+}{byOwner: map[string]map[string]string{}}
 
-// SecretsChangedSince reports whether the digest differs from the one last
-// written for key. An empty digest means the resource has no masked fields, so
-// there is nothing to remember and nothing to force.
-func SecretsChangedSince(key, digest string) bool {
+// recorded returns the digest last written for owner's key.
+func recorded(owner, key string) (string, bool) {
+	secretDigests.Lock()
+	defer secretDigests.Unlock()
+	digest, seen := secretDigests.byOwner[owner][key]
+	return digest, seen
+}
+
+// SecretsDiffer reports whether masked secrets count as a difference. An
+// empty digest means the item has no masked fields, so there is nothing to
+// compare. Enforce mode rewrites them when nothing has been recorded yet, so
+// the first pass after a restart sends them once. Observe mode never writes,
+// so it cannot know a secret it has not seen written: only a recorded digest
+// that no longer matches is a difference, or every masked credential would
+// read as drift forever.
+func SecretsDiffer(owner, key, digest string, observe bool) bool {
 	if digest == "" {
 		return false
 	}
-	secretDigest.Lock()
-	defer secretDigest.Unlock()
-	prev, seen := secretDigest.hashes[key]
-	return !seen || prev != digest
+	prev, seen := recorded(owner, key)
+	if !seen {
+		return !observe
+	}
+	return prev != digest
 }
 
-// SecretsDiffer reports whether masked secrets count as a difference. Enforce
-// mode rewrites them when nothing has been recorded yet, so the first pass after
-// a restart sends them once. Observe mode never writes, so it cannot know a
-// secret it has not seen written: only a recorded digest that no longer matches
-// is a difference, or every masked credential would read as drift forever.
-func SecretsDiffer(key, digest string, observe bool) bool {
-	if !observe {
-		return SecretsChangedSince(key, digest)
-	}
-	if digest == "" {
-		return false
-	}
-	secretDigest.Lock()
-	defer secretDigest.Unlock()
-	prev, seen := secretDigest.hashes[key]
-	return seen && prev != digest
-}
-
-// RecordSecrets stores the digest written for key.
-func RecordSecrets(key, digest string) {
+// RecordSecrets stores the digest owner wrote for key.
+func RecordSecrets(owner, key, digest string) {
 	if digest == "" {
 		return
 	}
-	secretDigest.Lock()
-	defer secretDigest.Unlock()
-	secretDigest.hashes[key] = digest
+	secretDigests.Lock()
+	defer secretDigests.Unlock()
+	if secretDigests.byOwner[owner] == nil {
+		secretDigests.byOwner[owner] = map[string]string{}
+	}
+	secretDigests.byOwner[owner][key] = digest
+}
+
+// ForgetSecrets drops the digests of every owner whose name starts with
+// prefix, such as each incarnation of a resource that was deleted.
+func ForgetSecrets(prefix string) {
+	secretDigests.Lock()
+	defer secretDigests.Unlock()
+	for owner := range secretDigests.byOwner {
+		if strings.HasPrefix(owner, prefix) {
+			delete(secretDigests.byOwner, owner)
+		}
+	}
 }
 
 // digestOf hashes the desired values that landed on masked fields. Values are

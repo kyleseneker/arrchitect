@@ -68,7 +68,7 @@ type ruleProp struct {
 func (s *maintainerrSync) ruleGroups(
 	ctx context.Context, groups []curationv1alpha1.MaintainerrRuleGroup, servers map[maintainerrclient.Arr]engine.NamedIDs,
 	notifications engine.NamedIDs,
-) []string {
+) []error {
 	// Rule groups resolve against the media server, the Sonarr and Radarr
 	// servers and the notifications configured before them. When observe mode
 	// has found one of those differing, a group that cannot be resolved is
@@ -78,14 +78,14 @@ func (s *maintainerrSync) ruleGroups(
 		kind, _, _ := strings.Cut(d, "(")
 		return slices.Contains([]string{"mediaServer", string(maintainerrclient.Sonarr), string(maintainerrclient.Radarr), "notification"}, kind)
 	})
-	fail := func(err error) []string {
+	fail := func(err error) []error {
 		if unresolvable {
 			for i := range groups {
 				s.RecordDrift("ruleGroup", groups[i].Name)
 			}
 			return nil
 		}
-		return []string{fmt.Sprintf("ruleGroups: %v", err)}
+		return []error{fmt.Errorf("ruleGroups: %w", err)}
 	}
 	// Read after the media server and the other apps are configured: rule
 	// properties exist only for configured apps.
@@ -111,7 +111,7 @@ func (s *maintainerrSync) ruleGroups(
 		notifications: notifications,
 	}
 
-	var errs []string
+	var errs []error
 	for i := range groups {
 		err := s.ruleGroup(ctx, &groups[i], env, stored)
 		switch {
@@ -119,7 +119,7 @@ func (s *maintainerrSync) ruleGroups(
 		case unresolvable:
 			s.RecordDrift("ruleGroup", groups[i].Name)
 		default:
-			errs = append(errs, fmt.Sprintf("ruleGroup(%s): %v", groups[i].Name, err))
+			errs = append(errs, fmt.Errorf("ruleGroup(%s): %w", groups[i].Name, err))
 		}
 	}
 	return errs

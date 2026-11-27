@@ -97,7 +97,7 @@ func (o *Ownership) delete(kind string, names []string, remove func(name string)
 			}
 			failure := fmt.Errorf("deleting %s %q: %w", kind, name, err)
 			if len(kept.Kept) > 0 {
-				return errors.Join(kept, failure)
+				return JoinErrors(kept, failure)
 			}
 			return failure
 		}
@@ -167,7 +167,7 @@ func SplitKept(err error) ([]*KeptError, error) {
 		rest = append(rest, err)
 	}
 	walk(err)
-	return kept, errors.Join(rest...)
+	return kept, JoinErrors(rest...)
 }
 
 func pruneLimit(kind string, n int) error {

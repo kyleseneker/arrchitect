@@ -32,7 +32,7 @@ func RetryAfter(obj client.Object, base time.Duration) time.Duration {
 	if base <= 0 {
 		return 0
 	}
-	key := retryKey(obj)
+	key := OwnerKey(obj)
 	failures.Lock()
 	n := failures.count[key]
 	dropOthers(obj, key)
@@ -62,7 +62,7 @@ func forget(obj client.Object) {
 // keep, such as one a resource deleted and created again left behind. The
 // caller holds the lock.
 func dropOthers(obj client.Object, keep string) {
-	prefix := retryPrefix(obj)
+	prefix := ownerPrefix(obj)
 	for key := range failures.count {
 		if key != keep && strings.HasPrefix(key, prefix) {
 			delete(failures.count, key)
@@ -75,12 +75,14 @@ func NextSync(rc *commonv1alpha1.ReconcileConfig) time.Duration {
 	return wait.Jitter(ReconcileInterval(rc), jitter)
 }
 
-// retryKey includes the UID, so a resource deleted and created again under the
-// same name starts without the old one's failures.
-func retryKey(obj client.Object) string {
-	return retryPrefix(obj) + string(obj.GetUID())
+// OwnerKey names obj in state the operator keeps between passes: its failures
+// in a row and the secrets it wrote. It includes the UID, so a resource
+// deleted and created again under the same name starts afresh.
+func OwnerKey(obj client.Object) string {
+	return ownerPrefix(obj) + string(obj.GetUID())
 }
 
-func retryPrefix(obj client.Object) string {
+// ownerPrefix starts the OwnerKey of every incarnation of obj.
+func ownerPrefix(obj client.Object) string {
 	return reflect.TypeOf(obj).Elem().Name() + "/" + obj.GetNamespace() + "/" + obj.GetName() + "/"
 }

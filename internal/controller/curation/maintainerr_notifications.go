@@ -20,20 +20,20 @@ const defaultAboutScale = 3
 
 // notifications saves each declared notification and returns every
 // notification Maintainerr has by name, for the rule groups that name them.
-func (s *maintainerrSync) notifications(ctx context.Context, declared []curationv1alpha1.MaintainerrNotification) (engine.NamedIDs, []string) {
+func (s *maintainerrSync) notifications(ctx context.Context, declared []curationv1alpha1.MaintainerrNotification) (engine.NamedIDs, []error) {
 	stored, err := s.mc.ListNotifications(ctx)
 	if err != nil {
-		return nil, []string{fmt.Sprintf("notifications: listing: %v", err)}
+		return nil, []error{fmt.Errorf("notifications: listing: %w", err)}
 	}
-	var errs []string
+	var errs []error
 	for i := range declared {
 		if err := s.notification(ctx, &declared[i], stored); err != nil {
-			errs = append(errs, fmt.Sprintf("notification(%s): %v", declared[i].Name, err))
+			errs = append(errs, fmt.Errorf("notification(%s): %w", declared[i].Name, err))
 		}
 	}
 	if len(declared) > 0 && !s.Observe {
 		if stored, err = s.mc.ListNotifications(ctx); err != nil {
-			return nil, append(errs, fmt.Sprintf("notifications: listing: %v", err))
+			return nil, append(errs, fmt.Errorf("notifications: listing: %w", err))
 		}
 	}
 	return engine.NamedIDsOf(stored, "name"), errs

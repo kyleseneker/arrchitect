@@ -118,17 +118,21 @@ func reconcilePVRObject(ctx context.Context, c client.Client, recorder events.Ev
 	policy := ctrlcommon.Policy(instance.policy)
 	// The object owns only the item it names, so prune replaces it on a rename.
 	policy.Prune = true
-	pass := engine.NewPass(o.app.Name, policy, obj.GetConfigStatus().GetManagedResources())
+	pass := engine.NewPass(o.app.Name, ctrlcommon.OwnerKey(obj), policy, obj.GetConfigStatus().GetManagedResources())
 	problems := pvrclient.Reconcile(ctx, hc, nil, opts, pass)
 	if id, ok := idOf(ctx, hc, "/api/"+o.app.APIVersion+o.path, o.name); ok {
 		o.setID(id)
 	}
 	ctrlcommon.UpdateStatusManaged(obj, pass.Owned.Managed())
 	ctrlcommon.EmitPruneEvents(recorder, obj, pass.Owned.Pruned())
-	ctrlcommon.ReportResult(ctx, c, recorder, obj, policy.Observe, engine.ReconcileResult{
+	retry := ctrlcommon.ReportResult(ctx, c, recorder, obj, policy.Observe, ctrlcommon.Result{
 		Synced: pass.SyncedItems(), Errors: problems, Drift: pass.Drift(),
 	})
-	return ctrl.Result{RequeueAfter: ctrlcommon.NextSync(instance.policy)}, nil
+	after := ctrlcommon.NextSync(instance.policy)
+	if retry > 0 && retry < after {
+		after = retry
+	}
+	return ctrl.Result{RequeueAfter: after}, nil
 }
 
 // olderClaim names an older resource of the same kind that configures the same

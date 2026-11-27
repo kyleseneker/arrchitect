@@ -50,15 +50,15 @@ func (r *QBittorrentReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	return integration.Reconcile(ctx, r.Client, r.Recorder, req, &downloadsv1alpha1.QBittorrent{})
 }
 
-func (r *QBittorrentReconciler) sync(ctx context.Context, qb *qbclient.Client, config *downloadsv1alpha1.QBittorrent, pass *engine.Pass) []string {
+func (r *QBittorrentReconciler) sync(ctx context.Context, qb *qbclient.Client, config *downloadsv1alpha1.QBittorrent, pass *engine.Pass) []error {
 	secret := func(ref commonv1alpha1.SecretKeyRef) (string, error) {
 		return reconciler.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, ref)
 	}
-	var problems []string
+	var problems []error
 	if config.Spec.Preferences != nil {
 		if err := reconcileQBPreferences(ctx, qb, &pass.Writes, config.Spec.Preferences, secret); err != nil {
 			log.FromContext(ctx).Error(err, "failed to reconcile preferences")
-			problems = append(problems, fmt.Sprintf("preferences: %v", err))
+			problems = append(problems, fmt.Errorf("preferences: %w", err))
 		}
 	}
 	if len(config.Spec.Categories) > 0 {
@@ -280,16 +280,16 @@ func (r *QBittorrentReconciler) connect(ctx context.Context, config *downloadsv1
 	return qb, qb.Login(ctx)
 }
 
-func reconcileQBCategories(ctx context.Context, qb *qbclient.Client, pass *engine.Pass, categories []downloadsv1alpha1.QBittorrentCategory) []string {
+func reconcileQBCategories(ctx context.Context, qb *qbclient.Client, pass *engine.Pass, categories []downloadsv1alpha1.QBittorrentCategory) []error {
 	existing, err := qb.ListCategories(ctx)
 	if err != nil {
-		return []string{fmt.Sprintf("listing categories: %v", err)}
+		return []error{fmt.Errorf("listing categories: %w", err)}
 	}
-	var errs []string
+	var errs []error
 	for _, cat := range categories {
 		if err := reconcileQBCategory(ctx, qb, pass, existing, cat); err != nil {
 			log.FromContext(ctx).Error(err, "failed to reconcile category", "name", cat.Name)
-			errs = append(errs, fmt.Sprintf("category(%s): %v", cat.Name, err))
+			errs = append(errs, fmt.Errorf("category(%s): %w", cat.Name, err))
 		}
 	}
 	if !pass.PruneEnabled || len(errs) > 0 {
@@ -299,7 +299,7 @@ func reconcileQBCategories(ctx context.Context, qb *qbclient.Client, pass *engin
 		return qb.RemoveCategory(ctx, name)
 	})
 	if err != nil {
-		return []string{fmt.Sprintf("categories(prune): %v", err)}
+		return []error{fmt.Errorf("categories(prune): %w", err)}
 	}
 	return nil
 }
