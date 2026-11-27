@@ -140,6 +140,21 @@ func TestSettingsGoBeforeTheKindsTheyGovern(t *testing.T) {
 	assert.Less(t, settings, lists, "Radarr's list sync level must change before its lists do")
 }
 
+func TestImportListsWaitForTheirSyncSetting(t *testing.T) {
+	app := &rebuildAPI{fail: "config/importlist"}
+	hc := app.client(t)
+	spec := pvrv1alpha1.RadarrSpec{ImportListConfig: pvrv1alpha1.RadarrImportListConfig{ListSyncLevel: "logOnly"}}
+	opts := Options{App: Radarr, ImportLists: []commonv1alpha1.ImportList{{Name: "Trakt", Implementation: "TraktListImport"}}}
+
+	problems := Reconcile(context.Background(), hc, spec, opts, engine.NewPass("radarr", engine.SyncPolicy{}, nil))
+	require.Len(t, problems, 2)
+	assert.Contains(t, problems[0], "importListConfig: ")
+	assert.Equal(t, "importLists: left out until importListConfig syncs", problems[1])
+	app.mu.Lock()
+	defer app.mu.Unlock()
+	assert.NotContains(t, app.writes, "POST importlist", "a list changed under the old sync level")
+}
+
 func TestOnlyRadarrTurnsAnImportListOff(t *testing.T) {
 	for _, app := range []App{Sonarr, Radarr, Lidarr, Readarr} {
 		t.Run(app.Name, func(t *testing.T) {
@@ -697,14 +712,14 @@ func TestAutoTagsResolveTheProfilesAndTagsTheyNameAndConverge(t *testing.T) {
 
 func TestResolveListSyncTagNamesTheTagByLabel(t *testing.T) {
 	hc := (&rebuildAPI{items: map[string][]map[string]any{"tag": {{"id": float64(4), "label": "unlisted"}}}}).client(t)
-	sections := map[string]any{"importListConfig": map[string]any{"listSyncLevel": "keepAndTag", "listSyncTagLabel": "Unlisted"}}
-	require.NoError(t, resolveListSyncTag(context.Background(), hc, "v3", sections, nil))
-	assert.Equal(t, map[string]any{"listSyncLevel": "keepAndTag", "listSyncTag": 4}, sections["importListConfig"])
+	config := map[string]any{"listSyncLevel": "keepAndTag", "listSyncTagLabel": "Unlisted"}
+	require.NoError(t, resolveListSyncTag(context.Background(), hc, "v3", config, nil))
+	assert.Equal(t, map[string]any{"listSyncLevel": "keepAndTag", "listSyncTag": 4}, config)
 
-	sections = map[string]any{"importListConfig": map[string]any{"listSyncLevel": "keepAndTag", "listSyncTagLabel": "gone"}}
-	assert.EqualError(t, resolveListSyncTag(context.Background(), hc, "v3", sections, nil),
+	config = map[string]any{"listSyncLevel": "keepAndTag", "listSyncTagLabel": "gone"}
+	assert.EqualError(t, resolveListSyncTag(context.Background(), hc, "v3", config, nil),
 		`listSyncTagLabel: the app has no item named "gone"`)
-	require.NoError(t, resolveListSyncTag(context.Background(), hc, "v3", sections, []string{"gone"}),
+	require.NoError(t, resolveListSyncTag(context.Background(), hc, "v3", config, []string{"gone"}),
 		"observe mode plans a tag the resource declares")
 }
 

@@ -539,12 +539,22 @@ func Reconcile(ctx context.Context, client *engine.HTTPClient, spec any, opts Op
 	problems = append(problems, run.Reconcile(ctx, client, def, pass)...)
 
 	// The settings name tags, and go before the kinds they govern, so Radarr's
-	// list sync level changes before its import lists do.
-	if err := resolveListSyncTag(ctx, client, apiVersion, sections, opts.planned["tags"]); err != nil {
-		delete(sections, "importListConfig")
-		problems = append(problems, fmt.Sprintf("importListConfig: %v", err))
+	// list sync level changes before its import lists do. The import lists wait
+	// while a declared list sync setting can't be written.
+	listConfig, declared := sections["importListConfig"]
+	delete(sections, "importListConfig")
+	var listProblems []string
+	if err := resolveListSyncTag(ctx, client, apiVersion, listConfig, opts.planned["tags"]); err != nil {
+		listProblems = []string{fmt.Sprintf("importListConfig: %v", err)}
+	} else if declared {
+		listProblems = engine.ReconcileApp(ctx, client, def, map[string]any{"importListConfig": listConfig}, nil, pass)
 	}
+	problems = append(problems, listProblems...)
 	problems = append(problems, engine.ReconcileApp(ctx, client, def, sections, nil, pass)...)
+	if len(listProblems) > 0 && len(opts.ImportLists) > 0 {
+		delete(run.Builders, "importLists")
+		problems = append(problems, "importLists: left out until importListConfig syncs")
+	}
 
 	run.Order = stages
 	problems = append(problems, run.Reconcile(ctx, client, def, pass)...)
@@ -556,8 +566,8 @@ func Reconcile(ctx context.Context, client *engine.HTTPClient, spec any, opts Op
 
 // resolveListSyncTag puts the ID of the tag Sonarr's listSyncTagLabel names in
 // listSyncTag.
-func resolveListSyncTag(ctx context.Context, client *engine.HTTPClient, apiVersion string, sections map[string]any, planned []string) error {
-	config, _ := sections["importListConfig"].(map[string]any)
+func resolveListSyncTag(ctx context.Context, client *engine.HTTPClient, apiVersion string, listConfig any, planned []string) error {
+	config, _ := listConfig.(map[string]any)
 	label, _ := config["listSyncTagLabel"].(string)
 	if label == "" {
 		return nil
