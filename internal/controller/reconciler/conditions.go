@@ -9,8 +9,8 @@ import (
 // condition; a longer one fails the whole status write.
 const maxConditionMessage = 32768
 
-// SetCondition sets a condition on a list of conditions.
-func SetCondition(conditions *[]metav1.Condition, generation int64, condType string, status metav1.ConditionStatus, reason, message string) {
+// setCondition sets a condition on a list of conditions.
+func setCondition(conditions *[]metav1.Condition, generation int64, condType string, status metav1.ConditionStatus, reason, message string) {
 	if runes := []rune(message); len(runes) > maxConditionMessage {
 		message = string(runes[:maxConditionMessage-3]) + "..."
 	}

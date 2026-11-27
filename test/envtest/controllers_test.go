@@ -721,6 +721,26 @@ func TestAppRefChangesReconcileTheReferrer(t *testing.T) {
 	}, 10*time.Second, 100*time.Millisecond, "creating the Sonarr's Secret did not reconcile the Prowlarr")
 }
 
+// Controllers that refer to one kind share its index by Secret name: Sonarr's
+// own controller indexes Sonarrs, and so do Prowlarr's and Seerr's, through
+// their appRefs. The cache refuses a second index of one name on one kind.
+func TestControllersShareAKindsSecretIndex(t *testing.T) {
+	cfg, c := startControlPlane(t, indexersv1alpha1.AddToScheme, pvrv1alpha1.AddToScheme, requestsv1alpha1.AddToScheme,
+		mediaserversv1alpha1.AddToScheme)
+	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
+		Scheme:     c.Scheme(),
+		Metrics:    metricsserver.Options{BindAddress: "0"},
+		Controller: config.Controller{SkipNameValidation: new(true)},
+		Client:     operator.ClientOptions(),
+	})
+	require.NoError(t, err)
+	recorder := events.NewFakeRecorder(100)
+
+	require.NoError(t, (&pvr.SonarrReconciler{Client: mgr.GetClient(), Recorder: recorder}).SetupWithManager(mgr))
+	require.NoError(t, (&indexers.ProwlarrReconciler{Client: mgr.GetClient(), Recorder: recorder}).SetupWithManager(mgr))
+	require.NoError(t, (&requests.SeerrReconciler{Client: mgr.GetClient(), Recorder: recorder}).SetupWithManager(mgr))
+}
+
 func TestNotificationAppRefChangesReconcileTheSonarr(t *testing.T) {
 	cfg, c := startControlPlane(t, pvrv1alpha1.AddToScheme, mediaserversv1alpha1.AddToScheme)
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{

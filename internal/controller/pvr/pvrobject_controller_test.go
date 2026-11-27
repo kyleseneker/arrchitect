@@ -18,13 +18,13 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
 	downloadsv1alpha1 "github.com/kyleseneker/arrchitect/api/downloads/v1alpha1"
 	pvrv1alpha1 "github.com/kyleseneker/arrchitect/api/pvr/v1alpha1"
-	pvrclient "github.com/kyleseneker/arrchitect/internal/client/pvr"
 	"github.com/kyleseneker/arrchitect/internal/controller/appref"
 	"github.com/kyleseneker/arrchitect/internal/controller/reconciler"
 )
@@ -531,7 +531,8 @@ func TestObjectDownloadClientNamingAnAppTheOperatorDoesntRunWaitsForASpecChange(
 	result, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: key})
 	require.NoError(t, err)
 
-	assert.Zero(t, result.RequeueAfter, "only a spec change can fix the reference")
+	assert.GreaterOrEqual(t, result.RequeueAfter, reconciler.DefaultReconcileInterval,
+		"only a spec change can fix the reference, so the pass waits for one or the interval")
 	assert.False(t, fa.sawPrefix("POST", "/api/"))
 	var got pvrv1alpha1.SonarrDownloadClient
 	require.NoError(t, c.Get(context.Background(), key, &got))
@@ -583,8 +584,25 @@ func TestResolveDownloadClientSecrets_MissingSecret(t *testing.T) {
 	assert.Contains(t, err.Error(), "username")
 }
 
-func TestCleanupPVRWithoutOwnedPrunableResourcesNeedsNoCredentials(t *testing.T) {
-	obj := &pvrv1alpha1.SonarrIndexer{Name: "indexer", Namespace: "media"}
-	obj.Status.SetManagedResources(map[string][]string{"tags": {"shared"}})
-	require.NoError(t, cleanupPVR(context.Background(), nil, nil, obj, commonv1alpha1.AppConnection{}, pvrclient.Sonarr))
+// A pass reads the instance once, so its drift policy and its connection come
+// from the same version of it.
+func TestObjectReadsItsInstanceOncePerPass(t *testing.T) {
+	_, url := newFakeArr(t, "v3", nil)
+	base, ok := objectClient(t, apiKeySecret(), sonarrInstanceAt(url, nil), sonarrDownloadClient()).(client.WithWatch)
+	require.True(t, ok)
+	reads := 0
+	c := interceptor.NewClient(base, interceptor.Funcs{
+		Get: func(ctx context.Context, cl client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+			if _, ok := obj.(*pvrv1alpha1.Sonarr); ok {
+				reads++
+			}
+			return cl.Get(ctx, key, obj, opts...)
+		},
+	})
+	r := NewObjectReconciler(SonarrDownloadClients, c, events.NewFakeRecorder(50), nil)
+
+	_, err := r.Reconcile(context.Background(), ctrl.Request{Name: "tv-qbittorrent", Namespace: "media"})
+
+	require.NoError(t, err)
+	assert.Equal(t, 1, reads)
 }

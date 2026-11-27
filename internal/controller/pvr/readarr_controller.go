@@ -6,7 +6,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
@@ -14,7 +13,7 @@ import (
 	pvrclient "github.com/kyleseneker/arrchitect/internal/client/pvr"
 	"github.com/kyleseneker/arrchitect/internal/controller/appref"
 	"github.com/kyleseneker/arrchitect/internal/controller/reconciler"
-	"github.com/kyleseneker/arrchitect/internal/controller/secretref"
+	"github.com/kyleseneker/arrchitect/internal/httpapi"
 )
 
 type ReadarrReconciler struct {
@@ -30,7 +29,15 @@ type ReadarrReconciler struct {
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
 
 func (r *ReadarrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	integration := pvrIntegration(r.Client, r.Apps, pvrclient.Readarr, func(config *pvrv1alpha1.Readarr) pvrConfig {
+	return r.integration().Reconcile(ctx, r.Client, r.Recorder, req)
+}
+
+func (r *ReadarrReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	return r.integration().SetupWithManager(mgr, r.Apps, r)
+}
+
+func (r *ReadarrReconciler) integration() reconciler.Integration[*pvrv1alpha1.Readarr, *httpapi.HTTPClient] {
+	in := pvrIntegration(r.Client, r.Apps, pvrclient.Readarr, func(config *pvrv1alpha1.Readarr) pvrConfig {
 		s := config.Spec
 		return pvrConfig{spec: s, connection: s.Connection, options: pvrclient.Options{
 			RootFolders:             s.RootFolders,
@@ -45,21 +52,10 @@ func (r *ReadarrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			ReadarrMetadataProfiles: s.MetadataProfiles,
 		}}
 	})
-	return integration.Reconcile(ctx, r.Client, r.Recorder, req, &pvrv1alpha1.Readarr{})
-}
-
-func (r *ReadarrReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	b := ctrl.NewControllerManagedBy(mgr).
-		For(&pvrv1alpha1.Readarr{}, builder.WithPredicates(reconciler.ConfigChangedPredicate()))
-	b, err := secretref.Watch(mgr, b, &pvrv1alpha1.Readarr{}, &pvrv1alpha1.ReadarrList{})
-	if err != nil {
-		return err
-	}
-	b, err = appref.Watch(mgr, b, r.Apps, &pvrv1alpha1.Readarr{}, &pvrv1alpha1.ReadarrList{}, readarrAppRefs, "Plex")
-	if err != nil {
-		return err
-	}
-	return b.Named("readarr").Complete(r)
+	in.New = func() *pvrv1alpha1.Readarr { return &pvrv1alpha1.Readarr{} }
+	in.NewList = func() client.ObjectList { return &pvrv1alpha1.ReadarrList{} }
+	in.AppRefs, in.RefKinds = readarrAppRefs, []string{"Plex"}
+	return in
 }
 
 func readarrAppRefs(o client.Object) []commonv1alpha1.AppRef {

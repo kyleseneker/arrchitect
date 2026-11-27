@@ -4,7 +4,6 @@ package appref
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/url"
 	"strconv"
@@ -102,32 +101,22 @@ func (a Apps) Runs(kind string) bool {
 	return a == nil || a[strings.ToLower(kind)]
 }
 
-// ErrNotFound is wrapped in Resolve's error for a resource that doesn't exist.
-var ErrNotFound = errors.New("not found")
-
-// Invalid is an appRef that can't be followed until a spec changes: a kind the
-// connection doesn't take, an app the operator doesn't run, or a resource
-// without what the connection needs from it.
-func Invalid(format string, args ...any) error {
-	return failure.InvalidConfig(fmt.Errorf(format, args...))
-}
-
 // Resolve reads the resource ref names in namespace. Its errors name the
 // reference, never what the resource holds.
 func Resolve(ctx context.Context, c client.Reader, apps Apps, namespace string, ref commonv1alpha1.AppRef) (App, error) {
 	kind, ok := appKinds[ref.Kind]
 	if !ok {
-		return App{}, Invalid("%s %q: unsupported kind", ref.Kind, ref.Name)
+		return App{}, failure.InvalidConfig.Errorf("%s %q: unsupported kind", ref.Kind, ref.Name)
 	}
 	if !apps.Runs(ref.Kind) {
-		return App{}, Invalid("%s %q: the operator doesn't run the %s controller", ref.Kind, ref.Name, strings.ToLower(ref.Kind))
+		return App{}, failure.InvalidConfig.Errorf("%s %q: the operator doesn't run the %s controller", ref.Kind, ref.Name, strings.ToLower(ref.Kind))
 	}
 	obj := kind.newObj()
 	if err := c.Get(ctx, types.NamespacedName{Namespace: namespace, Name: ref.Name}, obj); err != nil {
 		if apierrors.IsNotFound(err) || meta.IsNoMatchError(err) {
-			return App{}, fmt.Errorf("%s %q %w", ref.Kind, ref.Name, ErrNotFound)
+			return App{}, failure.ReferenceNotFound.Errorf("%s %q not found", ref.Kind, ref.Name)
 		}
-		return App{}, fmt.Errorf("reading %s %q: %w", ref.Kind, ref.Name, err)
+		return App{}, failure.Transient.Errorf("reading %s %q: %w", ref.Kind, ref.Name, err)
 	}
 	app := kind.app(obj)
 	app.Kind = ref.Kind
@@ -143,7 +132,7 @@ func ResolveAddress(ctx context.Context, c client.Reader, apps Apps, namespace s
 	}
 	addr, err := splitURL(app.URL)
 	if err != nil {
-		return App{}, Address{}, Invalid("%s %q has no usable connection URL", ref.Kind, ref.Name)
+		return App{}, Address{}, failure.InvalidConfig.Errorf("%s %q has no usable connection URL", ref.Kind, ref.Name)
 	}
 	return app, addr, nil
 }

@@ -189,11 +189,11 @@ The reason is one of:
 | Reason | Meaning |
 | --- | --- |
 | `Synced` | The app matches the resource. |
-| `SyncFailed` | Some settings could not be applied, or failed in different ways; the message says which, and the reason the app gave. |
-| `AppUnreachable` | The app did not respond. |
+| `SyncFailed` | Some settings could not be applied, the pass failed in different ways, or reading a Secret or an appRef's resource from the Kubernetes API failed during a pass; the message says which, and the reason the app gave. |
+| `AppUnreachable` | The app did not respond, or answered that it is down with a 502, 503 or 504. |
 | `Unauthorized` | The app refused the API key, token or password. |
 | `SecretNotFound` | A Secret or key the resource needs does not exist. |
-| `InvalidConfig` | The resource asks for something the operator does not support, or an `appRef` the resource needs can't work, such as one naming an app the operator doesn't run. |
+| `InvalidConfig` | The resource asks for something the operator does not support, its URL or TLS settings don't lead to the app, or an `appRef` the resource needs can't work, such as one naming an app the operator doesn't run. |
 | `ReferenceNotFound` | An indexer's or download client's app resource doesn't exist, or an `appRef` the resource needs names a missing resource. |
 | `NameConflict` | An older resource already configures the item this one names. |
 | `Observed` | Observe mode found no differences. |
@@ -300,9 +300,10 @@ it on Jellyfin and Plex, and alongside `driftPolicy: observe`. An item the app
 won't delete because something still uses it is kept and named in a
 `ResourceKept` warning event. A Lidarr or Readarr quality profile that a root
 folder defaults to is one example. Cleanup that fails for another reason
-records a `CleanupFailed` warning event and is retried. After 10 minutes the
-operator gives up. It then records a `FinalizerReleased` warning event and
-removes the finalizer.
+records a `CleanupFailed` warning event and is retried, backing off from 30
+seconds. A retry more than 10 minutes after the deletion that still fails
+gives up: it records a `FinalizerReleased` warning event and removes the
+finalizer.
 
 ## Credentials
 

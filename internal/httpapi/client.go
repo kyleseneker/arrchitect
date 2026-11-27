@@ -139,7 +139,7 @@ func (j secureAgnosticJar) SetCookies(u *url.URL, cookies []*http.Cookie) {
 // Returns an error if the URL scheme is not http/https.
 func NewHTTPClient(baseURL string, authType AuthType, opts ...HTTPClientOption) (*HTTPClient, error) {
 	if err := validateBaseURL(baseURL); err != nil {
-		return nil, failure.InvalidConfig(err)
+		return nil, failure.InvalidConfig.Wrap(err)
 	}
 
 	jar, err := cookiejar.New(nil)
@@ -212,7 +212,7 @@ func ssrfSafeDialContext(ctx context.Context, network, addr string) (net.Conn, e
 	// Distinguish "every address was blocked" from "the dial failed", which are
 	// very different problems to chase.
 	if allowed == 0 {
-		return nil, fmt.Errorf("no allowed IP addresses for host %q (blocked: loopback, link-local, unspecified, cloud metadata)", host)
+		return nil, failure.InvalidConfig.Errorf("no allowed IP addresses for host %q (blocked: loopback, link-local, unspecified, cloud metadata)", host)
 	}
 	return nil, fmt.Errorf("dialing %s: %w", addr, lastErr)
 }
@@ -406,14 +406,14 @@ func (c *HTTPClient) DoRaw(ctx context.Context, method, path string, body io.Rea
 	if err != nil {
 		outcome = outcomeError
 		metrics.AppAPIErrorsTotal.WithLabelValues(c.appLabel, "network").Inc()
-		return nil, fmt.Errorf("executing request: %w", err)
+		return nil, transportFailure(fmt.Errorf("executing request: %w", err))
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	respBody, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes+1))
 	if err != nil {
 		outcome = outcomeError
-		return nil, fmt.Errorf("reading response: %w", err)
+		return nil, failure.Unreachable.Errorf("reading response: %w", err)
 	}
 	if len(respBody) > maxResponseBytes {
 		outcome = outcomeError
@@ -423,10 +423,36 @@ func (c *HTTPClient) DoRaw(ctx context.Context, method, path string, body io.Rea
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		outcome = outcomeError
 		metrics.AppAPIErrorsTotal.WithLabelValues(c.appLabel, fmt.Sprintf("%dxx", resp.StatusCode/100)).Inc()
-		return nil, &APIError{StatusCode: resp.StatusCode, Body: respBody}
+		return nil, statusFailure(&APIError{StatusCode: resp.StatusCode, Body: respBody})
 	}
 
 	return respBody, nil
+}
+
+// transportFailure marks a request that got no answer. A certificate the
+// operator can't verify, or an address it refuses, is the URL or TLS settings,
+// which no retry fixes. Anything else is the app being unreachable.
+func transportFailure(err error) error {
+	if failure.KindOf(err) != 0 {
+		return err
+	}
+	if _, ok := errors.AsType[*tls.CertificateVerificationError](err); ok {
+		return failure.InvalidConfig.Wrap(err)
+	}
+	return failure.Unreachable.Wrap(err)
+}
+
+// statusFailure marks an app's error answer: refused credentials, or a proxy
+// or the app saying it's down. Any other answer is the app refusing the
+// request, which carries no kind.
+func statusFailure(err *APIError) error {
+	switch err.StatusCode {
+	case http.StatusUnauthorized, http.StatusForbidden:
+		return failure.Unauthorized.Wrap(err)
+	case http.StatusBadGateway, http.StatusServiceUnavailable, http.StatusGatewayTimeout:
+		return failure.Unreachable.Wrap(err)
+	}
+	return err
 }
 
 // Do executes an HTTP request with a JSON body.
@@ -483,9 +509,13 @@ func (c *HTTPClient) applyAuth(req *http.Request) {
 	}
 }
 
-// Ping checks if the app is reachable at the given path.
+// Ping checks the app answers at the given path. A 404 there means the URL
+// doesn't lead to the app's API, which no retry fixes.
 func (c *HTTPClient) Ping(ctx context.Context, path string) error {
 	_, err := c.Do(ctx, http.MethodGet, path, nil)
+	if apiErr, ok := errors.AsType[*APIError](err); ok && apiErr.StatusCode == http.StatusNotFound {
+		return failure.InvalidConfig.Errorf("no %s API at this URL: GET %s: %w", AppName(c.appLabel), path, err)
+	}
 	return err
 }
 
@@ -550,18 +580,6 @@ const (
 	// AuthSession uses cookie jar with optional X-Api-Key fallback (Seerr).
 	AuthSession
 )
-
-// ErrUnauthorized is an app refusing the credentials the operator sent.
-var ErrUnauthorized = errors.New("the app refused the credentials")
-
-// IsUnauthorized reports whether err is an app refusing the credentials.
-func IsUnauthorized(err error) bool {
-	if errors.Is(err, ErrUnauthorized) {
-		return true
-	}
-	apiErr, ok := errors.AsType[*APIError](err)
-	return ok && (apiErr.StatusCode == http.StatusUnauthorized || apiErr.StatusCode == http.StatusForbidden)
-}
 
 // idleConnTimeout closes a transport's idle connections soon after a pass.
 // A client lives for one pass, so a connection left idle longer is never

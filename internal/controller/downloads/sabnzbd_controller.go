@@ -13,7 +13,6 @@ import (
 
 	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
@@ -21,7 +20,6 @@ import (
 	downloadsv1alpha1 "github.com/kyleseneker/arrchitect/api/downloads/v1alpha1"
 	sabnzbdclient "github.com/kyleseneker/arrchitect/internal/client/sabnzbd"
 	"github.com/kyleseneker/arrchitect/internal/controller/reconciler"
-	"github.com/kyleseneker/arrchitect/internal/controller/secretref"
 	"github.com/kyleseneker/arrchitect/internal/engine"
 	"github.com/kyleseneker/arrchitect/internal/failure"
 	"github.com/kyleseneker/arrchitect/internal/httpapi"
@@ -40,27 +38,37 @@ type SabnzbdReconciler struct {
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
 
 func (r *SabnzbdReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	integration := reconciler.Integration[*downloadsv1alpha1.Sabnzbd, *sabnzbdclient.Client]{
+	return r.integration().Reconcile(ctx, r.Client, r.Recorder, req)
+}
+
+// SetupWithManager sets up the controller with the Manager.
+func (r *SabnzbdReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	return r.integration().SetupWithManager(mgr, nil, r)
+}
+
+func (r *SabnzbdReconciler) integration() reconciler.Integration[*downloadsv1alpha1.Sabnzbd, *sabnzbdclient.Client] {
+	return reconciler.Integration[*downloadsv1alpha1.Sabnzbd, *sabnzbdclient.Client]{
 		App:     "sabnzbd",
+		New:     func() *downloadsv1alpha1.Sabnzbd { return &downloadsv1alpha1.Sabnzbd{} },
+		NewList: func() client.ObjectList { return &downloadsv1alpha1.SabnzbdList{} },
 		Connect: r.connect,
 		Check:   r.check,
 		Sync:    r.sync,
 		Cleanup: cleanupSabnzbd,
 		Prune:   true,
 	}
-	return integration.Reconcile(ctx, r.Client, r.Recorder, req, &downloadsv1alpha1.Sabnzbd{})
 }
 
 func (r *SabnzbdReconciler) connect(ctx context.Context, config *downloadsv1alpha1.Sabnzbd) (*sabnzbdclient.Client, error) {
-	apiKey, err := secrets.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, config.Spec.Connection.APIKeySecretRef)
+	conn := config.Spec.Connection
+	apiKey, err := secrets.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, conn.APIKeySecretRef)
 	if err != nil {
 		return nil, err
 	}
-	tlsCfg, err := reconciler.ResolveTLSConfig(ctx, r.Client, config.Namespace, config.Spec.Connection.TLS)
-	if err != nil {
-		return nil, err
-	}
-	hc, err := httpapi.NewHTTPClient(config.Spec.Connection.URL, httpapi.AuthNone, httpapi.WithTLSConfig(tlsCfg), httpapi.WithAppLabel("sabnzbd"))
+	// SABnzbd takes its key as a query parameter, which its client adds.
+	hc, err := reconciler.Dial(ctx, r.Client, config.Namespace, reconciler.Endpoint{
+		App: "sabnzbd", URL: conn.URL, TLS: conn.TLS, Auth: httpapi.AuthNone,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +80,7 @@ func (r *SabnzbdReconciler) connect(ctx context.Context, config *downloadsv1alph
 func (r *SabnzbdReconciler) check(ctx context.Context, sc *sabnzbdclient.Client, config *downloadsv1alpha1.Sabnzbd) error {
 	if config.Spec.General != nil {
 		if err := sabnzbdHostAllowed(config.Spec.Connection.URL, config.Spec.General.HostWhitelist); err != nil {
-			return failure.InvalidConfig(err)
+			return failure.InvalidConfig.Wrap(err)
 		}
 	}
 	return sc.Ping(ctx)
@@ -119,16 +127,6 @@ func (r *SabnzbdReconciler) sync(ctx context.Context, sc *sabnzbdclient.Client, 
 		}
 	}
 	return append(problems, pruneSabnzbd(ctx, sc, current, config.Spec, pass)...)
-}
-
-func (r *SabnzbdReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	b := ctrl.NewControllerManagedBy(mgr).
-		For(&downloadsv1alpha1.Sabnzbd{}, builder.WithPredicates(reconciler.ConfigChangedPredicate()))
-	b, err := secretref.Watch(mgr, b, &downloadsv1alpha1.Sabnzbd{}, &downloadsv1alpha1.SabnzbdList{})
-	if err != nil {
-		return err
-	}
-	return b.Named("sabnzbd").Complete(r)
 }
 
 func buildSabnzbdFolderValues(f *downloadsv1alpha1.SabnzbdFolders) map[string]string {

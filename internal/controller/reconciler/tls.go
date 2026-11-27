@@ -13,9 +13,9 @@ import (
 	"github.com/kyleseneker/arrchitect/internal/secrets"
 )
 
-// ResolveTLSConfig builds a *tls.Config from a TLSConfig CRD spec.
+// resolveTLSConfig builds a *tls.Config from a TLSConfig CRD spec.
 // Returns nil if tlsCfg is nil and no TLS customization is needed.
-func ResolveTLSConfig(ctx context.Context, c client.Reader, namespace string, tlsCfg *commonv1alpha1.TLSConfig) (*tls.Config, error) {
+func resolveTLSConfig(ctx context.Context, c client.Reader, namespace string, tlsCfg *commonv1alpha1.TLSConfig) (*tls.Config, error) {
 	if tlsCfg == nil {
 		return nil, nil
 	}
@@ -35,7 +35,7 @@ func ResolveTLSConfig(ctx context.Context, c client.Reader, namespace string, tl
 		}
 		pool := x509.NewCertPool()
 		if !pool.AppendCertsFromPEM([]byte(caPEM)) {
-			return nil, failure.InvalidConfig(fmt.Errorf("CA certificate secret %s/%s key %q contains no valid PEM certificates", namespace, tlsCfg.CASecretRef.Name, tlsCfg.CASecretRef.Key))
+			return nil, failure.InvalidConfig.Errorf("CA certificate secret %s/%s key %q contains no valid PEM certificates", namespace, tlsCfg.CASecretRef.Name, tlsCfg.CASecretRef.Key)
 		}
 		cfg.RootCAs = pool
 	}

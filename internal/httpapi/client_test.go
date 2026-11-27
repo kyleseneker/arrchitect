@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/kyleseneker/arrchitect/internal/failure"
 	"github.com/kyleseneker/arrchitect/internal/metrics"
 	"github.com/kyleseneker/arrchitect/internal/secrets"
 )
@@ -647,6 +648,73 @@ func TestNewHTTPTransport(t *testing.T) {
 			if tt.tlsCfg != nil {
 				assert.Equal(t, tt.tlsCfg, transport.TLSClientConfig)
 			}
+		})
+	}
+}
+
+// What an app answers is marked with the kind of failure it is: refused
+// credentials, a proxy or the app saying it's down, or a refusal of its own,
+// which carries no kind. The answer itself stays readable.
+func TestAnswersAreMarkedWithTheirKind(t *testing.T) {
+	for _, tc := range []struct {
+		status int
+		want   failure.Kind
+	}{
+		{http.StatusUnauthorized, failure.Unauthorized},
+		{http.StatusForbidden, failure.Unauthorized},
+		{http.StatusBadGateway, failure.Unreachable},
+		{http.StatusServiceUnavailable, failure.Unreachable},
+		{http.StatusGatewayTimeout, failure.Unreachable},
+		{http.StatusBadRequest, 0},
+		{http.StatusNotFound, 0},
+		{http.StatusInternalServerError, 0},
+	} {
+		t.Run(http.StatusText(tc.status), func(t *testing.T) {
+			hc := newTestServer(t, func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(tc.status) })
+			_, err := hc.Do(context.Background(), http.MethodGet, "/api", nil)
+			require.Error(t, err)
+			assert.Equal(t, tc.want, failure.KindOf(err))
+			apiErr, ok := errors.AsType[*APIError](err)
+			require.True(t, ok)
+			assert.Equal(t, tc.status, apiErr.StatusCode)
+		})
+	}
+}
+
+// A health check that finds nothing at its path means the URL doesn't lead to
+// the app's API, which no retry fixes.
+func TestPingReadsA404AsTheWrongURL(t *testing.T) {
+	hc := newTestServer(t, func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNotFound) })
+	err := hc.Ping(context.Background(), "/api/v3/system/status")
+	assert.EqualError(t, err, "no test-app API at this URL: GET /api/v3/system/status: API request failed with status 404")
+	assert.Equal(t, failure.InvalidConfig, failure.KindOf(err))
+}
+
+// A request that gets no answer is the app being unreachable, unless the URL
+// or TLS settings are wrong: a certificate the operator can't verify, or an
+// address it refuses.
+func TestTransportFailuresAreMarked(t *testing.T) {
+	closed := httptest.NewServer(http.NotFoundHandler())
+	closed.Close()
+	untrusted := httptest.NewTLSServer(http.NotFoundHandler())
+	t.Cleanup(untrusted.Close)
+
+	for _, tc := range []struct {
+		name string
+		url  string
+		opts []HTTPClientOption
+		want failure.Kind
+	}{
+		{"refused connection", closed.URL, []HTTPClientOption{WithTransport(&http.Transport{})}, failure.Unreachable},
+		{"unverifiable certificate", untrusted.URL, []HTTPClientOption{WithTransport(&http.Transport{})}, failure.InvalidConfig},
+		{"refused address", "http://localhost:9", nil, failure.InvalidConfig},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			hc, err := NewHTTPClient(tc.url, AuthNone, tc.opts...)
+			require.NoError(t, err)
+			_, err = hc.Do(context.Background(), http.MethodGet, "/api", nil)
+			require.Error(t, err)
+			assert.Equal(t, tc.want, failure.KindOf(err), err.Error())
 		})
 	}
 }

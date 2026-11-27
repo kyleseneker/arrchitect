@@ -200,9 +200,9 @@ func planDelayProfiles(
 					label = l
 				}
 			}
-			return nil, failure.InvalidConfig(fmt.Errorf(
+			return nil, failure.InvalidConfig.Errorf(
 				"%s(%s): tag %q is in profile %s, which no declared profile takes over and the operator can't prune",
-				delayProfilesKind, name, label, delayProfileID(e)))
+				delayProfilesKind, name, label, delayProfileID(e))
 		}
 	}
 	return plans, nil

@@ -13,14 +13,12 @@ import (
 
 	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	mediaserversv1alpha1 "github.com/kyleseneker/arrchitect/api/mediaservers/v1alpha1"
 	jellyfinclient "github.com/kyleseneker/arrchitect/internal/client/jellyfin"
 	"github.com/kyleseneker/arrchitect/internal/controller/reconciler"
-	"github.com/kyleseneker/arrchitect/internal/controller/secretref"
 	"github.com/kyleseneker/arrchitect/internal/engine"
 	"github.com/kyleseneker/arrchitect/internal/httpapi"
 	"github.com/kyleseneker/arrchitect/internal/jsondiff"
@@ -39,12 +37,22 @@ type JellyfinReconciler struct {
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
 
 func (r *JellyfinReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	integration := reconciler.Integration[*mediaserversv1alpha1.Jellyfin, *jellyfinConn]{
+	return r.integration().Reconcile(ctx, r.Client, r.Recorder, req)
+}
+
+// SetupWithManager sets up the controller with the Manager.
+func (r *JellyfinReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	return r.integration().SetupWithManager(mgr, nil, r)
+}
+
+func (r *JellyfinReconciler) integration() reconciler.Integration[*mediaserversv1alpha1.Jellyfin, *jellyfinConn] {
+	return reconciler.Integration[*mediaserversv1alpha1.Jellyfin, *jellyfinConn]{
 		App:     "jellyfin",
+		New:     func() *mediaserversv1alpha1.Jellyfin { return &mediaserversv1alpha1.Jellyfin{} },
+		NewList: func() client.ObjectList { return &mediaserversv1alpha1.JellyfinList{} },
 		Connect: r.connect,
 		Sync:    r.sync,
 	}
-	return integration.Reconcile(ctx, r.Client, r.Recorder, req, &mediaserversv1alpha1.Jellyfin{})
 }
 
 // jellyfinAdmin is the admin user the setup wizard creates and the operator
@@ -68,11 +76,9 @@ func (r *JellyfinReconciler) connect(ctx context.Context, config *mediaserversv1
 	if err != nil {
 		return nil, err
 	}
-	tlsCfg, err := reconciler.ResolveTLSConfig(ctx, r.Client, config.Namespace, config.Spec.Connection.TLS)
-	if err != nil {
-		return nil, err
-	}
-	hc, err := httpapi.NewHTTPClient(config.Spec.Connection.URL, httpapi.AuthMediaBrowser, httpapi.WithTLSConfig(tlsCfg), httpapi.WithAppLabel("jellyfin"))
+	hc, err := reconciler.Dial(ctx, r.Client, config.Namespace, reconciler.Endpoint{
+		App: "jellyfin", URL: config.Spec.Connection.URL, TLS: config.Spec.Connection.TLS, Auth: httpapi.AuthMediaBrowser,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -96,7 +102,6 @@ func (r *JellyfinReconciler) sync(ctx context.Context, conn *jellyfinConn, confi
 		})
 		if err != nil {
 			logger.Error(err, "failed to run setup wizard")
-			pass.Retry = reconciler.SetupRetry(err)
 			return []error{fmt.Errorf("setup wizard: %w", err)}
 		}
 		if pass.Observe {
@@ -104,7 +109,6 @@ func (r *JellyfinReconciler) sync(ctx context.Context, conn *jellyfinConn, confi
 		}
 		logger.Info("Jellyfin setup wizard completed")
 		if err := r.signIn(ctx, jf, config, conn.admin); err != nil {
-			_, pass.Retry = reconciler.Classify(err)
 			return []error{fmt.Errorf("authentication: %w", err)}
 		}
 	}
@@ -574,15 +578,4 @@ func buildPathInfos(paths []string) []map[string]any {
 		infos[i] = map[string]any{"Path": p}
 	}
 	return infos
-}
-
-// SetupWithManager sets up the controller with the Manager.
-func (r *JellyfinReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	b := ctrl.NewControllerManagedBy(mgr).
-		For(&mediaserversv1alpha1.Jellyfin{}, builder.WithPredicates(reconciler.ConfigChangedPredicate()))
-	b, err := secretref.Watch(mgr, b, &mediaserversv1alpha1.Jellyfin{}, &mediaserversv1alpha1.JellyfinList{})
-	if err != nil {
-		return err
-	}
-	return b.Named("jellyfin").Complete(r)
 }

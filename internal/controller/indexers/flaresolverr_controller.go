@@ -8,14 +8,12 @@ import (
 
 	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	indexersv1alpha1 "github.com/kyleseneker/arrchitect/api/indexers/v1alpha1"
 	flaresolverrclient "github.com/kyleseneker/arrchitect/internal/client/flaresolverr"
 	"github.com/kyleseneker/arrchitect/internal/controller/reconciler"
-	"github.com/kyleseneker/arrchitect/internal/controller/secretref"
 	"github.com/kyleseneker/arrchitect/internal/engine"
 	"github.com/kyleseneker/arrchitect/internal/httpapi"
 )
@@ -32,8 +30,19 @@ type FlareSolverrReconciler struct {
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
 
 func (r *FlareSolverrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	integration := reconciler.Integration[*indexersv1alpha1.FlareSolverr, *flaresolverrclient.Client]{
+	return r.integration().Reconcile(ctx, r.Client, r.Recorder, req)
+}
+
+// SetupWithManager sets up the controller with the Manager.
+func (r *FlareSolverrReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	return r.integration().SetupWithManager(mgr, nil, r)
+}
+
+func (r *FlareSolverrReconciler) integration() reconciler.Integration[*indexersv1alpha1.FlareSolverr, *flaresolverrclient.Client] {
+	return reconciler.Integration[*indexersv1alpha1.FlareSolverr, *flaresolverrclient.Client]{
 		App:     "flaresolverr",
+		New:     func() *indexersv1alpha1.FlareSolverr { return &indexersv1alpha1.FlareSolverr{} },
+		NewList: func() client.ObjectList { return &indexersv1alpha1.FlareSolverrList{} },
 		Connect: r.connect,
 		Check: func(ctx context.Context, fc *flaresolverrclient.Client, _ *indexersv1alpha1.FlareSolverr) error {
 			return fc.Ping(ctx)
@@ -42,15 +51,12 @@ func (r *FlareSolverrReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		Cleanup: cleanupFlareSolverr,
 		Prune:   true,
 	}
-	return integration.Reconcile(ctx, r.Client, r.Recorder, req, &indexersv1alpha1.FlareSolverr{})
 }
 
 func (r *FlareSolverrReconciler) connect(ctx context.Context, config *indexersv1alpha1.FlareSolverr) (*flaresolverrclient.Client, error) {
-	tlsCfg, err := reconciler.ResolveTLSConfig(ctx, r.Client, config.Namespace, config.Spec.Connection.TLS)
-	if err != nil {
-		return nil, err
-	}
-	hc, err := httpapi.NewHTTPClient(config.Spec.Connection.URL, httpapi.AuthNone, httpapi.WithTLSConfig(tlsCfg), httpapi.WithAppLabel("flaresolverr"))
+	hc, err := reconciler.Dial(ctx, r.Client, config.Namespace, reconciler.Endpoint{
+		App: "flaresolverr", URL: config.Spec.Connection.URL, TLS: config.Spec.Connection.TLS, Auth: httpapi.AuthNone,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -108,17 +114,6 @@ func sessionNames(sessions []indexersv1alpha1.FlareSolverrSession) []string {
 		names = append(names, s.Name)
 	}
 	return names
-}
-
-// SetupWithManager sets up the controller with the Manager.
-func (r *FlareSolverrReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	b := ctrl.NewControllerManagedBy(mgr).
-		For(&indexersv1alpha1.FlareSolverr{}, builder.WithPredicates(reconciler.ConfigChangedPredicate()))
-	b, err := secretref.Watch(mgr, b, &indexersv1alpha1.FlareSolverr{}, &indexersv1alpha1.FlareSolverrList{})
-	if err != nil {
-		return err
-	}
-	return b.Named("flaresolverr").Complete(r)
 }
 
 // cleanupFlareSolverr destroys the sessions the operator created, for

@@ -28,7 +28,7 @@ func ResolveConfigFields(ctx context.Context, c client.Reader, namespace, owner 
 			continue
 		}
 		if out[i].Value != nil {
-			return nil, failure.InvalidConfig(fmt.Errorf("%s field %q: value and valueFrom are mutually exclusive", owner, out[i].Name))
+			return nil, failure.InvalidConfig.Errorf("%s field %q: value and valueFrom are mutually exclusive", owner, out[i].Name)
 		}
 		val, err := secrets.ResolveSecretKeyRef(ctx, c, namespace, out[i].ValueFrom.SecretKeyRef)
 		if err != nil {

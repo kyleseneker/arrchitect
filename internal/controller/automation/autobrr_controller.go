@@ -11,7 +11,6 @@ import (
 
 	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
@@ -41,9 +40,22 @@ type AutobrrReconciler struct {
 // +kubebuilder:rbac:groups=arrchitect.dev,resources=qbittorrents;sabnzbds;sonarrs;radarrs;lidarrs;readarrs,verbs=get;list;watch
 
 func (r *AutobrrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	integration := reconciler.Integration[*automationv1alpha1.Autobrr, *autobrrclient.Client]{
-		App:     "autobrr",
-		Connect: r.connect,
+	return r.integration().Reconcile(ctx, r.Client, r.Recorder, req)
+}
+
+// SetupWithManager sets up the controller with the Manager.
+func (r *AutobrrReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	return r.integration().SetupWithManager(mgr, r.Apps, r)
+}
+
+func (r *AutobrrReconciler) integration() reconciler.Integration[*automationv1alpha1.Autobrr, *autobrrclient.Client] {
+	return reconciler.Integration[*automationv1alpha1.Autobrr, *autobrrclient.Client]{
+		App:      "autobrr",
+		New:      func() *automationv1alpha1.Autobrr { return &automationv1alpha1.Autobrr{} },
+		NewList:  func() client.ObjectList { return &automationv1alpha1.AutobrrList{} },
+		AppRefs:  autobrrAppRefs,
+		RefKinds: []string{"QBittorrent", "Sabnzbd", "Sonarr", "Radarr", "Lidarr", "Readarr"},
+		Connect:  r.connect,
 		Check: func(ctx context.Context, ac *autobrrclient.Client, _ *automationv1alpha1.Autobrr) error {
 			return ac.Ping(ctx)
 		},
@@ -58,20 +70,14 @@ func (r *AutobrrReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		},
 		Prune: true,
 	}
-	return integration.Reconcile(ctx, r.Client, r.Recorder, req, &automationv1alpha1.Autobrr{})
 }
 
 func (r *AutobrrReconciler) connect(ctx context.Context, config *automationv1alpha1.Autobrr) (*autobrrclient.Client, error) {
-	apiKey, err := secrets.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, config.Spec.Connection.APIKeySecretRef)
-	if err != nil {
-		return nil, err
-	}
-	tlsCfg, err := reconciler.ResolveTLSConfig(ctx, r.Client, config.Namespace, config.Spec.Connection.TLS)
-	if err != nil {
-		return nil, err
-	}
-	hc, err := httpapi.NewHTTPClient(config.Spec.Connection.URL, httpapi.AuthAPIKey,
-		append(autobrrclient.HTTPOptions(), httpapi.WithAPIKey(apiKey), httpapi.WithTLSConfig(tlsCfg))...)
+	conn := config.Spec.Connection
+	hc, err := reconciler.Dial(ctx, r.Client, config.Namespace, reconciler.Endpoint{
+		App: "autobrr", URL: conn.URL, TLS: conn.TLS, Auth: httpapi.AuthAPIKey, Key: &conn.APIKeySecretRef,
+		Options: autobrrclient.HTTPOptions(),
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -982,22 +988,6 @@ func (s *autobrrSync) actions(
 		}
 	}
 	return nil
-}
-
-// SetupWithManager sets up the controller with the Manager.
-func (r *AutobrrReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	b := ctrl.NewControllerManagedBy(mgr).
-		For(&automationv1alpha1.Autobrr{}, builder.WithPredicates(reconciler.ConfigChangedPredicate()))
-	b, err := secretref.Watch(mgr, b, &automationv1alpha1.Autobrr{}, &automationv1alpha1.AutobrrList{})
-	if err != nil {
-		return err
-	}
-	b, err = appref.Watch(mgr, b, r.Apps, &automationv1alpha1.Autobrr{}, &automationv1alpha1.AutobrrList{}, autobrrAppRefs,
-		"QBittorrent", "Sabnzbd", "Sonarr", "Radarr", "Lidarr", "Readarr")
-	if err != nil {
-		return err
-	}
-	return b.Named("autobrr").Complete(r)
 }
 
 func autobrrAppRefs(o client.Object) []commonv1alpha1.AppRef {
