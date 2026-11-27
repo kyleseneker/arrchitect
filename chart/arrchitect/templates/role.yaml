@@ -18,8 +18,16 @@ rules:
       - update
       - patch
       - delete
-{{- range $ns := splitList "," .Values.watchNamespace }}
-{{- with trim $ns }}
+  - apiGroups:
+      - ""
+      - events.k8s.io
+    resources:
+      - events
+    verbs:
+      - create
+      - patch
+{{- range $ns := splitList "," (include "arrchitect.watchNamespaces" .) }}
+{{- with $ns }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
@@ -29,13 +37,6 @@ metadata:
   labels:
     {{- include "arrchitect.labels" $ | nindent 4 }}
 rules:
-  - apiGroups:
-      - ""
-    resources:
-      - secrets
-    verbs:
-      - get
-      - list
-      - watch
+  {{- include "arrchitect.managerRules" $ | nindent 2 }}
 {{- end }}
 {{- end }}
