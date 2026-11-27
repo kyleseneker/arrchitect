@@ -1,12 +1,10 @@
 package pvr
 
 import (
-	"cmp"
 	"context"
 	"encoding/json"
 	"fmt"
 	"maps"
-	"math"
 	"net/http"
 	"slices"
 	"strconv"
@@ -209,134 +207,61 @@ func planDelayProfiles(
 }
 
 // matchDelayProfiles picks the app's tagged profile each tagged plan updates,
-// or -1 for one it creates, across all plans at once. A tag sits in one
-// profile only, so a profile left unmatched that holds a declared tag blocks
-// the plan that declares it, unless the pass prunes it. The match takes over
-// as many of the profiles it can't prune as it can, then reuses as many of
-// the rest, then keeps as many tags in place, then prefers the profiles the
-// app checks first.
+// or -1 for one it creates. A profile that holds a declared tag and can't be
+// pruned blocks the plan declaring that tag unless some plan takes it over, so
+// those are matched first, exactly, by augmenting paths. Then, in spec order,
+// each plan still without a profile takes the untaken one holding most of its
+// tags, and on a tie the one the app checks first. A layout that leaves a
+// blocking profile is refused by planDelayProfiles before anything is written.
 func matchDelayProfiles(plans []*delayPlan, profiles []map[string]any, prunable func(map[string]any) bool) []int {
 	match := make([]int, len(plans))
 	for i := range match {
 		match[i] = -1
 	}
-	// Only a profile holding a declared tag can be matched. A tag sits in one
-	// profile, so there are no more of these than declared tags, however many
-	// profiles the app has.
-	var declared []int
-	for _, p := range plans {
-		declared = append(declared, p.tags...)
-	}
-	var candidates []int
-	for j, profile := range profiles {
-		if overlap(profileTags(profile), declared) > 0 {
-			candidates = append(candidates, j)
-		}
-	}
-	if len(plans) == 0 || len(candidates) == 0 {
-		return match
-	}
-	byOrder := slices.Clone(candidates)
-	slices.SortStableFunc(byOrder, func(a, b int) int { return cmp.Compare(num(profiles[a]["order"]), num(profiles[b]["order"])) })
-	rank := map[int]int64{}
-	for i, j := range byOrder {
-		rank[j] = int64(len(byOrder) - i)
-	}
-	n, m := int64(len(plans)), int64(len(candidates))
-	maxOverlap := int64(0)
-	for _, p := range plans {
-		maxOverlap = max(maxOverlap, int64(len(p.tags)))
-	}
-	// Each weight sorts first by a profile that can't be pruned, then by
-	// match, then by tags kept, then by the app's order, however the other
-	// rows add up.
-	perTag := n*m + 1
-	perMatch := n*(maxOverlap*perTag+m) + 1
-	perKept := n*(perMatch+maxOverlap*perTag+m) + 1
-	cols := max(len(plans), len(candidates))
-	weights := make([][]int64, len(plans))
-	for i, p := range plans {
-		weights[i] = make([]int64, cols)
-		for c, j := range candidates {
-			if shared := int64(overlap(profileTags(profiles[j]), p.tags)); shared > 0 {
-				weights[i][c] = perMatch + shared*perTag + rank[j]
-				if !prunable(profiles[j]) {
-					weights[i][c] += perKept
-				}
+	taken := make([]bool, len(profiles))
+	shares := func(i, j int) bool { return overlap(profileTags(profiles[j]), plans[i].tags) > 0 }
+
+	// take finds profile j a plan, moving a plan that already holds a profile
+	// to another one it shares a tag with when that frees one for j.
+	var take func(j int, tried []bool) bool
+	take = func(j int, tried []bool) bool {
+		for i := range plans {
+			if tried[i] || !shares(i, j) {
+				continue
+			}
+			tried[i] = true
+			if match[i] < 0 || take(match[i], tried) {
+				match[i], taken[j] = j, true
+				return true
 			}
 		}
+		return false
 	}
-	for i, c := range maxWeightAssignment(weights) {
-		if c < len(candidates) && weights[i][c] > 0 {
-			match[i] = candidates[c]
+	for j, profile := range profiles {
+		if !prunable(profile) {
+			take(j, make([]bool, len(plans)))
+		}
+	}
+
+	for i, p := range plans {
+		if match[i] >= 0 {
+			continue
+		}
+		best := 0
+		for j, profile := range profiles {
+			n := overlap(profileTags(profile), p.tags)
+			if taken[j] || n == 0 {
+				continue
+			}
+			if n > best || (n == best && num(profile["order"]) < num(profiles[match[i]]["order"])) {
+				match[i], best = j, n
+			}
+		}
+		if match[i] >= 0 {
+			taken[match[i]] = true
 		}
 	}
 	return match
-}
-
-// maxWeightAssignment gives each row of weights a distinct column so the
-// weights picked add up to the most, by the Hungarian method. weights has no
-// more rows than columns.
-func maxWeightAssignment(weights [][]int64) []int {
-	n, m := len(weights), len(weights[0])
-	var top int64
-	for _, row := range weights {
-		for _, w := range row {
-			top = max(top, w)
-		}
-	}
-	cost := func(i, j int) int64 { return top - weights[i-1][j-1] }
-	const inf = math.MaxInt64 / 4
-	u, v := make([]int64, n+1), make([]int64, m+1)
-	owner, way := make([]int, m+1), make([]int, m+1)
-	for i := 1; i <= n; i++ {
-		owner[0] = i
-		j0 := 0
-		minv := make([]int64, m+1)
-		for j := range minv {
-			minv[j] = inf
-		}
-		used := make([]bool, m+1)
-		for {
-			used[j0] = true
-			i0, delta, j1 := owner[j0], int64(inf), 0
-			for j := 1; j <= m; j++ {
-				if used[j] {
-					continue
-				}
-				if cur := cost(i0, j) - u[i0] - v[j]; cur < minv[j] {
-					minv[j], way[j] = cur, j0
-				}
-				if minv[j] < delta {
-					delta, j1 = minv[j], j
-				}
-			}
-			for j := 0; j <= m; j++ {
-				if used[j] {
-					u[owner[j]] += delta
-					v[j] -= delta
-				} else {
-					minv[j] -= delta
-				}
-			}
-			j0 = j1
-			if owner[j0] == 0 {
-				break
-			}
-		}
-		for j0 != 0 {
-			j1 := way[j0]
-			owner[j0] = owner[j1]
-			j0 = j1
-		}
-	}
-	rows := make([]int, n)
-	for j := 1; j <= m; j++ {
-		if owner[j] != 0 {
-			rows[owner[j]-1] = j - 1
-		}
-	}
-	return rows
 }
 
 // pruneUnmatched deletes owned profiles no declared profile matched, before
