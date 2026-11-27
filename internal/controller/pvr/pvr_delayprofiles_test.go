@@ -315,32 +315,41 @@ func TestDelayProfilesMoveATagBetweenProfilesInOnePass(t *testing.T) {
 	assert.Equal(t, b, app.byTags(2)["id"])
 }
 
-// Matched one declaration at a time, {a,b,d} took the profile holding a, b
-// and c, and the profile holding d blocked it on every pass.
-func TestDelayProfilesMatchAcrossDeclarations(t *testing.T) {
-	app := newDelayAPI(false, "a", "b", "c", "d")
-	abc := app.add([]any{float64(1), float64(2), float64(3)}, nil)
-	d := app.add([]any{float64(4)}, nil)
-	hc := app.client(t)
-	declared := []commonv1alpha1.DelayProfile{{TagLabels: []string{"a", "b", "d"}}, {TagLabels: []string{"c"}}}
+// Tags split across the app's profiles so that no profile can take over the
+// other's are refused before anything is written, where a write would fail on
+// every pass. With prune on, a profile the operator created is pruned out of
+// the way, but never one made in the app.
+func TestDelayProfilesRefuseTagsSplitAcrossProfiles(t *testing.T) {
+	for _, tt := range []struct {
+		name  string
+		prune bool
+	}{
+		{name: "prune off"},
+		{name: "a profile made in the app", prune: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			app := newDelayAPI(false, "a", "b", "c", "d")
+			abc := app.add([]any{float64(1), float64(2), float64(3)}, nil)
+			app.add([]any{float64(4)}, nil)
+			hc := app.client(t)
+			declared := []commonv1alpha1.DelayProfile{{TagLabels: []string{"a", "b", "d"}}, {TagLabels: []string{"c"}}}
 
-	result := app.reconcile(t, hc, declared, engine.SyncPolicy{}, nil)
-	require.Empty(t, result.Errors)
-	assert.Equal(t, 3, app.count(), "both profiles are reused")
-	assert.Equal(t, d, app.byTags(1, 2, 4)["id"])
-	assert.Equal(t, abc, app.byTags(3)["id"])
-
-	writes := len(app.writeLog())
-	require.Empty(t, app.reconcile(t, hc, declared, engine.SyncPolicy{}, nil).Errors)
-	assert.Len(t, app.writeLog(), writes)
+			result := app.reconcile(t, hc, declared, engine.SyncPolicy{Prune: tt.prune},
+				map[string][]string{delayProfilesKind: {strconv.Itoa(int(abc))}})
+			require.Len(t, result.Errors, 1)
+			assert.Contains(t, result.Errors[0], `tag "d" is in profile 3, which no declared profile takes over and the operator can't prune`)
+			assert.Empty(t, app.writeLog())
+		})
+	}
 }
 
-// With prune on, the match takes over the profile the operator can't prune
-// and prunes the one it created, though the owned one shares more tags.
-func TestDelayProfilesTakeOverTheProfileThatCantBePruned(t *testing.T) {
+// A declared profile takes over the app's profile holding most of its tags,
+// even one made in the app, and prune clears the operator's own profile out
+// of its way.
+func TestDelayProfilesTakeOverTheProfileHoldingMostTags(t *testing.T) {
 	app := newDelayAPI(false, "a", "b", "c")
-	owned := app.add([]any{float64(1), float64(2)}, nil)
-	handMade := app.add([]any{float64(3)}, nil)
+	owned := app.add([]any{float64(1)}, nil)
+	handMade := app.add([]any{float64(2), float64(3)}, nil)
 	hc := app.client(t)
 	managed := map[string][]string{delayProfilesKind: {strconv.Itoa(int(owned))}}
 
@@ -350,12 +359,12 @@ func TestDelayProfilesTakeOverTheProfileThatCantBePruned(t *testing.T) {
 	assert.Nil(t, app.profile(owned))
 }
 
-// The owned profile has to go before the other can take its tags. When the
+// The owned profile has to go before the other can take its tag. When the
 // update after that fails, the next pass finishes it.
 func TestDelayProfilesTakeOverConvergesAfterAFailedUpdate(t *testing.T) {
 	app := newDelayAPI(false, "a", "b", "c")
-	owned := app.add([]any{float64(1), float64(2)}, map[string]any{"usenetDelay": float64(30)})
-	handMade := app.add([]any{float64(3)}, nil)
+	owned := app.add([]any{float64(1)}, map[string]any{"usenetDelay": float64(30)})
+	handMade := app.add([]any{float64(2), float64(3)}, nil)
 	app.failOnce = handMade
 	hc := app.client(t)
 	declared := []commonv1alpha1.DelayProfile{{TagLabels: []string{"a", "b", "c"}, UsenetDelay: new(int32(30))}}
@@ -378,8 +387,8 @@ func TestDelayProfilesTakeOverConvergesAfterAFailedUpdate(t *testing.T) {
 // same way.
 func TestDelayProfilesTakeOverConvergesAfterARestart(t *testing.T) {
 	app := newDelayAPI(false, "a", "b", "c")
-	owned := app.add([]any{float64(1), float64(2)}, map[string]any{"usenetDelay": float64(30)})
-	handMade := app.add([]any{float64(3)}, nil)
+	owned := app.add([]any{float64(1)}, map[string]any{"usenetDelay": float64(30)})
+	handMade := app.add([]any{float64(2), float64(3)}, nil)
 	app.failOnce = handMade
 	hc := app.client(t)
 	declared := []commonv1alpha1.DelayProfile{{TagLabels: []string{"a", "b", "c"}, UsenetDelay: new(int32(30))}}
@@ -415,24 +424,17 @@ func TestDelayProfilesRefuseAPlanThatCantFinish(t *testing.T) {
 	assert.Equal(t, failure.InvalidConfig, failure.KindOf(err))
 }
 
-// Profiles holding no declared tag never enter the match, so its size
-// follows the spec, not how many profiles the app returns.
-func TestMatchDelayProfilesWeighsOnlyProfilesHoldingDeclaredTags(t *testing.T) {
-	profiles := make([]map[string]any, 0, 10001)
-	for i := range 10000 {
-		profiles = append(profiles, map[string]any{"id": float64(i + 2), "order": float64(i), "tags": []any{float64(i + 100)}})
+// Each plan takes the profile holding most of its tags, the one the app checks
+// first on a tie, and never one another plan took.
+func TestMatchDelayProfiles(t *testing.T) {
+	profiles := []map[string]any{
+		{"id": float64(2), "order": float64(2), "tags": []any{float64(1)}},
+		{"id": float64(3), "order": float64(1), "tags": []any{float64(2)}},
+		{"id": float64(4), "order": float64(3), "tags": []any{float64(3), float64(4)}},
+		{"id": float64(5), "order": float64(4), "tags": []any{float64(9)}},
 	}
-	profiles = append(profiles, map[string]any{"id": float64(20000), "order": float64(20000), "tags": []any{float64(1)}})
-	plans := []*delayPlan{{name: "a", tags: []int{1}}, {name: "b", tags: []int{2}}}
-
-	match := matchDelayProfiles(plans, profiles, func(map[string]any) bool { return false })
-	assert.Equal(t, []int{10000, -1}, match)
-}
-
-func TestMaxWeightAssignment(t *testing.T) {
-	assert.Equal(t, []int{1, 0}, maxWeightAssignment([][]int64{{5, 4}, {4, 0}}), "the best single pick isn't the best total")
-	assert.Equal(t, []int{0, 1}, maxWeightAssignment([][]int64{{3, 1, 0}, {2, 4, 1}}))
-	assert.Equal(t, []int{2}, maxWeightAssignment([][]int64{{0, 1, 2}}))
+	plans := []*delayPlan{{name: "ab", tags: []int{1, 2}}, {name: "a3", tags: []int{1, 3, 4}}, {name: "x", tags: []int{7}}}
+	assert.Equal(t, []int{1, 2, -1}, matchDelayProfiles(plans, profiles))
 }
 
 func TestDelayProfilesPruneFreesTagsForANewProfile(t *testing.T) {
