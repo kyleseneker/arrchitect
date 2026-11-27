@@ -31,6 +31,8 @@ type delayAPI struct {
 	nextID   float64
 	// undeletable is a profile the app refuses to delete.
 	undeletable float64
+	// failOnce is a profile whose next update fails.
+	failOnce float64
 }
 
 func newDelayAPI(items bool, tags ...string) *delayAPI {
@@ -166,6 +168,9 @@ func (a *delayAPI) client(t *testing.T) *engine.HTTPClient {
 			}
 			created := a.add(body["tags"].([]any), fields)
 			_ = json.NewEncoder(w).Encode(a.find(created))
+		case r.Method == http.MethodPut && id == a.failOnce:
+			a.failOnce = 0
+			http.Error(w, `{"message":"unavailable"}`, http.StatusServiceUnavailable)
 		case r.Method == http.MethodPut:
 			if a.refuse(w, body, id) {
 				return
@@ -341,6 +346,28 @@ func TestDelayProfilesTakeOverTheProfileThatCantBePruned(t *testing.T) {
 	require.Empty(t, result.Errors)
 	assert.Equal(t, handMade, app.byTags(1, 2, 3)["id"])
 	assert.Nil(t, app.profile(owned))
+}
+
+// The owned profile has to go before the other can take its tags. When the
+// update after that fails, the next pass finishes it.
+func TestDelayProfilesTakeOverConvergesAfterAFailedUpdate(t *testing.T) {
+	app := newDelayAPI(false, "a", "b", "c")
+	owned := app.add([]any{float64(1), float64(2)}, map[string]any{"usenetDelay": float64(30)})
+	handMade := app.add([]any{float64(3)}, nil)
+	app.failOnce = handMade
+	hc := app.client(t)
+	declared := []commonv1alpha1.DelayProfile{{TagLabels: []string{"a", "b", "c"}, UsenetDelay: new(int32(30))}}
+
+	first := app.reconcile(t, hc, declared, engine.SyncPolicy{Prune: true}, map[string][]string{delayProfilesKind: {strconv.Itoa(int(owned))}})
+	require.Len(t, first.Errors, 1)
+	assert.Nil(t, app.profile(owned))
+
+	second := app.reconcile(t, hc, declared, engine.SyncPolicy{Prune: true}, first.Managed)
+	require.Empty(t, second.Errors)
+	converged := app.byTags(1, 2, 3)
+	require.NotNil(t, converged)
+	assert.Equal(t, handMade, converged["id"])
+	assert.Equal(t, float64(30), converged["usenetDelay"], "the declared settings carry over")
 }
 
 // A plan that would leave a declared tag in a profile the operator neither
