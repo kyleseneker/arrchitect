@@ -249,16 +249,18 @@ func (o Options) schema(ctx context.Context, client *engine.HTTPClient, apiVersi
 }
 
 // stages are the kinds in the order they're written. Items name what earlier
-// stages wrote, whose IDs only exist once it's written: quality profiles name
-// custom formats, auto tags name quality profiles and metadata profiles, root
-// folders in Lidarr and Readarr name quality profiles, and import lists name
-// root folders.
+// stages wrote, whose IDs only exist once it's written: indexers name download
+// clients, release profiles name indexers, quality profiles name custom formats,
+// auto tags name quality profiles and metadata profiles, root folders in Lidarr
+// and Readarr name quality profiles, and import lists name root folders.
 var stages = [][]string{
 	{"tags"},
 	{
-		"metadataProfiles", "remotePathMappings", "downloadClients", "indexers", "customFormats",
-		"qualityDefinitions", "notifications", "releaseProfiles", "metadataConsumers",
+		"metadataProfiles", "remotePathMappings", "downloadClients", "customFormats",
+		"qualityDefinitions", "notifications", "metadataConsumers",
 	},
+	{"indexers"},
+	{"releaseProfiles"},
 	{"qualityProfiles"},
 	{"autoTags"},
 	{"rootFolders"},

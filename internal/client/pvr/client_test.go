@@ -92,6 +92,21 @@ func TestDefinition_ResourceOrder(t *testing.T) {
 	assert.Greater(t, qpIdx, cfIdx)
 }
 
+func TestItemsNameWhatTheSamePassCreates(t *testing.T) {
+	app := &rebuildAPI{}
+	hc := app.client(t)
+	opts := Options{
+		DownloadClients: []commonv1alpha1.DownloadClient{{Name: "SAB", Protocol: "usenet", Implementation: "Sabnzbd", Host: "sab", Port: 8080}},
+		Indexers:        []commonv1alpha1.Indexer{{Name: "Geek", Protocol: "usenet", Implementation: "Newznab", DownloadClientName: "SAB"}},
+		ReleaseProfiles: []commonv1alpha1.ReleaseProfile{{Name: "No x265", Ignored: []string{"x265"}, IndexerName: "Geek"}},
+	}
+
+	result := reconcileOnce(context.Background(), hc, opts, engine.SyncPolicy{}, nil)
+	require.Empty(t, result.Errors)
+	assert.Equal(t, app.items["downloadclient"][0]["id"], app.items["indexer"][0]["downloadClientId"])
+	assert.Equal(t, app.items["indexer"][0]["id"], app.items["releaseprofile"][0]["indexerId"])
+}
+
 func TestEveryKindIsBuiltInOneStage(t *testing.T) {
 	builders := Options{App: Sonarr}.builders(context.Background(), nil)
 	staged := map[string]bool{}
