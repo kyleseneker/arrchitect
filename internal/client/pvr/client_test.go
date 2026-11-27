@@ -143,18 +143,21 @@ func TestSettingsGoBeforeTheKindsTheyGovern(t *testing.T) {
 func TestImportListsWaitForTheirSyncSetting(t *testing.T) {
 	for name, fail := range map[string]string{"read": "config/importlist", "write": "config/importlist/1"} {
 		t.Run(name, func(t *testing.T) {
-			app := &rebuildAPI{fail: fail}
+			app := &rebuildAPI{fail: fail, items: map[string][]map[string]any{"importlist": {{"id": float64(7), "name": "Old"}}}}
 			hc := app.client(t)
 			spec := pvrv1alpha1.RadarrSpec{ImportListConfig: pvrv1alpha1.RadarrImportListConfig{ListSyncLevel: "logOnly"}}
 			opts := Options{App: Radarr, ImportLists: []commonv1alpha1.ImportList{{Name: "Trakt", Implementation: "TraktListImport"}}}
+			pass := engine.NewPass("radarr", engine.SyncPolicy{Prune: true}, map[string][]string{"importLists": {"Old"}})
 
-			problems := Reconcile(context.Background(), hc, spec, opts, engine.NewPass("radarr", engine.SyncPolicy{}, nil))
+			problems := Reconcile(context.Background(), hc, spec, opts, pass)
 			require.Len(t, problems, 2)
 			assert.Contains(t, problems[0], "importListConfig: ")
 			assert.Equal(t, "importLists: left out until importListConfig syncs", problems[1])
 			app.mu.Lock()
 			defer app.mu.Unlock()
 			assert.NotContains(t, app.writes, "POST importlist", "a list changed under the old sync level")
+			assert.NotContains(t, app.writes, "DELETE importlist/7", "a list was pruned under the old sync level")
+			assert.Equal(t, map[string][]string{"importLists": {"Old"}}, pass.Owned.Managed())
 		})
 	}
 }
