@@ -24,7 +24,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
-	pvrclient "github.com/kyleseneker/arrchitect/internal/client/pvr"
 	"github.com/kyleseneker/arrchitect/internal/engine"
 	"github.com/kyleseneker/arrchitect/internal/metrics"
 	"github.com/kyleseneker/arrchitect/internal/reconciler"
@@ -295,38 +294,6 @@ func EnqueueForSecret(c client.Client, list client.ObjectList) handler.EventHand
 
 func configsForSecret(c client.Client, list client.ObjectList) handler.MapFunc {
 	return secretReferrers(c, nil, list, func(client.Object) []commonv1alpha1.AppRef { return nil })
-}
-
-// ResolveDownloadClientSecrets resolves all secret references for a list of download clients.
-// Returns a map keyed by download client name.
-func ResolveDownloadClientSecrets(ctx context.Context, c client.Reader, namespace string, downloadClients []commonv1alpha1.DownloadClient) (map[string]pvrclient.DownloadClientResolvedSecrets, error) {
-	resolved := make(map[string]pvrclient.DownloadClientResolvedSecrets, len(downloadClients))
-	for _, dc := range downloadClients {
-		var s pvrclient.DownloadClientResolvedSecrets
-		if dc.UsernameSecretRef != (commonv1alpha1.SecretKeyRef{}) {
-			val, err := reconciler.ResolveSecretKeyRef(ctx, c, namespace, dc.UsernameSecretRef)
-			if err != nil {
-				return nil, fmt.Errorf("download client %q username: %w", dc.Name, err)
-			}
-			s.Username = val
-		}
-		if dc.PasswordSecretRef != (commonv1alpha1.SecretKeyRef{}) {
-			val, err := reconciler.ResolveSecretKeyRef(ctx, c, namespace, dc.PasswordSecretRef)
-			if err != nil {
-				return nil, fmt.Errorf("download client %q password: %w", dc.Name, err)
-			}
-			s.Password = val
-		}
-		if dc.APIKeySecretRef != (commonv1alpha1.SecretKeyRef{}) {
-			val, err := reconciler.ResolveSecretKeyRef(ctx, c, namespace, dc.APIKeySecretRef)
-			if err != nil {
-				return nil, fmt.Errorf("download client %q apiKey: %w", dc.Name, err)
-			}
-			s.APIKey = val
-		}
-		resolved[dc.Name] = s
-	}
-	return resolved, nil
 }
 
 // ResolveConfigFields returns a copy of fields with any valueFrom reference

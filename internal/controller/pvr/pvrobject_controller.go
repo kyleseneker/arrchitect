@@ -27,6 +27,7 @@ import (
 	pvrclient "github.com/kyleseneker/arrchitect/internal/client/pvr"
 	ctrlcommon "github.com/kyleseneker/arrchitect/internal/controller/common"
 	"github.com/kyleseneker/arrchitect/internal/engine"
+	"github.com/kyleseneker/arrchitect/internal/reconciler"
 )
 
 // instanceRefIndex indexes object resources by the instance they name, so a
@@ -321,7 +322,7 @@ func downloadClientKind[T, L any, O interface {
 				return pvrclient.Options{}, err
 			}
 			dcs := []commonv1alpha1.DownloadClient{dc}
-			secrets, err := ctrlcommon.ResolveDownloadClientSecrets(ctx, c, obj.GetNamespace(), dcs)
+			secrets, err := resolveDownloadClientSecrets(ctx, c, obj.GetNamespace(), dcs)
 			return pvrclient.Options{DownloadClients: dcs, DCSecrets: secrets}, err
 		},
 	}
@@ -393,4 +394,36 @@ func downloadClientAppRefs(o client.Object) []commonv1alpha1.AppRef {
 		return nil
 	}
 	return []commonv1alpha1.AppRef{dc.Item().AppRef}
+}
+
+// resolveDownloadClientSecrets resolves all secret references for a list of download clients.
+// Returns a map keyed by download client name.
+func resolveDownloadClientSecrets(ctx context.Context, c client.Reader, namespace string, downloadClients []commonv1alpha1.DownloadClient) (map[string]pvrclient.DownloadClientResolvedSecrets, error) {
+	resolved := make(map[string]pvrclient.DownloadClientResolvedSecrets, len(downloadClients))
+	for _, dc := range downloadClients {
+		var s pvrclient.DownloadClientResolvedSecrets
+		if dc.UsernameSecretRef != (commonv1alpha1.SecretKeyRef{}) {
+			val, err := reconciler.ResolveSecretKeyRef(ctx, c, namespace, dc.UsernameSecretRef)
+			if err != nil {
+				return nil, fmt.Errorf("download client %q username: %w", dc.Name, err)
+			}
+			s.Username = val
+		}
+		if dc.PasswordSecretRef != (commonv1alpha1.SecretKeyRef{}) {
+			val, err := reconciler.ResolveSecretKeyRef(ctx, c, namespace, dc.PasswordSecretRef)
+			if err != nil {
+				return nil, fmt.Errorf("download client %q password: %w", dc.Name, err)
+			}
+			s.Password = val
+		}
+		if dc.APIKeySecretRef != (commonv1alpha1.SecretKeyRef{}) {
+			val, err := reconciler.ResolveSecretKeyRef(ctx, c, namespace, dc.APIKeySecretRef)
+			if err != nil {
+				return nil, fmt.Errorf("download client %q apiKey: %w", dc.Name, err)
+			}
+			s.APIKey = val
+		}
+		resolved[dc.Name] = s
+	}
+	return resolved, nil
 }

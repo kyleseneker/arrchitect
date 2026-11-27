@@ -314,55 +314,6 @@ func TestConfigChangedPredicate(t *testing.T) {
 	assert.True(t, p.Generic(event.GenericEvent{Object: old}))
 }
 
-func newFakeClient(objs ...client.Object) client.Client {
-	s := runtime.NewScheme()
-	_ = corev1.AddToScheme(s)
-	return fake.NewClientBuilder().WithScheme(s).WithObjects(objs...).Build()
-}
-
-func TestResolveDownloadClientSecrets(t *testing.T) {
-	secret := &corev1.Secret{
-		Name: "qbit-creds", Namespace: "default",
-		Data: map[string][]byte{
-			"username": []byte("admin"),
-			"password": []byte("pass123"),
-		},
-	}
-	fc := newFakeClient(secret)
-
-	dcs := []commonv1alpha1.DownloadClient{
-		{
-			Name:              "qbit",
-			UsernameSecretRef: commonv1alpha1.SecretKeyRef{Name: "qbit-creds", Key: "username"},
-			PasswordSecretRef: commonv1alpha1.SecretKeyRef{Name: "qbit-creds", Key: "password"},
-		},
-		{
-			Name: "no-secrets",
-		},
-	}
-
-	resolved, err := ResolveDownloadClientSecrets(context.Background(), fc, "default", dcs)
-	require.NoError(t, err)
-	assert.Equal(t, "admin", resolved["qbit"].Username)
-	assert.Equal(t, "pass123", resolved["qbit"].Password)
-	assert.Empty(t, resolved["no-secrets"].Username)
-}
-
-func TestResolveDownloadClientSecrets_MissingSecret(t *testing.T) {
-	fc := newFakeClient()
-
-	dcs := []commonv1alpha1.DownloadClient{
-		{
-			Name:              "qbit",
-			UsernameSecretRef: commonv1alpha1.SecretKeyRef{Name: "nonexistent", Key: "username"},
-		},
-	}
-
-	_, err := ResolveDownloadClientSecrets(context.Background(), fc, "default", dcs)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "username")
-}
-
 func TestReferencesSecretFindsEveryReference(t *testing.T) {
 	ref := commonv1alpha1.SecretKeyRef{Name: "target", Key: "k"}
 	for name, config := range map[string]any{
