@@ -3,6 +3,7 @@ package export
 import (
 	"cmp"
 	"maps"
+	"reflect"
 	"slices"
 	"strings"
 
@@ -20,14 +21,18 @@ func pvrApp(a pvrclient.App, newObj func() client.Object) app {
 		newObj: newObj,
 		export: func(r *reader) (map[string]any, error) {
 			r.prefix = "/api/" + a.APIVersion
-			return (&pvrExport{reader: r, app: a}).spec()
+			spec := reflect.ValueOf(newObj()).Elem().FieldByName("Spec").Type()
+			return (&pvrExport{reader: r, app: a, specType: spec}).spec()
 		},
 	}
 }
 
 type pvrExport struct {
 	*reader
-	app              pvrclient.App
+	app pvrclient.App
+	// specType is the resource's spec, whose fields name the settings each
+	// section keeps.
+	specType         reflect.Type
 	qualityProfiles  map[float64]string
 	metadataProfiles map[float64]string
 	downloadClients  map[float64]string
@@ -120,7 +125,18 @@ func (e *pvrExport) spec() (map[string]any, error) {
 	if err := e.resources(spec, resources); err != nil {
 		return nil, err
 	}
-	return spec, e.metadataConsumers(spec)
+	if _, ok := specField(e.specType, "metadataConsumers"); ok {
+		if err := e.metadataConsumers(spec); err != nil {
+			return nil, err
+		}
+	}
+	// The app returns each settings section in full; keep what the spec has.
+	for _, s := range pvrclient.Definition(e.app.APIVersion, e.app.Sections...).Settings {
+		if section, ok := spec[s.Name].(map[string]any); ok {
+			spec[s.Name] = crdFields(section, e.specType, s.Name)
+		}
+	}
+	return spec, nil
 }
 
 // metadataConsumers exports the consumers that are on. The app keeps one of
@@ -477,4 +493,39 @@ func (e *pvrExport) nameChoices(section string, values map[string]any) {
 			e.warn("%s.%s is %v, which %s can't express, so it stays as set in the app", section, field, number, e.app.Kind)
 		}
 	}
+}
+
+// crdFields keeps the settings of a section that the spec's field for it has,
+// so a decode can refuse any other unknown field.
+func crdFields(section map[string]any, spec reflect.Type, name string) map[string]any {
+	t, ok := specField(spec, name)
+	if !ok || t.Kind() != reflect.Struct {
+		return section
+	}
+	known := map[string]bool{}
+	for f := range t.Fields() {
+		key, _, _ := strings.Cut(f.Tag.Get("json"), ",")
+		known[key] = true
+	}
+	out := make(map[string]any, len(section))
+	for k, v := range section {
+		if known[k] {
+			out[k] = v
+		}
+	}
+	return out
+}
+
+// specField is the type of the spec field named name in JSON, pointer removed.
+func specField(spec reflect.Type, name string) (reflect.Type, bool) {
+	for field := range spec.Fields() {
+		if tag, _, _ := strings.Cut(field.Tag.Get("json"), ","); tag == name {
+			t := field.Type
+			if t.Kind() == reflect.Pointer {
+				t = t.Elem()
+			}
+			return t, true
+		}
+	}
+	return nil, false
 }

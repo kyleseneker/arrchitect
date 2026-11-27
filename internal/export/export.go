@@ -3,6 +3,7 @@
 package export
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"encoding/json"
@@ -287,7 +288,7 @@ func Run(ctx context.Context, o Options) (Result, error) {
 	if err != nil {
 		return Result{}, err
 	}
-	if err := json.Unmarshal(raw, obj); err != nil {
+	if err := decodeStrict(raw, obj); err != nil {
 		return Result{}, fmt.Errorf("reading %s into %T: %w", o.App, obj, err)
 	}
 
@@ -340,7 +341,7 @@ func splitObjects(spec map[string]any, kinds map[string]objectKind, o Options) (
 				return nil, err
 			}
 			obj := k.newObj()
-			if err := json.Unmarshal(raw, obj); err != nil {
+			if err := decodeStrict(raw, obj); err != nil {
 				return nil, fmt.Errorf("reading %s %q into %T: %w", section, name, obj, err)
 			}
 			objects = append(objects, obj)
@@ -725,4 +726,12 @@ func fieldList(item map[string]any) []map[string]any {
 func num(v any) float64 {
 	f, _ := v.(float64)
 	return f
+}
+
+// decodeStrict decodes raw into obj and refuses a field obj doesn't have, so a
+// misspelled key in a mapping fails rather than vanishing.
+func decodeStrict(raw []byte, obj any) error {
+	dec := json.NewDecoder(bytes.NewReader(raw))
+	dec.DisallowUnknownFields()
+	return dec.Decode(obj)
 }
