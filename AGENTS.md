@@ -1,9 +1,9 @@
 # AGENTS.md
 
-Guidance for coding agents working on Arrchitect. It covers what you need to
-change code safely here. [CONTRIBUTING.md](CONTRIBUTING.md) has the full test
-table, the package layout and the release process, and this file links to it
-instead of repeating it.
+Guidance for coding agents working on Arrchitect. It starts with the design
+every change has to fit, then covers how to change code safely here.
+[CONTRIBUTING.md](CONTRIBUTING.md) has the full test table and the release
+process, and this file links to it instead of repeating it.
 
 Arrchitect is a Kubernetes operator, built with kubebuilder and
 controller-runtime, that configures self-hosted media apps through their HTTP
@@ -13,10 +13,128 @@ doesn't deploy the apps. Each app has a custom resource in
 `arrchitect.dev/v1alpha1`, and its controller makes the app's settings match
 the resource on every reconcile.
 
+## Design rules
+
+Every part of the code follows these. A change that needs to break one is a
+design change, so raise it before writing the code.
+
+1. **The resource owns what it declares, and only that.** Settings and items
+   it leaves out stay as the app has them.
+2. **Never delete what the operator didn't create.** Ownership is recorded in
+   status, prune is opt-in and capped, and adopted items are never deleted.
+3. **Observe mode reports exactly what enforce mode would write.** There is
+   one write path, gated by the drift policy, and no separate observe code.
+4. **Model each app's own API.** Fields copy the app's names and limits. There
+   is no passthrough, and errors spell app names as the apps do.
+5. **Fail narrow, and say why.** One bad item holds back its kind, not the
+   whole resource. Every failure reaches the status with a reason a person or
+   a GitOps tool can act on.
+6. **Reject at admission what admission can reject.** A CEL rule beats a
+   sync-time error. The sync-time check stays only as a backstop.
+7. **Use the platform before building our own.** That means Kubernetes
+   conditions, events and finalizers, and controller-runtime's queue and
+   backoff.
+8. **One owner per policy.** Each decision, such as which failure maps to
+   which reason and retry, lives in one place you can read top to bottom.
+9. **Secrets stay in Secrets.** Never in a spec, status, event or log line.
+
+## Layers
+
+Each package does one job, and imports only point down. Nothing in the engine
+or the foundation knows about controllers. A controller keeps only what's
+specific to its app. Anything two controllers need goes in a lower layer, and
+anything that isn't about Kubernetes resources goes lower still.
+
+| Layer | Packages |
+| --- | --- |
+| Entry | `cmd/operator` and `internal/operator`: the manager, flags and which controllers run. `cmd/cli` and `internal/export`: `arrchitect export`, which writes a resource from a running app. |
+| Controllers | `internal/controller/<group>/`: one controller per app, with its sync logic and the payloads only that app uses. The PVR apps share theirs in `controller/pvr`, and Prowlarr's is in `controller/indexers`. |
+| Controller support | `controller/reconciler`: the pass, lifecycle and finalizers, the failure table, status, watches and connections. `controller/appref`: following an appRef, and its watches. `controller/secretref`: the Secrets a spec's fields name, and the Secret watch. |
+| Clients | `internal/client/<app>/`: an HTTP client for one app, and nothing else. |
+| Engine | `internal/engine`: app definitions, passes and their writes, ownership, stages and name lookups. `internal/provider`: the provider payloads and schema listing the PVR apps and Prowlarr share. |
+| Foundation | `internal/httpapi`: the HTTP client, its SSRF guard and `APIError`. `internal/secrets`: reading Secrets, redaction and masked-secret digests. `internal/jsondiff`: merging a declared item over the app's. `internal/failure`: an error type with a kind, and `Join`. |
+
+`api/` holds the CRD types, which every layer reads. `api/common/v1alpha1/`
+holds the types several apps share.
+
+Outside the Go code:
+
+- `chart/arrchitect/`: the Helm chart and its `values.schema.json`.
+- `config/samples/`: one readable sample per kind. `examples/`: complete setups
+  users copy.
+- `test/compat/`: each app in a container, reconciled from the fixtures in
+  `test/compat/testdata/`. `test/envtest/`: the CRDs, samples and admission
+  rules against a real API server. `test/consistency/`: checks that the chart,
+  CRDs, README, Renovate config and API docs agree with the code.
+
+## One reconcile pass
+
+Every kind runs the same pass, in `controller/reconciler`. A controller
+supplies only how to connect, what to check and what to sync, as a
+`reconciler.Integration`. Its `Reconcile` and `SetupWithManager` hand off to
+that integration, which does the rest: reading the resource, the finalizer and
+deletion, the status and events, when to try again, and every watch.
+
+- `New` and `NewList` name the kind. A kind with appRefs sets `AppRefs` and
+  `RefKinds`, and the integration watches those kinds and the Secrets they use.
+- `Connect` builds the app's client with `reconciler.Dial`, and signs in where
+  the app needs it. Cleanup reuses it.
+- `Check` runs before a sync, never before cleanup. It holds the health probe
+  and any spec check that mustn't block deleting what the operator created.
+- `Sync` brings the app in line through the `engine.Pass` it's given, and
+  returns what failed.
+- `Cleanup` deletes what the resource owns, for `deletionPolicy: delete`.
+
+Copy `TdarrReconciler` in `internal/controller/transcode/tdarr_controller.go`
+for a new controller. Maintainerr shows appRefs, and qBittorrent shows a
+sign-in in `Connect`. An item that belongs to an app resource, such as a
+SonarrIndexer, copies the `ObjectReconciler` in
+`internal/controller/pvr/pvrobject_controller.go`: its `Governor` reads the app
+resource's drift policy and interval. An app that needs its own header, timeout
+or redirect handling exports them as `HTTPOptions()` from its client package,
+which `arrchitect export` uses too.
+
+## Failures
+
+A failure carries its kind from where it happens, and one table turns the kind
+into the status reason and the next pass. The table is in
+`internal/controller/reconciler/outcome.go`, and
+[docs/operations.md](docs/operations.md#retries) says the same for users.
+Nothing else decides a reason or a retry.
+
+- Mark a failure where it happens, such as `failure.InvalidConfig.Errorf` for
+  a spec problem, or `failure.Unauthorized` for refused credentials the app
+  doesn't answer with 401 or 403. `httpapi`, `secrets` and `appref` mark their
+  own.
+- A failure that backs off is returned as an error, and controller-runtime's
+  rate limiter retries it. Don't add your own retry or `Requeue`.
+- `Sync` returns each failure as an `error`, wrapped with `%w` and prefixed
+  with the kind and item, such as `notifications(Discord): %w`. A pass whose
+  failures are all of one kind takes that kind's reason, and any mix reads
+  `SyncFailed`. Join errors with `failure.Join`, not `errors.Join`, which
+  keeps a status message on one line.
+
+## Writes, ownership and prune
+
+- Send every write to an app through `engine.Writes` (`Apply`, `Sync`,
+  `Prune`), so observe mode reports exactly what enforce mode would write.
+- `status.managedResources` records what the operator created. Prune and
+  `deletionPolicy: delete` only ever delete those. Never delete an item the
+  operator didn't create.
+- An item the app already had is adopted: updated to match, never owned,
+  never deleted.
+- Kinds that name each other are written in stages through `engine.Stages`. A
+  kind whose items name another kind goes in a later stage, so the IDs exist
+  when it's built. A kind that can't be built is left out whole, neither
+  written nor pruned.
+- Apps read secrets back masked, so a change is noticed by comparing a digest
+  of what this resource last wrote, through `secrets.SecretsDiffer`.
+
 ## Agree on these first
 
 Open an issue, or ask in the pull request, before you:
 
+- Change the design above.
 - Make a breaking API change: rename or remove a json field, change a field's
   type, or tighten validation. These break existing resources, so they're
   planned into a minor release and documented in its notes.
@@ -69,71 +187,6 @@ targets, plus compat and e2e.
 | `test/compat/` | `make test-compat COMPAT_RUN=Test<App>` for the case you changed, or at least `go vet -tags compat ./test/compat/` |
 | `README.md` | `go test ./test/consistency/...`, which checks the supported-apps table. Keep links relative. |
 
-## Where things are
-
-- `api/<group>/v1alpha1/`: the API types. `api/common/v1alpha1/` holds the
-  types several apps share.
-- `internal/controller/<group>/`: one controller per app, with its sync logic
-  and the payloads and API-model helpers only that app uses. The PVR apps'
-  shared sync is in `controller/pvr`, and Prowlarr's in `controller/indexers`.
-- `internal/controller/reconciler/`: the pass every controller shares: the
-  skeleton, lifecycle and finalizers, the failure table, status, conditions
-  and events, each controller's watches, and building connections (`Dial`).
-- `internal/controller/appref/`: following an appRef, and the watches that
-  requeue a resource when the app it refers to, or a Secret that app uses,
-  changes.
-- `internal/controller/secretref/`: reading the Secrets a spec's fields name,
-  and the indexed watch that requeues a resource when one of them changes.
-- `internal/client/<app>/`: a client for each app's HTTP API, and nothing
-  else. The PVR apps and Prowlarr use `httpapi` directly.
-- `internal/provider/`: the provider payloads and schema listing the PVR apps
-  and Prowlarr share, such as notifications and free-form fields.
-- `internal/engine/`: the sync engine: app definitions, passes and their
-  writes, ownership tracking, stages and name lookups.
-- `internal/httpapi/`: the HTTP client every app client builds on, with its
-  SSRF guard and `APIError`.
-- `internal/secrets/`: reading Secrets, redaction, and the digests of masked
-  secrets the operator wrote.
-- `internal/jsondiff/`: merging a declared item over the app's and telling
-  whether it differs.
-- `internal/failure/`: the failure kinds a status reports apart, such as a
-  spec the operator can't act on.
-- `internal/export/`: `arrchitect export`, which writes a resource from a
-  running app.
-- `chart/arrchitect/`: the Helm chart and its `values.schema.json`.
-- `config/samples/`: one readable sample per kind. `examples/`: complete setups
-  users copy.
-- `test/compat/`: each app in a container, reconciled from the fixtures in
-  `test/compat/testdata/`. `test/envtest/`: the CRDs, samples and admission
-  rules against a real API server. `test/consistency/`: checks that the chart,
-  CRDs, README, Renovate config and API docs agree with the code.
-
-Copy these when you add something similar:
-
-- A controller: `TdarrReconciler` in
-  `internal/controller/transcode/tdarr_controller.go`. Its `integration()`
-  declares a `reconciler.Integration`: the kind (`New`, `NewList`), and
-  `Connect`, `Check`, `Sync` and `Cleanup`. `Connect` builds the client with
-  `reconciler.Dial`, and cleanup reuses it. A kind with appRefs also sets
-  `AppRefs` and `RefKinds`, as Maintainerr does, and an app that needs a
-  sign-in does it in `Connect`, as qBittorrent does. `Check` probes the app
-  before a sync, and holds any spec check that mustn't block cleanup. `Sync`
-  writes through the `engine.Pass` it's given. `Reconcile` and
-  `SetupWithManager` hand off to the integration, which does the lifecycle,
-  status, events, requeue and watches.
-  An app that needs its own header, timeout or redirect handling exports them
-  as `HTTPOptions()` from its client package, which `arrchitect export` uses
-  too.
-- An object that belongs to an app resource, such as a SonarrIndexer: the
-  `ObjectReconciler` in `internal/controller/pvr/pvrobject_controller.go`.
-  Its `Governor` reads the app resource's drift policy and interval.
-- appRef resolution: `appref.Resolve` in `internal/controller/appref/`.
-- A compat case: `compatCase` in `test/compat/main_test.go`. A case has a
-  fixture, an `update` patch that changes what the first reconcile created,
-  `newerFields` for fields older releases lack, and an `export` check.
-- A CEL validation rule's test: `TestAdmissionRules` in
-  `test/envtest/apply_test.go`.
-
 ## Generated files
 
 Never edit these by hand. Change the source, then regenerate.
@@ -167,14 +220,18 @@ Never edit these by hand. Change the source, then regenerate.
   mapping, export support, and a value in the compat fixture
   (`test/compat/testdata/<app>.yaml`) so CI tests it against the real app. Add
   it to the kind's sample when the sample shows similar fields. If only newer
-  releases of the app have it, list it in the case's `newerFields`.
+  releases of the app have it, list it in the case's `newerFields`. A compat
+  case (`compatCase` in `test/compat/main_test.go`) has a fixture, an `update`
+  patch that changes what the first reconcile created, `newerFields`, and an
+  `export` check.
+- A value the app refuses and admission can see goes in a CEL rule, tested in
+  `TestAdmissionRules` in `test/envtest/apply_test.go`. Rules run against a
+  cost budget, and one that walks a list of objects can exceed it.
 - A breaking change gets `!` in the commit and an Upgrading line in the release
   notes. The API is `v1alpha1`, so a minor release may break it, but prefer
   additive changes.
-- CEL validation rules run against a cost budget. A rule that walks a list of
-  objects can exceed it, so test new rules in `TestAdmissionRules`.
 
-## Code
+## Code and tests
 
 - Tests use testify's `require` and `assert`, never `t.Fatal` or `t.Error`.
   Inside an `httptest` handler goroutine, use `assert`, since `require` can't
@@ -188,22 +245,6 @@ Never edit these by hand. Change the source, then regenerate.
   `Maintainerr has no Radarr server named "M"`,
   `Tdarr has more than one node named "T"`. The lint config allows a capital
   first letter in an error string only for an app name.
-- Mark a failure with its kind where it happens, such as
-  `failure.InvalidConfig.Errorf` for a spec problem, or `failure.Unauthorized`
-  for refused credentials an app doesn't answer with 401 or 403. `httpapi`,
-  `secrets` and `appref` mark their own. The table in
-  `internal/controller/reconciler/outcome.go` turns a kind into the status
-  reason and when to try again. Nothing else decides either.
-- `Sync` returns each failure as an `error`, wrapped with `%w` and prefixed
-  with the kind and item, such as `notifications(Discord): %w`. A pass whose
-  failures are all of one kind takes that kind's reason, and any mix reads
-  `SyncFailed` and waits for the interval. Join errors with `failure.Join`,
-  not `errors.Join`, which keeps a status message on one line.
-- Send every write to an app through `engine.Writes` (`Apply`, `Sync`,
-  `Prune`), so observe mode reports exactly what enforce mode would write.
-  Don't add a separate observe path.
-- The PVR apps and Prowlarr write kinds in `engine.Stages`. A kind whose items
-  name another kind goes in a later stage, so the IDs exist when it's built.
 
 ## Safety
 
@@ -211,17 +252,14 @@ Never edit these by hand. Change the source, then regenerate.
   through `secrets.ResolveSecretKeyRef`, which registers each value for
   redaction, and pass any text an app sends back, such as an error body,
   through `secrets.Redact` before it goes into an error.
-- TLS verification stays on unless the user sets `insecureSkipVerify`. Every
-  client built for an app, including the target of an `appRef`, passes that
-  connection's TLS settings and its app name: `httpapi.WithTLSConfig` and
-  `httpapi.WithAppLabel`.
+- TLS verification stays on unless the user sets `insecureSkipVerify`. Build
+  every client a controller uses through `reconciler.Dial`, which applies the
+  connection's TLS settings and the app's name, including for the target of an
+  `appRef`.
 - The HTTP client refuses loopback, link-local, unspecified and cloud
   metadata addresses, follows redirects only on the app's own host and caps
   response bodies. Don't weaken that. Tests serve fake apps with
   `testnet.Serve` or pass `httpapi.WithTransport`.
-- Prune and `deletionPolicy: delete` only delete items the operator created,
-  which `status.managedResources` records. Never delete an item the operator
-  didn't create.
 
 ## Things that have caught us before
 
@@ -280,6 +318,10 @@ Never edit these by hand. Change the source, then regenerate.
 
 ## Keeping this file current
 
-When an agent makes the same mistake twice, or a reviewer corrects the same
-thing twice, add a line here. When a command, path or rule changes, change it
-here in the same commit. A stale instruction is worse than none.
+When a command, path or rule changes, change it here in the same commit. A
+stale instruction is worse than none.
+
+Weigh a new rule against the design before adding it. A rule that follows
+from the design, or records an app's quirk, belongs here. A rule that only
+patches one review finding is usually a sign the design needs a line instead,
+so change the design and let the rule follow from it.
