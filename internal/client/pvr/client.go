@@ -247,13 +247,13 @@ func (o Options) schema(ctx context.Context, client *engine.HTTPClient, apiVersi
 	return fetchSchema(ctx, client, apiVersion, kind)
 }
 
-// stages are the kinds in the order they're written. Items name what earlier
-// stages wrote, whose IDs only exist once it's written: indexers name download
-// clients, release profiles name indexers, quality profiles name custom formats,
-// auto tags name quality profiles and metadata profiles, root folders in Lidarr
-// and Readarr name quality profiles, and import lists name root folders.
+// stages are the kinds in the order they're written, after tags and the
+// settings. Items name what earlier stages wrote, whose IDs only exist once it's
+// written: indexers name download clients, release profiles name indexers,
+// quality profiles name custom formats, auto tags name quality profiles and
+// metadata profiles, root folders in Lidarr and Readarr name quality profiles,
+// and import lists name root folders.
 var stages = [][]string{
-	{"tags"},
 	{
 		"metadataProfiles", "remotePathMappings", "downloadClients", "customFormats",
 		"qualityDefinitions", "notifications", "metadataConsumers",
@@ -329,7 +329,7 @@ func (o Options) builders(ctx context.Context, client *engine.HTTPClient) map[st
 			Count:  len(o.ReleaseProfiles),
 			Tagged: slices.ContainsFunc(o.ReleaseProfiles, func(rp commonv1alpha1.ReleaseProfile) bool { return len(rp.TagLabels) > 0 }),
 			Build: func(tags engine.NamedIDs) ([]map[string]any, error) {
-				return releaseProfileResources(ctx, client, v, o.ReleaseProfiles, tags)
+				return releaseProfileResources(ctx, client, v, o.ReleaseProfiles, tags, o.planned["indexers"])
 			},
 		},
 		"autoTags": {Count: len(o.AutoTags), Tagged: true, Build: func(tags engine.NamedIDs) ([]map[string]any, error) {
@@ -393,6 +393,7 @@ func indexerResources(
 				if clients, err = engine.FetchNamedIDs(ctx, client, fmt.Sprintf("/api/%s/downloadclient", apiVersion), "name"); err != nil {
 					return nil, err
 				}
+				clients.Plan(opts.planned["downloadClients"]...)
 			}
 			id, err := clients.Resolve(idx.DownloadClientName)
 			if err != nil {
@@ -406,7 +407,8 @@ func indexerResources(
 }
 
 func releaseProfileResources(
-	ctx context.Context, client *engine.HTTPClient, apiVersion string, declared []commonv1alpha1.ReleaseProfile, tagIDs engine.NamedIDs,
+	ctx context.Context, client *engine.HTTPClient, apiVersion string, declared []commonv1alpha1.ReleaseProfile,
+	tagIDs engine.NamedIDs, plannedIndexers []string,
 ) ([]map[string]any, error) {
 	var indexers engine.NamedIDs
 	profiles := make([]map[string]any, 0, len(declared))
@@ -434,6 +436,7 @@ func releaseProfileResources(
 				if indexers, err = engine.FetchNamedIDs(ctx, client, fmt.Sprintf("/api/%s/indexer", apiVersion), "name"); err != nil {
 					return nil, err
 				}
+				indexers.Plan(plannedIndexers...)
 			}
 			id, err := indexers.Resolve(rp.IndexerName)
 			if err != nil {
@@ -525,17 +528,22 @@ func Reconcile(ctx context.Context, client *engine.HTTPClient, spec any, opts Op
 	}
 
 	problems := validateOptionFields(ctx, client, apiVersion, opts)
-	problems = append(problems, engine.Stages{
-		Order: stages, Builders: opts.builders(ctx, client),
+	run := engine.Stages{
+		Order: [][]string{{"tags"}}, Builders: opts.builders(ctx, client),
 		TagPath: "/api/" + apiVersion + "/tag", PlannedTags: opts.planned["tags"],
-	}.Reconcile(ctx, client, def, pass)...)
+	}
+	problems = append(problems, run.Reconcile(ctx, client, def, pass)...)
 
-	// Settings and delay profiles name tags, which the first stage writes.
+	// The settings name tags, and go before the kinds they govern, so Radarr's
+	// list sync level changes before its import lists do.
 	if err := resolveListSyncTag(ctx, client, apiVersion, sections, opts.planned["tags"]); err != nil {
 		delete(sections, "importListConfig")
 		problems = append(problems, fmt.Sprintf("importListConfig: %v", err))
 	}
 	problems = append(problems, engine.ReconcileApp(ctx, client, def, sections, nil, pass)...)
+
+	run.Order = stages
+	problems = append(problems, run.Reconcile(ctx, client, def, pass)...)
 	if len(opts.DelayProfiles) > 0 {
 		problems = append(problems, reconcileDelayProfiles(ctx, client, apiVersion, opts.DelayProfiles, pass, opts.planned["tags"])...)
 	}
@@ -565,7 +573,7 @@ func resolveListSyncTag(ctx context.Context, client *engine.HTTPClient, apiVersi
 }
 
 // plannedNames lists what the resource declares that others in it may refer to
-// by name: tags, quality profiles and custom formats.
+// by name.
 func plannedNames(opts Options) map[string][]string {
 	planned := map[string][]string{}
 	for _, t := range opts.Tags {
@@ -582,6 +590,12 @@ func plannedNames(opts Options) map[string][]string {
 	}
 	for _, mp := range opts.ReadarrMetadataProfiles {
 		planned["metadataProfiles"] = append(planned["metadataProfiles"], mp.Name)
+	}
+	for _, dc := range opts.DownloadClients {
+		planned["downloadClients"] = append(planned["downloadClients"], dc.Name)
+	}
+	for _, idx := range opts.Indexers {
+		planned["indexers"] = append(planned["indexers"], idx.Name)
 	}
 	return planned
 }

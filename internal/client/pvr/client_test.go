@@ -107,6 +107,39 @@ func TestItemsNameWhatTheSamePassCreates(t *testing.T) {
 	assert.Equal(t, app.items["indexer"][0]["id"], app.items["releaseprofile"][0]["indexerId"])
 }
 
+func TestObserveNamesWhatTheSamePassWouldCreate(t *testing.T) {
+	app := &rebuildAPI{}
+	hc := app.client(t)
+	opts := Options{
+		DownloadClients: []commonv1alpha1.DownloadClient{{Name: "SAB", Protocol: "usenet", Implementation: "Sabnzbd", Host: "sab", Port: 8080}},
+		Indexers:        []commonv1alpha1.Indexer{{Name: "Geek", Protocol: "usenet", Implementation: "Newznab", DownloadClientName: "SAB"}},
+		ReleaseProfiles: []commonv1alpha1.ReleaseProfile{{Name: "No x265", Ignored: []string{"x265"}, IndexerName: "Geek"}},
+	}
+
+	result := reconcileOnce(context.Background(), hc, opts, engine.SyncPolicy{Observe: true}, nil)
+	require.Empty(t, result.Errors)
+	assert.Subset(t, result.Drift, []string{"downloadClients(SAB)", "indexers(Geek)", "releaseProfiles(No x265)"})
+	app.mu.Lock()
+	defer app.mu.Unlock()
+	assert.Empty(t, app.writes)
+}
+
+func TestSettingsGoBeforeTheKindsTheyGovern(t *testing.T) {
+	app := &rebuildAPI{}
+	hc := app.client(t)
+	spec := pvrv1alpha1.RadarrSpec{ImportListConfig: pvrv1alpha1.RadarrImportListConfig{ListSyncLevel: "logOnly"}}
+	opts := Options{App: Radarr, ImportLists: []commonv1alpha1.ImportList{{Name: "Trakt", Implementation: "TraktListImport"}}}
+
+	require.Empty(t, Reconcile(context.Background(), hc, spec, opts, engine.NewPass("radarr", engine.SyncPolicy{}, nil)))
+	app.mu.Lock()
+	writes := slices.Clone(app.writes)
+	app.mu.Unlock()
+	settings, lists := slices.Index(writes, "PUT config/importlist/1"), slices.Index(writes, "POST importlist")
+	require.NotEqual(t, -1, settings, "the list sync level was never written: %v", writes)
+	require.NotEqual(t, -1, lists, "the import list was never created: %v", writes)
+	assert.Less(t, settings, lists, "Radarr's list sync level must change before its lists do")
+}
+
 func TestEveryKindIsBuiltInOneStage(t *testing.T) {
 	builders := Options{App: Sonarr}.builders(context.Background(), nil)
 	staged := map[string]bool{}
@@ -117,6 +150,7 @@ func TestEveryKindIsBuiltInOneStage(t *testing.T) {
 			staged[kind] = true
 		}
 	}
+	staged["tags"] = true
 	for _, r := range Definition(Sonarr).Resources {
 		if r.Name != delayProfilesKind {
 			assert.True(t, staged[r.Name], "%s is in no stage", r.Name)
@@ -240,6 +274,10 @@ func (a *rebuildAPI) client(t *testing.T) *engine.HTTPClient {
 		if r.Method == http.MethodGet {
 			if resource == a.fail {
 				http.Error(w, "unavailable", http.StatusServiceUnavailable)
+				return
+			}
+			if strings.HasPrefix(resource, "config/") {
+				_ = json.NewEncoder(w).Encode(map[string]any{"id": 1})
 				return
 			}
 			items := a.items[resource]
