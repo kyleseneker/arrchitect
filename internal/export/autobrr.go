@@ -223,18 +223,12 @@ var autobrrListTypes = []string{
 	"Sonarr", "Radarr", "Lidarr", "Readarr", "Whisparr", "MDBList", "Metacritic", "Plaintext", "Trakt", "Steam", "AniList",
 }
 
-var autobrrListFields = map[string]string{
-	"url": "url", "matchRelease": "match_release", "tagsIncluded": "tags_included", "tagsExcluded": "tags_excluded",
-	"includeUnmonitored": "include_unmonitored", "includeAlternateTitles": "include_alternate_titles",
-	"includeYear": "include_year", "skipCleanSanitize": "skip_clean_sanitize",
-}
-
 func (r *reader) autobrrList(l map[string]any, clientNames map[float64]any) map[string]any {
 	name, _ := l["name"].(string)
 	out := pick(l, "name")
 	out["type"] = upperName(autobrrListTypes, l["type"])
 	out["enabled"] = l["enabled"]
-	autobrrSetFields(out, l, autobrrListFields)
+	autobrrSetFields(out, l, autobrrclient.ListFields)
 	if id := num(l["client_id"]); id != 0 {
 		setText(out, "downloadClientName", clientNames[id])
 	}

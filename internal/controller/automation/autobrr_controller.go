@@ -733,10 +733,17 @@ func (s *autobrrSync) titleList(ctx context.Context, l automationv1alpha1.Autobr
 	if err != nil {
 		return fmt.Errorf("listing lists: %w", err)
 	}
-	obj := map[string]any{"name": l.Name, "type": strings.ToUpper(l.Type)}
+	obj, err := autobrrFields(l, autobrrclient.ListFields)
+	if err != nil {
+		return err
+	}
+	obj["name"], obj["type"] = l.Name, strings.ToUpper(l.Type)
 	setEnabled(obj, l.Enabled)
-	if l.URL != "" {
-		obj["url"] = l.URL
+	// autobrrFields drops an empty tag list, but an empty list clears the tags.
+	for key, tags := range map[string][]string{"tags_included": l.TagsIncluded, "tags_excluded": l.TagsExcluded} {
+		if tags != nil {
+			obj[key] = tags
+		}
 	}
 	if l.APIKeySecretRef != nil {
 		val, err := reconciler.ResolveSecretKeyRef(ctx, s.c, s.namespace, *l.APIKeySecretRef)
@@ -782,20 +789,6 @@ func (s *autobrrSync) titleList(ctx context.Context, l automationv1alpha1.Autobr
 		refs = append(refs, map[string]any{"id": id, "name": name})
 	}
 	obj["filters"] = refs
-	for key, value := range map[string]*bool{
-		"match_release": l.MatchRelease, "include_unmonitored": l.IncludeUnmonitored,
-		"include_alternate_titles": l.IncludeAlternateTitles, "include_year": l.IncludeYear,
-		"skip_clean_sanitize": l.SkipCleanSanitize,
-	} {
-		if value != nil {
-			obj[key] = *value
-		}
-	}
-	for key, tags := range map[string][]string{"tags_included": l.TagsIncluded, "tags_excluded": l.TagsExcluded} {
-		if tags != nil {
-			obj[key] = tags
-		}
-	}
 	return s.upsert(ctx, "list", l.Name, existing, obj,
 		s.created("lists", l.Name, func() error {
 			return s.ac.CreateList(ctx, createBody(obj, map[string]any{

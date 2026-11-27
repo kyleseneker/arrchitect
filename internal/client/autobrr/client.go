@@ -135,6 +135,13 @@ var Types = map[string]string{
 // IRCAuthMechanisms maps Autobrr's IRC auth mechanisms to Autobrr's constants.
 var IRCAuthMechanisms = map[string]string{"None": "NONE", "NickServ": "NICKSERV", "SASL_PLAIN": "SASL_PLAIN"}
 
+// ListFields maps the AutobrrTitleList fields Autobrr stores as given to its keys.
+var ListFields = map[string]string{
+	"url": "url", "matchRelease": "match_release", "tagsIncluded": "tags_included", "tagsExcluded": "tags_excluded",
+	"includeUnmonitored": "include_unmonitored", "includeAlternateTitles": "include_alternate_titles",
+	"includeYear": "include_year", "skipCleanSanitize": "skip_clean_sanitize",
+}
+
 // RuleFields maps the AutobrrDownloadClientRules fields Autobrr stores as given to its keys.
 var RuleFields = map[string]string{
 	"maxActiveDownloads": "max_active_downloads", "ignoreSlowTorrents": "ignore_slow_torrents",
