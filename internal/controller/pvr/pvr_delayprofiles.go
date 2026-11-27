@@ -175,7 +175,7 @@ func planDelayProfiles(
 		taggedPlans = append(taggedPlans, p)
 	}
 	matched := map[string]bool{}
-	for i, j := range matchDelayProfiles(taggedPlans, tagged) {
+	for i, j := range matchDelayProfiles(taggedPlans, tagged, prunable) {
 		if j >= 0 {
 			taggedPlans[i].current = tagged[j]
 			matched[delayProfileID(tagged[j])] = true
@@ -207,15 +207,46 @@ func planDelayProfiles(
 }
 
 // matchDelayProfiles picks the app's tagged profile each tagged plan updates,
-// or -1 for one it creates. In spec order, each plan takes the untaken profile
-// holding most of its tags, and on a tie the one the app checks first. A
-// layout this leaves blocked is refused by planDelayProfiles before anything
-// is written.
-func matchDelayProfiles(plans []*delayPlan, profiles []map[string]any) []int {
+// or -1 for one it creates. A profile that holds a declared tag and can't be
+// pruned blocks the plan declaring that tag unless some plan takes it over, so
+// those are matched first, exactly, by augmenting paths. Then, in spec order,
+// each plan still without a profile takes the untaken one holding most of its
+// tags, and on a tie the one the app checks first. A layout that leaves a
+// blocking profile is refused by planDelayProfiles before anything is written.
+func matchDelayProfiles(plans []*delayPlan, profiles []map[string]any, prunable func(map[string]any) bool) []int {
 	match := make([]int, len(plans))
-	taken := make([]bool, len(profiles))
-	for i, p := range plans {
+	for i := range match {
 		match[i] = -1
+	}
+	taken := make([]bool, len(profiles))
+	shares := func(i, j int) bool { return overlap(profileTags(profiles[j]), plans[i].tags) > 0 }
+
+	// take finds profile j a plan, moving a plan that already holds a profile
+	// to another one it shares a tag with when that frees one for j.
+	var take func(j int, tried []bool) bool
+	take = func(j int, tried []bool) bool {
+		for i := range plans {
+			if tried[i] || !shares(i, j) {
+				continue
+			}
+			tried[i] = true
+			if match[i] < 0 || take(match[i], tried) {
+				match[i], taken[j] = j, true
+				return true
+			}
+		}
+		return false
+	}
+	for j, profile := range profiles {
+		if !prunable(profile) {
+			take(j, make([]bool, len(plans)))
+		}
+	}
+
+	for i, p := range plans {
+		if match[i] >= 0 {
+			continue
+		}
 		best := 0
 		for j, profile := range profiles {
 			n := overlap(profileTags(profile), p.tags)

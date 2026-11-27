@@ -315,32 +315,68 @@ func TestDelayProfilesMoveATagBetweenProfilesInOnePass(t *testing.T) {
 	assert.Equal(t, b, app.byTags(2)["id"])
 }
 
-// Tags split across the app's profiles so that no profile can take over the
-// other's are refused before anything is written, where a write would fail on
-// every pass. With prune on, a profile the operator created is pruned out of
-// the way, but never one made in the app.
-func TestDelayProfilesRefuseTagsSplitAcrossProfiles(t *testing.T) {
+// Profiles that can't be pruned are matched exactly, so a declaration that
+// shares tags with two of them doesn't take the one another declaration needs.
+// Matched one at a time, each layout below left a profile holding a declared
+// tag that no declaration took over.
+func TestDelayProfilesMatchAcrossDeclarations(t *testing.T) {
 	for _, tt := range []struct {
-		name  string
-		prune bool
+		name     string
+		existing [][]any
+		declared [][]string
+		want     [][]float64
 	}{
-		{name: "prune off"},
-		{name: "a profile made in the app", prune: true},
+		{
+			name:     "a profile split in two",
+			existing: [][]any{{float64(1), float64(2), float64(3)}, {float64(4)}},
+			declared: [][]string{{"a", "b", "d"}, {"c"}},
+			want:     [][]float64{{1, 2, 4}, {3}},
+		},
+		{
+			name:     "a tag moving between profiles",
+			existing: [][]any{{float64(1), float64(2)}, {float64(3)}},
+			declared: [][]string{{"a", "c"}, {"b"}},
+			want:     [][]float64{{1, 3}, {2}},
+		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			app := newDelayAPI(false, "a", "b", "c", "d")
-			abc := app.add([]any{float64(1), float64(2), float64(3)}, nil)
-			app.add([]any{float64(4)}, nil)
+			for _, tags := range tt.existing {
+				app.add(tags, nil)
+			}
 			hc := app.client(t)
-			declared := []commonv1alpha1.DelayProfile{{TagLabels: []string{"a", "b", "d"}}, {TagLabels: []string{"c"}}}
+			declared := make([]commonv1alpha1.DelayProfile, 0, len(tt.declared))
+			for _, labels := range tt.declared {
+				declared = append(declared, commonv1alpha1.DelayProfile{TagLabels: labels})
+			}
 
-			result := app.reconcile(t, hc, declared, engine.SyncPolicy{Prune: tt.prune},
-				map[string][]string{delayProfilesKind: {strconv.Itoa(int(abc))}})
-			require.Len(t, result.Errors, 1)
-			assert.Contains(t, result.Errors[0], `tag "d" is in profile 3, which no declared profile takes over and the operator can't prune`)
-			assert.Empty(t, app.writeLog())
+			result := app.reconcile(t, hc, declared, engine.SyncPolicy{}, nil)
+			require.Empty(t, result.Errors)
+			assert.Equal(t, 1+len(tt.existing), app.count(), "every profile is reused")
+			for _, tags := range tt.want {
+				assert.NotNil(t, app.byTags(tags...), "no profile holds %v", tags)
+			}
+
+			writes := len(app.writeLog())
+			require.Empty(t, app.reconcile(t, hc, declared, engine.SyncPolicy{}, nil).Errors)
+			assert.Len(t, app.writeLog(), writes)
 		})
 	}
+}
+
+// With prune on, the match takes over the profile the operator can't prune
+// and prunes the one it created, though the owned one shares more tags.
+func TestDelayProfilesTakeOverTheProfileThatCantBePruned(t *testing.T) {
+	app := newDelayAPI(false, "a", "b", "c")
+	owned := app.add([]any{float64(1), float64(2)}, nil)
+	handMade := app.add([]any{float64(3)}, nil)
+	hc := app.client(t)
+	managed := map[string][]string{delayProfilesKind: {strconv.Itoa(int(owned))}}
+
+	result := app.reconcile(t, hc, []commonv1alpha1.DelayProfile{{TagLabels: []string{"a", "b", "c"}}}, engine.SyncPolicy{Prune: true}, managed)
+	require.Empty(t, result.Errors)
+	assert.Equal(t, handMade, app.byTags(1, 2, 3)["id"])
+	assert.Nil(t, app.profile(owned))
 }
 
 // A declared profile takes over the app's profile holding most of its tags,
@@ -425,7 +461,8 @@ func TestDelayProfilesRefuseAPlanThatCantFinish(t *testing.T) {
 }
 
 // Each plan takes the profile holding most of its tags, the one the app checks
-// first on a tie, and never one another plan took.
+// first on a tie, and never one another plan took. Profiles that can't be
+// pruned are matched first and exactly, so none is left holding a tag.
 func TestMatchDelayProfiles(t *testing.T) {
 	profiles := []map[string]any{
 		{"id": float64(2), "order": float64(2), "tags": []any{float64(1)}},
@@ -434,7 +471,17 @@ func TestMatchDelayProfiles(t *testing.T) {
 		{"id": float64(5), "order": float64(4), "tags": []any{float64(9)}},
 	}
 	plans := []*delayPlan{{name: "ab", tags: []int{1, 2}}, {name: "a3", tags: []int{1, 3, 4}}, {name: "x", tags: []int{7}}}
-	assert.Equal(t, []int{1, 2, -1}, matchDelayProfiles(plans, profiles))
+	all := func(map[string]any) bool { return true }
+	assert.Equal(t, []int{1, 2, -1}, matchDelayProfiles(plans, profiles, all))
+
+	split := []map[string]any{
+		{"id": float64(2), "order": float64(1), "tags": []any{float64(1), float64(2)}},
+		{"id": float64(3), "order": float64(2), "tags": []any{float64(3)}},
+	}
+	moved := []*delayPlan{{name: "ac", tags: []int{1, 3}}, {name: "b", tags: []int{2}}}
+	assert.Equal(t, []int{0, -1}, matchDelayProfiles(moved, split, all), "greedy leaves the {c} profile to prune")
+	none := func(map[string]any) bool { return false }
+	assert.Equal(t, []int{1, 0}, matchDelayProfiles(moved, split, none), "neither can be pruned, so both are taken over")
 }
 
 func TestDelayProfilesPruneFreesTagsForANewProfile(t *testing.T) {

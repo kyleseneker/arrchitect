@@ -229,13 +229,15 @@ Some things can't be compared by reading:
 
 ## Delay profiles, quality definitions and metadata consumers
 
-Delay profiles have no name. In the order the resource lists them, each one
-takes over the app's profile that holds most of its tags, and the one without
-tags matches the app's default profile. A matching profile is updated, even one
-made in the app, and changing a profile's tags updates it rather than replacing
-it. The app allows a tag in only one profile, so a tag moving to another
-profile is taken off the first one before it's added. The app checks tagged
-profiles in the order the resource lists them.
+Delay profiles have no name. Each one in the resource takes over an app profile
+that holds its tags, and the one without tags matches the app's default
+profile. Profiles the operator can't delete are matched first, so that each one
+holding a declared tag is taken over. Then, in the order the resource lists
+them, the rest take the profile holding most of their tags. A matching profile
+is updated, even one made in the app, and changing a profile's tags updates it
+rather than replacing it. The app allows a tag in only one profile, so a tag
+moving to another profile is taken off the first one before it's added. The app
+checks tagged profiles in the order the resource lists them.
 
 When a declared tag sits in a profile that no declared profile takes over, the
 operator refuses the change before writing anything and names that profile.
