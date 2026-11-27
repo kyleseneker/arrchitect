@@ -3,13 +3,11 @@ package requests
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"maps"
 	"slices"
 	"strconv"
 	"strings"
-	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/events"
@@ -91,7 +89,7 @@ func (r *SeerrReconciler) check(ctx context.Context, conn *seerrConn, config *re
 	return r.establishSession(ctx, conn.sc, config, conn.media)
 }
 
-func (r *SeerrReconciler) sync(ctx context.Context, conn *seerrConn, config *requestsv1alpha1.Seerr, pass *engine.Pass) []string {
+func (r *SeerrReconciler) sync(ctx context.Context, conn *seerrConn, config *requestsv1alpha1.Seerr, pass *engine.Pass) []error {
 	logger := log.FromContext(ctx)
 	sc := conn.sc
 	if !conn.initialized {
@@ -100,8 +98,8 @@ func (r *SeerrReconciler) sync(ctx context.Context, conn *seerrConn, config *req
 			return r.setup(ctx, sc, &pass.Writes, pass.Owned, config, conn.media)
 		})
 		if err != nil {
-			pass.Retry = time.Minute
-			return []string{err.Error()}
+			pass.Retry = ctrlcommon.SetupRetry(err)
+			return []error{err}
 		}
 		if pass.Observe {
 			return nil
@@ -122,21 +120,21 @@ func (r *SeerrReconciler) sync(ctx context.Context, conn *seerrConn, config *req
 			failed = pass.PruneKinds(ctx, []engine.Kind{seerrServiceKind(sc, kind)}, map[string][]string{kind: names}, nil)
 		}
 		for _, problem := range failed {
-			logger.Error(errors.New(problem), "failed to reconcile connection", "service", kind)
+			logger.Error(problem, "failed to reconcile connection", "service", kind)
 		}
 		problems = append(problems, failed...)
 	}
 	if config.Spec.Main != nil {
 		if err := reconcileSeerrMainSettings(ctx, sc, &pass.Writes, config.Spec.Main); err != nil {
 			logger.Error(err, "failed to reconcile main settings")
-			problems = append(problems, fmt.Sprintf("main: %v", err))
+			problems = append(problems, fmt.Errorf("main: %w", err))
 		}
 	}
 	if err := reconcileSeerrNetwork(ctx, sc, &pass.Writes, config.Spec.Network); err != nil {
-		problems = append(problems, fmt.Sprintf("network: %v", err))
+		problems = append(problems, fmt.Errorf("network: %w", err))
 	}
 	if err := reconcileSeerrMetadataProviders(ctx, sc, &pass.Writes, config.Spec.MetadataProviders); err != nil {
-		problems = append(problems, fmt.Sprintf("metadataProviders: %v", err))
+		problems = append(problems, fmt.Errorf("metadataProviders: %w", err))
 	}
 	problems = append(problems, reconcileSeerrJobSchedules(ctx, sc, &pass.Writes, config.Spec.JobSchedules)...)
 	for _, agent := range config.Spec.Notifications {
@@ -146,7 +144,7 @@ func (r *SeerrReconciler) sync(ctx context.Context, conn *seerrConn, config *req
 		}
 		if err != nil {
 			logger.Error(err, "failed to reconcile notification agent", "agent", agent.Agent)
-			problems = append(problems, fmt.Sprintf("notification(%s): %v", agent.Agent, err))
+			problems = append(problems, fmt.Errorf("notification(%s): %w", agent.Agent, err))
 		}
 	}
 	return problems
@@ -173,9 +171,9 @@ func seerrServers(spec requestsv1alpha1.SeerrSpec) []seerrServerKind {
 func seerrServiceKind(sc *seerrclient.Client, kind string) engine.Kind {
 	return engine.Kind{
 		Name: kind,
-		List: func(ctx context.Context) ([]map[string]any, error) { return sc.GetList(ctx, "/api/v1/settings/"+kind) },
+		List: func(ctx context.Context) ([]map[string]any, error) { return sc.Services(ctx, kind) },
 		Remove: func(ctx context.Context, id int) error {
-			return sc.Delete(ctx, fmt.Sprintf("/api/v1/settings/%s/%d", kind, id))
+			return sc.DeleteService(ctx, kind, id)
 		},
 	}
 }
@@ -202,38 +200,38 @@ func (r *SeerrReconciler) setup(
 	media seerrMediaServer,
 ) error {
 	logger := log.FromContext(ctx)
-	var initErrors []string
+	var initErrors []error
 
 	if media.jellyfin != nil {
 		if err := syncJellyfinLibraries(ctx, sc, writes, media.jellyfin, config.Spec.Libraries); err != nil {
 			logger.Error(err, "failed to configure Jellyfin libraries")
-			initErrors = append(initErrors, err.Error())
+			initErrors = append(initErrors, err)
 		}
 	}
 	if media.plex != nil {
 		if err := syncPlexLibraries(ctx, sc, writes, media.plex, config.Spec.Libraries); err != nil {
 			logger.Error(err, "failed to configure Plex libraries")
-			initErrors = append(initErrors, err.Error())
+			initErrors = append(initErrors, err)
 		}
 	}
 
 	for _, k := range seerrServers(config.Spec) {
 		for _, problem := range r.reconcileServiceConnections(ctx, sc, writes, owned, config, k.kind, k.servers) {
-			logger.Error(errors.New(problem), "failed to configure connection during initialization", "service", k.kind)
-			initErrors = append(initErrors, "init: "+problem)
+			logger.Error(problem, "failed to configure connection during initialization", "service", k.kind)
+			initErrors = append(initErrors, fmt.Errorf("init: %w", problem))
 		}
 	}
 	if config.Spec.Main != nil {
 		if err := reconcileSeerrMainSettings(ctx, sc, writes, config.Spec.Main); err != nil {
 			logger.Error(err, "failed to configure main settings during initialization")
-			initErrors = append(initErrors, fmt.Sprintf("main settings init: %v", err))
+			initErrors = append(initErrors, fmt.Errorf("main settings init: %w", err))
 		}
 	}
 	if len(initErrors) > 0 {
-		return fmt.Errorf("initialization failed: %v", initErrors)
+		return fmt.Errorf("initialization failed: %w", engine.JoinErrors(initErrors...))
 	}
 
-	if _, err := sc.Post(ctx, "/api/v1/settings/initialize", map[string]any{}); err != nil {
+	if err := sc.Initialize(ctx); err != nil {
 		logger.Error(err, "failed to initialize Seerr")
 		return fmt.Errorf("initialization: %w", err)
 	}
@@ -247,16 +245,16 @@ func (r *SeerrReconciler) setup(
 func (r *SeerrReconciler) reconcileServiceConnections(
 	ctx context.Context, sc *seerrclient.Client, w *engine.Writes, owned *engine.Ownership,
 	config *requestsv1alpha1.Seerr, kind string, declared []requestsv1alpha1.SeerrServiceConnection,
-) []string {
-	existing, err := sc.GetList(ctx, "/api/v1/settings/"+kind)
+) []error {
+	existing, err := sc.Services(ctx, kind)
 	if err != nil {
-		return []string{fmt.Sprintf("%s: listing connections: %v", kind, err)}
+		return []error{fmt.Errorf("%s: listing connections: %w", kind, err)}
 	}
-	var problems []string
+	var problems []error
 	for i := range declared {
 		svc := &declared[i]
 		if err := r.reconcileServiceConnection(ctx, sc, w, owned, config.Namespace, kind, svc, existing); err != nil {
-			problems = append(problems, fmt.Sprintf("%s(%s): %v", kind, svc.Name, err))
+			problems = append(problems, fmt.Errorf("%s(%s): %w", kind, svc.Name, err))
 		}
 	}
 	return problems
@@ -313,7 +311,7 @@ func (r *SeerrReconciler) reconcileServiceConnection(
 			// Seerr's API refuses a body that carries the read-only id.
 			delete(body, "id")
 			return w.Apply(kind, name, func() error {
-				return sc.Put(ctx, fmt.Sprintf("/api/v1/settings/%s/%d", kind, int(id)), body)
+				return sc.UpdateService(ctx, kind, int(id), body)
 			})
 		}
 	}
@@ -323,7 +321,7 @@ func (r *SeerrReconciler) reconcileServiceConnection(
 		return err
 	}
 	return w.Apply(kind, svc.Name, func() error {
-		if _, err := sc.Post(ctx, "/api/v1/settings/"+kind, body); err != nil {
+		if err := sc.CreateService(ctx, kind, body); err != nil {
 			return err
 		}
 		owned.Created(kind, svc.Name)
@@ -333,26 +331,26 @@ func (r *SeerrReconciler) reconcileServiceConnection(
 
 func reconcileSeerrMediaServer(
 	ctx context.Context, sc *seerrclient.Client, w *engine.Writes, media seerrMediaServer, mediaErr error, libraries []string,
-) []string {
+) []error {
 	if mediaErr != nil {
-		return []string{mediaErr.Error()}
+		return []error{mediaErr}
 	}
 	logger := log.FromContext(ctx)
-	var syncErrors []string
+	var syncErrors []error
 	if media.jellyfin != nil {
 		if err := reconcileSeerrJellyfin(ctx, sc, w, media.jellyfin); err != nil {
 			logger.Error(err, "failed to reconcile Jellyfin server")
-			syncErrors = append(syncErrors, fmt.Sprintf("jellyfin: %v", err))
+			syncErrors = append(syncErrors, fmt.Errorf("jellyfin: %w", err))
 		} else if err := reconcileSeerrLibraries(ctx, sc, w, "jellyfin", libraries); err != nil {
-			syncErrors = append(syncErrors, fmt.Sprintf("jellyfin libraries: %v", err))
+			syncErrors = append(syncErrors, fmt.Errorf("jellyfin libraries: %w", err))
 		}
 	}
 	if media.plex != nil {
 		if err := reconcileSeerrPlex(ctx, sc, w, media.plex); err != nil {
 			logger.Error(err, "failed to reconcile Plex server")
-			syncErrors = append(syncErrors, fmt.Sprintf("plex: %v", err))
+			syncErrors = append(syncErrors, fmt.Errorf("plex: %w", err))
 		} else if err := reconcileSeerrLibraries(ctx, sc, w, "plex", libraries); err != nil {
-			syncErrors = append(syncErrors, fmt.Sprintf("plex libraries: %v", err))
+			syncErrors = append(syncErrors, fmt.Errorf("plex libraries: %w", err))
 		}
 	}
 	return syncErrors
@@ -365,15 +363,14 @@ func reconcileSeerrLibraries(ctx context.Context, sc *seerrclient.Client, w *eng
 	if len(declared) == 0 {
 		return nil
 	}
-	path := "/api/v1/settings/" + server + "/library"
-	libraries, err := sc.GetList(ctx, path)
+	libraries, err := sc.Libraries(ctx, server)
 	if err != nil {
 		return fmt.Errorf("listing libraries: %w", err)
 	}
 	if len(missingLibraries(libraries, declared)) > 0 {
 		// Seerr's list is a cache, so a missing library may only need a sync.
 		err := w.Apply("libraries", server+" sync", func() error {
-			libraries, err = sc.PostList(ctx, path+"/sync", map[string]any{})
+			libraries, err = sc.SyncLibraries(ctx, server)
 			return err
 		})
 		if err != nil {
@@ -403,7 +400,7 @@ func reconcileSeerrLibraries(ctx context.Context, sc *seerrclient.Client, w *eng
 			continue
 		}
 		if err := w.Apply("libraries", name, func() error {
-			return sc.Put(ctx, path+"/"+id, map[string]any{"enabled": want})
+			return sc.EnableLibrary(ctx, server, id, want)
 		}); err != nil {
 			return fmt.Errorf("library %q: %w", name, err)
 		}
@@ -555,7 +552,7 @@ func reconcileSeerrMainSettings(ctx context.Context, sc *seerrclient.Client, w *
 		return nil
 	}
 
-	current, err := sc.Get(ctx, "/api/v1/settings/main")
+	current, err := sc.Settings(ctx, "main")
 	if err != nil {
 		return fmt.Errorf("reading main settings: %w", err)
 	}
@@ -563,8 +560,7 @@ func reconcileSeerrMainSettings(ctx context.Context, sc *seerrclient.Client, w *
 		return nil
 	}
 	return w.Apply("settings", "main", func() error {
-		_, err := sc.Post(ctx, "/api/v1/settings/main", payload)
-		return err
+		return sc.SaveSettings(ctx, "main", payload)
 	})
 }
 
@@ -627,7 +623,7 @@ func reconcileSeerrNetwork(ctx context.Context, sc *seerrclient.Client, w *engin
 		return nil
 	}
 	payload := map[string]any{"trustProxy": *network.TrustProxy}
-	current, err := sc.Get(ctx, "/api/v1/settings/network")
+	current, err := sc.Settings(ctx, "network")
 	if err != nil {
 		return fmt.Errorf("reading network settings: %w", err)
 	}
@@ -635,8 +631,7 @@ func reconcileSeerrNetwork(ctx context.Context, sc *seerrclient.Client, w *engin
 		return nil
 	}
 	return w.Apply("settings", "network", func() error {
-		_, err := sc.Post(ctx, "/api/v1/settings/network", payload)
-		return err
+		return sc.SaveSettings(ctx, "network", payload)
 	})
 }
 
@@ -654,7 +649,7 @@ func reconcileSeerrMetadataProviders(
 	if len(payload) == 0 {
 		return nil
 	}
-	current, err := sc.Get(ctx, "/api/v1/settings/metadatas")
+	current, err := sc.MetadataSettings(ctx)
 	if err != nil {
 		return fmt.Errorf("reading metadata settings: %w", err)
 	}
@@ -666,7 +661,7 @@ func reconcileSeerrMetadataProviders(
 		return err
 	}
 	return w.Apply("settings", "metadataProviders", func() error {
-		if err := sc.Put(ctx, "/api/v1/settings/metadatas", body); err != nil {
+		if err := sc.SaveMetadataSettings(ctx, body); err != nil {
 			return fmt.Errorf("the providers chosen weren't reachable from Seerr, which kept its own: %w", err)
 		}
 		return nil
@@ -678,13 +673,13 @@ func reconcileSeerrMetadataProviders(
 // the Jellyfin ones, for its media server.
 func reconcileSeerrJobSchedules(
 	ctx context.Context, sc *seerrclient.Client, w *engine.Writes, schedules []requestsv1alpha1.SeerrJobSchedule,
-) []string {
+) []error {
 	if len(schedules) == 0 {
 		return nil
 	}
-	jobs, err := sc.GetList(ctx, "/api/v1/settings/jobs")
+	jobs, err := sc.Jobs(ctx)
 	if err != nil {
-		return []string{fmt.Sprintf("jobSchedules: reading jobs: %v", err)}
+		return []error{fmt.Errorf("jobSchedules: reading jobs: %w", err)}
 	}
 	current := map[string]any{}
 	for _, job := range jobs {
@@ -692,20 +687,19 @@ func reconcileSeerrJobSchedules(
 			current[id] = job["cronSchedule"]
 		}
 	}
-	var errs []string
+	var errs []error
 	for _, js := range schedules {
 		schedule, ok := current[js.ID]
 		switch {
 		case !ok:
-			errs = append(errs, fmt.Sprintf("jobSchedule(%s): Seerr runs no such job; it runs %s",
+			errs = append(errs, fmt.Errorf("jobSchedule(%s): Seerr runs no such job; it runs %s",
 				js.ID, strings.Join(slices.Sorted(maps.Keys(current)), ", ")))
 		case schedule != js.Schedule:
 			err := w.Apply("jobs", js.ID, func() error {
-				_, err := sc.Post(ctx, "/api/v1/settings/jobs/"+js.ID+"/schedule", map[string]any{"schedule": js.Schedule})
-				return err
+				return sc.ScheduleJob(ctx, js.ID, js.Schedule)
 			})
 			if err != nil {
-				errs = append(errs, fmt.Sprintf("jobSchedule(%s): %v", js.ID, err))
+				errs = append(errs, fmt.Errorf("jobSchedule(%s): %w", js.ID, err))
 			}
 		}
 	}
@@ -734,8 +728,7 @@ func reconcileSeerrNotificationAgent(
 		payload["options"] = options
 	}
 
-	path := fmt.Sprintf("/api/v1/settings/notifications/%s", agent.Agent)
-	current, err := sc.Get(ctx, path)
+	current, err := sc.NotificationSettings(ctx, agent.Agent)
 	if err != nil {
 		return fmt.Errorf("reading %s notifications: %w", agent.Agent, err)
 	}
@@ -747,8 +740,7 @@ func reconcileSeerrNotificationAgent(
 		return err
 	}
 	return w.Apply("notifications", agent.Agent, func() error {
-		_, err := sc.Post(ctx, path, body)
-		return err
+		return sc.SaveNotificationSettings(ctx, agent.Agent, body)
 	})
 }
 
@@ -804,7 +796,7 @@ func reconcileSeerrJellyfin(ctx context.Context, sc *seerrclient.Client, w *engi
 		"useSsl":  auth.UseSSL != nil && *auth.UseSSL,
 		"urlBase": auth.URLBase,
 	}
-	current, err := sc.Get(ctx, "/api/v1/settings/jellyfin")
+	current, err := sc.Settings(ctx, "jellyfin")
 	if err != nil {
 		return fmt.Errorf("reading Jellyfin settings: %w", err)
 	}
@@ -812,8 +804,7 @@ func reconcileSeerrJellyfin(ctx context.Context, sc *seerrclient.Client, w *engi
 		return nil
 	}
 	return w.Apply("settings", "jellyfin", func() error {
-		_, err := sc.Post(ctx, "/api/v1/settings/jellyfin", payload)
-		return err
+		return sc.SaveSettings(ctx, "jellyfin", payload)
 	})
 }
 
@@ -832,7 +823,7 @@ func setUpLibraries(ctx context.Context, sc *seerrclient.Client, w *engine.Write
 	if len(libraries) == 0 {
 		return enableLibraries(ctx, sc, server)
 	}
-	if _, err := sc.PostList(ctx, fmt.Sprintf("/api/v1/settings/%s/library/sync", server), map[string]any{}); err != nil {
+	if _, err := sc.SyncLibraries(ctx, server); err != nil {
 		return fmt.Errorf("%s library sync: %w", engine.AppName(server), err)
 	}
 	return reconcileSeerrLibraries(ctx, sc, w, server, libraries)
@@ -850,7 +841,7 @@ func reconcileSeerrPlex(ctx context.Context, sc *seerrclient.Client, w *engine.W
 		"port":   port,
 		"useSsl": auth.UseSSL != nil && *auth.UseSSL,
 	}
-	current, err := sc.Get(ctx, "/api/v1/settings/plex")
+	current, err := sc.Settings(ctx, "plex")
 	if err != nil {
 		return fmt.Errorf("reading Plex settings: %w", err)
 	}
@@ -858,8 +849,7 @@ func reconcileSeerrPlex(ctx context.Context, sc *seerrclient.Client, w *engine.W
 		return nil
 	}
 	return w.Apply("settings", "plex", func() error {
-		_, err := sc.Post(ctx, "/api/v1/settings/plex", payload)
-		return err
+		return sc.SaveSettings(ctx, "plex", payload)
 	})
 }
 
@@ -869,7 +859,7 @@ func reconcileSeerrPlex(ctx context.Context, sc *seerrclient.Client, w *engine.W
 // rejects the old form. The sync answers 404 while the server has no libraries;
 // setup then retries rather than finishing with none enabled.
 func enableLibraries(ctx context.Context, sc *seerrclient.Client, server string) error {
-	libraries, err := sc.PostList(ctx, fmt.Sprintf("/api/v1/settings/%s/library/sync", server), map[string]any{})
+	libraries, err := sc.SyncLibraries(ctx, server)
 	if err != nil {
 		return fmt.Errorf("%s library sync: %w", engine.AppName(server), err)
 	}
@@ -878,7 +868,7 @@ func enableLibraries(ctx context.Context, sc *seerrclient.Client, server string)
 		if !ok || id == "" {
 			continue
 		}
-		if err := sc.Put(ctx, fmt.Sprintf("/api/v1/settings/%s/library/%s", server, id), map[string]any{"enabled": true}); err != nil {
+		if err := sc.EnableLibrary(ctx, server, id, true); err != nil {
 			return fmt.Errorf("enabling %s library %s: %w", engine.AppName(server), id, err)
 		}
 	}

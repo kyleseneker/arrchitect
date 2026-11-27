@@ -31,6 +31,8 @@ type delayAPI struct {
 	nextID   float64
 	// undeletable is a profile the app refuses to delete.
 	undeletable float64
+	// failOnce is a profile whose next update fails.
+	failOnce float64
 }
 
 func newDelayAPI(items bool, tags ...string) *delayAPI {
@@ -166,6 +168,9 @@ func (a *delayAPI) client(t *testing.T) *engine.HTTPClient {
 			}
 			created := a.add(body["tags"].([]any), fields)
 			_ = json.NewEncoder(w).Encode(a.find(created))
+		case r.Method == http.MethodPut && id == a.failOnce:
+			a.failOnce = 0
+			http.Error(w, `{"message":"unavailable"}`, http.StatusServiceUnavailable)
 		case r.Method == http.MethodPut:
 			if a.refuse(w, body, id) {
 				return
@@ -190,10 +195,10 @@ func (a *delayAPI) client(t *testing.T) *engine.HTTPClient {
 
 func (a *delayAPI) reconcile(t *testing.T, hc *engine.HTTPClient, declared []commonv1alpha1.DelayProfile, policy engine.SyncPolicy, managed map[string][]string) outcome {
 	t.Helper()
-	pass := engine.NewPass(hc.AppLabel(), policy, managed)
+	pass := engine.NewPass(hc.AppLabel(), "", policy, managed)
 	errs := reconcileDelayProfiles(context.Background(), hc, "v3", declared, pass, nil)
 	return outcome{
-		Synced: pass.SyncedItems(), Errors: errs, Drift: pass.Drift(), Pruned: pass.Owned.Pruned(), Managed: pass.Owned.Managed(),
+		Synced: pass.SyncedItems(), Errors: messages(errs), Drift: pass.Drift(), Pruned: pass.Owned.Pruned(), Managed: pass.Owned.Managed(),
 	}
 }
 
@@ -308,6 +313,126 @@ func TestDelayProfilesMoveATagBetweenProfilesInOnePass(t *testing.T) {
 	assert.Equal(t, b, app.byTags(2)["id"])
 }
 
+// Matched one declaration at a time, {a,b,d} took the profile holding a, b
+// and c, and the profile holding d blocked it on every pass.
+func TestDelayProfilesMatchAcrossDeclarations(t *testing.T) {
+	app := newDelayAPI(false, "a", "b", "c", "d")
+	abc := app.add([]any{float64(1), float64(2), float64(3)}, nil)
+	d := app.add([]any{float64(4)}, nil)
+	hc := app.client(t)
+	declared := []commonv1alpha1.DelayProfile{{TagLabels: []string{"a", "b", "d"}}, {TagLabels: []string{"c"}}}
+
+	result := app.reconcile(t, hc, declared, engine.SyncPolicy{}, nil)
+	require.Empty(t, result.Errors)
+	assert.Equal(t, 3, app.count(), "both profiles are reused")
+	assert.Equal(t, d, app.byTags(1, 2, 4)["id"])
+	assert.Equal(t, abc, app.byTags(3)["id"])
+
+	writes := len(app.writeLog())
+	require.Empty(t, app.reconcile(t, hc, declared, engine.SyncPolicy{}, nil).Errors)
+	assert.Len(t, app.writeLog(), writes)
+}
+
+// With prune on, the match takes over the profile the operator can't prune
+// and prunes the one it created, though the owned one shares more tags.
+func TestDelayProfilesTakeOverTheProfileThatCantBePruned(t *testing.T) {
+	app := newDelayAPI(false, "a", "b", "c")
+	owned := app.add([]any{float64(1), float64(2)}, nil)
+	handMade := app.add([]any{float64(3)}, nil)
+	hc := app.client(t)
+	managed := map[string][]string{delayProfilesKind: {strconv.Itoa(int(owned))}}
+
+	result := app.reconcile(t, hc, []commonv1alpha1.DelayProfile{{TagLabels: []string{"a", "b", "c"}}}, engine.SyncPolicy{Prune: true}, managed)
+	require.Empty(t, result.Errors)
+	assert.Equal(t, handMade, app.byTags(1, 2, 3)["id"])
+	assert.Nil(t, app.profile(owned))
+}
+
+// The owned profile has to go before the other can take its tags. When the
+// update after that fails, the next pass finishes it.
+func TestDelayProfilesTakeOverConvergesAfterAFailedUpdate(t *testing.T) {
+	app := newDelayAPI(false, "a", "b", "c")
+	owned := app.add([]any{float64(1), float64(2)}, map[string]any{"usenetDelay": float64(30)})
+	handMade := app.add([]any{float64(3)}, nil)
+	app.failOnce = handMade
+	hc := app.client(t)
+	declared := []commonv1alpha1.DelayProfile{{TagLabels: []string{"a", "b", "c"}, UsenetDelay: new(int32(30))}}
+
+	first := app.reconcile(t, hc, declared, engine.SyncPolicy{Prune: true}, map[string][]string{delayProfilesKind: {strconv.Itoa(int(owned))}})
+	require.Len(t, first.Errors, 1)
+	assert.Nil(t, app.profile(owned))
+
+	second := app.reconcile(t, hc, declared, engine.SyncPolicy{Prune: true}, first.Managed)
+	require.Empty(t, second.Errors)
+	converged := app.byTags(1, 2, 3)
+	require.NotNil(t, converged)
+	assert.Equal(t, handMade, converged["id"])
+	assert.Equal(t, float64(30), converged["usenetDelay"], "the declared settings carry over")
+}
+
+// A restart between the delete and the update loses the status the pass
+// would have written, so the next pass starts from the ownership recorded
+// before it, which names a profile that's gone. It finishes the takeover the
+// same way.
+func TestDelayProfilesTakeOverConvergesAfterARestart(t *testing.T) {
+	app := newDelayAPI(false, "a", "b", "c")
+	owned := app.add([]any{float64(1), float64(2)}, map[string]any{"usenetDelay": float64(30)})
+	handMade := app.add([]any{float64(3)}, nil)
+	app.failOnce = handMade
+	hc := app.client(t)
+	declared := []commonv1alpha1.DelayProfile{{TagLabels: []string{"a", "b", "c"}, UsenetDelay: new(int32(30))}}
+	before := map[string][]string{delayProfilesKind: {strconv.Itoa(int(owned))}}
+
+	app.reconcile(t, hc, declared, engine.SyncPolicy{Prune: true}, before)
+	require.Nil(t, app.profile(owned))
+
+	again := app.reconcile(t, hc, declared, engine.SyncPolicy{Prune: true}, before)
+	require.Empty(t, again.Errors)
+	converged := app.byTags(1, 2, 3)
+	require.NotNil(t, converged)
+	assert.Equal(t, handMade, converged["id"])
+	assert.Equal(t, float64(30), converged["usenetDelay"])
+}
+
+// A plan that would leave a declared tag in a profile the operator neither
+// takes over nor prunes is refused before it writes anything.
+func TestDelayProfilesRefuseAPlanThatCantFinish(t *testing.T) {
+	app := newDelayAPI(false, "a", "b")
+	app.add([]any{float64(1)}, nil)
+	app.add([]any{float64(2)}, nil)
+	hc := app.client(t)
+
+	result := app.reconcile(t, hc, []commonv1alpha1.DelayProfile{{TagLabels: []string{"a", "b"}}}, engine.SyncPolicy{}, nil)
+	require.Len(t, result.Errors, 1)
+	assert.Contains(t, result.Errors[0], "which no declared profile takes over and the operator can't prune")
+	assert.Empty(t, app.writeLog())
+	_, err := planDelayProfiles([]commonv1alpha1.DelayProfile{{TagLabels: []string{"a", "b"}}},
+		engine.NamedIDs{"a": {1}, "b": {2}},
+		[]map[string]any{{"id": float64(2), "tags": []any{float64(1)}}, {"id": float64(3), "tags": []any{float64(2)}}},
+		func(map[string]any) bool { return false })
+	assert.True(t, engine.IsConfigError(err))
+}
+
+// Profiles holding no declared tag never enter the match, so its size
+// follows the spec, not how many profiles the app returns.
+func TestMatchDelayProfilesWeighsOnlyProfilesHoldingDeclaredTags(t *testing.T) {
+	profiles := make([]map[string]any, 0, 10001)
+	for i := range 10000 {
+		profiles = append(profiles, map[string]any{"id": float64(i + 2), "order": float64(i), "tags": []any{float64(i + 100)}})
+	}
+	profiles = append(profiles, map[string]any{"id": float64(20000), "order": float64(20000), "tags": []any{float64(1)}})
+	plans := []*delayPlan{{name: "a", tags: []int{1}}, {name: "b", tags: []int{2}}}
+
+	match := matchDelayProfiles(plans, profiles, func(map[string]any) bool { return false })
+	assert.Equal(t, []int{10000, -1}, match)
+}
+
+func TestMaxWeightAssignment(t *testing.T) {
+	assert.Equal(t, []int{1, 0}, maxWeightAssignment([][]int64{{5, 4}, {4, 0}}), "the best single pick isn't the best total")
+	assert.Equal(t, []int{0, 1}, maxWeightAssignment([][]int64{{3, 1, 0}, {2, 4, 1}}))
+	assert.Equal(t, []int{2}, maxWeightAssignment([][]int64{{0, 1, 2}}))
+}
+
 func TestDelayProfilesPruneFreesTagsForANewProfile(t *testing.T) {
 	app := newDelayAPI(false, "anime", "kids", "four")
 	owned := app.add([]any{float64(1)}, nil)
@@ -407,6 +532,28 @@ func TestDelayProfilesFollowTheDeclaredOrder(t *testing.T) {
 	writes := len(app.writeLog())
 	require.Empty(t, app.reconcile(t, hc, declared, engine.SyncPolicy{}, nil).Errors)
 	assert.Len(t, app.writeLog(), writes)
+}
+
+// Enforce creates a new profile after the app's tagged profiles and then
+// moves the ones declared after it, so observe reports that move too.
+func TestDelayProfilesObserveOrdersAProfileItWouldCreate(t *testing.T) {
+	for _, observe := range []bool{false, true} {
+		t.Run(strconv.FormatBool(observe), func(t *testing.T) {
+			app := newDelayAPI(false, "favorites", "live")
+			live := app.add([]any{float64(2)}, nil)
+			hc := app.client(t)
+			declared := []commonv1alpha1.DelayProfile{{TagLabels: []string{"favorites"}}, {TagLabels: []string{"live"}}}
+
+			result := app.reconcile(t, hc, declared, engine.SyncPolicy{Observe: observe}, nil)
+			require.Empty(t, result.Errors)
+			if observe {
+				assert.Empty(t, app.writeLog())
+				assert.ElementsMatch(t, []string{"delayProfiles(favorites)", "delayProfiles(order)"}, result.Drift)
+				return
+			}
+			assert.Less(t, app.byTags(1)["order"].(float64), app.profile(live)["order"].(float64))
+		})
+	}
 }
 
 func TestDelayProfilesWithProtocolItems(t *testing.T) {

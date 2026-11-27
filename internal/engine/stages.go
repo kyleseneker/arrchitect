@@ -33,8 +33,8 @@ type Stages struct {
 // such as one naming a tag that doesn't exist, is left out of its stage, so it
 // is neither written nor pruned, and reported; the other kinds are still
 // written.
-func (s Stages) Reconcile(ctx context.Context, client *HTTPClient, def AppDefinition, pass *Pass) []string {
-	var problems []string
+func (s Stages) Reconcile(ctx context.Context, client *HTTPClient, def AppDefinition, pass *Pass) []error {
+	var problems []error
 	for _, kinds := range s.Order {
 		var tags NamedIDs
 		var tagsErr error
@@ -52,12 +52,12 @@ func (s Stages) Reconcile(ctx context.Context, client *HTTPClient, def AppDefini
 				}
 			}
 			if b.Tagged && tagsErr != nil {
-				problems = append(problems, fmt.Sprintf("%s: %v", kind, tagsErr))
+				problems = append(problems, fmt.Errorf("%s: %w", kind, tagsErr))
 				continue
 			}
 			items, err := b.Build(tags)
 			if err != nil {
-				problems = append(problems, err.Error())
+				problems = append(problems, err)
 				continue
 			}
 			resources[kind] = items

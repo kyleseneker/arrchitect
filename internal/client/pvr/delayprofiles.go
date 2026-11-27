@@ -1,11 +1,12 @@
 package pvr
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"maps"
+	"math"
 	"net/http"
 	"slices"
 	"strconv"
@@ -49,21 +50,21 @@ type delayProfileStage struct {
 	labels map[int]string
 }
 
-// reconcileDelayProfiles matches each declared profile to the app's profile
-// holding any of its tags, or to the default profile when it has none. The app
+// reconcileDelayProfiles matches the declared profiles to the app's profiles
+// holding their tags, and one without tags to the default profile. The app
 // allows a tag in only one profile, so pruned profiles go first and tags leave
 // a profile before any joins another.
 func reconcileDelayProfiles(
 	ctx context.Context, client *engine.HTTPClient, apiVersion string, declared []commonv1alpha1.DelayProfile, pass *engine.Pass, plannedTags []string,
-) []string {
+) []error {
 	s := &delayProfileStage{Pass: pass, client: client, path: fmt.Sprintf("/api/%s/delayprofile", apiVersion)}
 	return s.run(ctx, fmt.Sprintf("/api/%s/tag", apiVersion), declared, plannedTags)
 }
 
-func (s *delayProfileStage) run(ctx context.Context, tagPath string, declared []commonv1alpha1.DelayProfile, plannedTags []string) []string {
+func (s *delayProfileStage) run(ctx context.Context, tagPath string, declared []commonv1alpha1.DelayProfile, plannedTags []string) []error {
 	tags, err := engine.FetchNamedIDs(ctx, s.client, tagPath, "label")
 	if err != nil {
-		return []string{fmt.Sprintf("%s: %v", delayProfilesKind, err)}
+		return []error{fmt.Errorf("%s: %w", delayProfilesKind, err)}
 	}
 	tags.Plan(plannedTags...)
 	s.labels = map[int]string{}
@@ -74,21 +75,28 @@ func (s *delayProfileStage) run(ctx context.Context, tagPath string, declared []
 	}
 	existing, err := s.client.GetJSONList(ctx, s.path)
 	if err != nil {
-		return []string{fmt.Sprintf("%s: listing: %v", delayProfilesKind, err)}
+		return []error{fmt.Errorf("%s: listing: %w", delayProfilesKind, err)}
 	}
-	plans, err := planDelayProfiles(declared, tags, existing)
+	owned := map[string]bool{}
+	if s.PruneEnabled {
+		for _, id := range s.Owned.Managed()[delayProfilesKind] {
+			owned[id] = true
+		}
+	}
+	prunable := func(profile map[string]any) bool { return owned[delayProfileID(profile)] }
+	plans, err := planDelayProfiles(declared, tags, existing, prunable)
 	if err != nil {
-		return []string{err.Error()}
+		return []error{err}
 	}
 
 	if err := s.pruneUnmatched(ctx, plans, existing); err != nil {
-		return []string{fmt.Sprintf("%s(prune): %v", delayProfilesKind, err)}
+		return []error{fmt.Errorf("%s(prune): %w", delayProfilesKind, err)}
 	}
-	var errs []string
+	var errs []error
 	if !s.Observe {
 		for _, p := range plans {
 			if err := s.releaseTags(ctx, p); err != nil {
-				return []string{fmt.Sprintf("%s(%s): %v", delayProfilesKind, p.name, err)}
+				return []error{fmt.Errorf("%s(%s): %w", delayProfilesKind, p.name, err)}
 			}
 		}
 	}
@@ -96,24 +104,28 @@ func (s *delayProfileStage) run(ctx context.Context, tagPath string, declared []
 	for _, p := range plans {
 		if p.current == nil && template == nil && hasProtocolItems(existing) {
 			if template, err = s.client.GetJSON(ctx, s.path+"/schema"); err != nil {
-				errs = append(errs, fmt.Sprintf("%s(%s): reading the schema: %v", delayProfilesKind, p.name, err))
+				errs = append(errs, fmt.Errorf("%s(%s): reading the schema: %w", delayProfilesKind, p.name, err))
 				continue
 			}
 		}
 		if err := s.apply(ctx, p, template, hasProtocolItems(existing)); err != nil {
-			errs = append(errs, fmt.Sprintf("%s(%s): %v", delayProfilesKind, p.name, err))
+			errs = append(errs, fmt.Errorf("%s(%s): %w", delayProfilesKind, p.name, err))
 		}
 	}
 	if len(errs) > 0 {
 		return errs
 	}
 	if err := s.order(ctx, plans); err != nil {
-		return []string{fmt.Sprintf("%s(order): %v", delayProfilesKind, err)}
+		return []error{fmt.Errorf("%s(order): %w", delayProfilesKind, err)}
 	}
 	return nil
 }
 
-func planDelayProfiles(declared []commonv1alpha1.DelayProfile, tags engine.NamedIDs, existing []map[string]any) ([]*delayPlan, error) {
+// planDelayProfiles matches the declared profiles to the app's. prunable
+// reports a profile this pass deletes if no declaration matches it.
+func planDelayProfiles(
+	declared []commonv1alpha1.DelayProfile, tags engine.NamedIDs, existing []map[string]any, prunable func(map[string]any) bool,
+) ([]*delayPlan, error) {
 	var fallback map[string]any
 	var tagged []map[string]any
 	for _, e := range existing {
@@ -125,8 +137,9 @@ func planDelayProfiles(declared []commonv1alpha1.DelayProfile, tags engine.Named
 	}
 
 	plans := make([]*delayPlan, 0, len(declared))
+	var taggedPlans []*delayPlan
 	claimed := map[int]string{}
-	matched := map[string]bool{}
+	hasDefault := false
 	for _, d := range declared {
 		p := &delayPlan{name: "default", spec: d}
 		if len(d.TagLabels) > 0 {
@@ -141,16 +154,16 @@ func planDelayProfiles(declared []commonv1alpha1.DelayProfile, tags engine.Named
 		}
 		slices.Sort(ids)
 		p.tags = ids
+		plans = append(plans, p)
 		if len(ids) == 0 {
 			switch {
 			case fallback == nil:
 				return nil, fail("the app has no default profile")
-			case matched[delayProfileID(fallback)]:
+			case hasDefault:
 				return nil, fail("only one profile can be without tags")
 			}
-			matched[delayProfileID(fallback)] = true
+			hasDefault = true
 			p.current = fallback
-			plans = append(plans, p)
 			continue
 		}
 		for _, id := range ids {
@@ -159,24 +172,169 @@ func planDelayProfiles(declared []commonv1alpha1.DelayProfile, tags engine.Named
 			}
 			claimed[id] = p.name
 		}
-		var best map[string]any
-		bestOverlap := 0
-		for _, e := range tagged {
-			if matched[delayProfileID(e)] {
+		taggedPlans = append(taggedPlans, p)
+	}
+	matched := map[string]bool{}
+	for i, j := range matchDelayProfiles(taggedPlans, tagged, prunable) {
+		if j >= 0 {
+			taggedPlans[i].current = tagged[j]
+			matched[delayProfileID(tagged[j])] = true
+		}
+	}
+	// A profile left as it is that holds a declared tag would refuse the write
+	// that declares it, after earlier writes had moved other tags.
+	for _, e := range tagged {
+		if matched[delayProfileID(e)] || prunable(e) {
+			continue
+		}
+		for _, id := range profileTags(e) {
+			name, ok := claimed[id]
+			if !ok {
 				continue
 			}
-			n := overlap(profileTags(e), ids)
-			if n > bestOverlap || (n > 0 && n == bestOverlap && num(e["order"]) < num(best["order"])) {
-				best, bestOverlap = e, n
+			label := strconv.Itoa(id)
+			for l, ids := range tags {
+				if slices.Contains(ids, id) {
+					label = l
+				}
 			}
+			return nil, engine.InvalidConfig(fmt.Errorf(
+				"%s(%s): tag %q is in profile %s, which no declared profile takes over and the operator can't prune",
+				delayProfilesKind, name, label, delayProfileID(e)))
 		}
-		if best != nil {
-			matched[delayProfileID(best)] = true
-			p.current = best
-		}
-		plans = append(plans, p)
 	}
 	return plans, nil
+}
+
+// matchDelayProfiles picks the app's tagged profile each tagged plan updates,
+// or -1 for one it creates, across all plans at once. A tag sits in one
+// profile only, so a profile left unmatched that holds a declared tag blocks
+// the plan that declares it, unless the pass prunes it. The match takes over
+// as many of the profiles it can't prune as it can, then reuses as many of
+// the rest, then keeps as many tags in place, then prefers the profiles the
+// app checks first.
+func matchDelayProfiles(plans []*delayPlan, profiles []map[string]any, prunable func(map[string]any) bool) []int {
+	match := make([]int, len(plans))
+	for i := range match {
+		match[i] = -1
+	}
+	// Only a profile holding a declared tag can be matched. A tag sits in one
+	// profile, so there are no more of these than declared tags, however many
+	// profiles the app has.
+	var declared []int
+	for _, p := range plans {
+		declared = append(declared, p.tags...)
+	}
+	var candidates []int
+	for j, profile := range profiles {
+		if overlap(profileTags(profile), declared) > 0 {
+			candidates = append(candidates, j)
+		}
+	}
+	if len(plans) == 0 || len(candidates) == 0 {
+		return match
+	}
+	byOrder := slices.Clone(candidates)
+	slices.SortStableFunc(byOrder, func(a, b int) int { return cmp.Compare(num(profiles[a]["order"]), num(profiles[b]["order"])) })
+	rank := map[int]int64{}
+	for i, j := range byOrder {
+		rank[j] = int64(len(byOrder) - i)
+	}
+	n, m := int64(len(plans)), int64(len(candidates))
+	maxOverlap := int64(0)
+	for _, p := range plans {
+		maxOverlap = max(maxOverlap, int64(len(p.tags)))
+	}
+	// Each weight sorts first by a profile that can't be pruned, then by
+	// match, then by tags kept, then by the app's order, however the other
+	// rows add up.
+	perTag := n*m + 1
+	perMatch := n*(maxOverlap*perTag+m) + 1
+	perKept := n*(perMatch+maxOverlap*perTag+m) + 1
+	cols := max(len(plans), len(candidates))
+	weights := make([][]int64, len(plans))
+	for i, p := range plans {
+		weights[i] = make([]int64, cols)
+		for c, j := range candidates {
+			if shared := int64(overlap(profileTags(profiles[j]), p.tags)); shared > 0 {
+				weights[i][c] = perMatch + shared*perTag + rank[j]
+				if !prunable(profiles[j]) {
+					weights[i][c] += perKept
+				}
+			}
+		}
+	}
+	for i, c := range maxWeightAssignment(weights) {
+		if c < len(candidates) && weights[i][c] > 0 {
+			match[i] = candidates[c]
+		}
+	}
+	return match
+}
+
+// maxWeightAssignment gives each row of weights a distinct column so the
+// weights picked add up to the most, by the Hungarian method. weights has no
+// more rows than columns.
+func maxWeightAssignment(weights [][]int64) []int {
+	n, m := len(weights), len(weights[0])
+	var top int64
+	for _, row := range weights {
+		for _, w := range row {
+			top = max(top, w)
+		}
+	}
+	cost := func(i, j int) int64 { return top - weights[i-1][j-1] }
+	const inf = math.MaxInt64 / 4
+	u, v := make([]int64, n+1), make([]int64, m+1)
+	owner, way := make([]int, m+1), make([]int, m+1)
+	for i := 1; i <= n; i++ {
+		owner[0] = i
+		j0 := 0
+		minv := make([]int64, m+1)
+		for j := range minv {
+			minv[j] = inf
+		}
+		used := make([]bool, m+1)
+		for {
+			used[j0] = true
+			i0, delta, j1 := owner[j0], int64(inf), 0
+			for j := 1; j <= m; j++ {
+				if used[j] {
+					continue
+				}
+				if cur := cost(i0, j) - u[i0] - v[j]; cur < minv[j] {
+					minv[j], way[j] = cur, j0
+				}
+				if minv[j] < delta {
+					delta, j1 = minv[j], j
+				}
+			}
+			for j := 0; j <= m; j++ {
+				if used[j] {
+					u[owner[j]] += delta
+					v[j] -= delta
+				} else {
+					minv[j] -= delta
+				}
+			}
+			j0 = j1
+			if owner[j0] == 0 {
+				break
+			}
+		}
+		for j0 != 0 {
+			j1 := way[j0]
+			owner[j0] = owner[j1]
+			j0 = j1
+		}
+	}
+	rows := make([]int, n)
+	for j := 1; j <= m; j++ {
+		if owner[j] != 0 {
+			rows[owner[j]-1] = j - 1
+		}
+	}
+	return rows
 }
 
 // pruneUnmatched deletes owned profiles no declared profile matched, before
@@ -206,7 +364,7 @@ func (s *delayProfileStage) pruneUnmatched(ctx context.Context, plans []*delayPl
 	kept, rest := engine.SplitKept(err)
 	for _, k := range kept {
 		for _, r := range k.Kept {
-			rest = errors.Join(rest, fmt.Errorf("%s: %s", names[r.Name], r.Reason))
+			rest = engine.JoinErrors(rest, fmt.Errorf("%s: %s", names[r.Name], r.Reason))
 		}
 	}
 	return rest
@@ -392,10 +550,16 @@ func protocolItemsFor(current any, d commonv1alpha1.DelayProfile) []any {
 // where it has the others. Sonarr and Radarr read the profile to follow from
 // after, Lidarr and Readarr from afterId.
 func (s *delayProfileStage) order(ctx context.Context, plans []*delayPlan) error {
-	var ids []string
+	var ids, planned []string
 	for _, p := range plans {
-		if len(p.tags) > 0 && p.current != nil {
+		switch {
+		case len(p.tags) == 0:
+		case p.current != nil:
 			ids = append(ids, delayProfileID(p.current))
+		case s.Observe:
+			// Enforce would have created it after the app's tagged profiles.
+			ids = append(ids, "planned:"+p.name)
+			planned = append(planned, ids[len(ids)-1])
 		}
 	}
 	if len(ids) < 2 {
@@ -407,8 +571,15 @@ func (s *delayProfileStage) order(ctx context.Context, plans []*delayPlan) error
 	}
 	for i := 1; i < len(ids); i++ {
 		positions := map[string]float64{}
+		last := 0.0
 		for _, profile := range profiles {
 			positions[delayProfileID(profile)] = num(profile["order"])
+			if len(profileTags(profile)) > 0 {
+				last = max(last, num(profile["order"]))
+			}
+		}
+		for k, id := range planned {
+			positions[id] = last + float64(k+1)
 		}
 		if positions[ids[i]] > positions[ids[i-1]] {
 			continue

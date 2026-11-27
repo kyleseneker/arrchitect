@@ -2,7 +2,6 @@ package downloads
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"maps"
 	"net"
@@ -76,24 +75,24 @@ func (r *SabnzbdReconciler) check(ctx context.Context, sc *sabnzbdclient.Client,
 	return sc.Ping(ctx)
 }
 
-func (r *SabnzbdReconciler) sync(ctx context.Context, sc *sabnzbdclient.Client, config *downloadsv1alpha1.Sabnzbd, pass *engine.Pass) []string {
+func (r *SabnzbdReconciler) sync(ctx context.Context, sc *sabnzbdclient.Client, config *downloadsv1alpha1.Sabnzbd, pass *engine.Pass) []error {
 	current, err := sc.GetConfig(ctx)
 	if err != nil {
-		return []string{fmt.Sprintf("reading config: %v", err)}
+		return []error{fmt.Errorf("reading config: %w", err)}
 	}
 	servers, problems := r.resolveSabnzbdServers(ctx, config)
 	apprise, err := r.sabnzbdAppriseValues(ctx, config)
 	if err != nil {
-		problems = append(problems, fmt.Sprintf("apprise: %v", err))
+		problems = append(problems, fmt.Errorf("apprise: %w", err))
 	}
 	login, err := r.sabnzbdLoginValues(ctx, config)
 	if err != nil {
-		problems = append(problems, fmt.Sprintf("login: %v", err))
+		problems = append(problems, fmt.Errorf("login: %w", err))
 	}
 	plan := func(current map[string]any) []sabWrite {
-		writes := planSabnzbd(current, config.Spec, servers, string(config.UID))
+		writes := planSabnzbd(current, config.Spec, servers, pass.Owner)
 		writes = append(writes, planKeywords(current, "apprise", apprise)...)
-		return append(writes, planLogin(current, login, string(config.UID), pass.Observe)...)
+		return append(writes, planLogin(current, login, pass.Owner, pass.Observe)...)
 	}
 	writes := plan(current)
 	problems = append(problems, applySabnzbd(ctx, sc, pass, writes)...)
@@ -101,7 +100,7 @@ func (r *SabnzbdReconciler) sync(ctx context.Context, sc *sabnzbdclient.Client, 
 	// write and discards that write, so check once more after writing.
 	if len(writes) > 0 && len(problems) == 0 && !pass.Observe {
 		if current, err = sc.GetConfig(ctx); err != nil {
-			problems = append(problems, fmt.Sprintf("re-reading config: %v", err))
+			problems = append(problems, fmt.Errorf("re-reading config: %w", err))
 		} else {
 			again, refused := sabnzbdRefused(writes, plan(current))
 			problems = append(problems, refused...)
@@ -113,7 +112,7 @@ func (r *SabnzbdReconciler) sync(ctx context.Context, sc *sabnzbdclient.Client, 
 	}
 	if !pass.Observe {
 		if current, err = sc.GetConfig(ctx); err != nil {
-			return append(problems, fmt.Sprintf("reading config to prune: %v", err))
+			return append(problems, fmt.Errorf("reading config to prune: %w", err))
 		}
 	}
 	return append(problems, pruneSabnzbd(ctx, sc, current, config.Spec, pass)...)
@@ -252,7 +251,7 @@ func sabnzbdQuotaValues(q downloadsv1alpha1.SabnzbdQuota) map[string]string {
 // script it can't find, as if it took it, so a setting that still differs
 // after being written is reported instead of rewritten every pass. Servers and
 // categories are retried: a fresh SABnzbd drops the first category write.
-func sabnzbdRefused(first, again []sabWrite) ([]sabWrite, []string) {
+func sabnzbdRefused(first, again []sabWrite) ([]sabWrite, []error) {
 	written := map[string]string{}
 	for _, w := range first {
 		if w.section == "misc" || w.section == "apprise" {
@@ -260,10 +259,10 @@ func sabnzbdRefused(first, again []sabWrite) ([]sabWrite, []string) {
 		}
 	}
 	var retry []sabWrite
-	var refused []string
+	var refused []error
 	for _, w := range again {
 		if v, ok := written[w.section+"."+w.name]; ok && v == w.values["value"] {
-			refused = append(refused, fmt.Sprintf("%s(%s.%s): SABnzbd didn't keep the value written", w.resourceType, w.section, w.name))
+			refused = append(refused, fmt.Errorf("%s(%s.%s): SABnzbd didn't keep the value written", w.resourceType, w.section, w.name))
 			continue
 		}
 		retry = append(retry, w)
@@ -272,8 +271,8 @@ func sabnzbdRefused(first, again []sabWrite) ([]sabWrite, []string) {
 }
 
 // applySabnzbd performs the planned writes and returns the failures.
-func applySabnzbd(ctx context.Context, sc *sabnzbdclient.Client, pass *engine.Pass, writes []sabWrite) []string {
-	var problems []string
+func applySabnzbd(ctx context.Context, sc *sabnzbdclient.Client, pass *engine.Pass, writes []sabWrite) []error {
+	var problems []error
 	for _, w := range writes {
 		err := pass.Apply(w.resourceType, w.name, func() error {
 			var err error
@@ -285,7 +284,7 @@ func applySabnzbd(ctx context.Context, sc *sabnzbdclient.Client, pass *engine.Pa
 			if err != nil {
 				return err
 			}
-			reconciler.RecordSecrets(w.secretKey, w.secretDigest)
+			pass.RecordSecrets(w.secretKey, w.secretDigest)
 			if w.create {
 				pass.Owned.Created(w.section, w.name)
 			}
@@ -293,7 +292,7 @@ func applySabnzbd(ctx context.Context, sc *sabnzbdclient.Client, pass *engine.Pa
 		})
 		if err != nil {
 			log.FromContext(ctx).Error(err, "failed to write SABnzbd config", "section", w.section, "name", w.name)
-			problems = append(problems, fmt.Sprintf("%s(%s): %v", w.resourceType, w.name, err))
+			problems = append(problems, fmt.Errorf("%s(%s): %w", w.resourceType, w.name, err))
 		}
 	}
 	return problems
@@ -301,7 +300,7 @@ func applySabnzbd(ctx context.Context, sc *sabnzbdclient.Client, pass *engine.Pa
 
 // pruneSabnzbd deletes the servers and categories the operator created that the
 // spec no longer declares.
-func pruneSabnzbd(ctx context.Context, sc *sabnzbdclient.Client, current map[string]any, spec downloadsv1alpha1.SabnzbdSpec, pass *engine.Pass) []string {
+func pruneSabnzbd(ctx context.Context, sc *sabnzbdclient.Client, current map[string]any, spec downloadsv1alpha1.SabnzbdSpec, pass *engine.Pass) []error {
 	declared := map[string][]string{}
 	for _, s := range spec.Servers {
 		declared["servers"] = append(declared["servers"], s.Name)
@@ -309,13 +308,13 @@ func pruneSabnzbd(ctx context.Context, sc *sabnzbdclient.Client, current map[str
 	for _, c := range spec.Categories {
 		declared["categories"] = append(declared["categories"], c.Name)
 	}
-	var problems []string
+	var problems []error
 	for _, section := range []string{"servers", "categories"} {
 		err := pass.Prune(pass.Owned, section, declared[section], sabnzbdNames(current, section), func(name string) error {
 			return sc.DeleteNamed(ctx, section, name)
 		})
 		if err != nil {
-			problems = append(problems, fmt.Sprintf("%s(prune): %v", section, err))
+			problems = append(problems, fmt.Errorf("%s(prune): %w", section, err))
 		}
 	}
 	return problems
@@ -334,7 +333,7 @@ func cleanupSabnzbd(ctx context.Context, sc *sabnzbdclient.Client, owned *engine
 			return sc.DeleteNamed(ctx, section, name)
 		}))
 	}
-	return errors.Join(errs...)
+	return engine.JoinErrors(errs...)
 }
 
 func sabnzbdNames(current map[string]any, section string) []string {
@@ -364,9 +363,9 @@ type sabWrite struct {
 // cannot be read is skipped and reported, so the rest still reconcile.
 func (r *SabnzbdReconciler) resolveSabnzbdServers(
 	ctx context.Context, config *downloadsv1alpha1.Sabnzbd,
-) (map[string]map[string]string, []string) {
+) (map[string]map[string]string, []error) {
 	servers := map[string]map[string]string{}
-	var problems []string
+	var problems []error
 	for _, srv := range config.Spec.Servers {
 		vals := sabnzbdServerValues(srv)
 		ok := true
@@ -376,7 +375,7 @@ func (r *SabnzbdReconciler) resolveSabnzbdServers(
 			}
 			value, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, *ref)
 			if err != nil {
-				problems = append(problems, fmt.Sprintf("server(%s).%s: %v", srv.Name, field, err))
+				problems = append(problems, fmt.Errorf("server(%s).%s: %w", srv.Name, field, err))
 				ok = false
 				continue
 			}
@@ -477,9 +476,9 @@ func planLogin(current map[string]any, login map[string]string, owner string, ob
 		}
 		return writes
 	}
-	w.secretKey = fmt.Sprintf("sabnzbd/%s/misc/password", owner)
+	w.secretKey = "misc/password"
 	w.secretDigest = maskedDigest("password", password)
-	if !reconciler.IsMasked(stored) || reconciler.SecretsDiffer(w.secretKey, w.secretDigest, observe) {
+	if !reconciler.IsMasked(stored) || reconciler.SecretsDiffer(owner, w.secretKey, w.secretDigest, observe) {
 		writes = append(writes, w)
 	}
 	return writes
@@ -519,15 +518,15 @@ func planSabnzbd(
 			continue
 		}
 		vals = withServerQuota(current, srv.Name, vals)
-		key := fmt.Sprintf("sabnzbd/%s/server/%q", owner, srv.Name)
-		if w, needed := planNamed(current, "servers", srv.Name, vals, key, observe); needed {
+		key := fmt.Sprintf("server/%q", srv.Name)
+		if w, needed := planNamed(current, "servers", srv.Name, vals, owner, key, observe); needed {
 			w.resourceType = "servers"
 			writes = append(writes, w)
 		}
 	}
 
 	for _, cat := range spec.Categories {
-		if w, needed := planNamed(current, "categories", cat.Name, sabnzbdCategoryValues(cat), "", observe); needed {
+		if w, needed := planNamed(current, "categories", cat.Name, sabnzbdCategoryValues(cat), owner, "", observe); needed {
 			w.resourceType = "categories"
 			writes = append(writes, w)
 		}
@@ -537,7 +536,7 @@ func planSabnzbd(
 
 // planNamed decides whether a server or category needs writing. Passwords read
 // back masked, so a change there is noticed through the remembered digest.
-func planNamed(current map[string]any, section, name string, vals map[string]string, secretKey string, observe bool) (sabWrite, bool) {
+func planNamed(current map[string]any, section, name string, vals map[string]string, owner, secretKey string, observe bool) (sabWrite, bool) {
 	w := sabWrite{section: section, name: name, values: vals, secretKey: secretKey}
 	entries, _ := current[section].([]any)
 	for _, e := range entries {
@@ -554,7 +553,7 @@ func planNamed(current map[string]any, section, name string, vals map[string]str
 			return w, true
 		}
 		w.secretDigest = out.SecretDigest
-		return w, out.Changed || reconciler.SecretsDiffer(secretKey, out.SecretDigest, observe)
+		return w, out.Changed || reconciler.SecretsDiffer(owner, secretKey, out.SecretDigest, observe)
 	}
 	w.create = true
 	// A new entry reads back with its password masked; remember what is

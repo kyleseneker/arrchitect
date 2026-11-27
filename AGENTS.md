@@ -168,6 +168,13 @@ Never edit these by hand. Change the source, then regenerate.
   `InvalidConfig`. `ctrlcommon.RetryAfter` doubles it for each failure in a row,
   up to 10 minutes. Wrap a spec problem in `engine.InvalidConfig`, and refused
   credentials in `engine.ErrUnauthorized` when the app doesn't answer 401.
+- `Sync` returns each failure as an `error`, wrapped with `%w` and prefixed
+  with the kind and item, such as `notifications(Discord): %w`. The status
+  reason and retry come from the errors: a pass whose only failure is a
+  missing Secret reads `SecretNotFound` and retries in 30 seconds, and a mix
+  of reasons reads `SyncFailed` and waits for the interval. Join errors with
+  `engine.JoinErrors`, not `errors.Join`, which keeps a status message on one
+  line.
 - Send every write to an app through `engine.Writes` (`Apply`, `Sync`,
   `Prune`), so observe mode reports exactly what enforce mode would write.
   Don't add a separate observe path.

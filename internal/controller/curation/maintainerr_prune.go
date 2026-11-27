@@ -50,7 +50,7 @@ func maintainerrDeclared(spec *curationv1alpha1.MaintainerrSpec) map[string][]st
 
 // pruneUndeclared deletes what the operator created that the spec no longer
 // declares, skipping any kind a write failed for this pass.
-func (s *maintainerrSync) pruneUndeclared(ctx context.Context, spec *curationv1alpha1.MaintainerrSpec, failed map[string]bool) []string {
+func (s *maintainerrSync) pruneUndeclared(ctx context.Context, spec *curationv1alpha1.MaintainerrSpec, failed map[string]bool) []error {
 	return s.PruneKinds(ctx, s.kinds(), maintainerrDeclared(spec), failed)
 }
 

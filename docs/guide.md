@@ -149,10 +149,10 @@ spec:
   operator reads and watches only the kinds of the apps it runs. The error for
   a reference to an app that's off says the operator doesn't run that app's
   controller.
-- Until the resource exists, that connection is neither written nor pruned and
-  the `SyncFailed` message names the reference; the rest still syncs. The same
-  goes for a reference to an app that's off, or to a resource without a usable
-  URL.
+- Until the resource exists, that connection is neither written nor pruned,
+  and the rest still syncs. The status names the reference with reason
+  `ReferenceNotFound`, or `InvalidConfig` for a reference to an app that's off
+  or to a resource without a usable URL.
 - A download client resource, and a Seerr that signs in through the media
   server it refers to, write nothing instead. They report `ReferenceNotFound`
   while the resource doesn't exist, and `InvalidConfig` for a reference that
@@ -179,15 +179,19 @@ Normal event when it turns `True` again. [Running the
 operator](operations.md#health-in-argo-cd-and-flux) shows how to read these in
 Argo CD and Flux.
 
+The message lists what failed, up to ten items. When a pass fails in more than
+one way, such as a missing Secret and a setting the app refused, the reason is
+`SyncFailed`.
+
 The reason is one of:
 
 | Reason | Meaning |
 | --- | --- |
 | `Synced` | The app matches the resource. |
-| `SyncFailed` | Some settings could not be applied; the message says which, and the reason the app gave. |
+| `SyncFailed` | Some settings could not be applied, or failed in different ways; the message says which, and the reason the app gave. |
 | `AppUnreachable` | The app did not respond. |
 | `Unauthorized` | The app refused the API key, token or password. |
-| `SecretNotFound` | A Secret or key the connection needs does not exist. |
+| `SecretNotFound` | A Secret or key the resource needs does not exist. |
 | `InvalidConfig` | The resource asks for something the operator does not support, or an `appRef` the resource needs can't work, such as one naming an app the operator doesn't run. |
 | `ReferenceNotFound` | An indexer's or download client's app resource doesn't exist, or an `appRef` the resource needs names a missing resource. |
 | `NameConflict` | An older resource already configures the item this one names. |
@@ -303,8 +307,8 @@ Credentials come from Secrets, referenced by name and key. Any kind of Secret
 works, including Sealed and External Secrets. When a Secret the connection
 needs is missing, `Ready` is `False` with reason `SecretNotFound` and nothing
 is synced. When one an item needs is missing, that kind of item is neither
-written nor pruned and is named in a `SyncFailed` message; the rest still
-syncs. An indexer or download client reports `SecretNotFound` and writes
+written nor pruned, and the rest still syncs; the reason is `SecretNotFound`
+too. An indexer or download client reports `SecretNotFound` and writes
 nothing.
 
 Provider `fields`, Autobrr indexer and Bazarr provider `settings`, and Seerr

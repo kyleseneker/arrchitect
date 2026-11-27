@@ -34,40 +34,12 @@ type PrunedResource struct {
 	ID   int
 }
 
-// ReconcileResult holds the outcome of a reconciliation pass.
-type ReconcileResult struct {
-	Synced []string
-	Errors []string
-	// Drift lists what observe mode found differing and left alone.
-	Drift []string
-}
-
-// Success returns true if no errors occurred.
-func (r *ReconcileResult) Success() bool {
-	return len(r.Errors) == 0
-}
-
-// Message returns a human-readable summary including what synced and what failed.
-func (r *ReconcileResult) Message() string {
-	if r.Success() {
-		if len(r.Synced) > 0 {
-			return fmt.Sprintf("synced: %v", r.Synced)
-		}
-		return "all configuration sections synced"
-	}
-	msg := fmt.Sprintf("errors: %v", r.Errors)
-	if len(r.Synced) > 0 {
-		msg = fmt.Sprintf("synced: %v; %s", r.Synced, msg)
-	}
-	return msg
-}
-
 // ReconcileApp brings an app's settings and list resources in line through
 // pass, and returns what failed. sections maps setting endpoint names to their
 // desired state; resources maps resource endpoint names to the items declared.
-func ReconcileApp(ctx context.Context, client *HTTPClient, def AppDefinition, sections map[string]any, resources map[string][]map[string]any, pass *Pass) []string {
+func ReconcileApp(ctx context.Context, client *HTTPClient, def AppDefinition, sections map[string]any, resources map[string][]map[string]any, pass *Pass) []error {
 	logger := log.FromContext(ctx)
-	var problems []string
+	var problems []error
 	for _, s := range def.Settings {
 		desired, ok := sections[s.Name]
 		if !ok || isNilInterface(desired) {
@@ -77,7 +49,7 @@ func ReconcileApp(ctx context.Context, client *HTTPClient, def AppDefinition, se
 		if err := reconcileSetting(ctx, client, pass, s, desired); err != nil {
 			logger.Error(err, "failed to reconcile setting", "section", s.Name)
 			logAPIErrorDetail(ctx, err)
-			problems = append(problems, fmt.Sprintf("%s: %v", s.Name, err))
+			problems = append(problems, fmt.Errorf("%s: %w", s.Name, err))
 			continue
 		}
 		if len(pass.Drift()) == drift {
@@ -92,7 +64,7 @@ func ReconcileApp(ctx context.Context, client *HTTPClient, def AppDefinition, se
 		}
 		existing, err := client.GetJSONList(ctx, r.Path)
 		if err != nil {
-			problems = append(problems, fmt.Sprintf("%s: listing: %v", r.Name, err))
+			problems = append(problems, fmt.Errorf("%s: listing: %w", r.Name, err))
 			continue
 		}
 		failed := false
@@ -102,7 +74,7 @@ func ReconcileApp(ctx context.Context, client *HTTPClient, def AppDefinition, se
 				failed = true
 				logger.Error(err, "failed to reconcile resource", "type", r.Name, "match", key)
 				logAPIErrorDetail(ctx, err)
-				problems = append(problems, fmt.Sprintf("%s(%v): %v", r.Name, key, err))
+				problems = append(problems, fmt.Errorf("%s(%v): %w", r.Name, key, err))
 				continue
 			}
 			if len(pass.Drift()) == drift {
@@ -117,7 +89,7 @@ func ReconcileApp(ctx context.Context, client *HTTPClient, def AppDefinition, se
 		if err := pruneEndpoint(ctx, client, pass, r, items, existing); err != nil {
 			logger.Error(err, "failed to prune resources", "type", r.Name)
 			logAPIErrorDetail(ctx, err)
-			problems = append(problems, fmt.Sprintf("%s(prune): %v", r.Name, err))
+			problems = append(problems, fmt.Errorf("%s(prune): %w", r.Name, err))
 		}
 	}
 	return problems
@@ -166,14 +138,14 @@ func reconcileSetting(ctx context.Context, client *HTTPClient, pass *Pass, s Set
 		return fmt.Errorf("merging: %w", err)
 	}
 	key := client.secretKey("setting", s.Path)
-	if !out.Changed && !reconciler.SecretsDiffer(key, out.SecretDigest, pass.Observe) {
+	if !out.Changed && !pass.SecretsDiffer(key, out.SecretDigest) {
 		return nil
 	}
 	return pass.Apply("settings", s.Name, func() error {
 		if err := client.PutJSON(ctx, fmt.Sprintf("%s/%d", s.Path, int(id)), out.Merged); err != nil {
 			return err
 		}
-		reconciler.RecordSecrets(key, out.SecretDigest)
+		pass.RecordSecrets(key, out.SecretDigest)
 		return nil
 	})
 }
@@ -202,7 +174,7 @@ func reconcileItem(ctx context.Context, client *HTTPClient, pass *Pass, endpoint
 		if endpoint.Policy == CreateOnly {
 			return nil
 		}
-		update, err := planUpdate(current, desired, endpoint, key, pass.Observe)
+		update, err := planUpdate(current, desired, endpoint, key, pass)
 		if err != nil || update == nil {
 			return err
 		}
@@ -217,7 +189,7 @@ func reconcileItem(ctx context.Context, client *HTTPClient, pass *Pass, endpoint
 			if current = find(latest, endpoint, desiredMatch); current == nil {
 				return fmt.Errorf("the app no longer has %s %q", endpoint.Name, desiredMatch)
 			}
-			if update, err = planUpdate(current, desired, endpoint, key, false); err != nil || update == nil {
+			if update, err = planUpdate(current, desired, endpoint, key, pass); err != nil || update == nil {
 				return err
 			}
 		}
@@ -225,7 +197,7 @@ func reconcileItem(ctx context.Context, client *HTTPClient, pass *Pass, endpoint
 			if err := client.PutJSON(ctx, fmt.Sprintf("%s/%d", endpoint.Path, update.id), update.Merged); err != nil {
 				return err
 			}
-			reconciler.RecordSecrets(key, update.SecretDigest)
+			pass.RecordSecrets(key, update.SecretDigest)
 			return nil
 		})
 	}
@@ -253,7 +225,7 @@ func reconcileItem(ctx context.Context, client *HTTPClient, pass *Pass, endpoint
 		if json.Unmarshal(body, &stored) == nil {
 			*existing = append(*existing, stored)
 			if out, err := reconciler.MergeDesired(stored, desired); err == nil {
-				reconciler.RecordSecrets(key, out.SecretDigest)
+				pass.RecordSecrets(key, out.SecretDigest)
 			}
 		}
 		return nil
@@ -268,7 +240,7 @@ type itemUpdate struct {
 
 // planUpdate merges desired over current and returns the update to send, or
 // nil when the item already matches.
-func planUpdate(current, desired map[string]any, endpoint ResourceEndpoint, key string, observe bool) (*itemUpdate, error) {
+func planUpdate(current, desired map[string]any, endpoint ResourceEndpoint, key string, pass *Pass) (*itemUpdate, error) {
 	id, ok := current["id"].(float64)
 	if !ok {
 		return nil, fmt.Errorf("resource %q has no id", endpoint.resourceKey(current))
@@ -281,7 +253,7 @@ func planUpdate(current, desired map[string]any, endpoint ResourceEndpoint, key 
 	if err != nil {
 		return nil, err
 	}
-	if !trimmed && !out.Changed && !reconciler.SecretsDiffer(key, out.SecretDigest, observe) {
+	if !trimmed && !out.Changed && !pass.SecretsDiffer(key, out.SecretDigest) {
 		return nil, nil
 	}
 	return &itemUpdate{MergeOutcome: out, id: int(id)}, nil
@@ -337,10 +309,11 @@ func withoutUndeclared(current, desired map[string]any, lists []string) (map[str
 	return out, trimmed, nil
 }
 
-// secretKey isolates last-written secrets by target and Kubernetes owner. Quoted
-// components keep arbitrary resource names from colliding with separators.
+// secretKey names an item's last-written secrets within its resource's
+// records. Quoted components keep arbitrary names from colliding with
+// separators.
 func (c *HTTPClient) secretKey(resourceType, name string) string {
-	return fmt.Sprintf("%q/%q/%q/%q/%q", c.baseURL, c.owner, c.AppLabel(), resourceType, name)
+	return fmt.Sprintf("%q/%q/%q/%q", c.baseURL, c.AppLabel(), resourceType, name)
 }
 
 func isNilInterface(v any) bool {
@@ -371,7 +344,7 @@ func DeleteManagedResources(ctx context.Context, client *HTTPClient, def AppDefi
 		}
 		existing, err := client.GetJSONList(ctx, endpoint.Path)
 		if err != nil {
-			return errors.Join(append(kept, fmt.Errorf("cleaning up %s: listing: %w", endpoint.Name, err))...)
+			return JoinErrors(append(kept, fmt.Errorf("cleaning up %s: listing: %w", endpoint.Name, err))...)
 		}
 		items := listItems(client.AppLabel(), endpoint.Name, existing, endpoint.resourceKey)
 		err = owned.Cleanup(endpoint.Name, items.Names, func(name string) error {
@@ -389,10 +362,10 @@ func DeleteManagedResources(ctx context.Context, client *HTTPClient, def AppDefi
 			kept = append(kept, refusal)
 		}
 		if failure != nil {
-			return errors.Join(append(kept, fmt.Errorf("cleaning up %s: %w", endpoint.Name, failure))...)
+			return JoinErrors(append(kept, fmt.Errorf("cleaning up %s: %w", endpoint.Name, failure))...)
 		}
 	}
-	return errors.Join(kept...)
+	return JoinErrors(kept...)
 }
 
 // Refusal reports whether err is the app declining a request it understood,

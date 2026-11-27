@@ -3,7 +3,6 @@ package transcode
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"maps"
 	"slices"
@@ -68,15 +67,15 @@ func (r *TdarrReconciler) connect(ctx context.Context, config *transcodev1alpha1
 	return tdarrclient.NewClient(hc), nil
 }
 
-func (r *TdarrReconciler) sync(ctx context.Context, tc *tdarrclient.Client, config *transcodev1alpha1.Tdarr, pass *engine.Pass) []string {
+func (r *TdarrReconciler) sync(ctx context.Context, tc *tdarrclient.Client, config *transcodev1alpha1.Tdarr, pass *engine.Pass) []error {
 	s := &tdarrSync{Pass: pass, tc: tc}
 	spec := config.Spec
-	var unresolved []string
+	var unresolved []error
 	if settings := spec.Settings; settings != nil && settings.NotificationsDiscordWebhookSecretRef != nil {
 		webhook, err := reconciler.ResolveSecretKeyRef(ctx, r.Client, config.Namespace, *settings.NotificationsDiscordWebhookSecretRef)
 		if err != nil {
 			// The settings are left out of the pass; the rest still syncs.
-			unresolved = append(unresolved, fmt.Sprintf("settings: %v", err))
+			unresolved = append(unresolved, fmt.Errorf("settings: %w", err))
 			spec.Settings = nil
 		} else {
 			s.discordWebhook = &webhook
@@ -97,31 +96,31 @@ type tdarrSync struct {
 // each recorded as <library id>/<key>.
 const variablesResource = "libraryVariables"
 
-func (s *tdarrSync) run(ctx context.Context, spec *transcodev1alpha1.TdarrSpec) []string {
+func (s *tdarrSync) run(ctx context.Context, spec *transcodev1alpha1.TdarrSpec) []error {
 	logger := log.FromContext(ctx)
-	var syncErrors []string
+	var syncErrors []error
 	for _, lib := range spec.Libraries {
 		if err := s.library(ctx, lib); err != nil {
 			logger.Error(err, "failed to reconcile library", "id", lib.ID)
-			syncErrors = append(syncErrors, fmt.Sprintf("library(%s): %v", lib.ID, err))
+			syncErrors = append(syncErrors, fmt.Errorf("library(%s): %w", lib.ID, err))
 		}
 	}
 	for _, flow := range spec.Flows {
 		if err := s.flow(ctx, flow); err != nil {
 			logger.Error(err, "failed to reconcile flow", "id", flow.ID)
-			syncErrors = append(syncErrors, fmt.Sprintf("flow(%s): %v", flow.ID, err))
+			syncErrors = append(syncErrors, fmt.Errorf("flow(%s): %w", flow.ID, err))
 		}
 	}
 	if len(spec.Workers) > 0 {
 		if err := s.workers(ctx, spec.Workers); err != nil {
 			logger.Error(err, "failed to reconcile workers")
-			syncErrors = append(syncErrors, fmt.Sprintf("workers: %v", err))
+			syncErrors = append(syncErrors, fmt.Errorf("workers: %w", err))
 		}
 	}
 	if spec.Settings != nil {
 		if err := s.settings(ctx, spec.Settings); err != nil {
 			logger.Error(err, "failed to reconcile settings")
-			syncErrors = append(syncErrors, fmt.Sprintf("settings: %v", err))
+			syncErrors = append(syncErrors, fmt.Errorf("settings: %w", err))
 		}
 	}
 	return syncErrors
@@ -493,7 +492,7 @@ func (s *tdarrSync) workers(ctx context.Context, workers []transcodev1alpha1.Tda
 			errs = append(errs, fmt.Errorf("node %s: %w", w.NodeName, err))
 		}
 	}
-	return errors.Join(errs...)
+	return engine.JoinErrors(errs...)
 }
 
 func (s *tdarrSync) nodeWorkers(ctx context.Context, nodes map[string]any, workers transcodev1alpha1.TdarrWorkers) error {

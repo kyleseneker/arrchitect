@@ -2,7 +2,6 @@ package automation
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"slices"
 	"strings"
@@ -60,12 +59,12 @@ func declaredNames(spec *automationv1alpha1.AutobrrSpec) map[string][]string {
 
 // pruneUndeclared deletes what the operator created that the spec no longer declares,
 // skipping any kind a write failed for this pass.
-func (s *autobrrSync) pruneUndeclared(ctx context.Context, spec *automationv1alpha1.AutobrrSpec, failed map[string]bool) []string {
-	var errs []string
+func (s *autobrrSync) pruneUndeclared(ctx context.Context, spec *automationv1alpha1.AutobrrSpec, failed map[string]bool) []error {
+	var errs []error
 	if !failed["filters"] {
 		for _, f := range spec.Filters {
 			if err := s.pruneActions(ctx, f); err != nil {
-				errs = append(errs, fmt.Sprintf("actions(%s, prune): %v", f.Name, err))
+				errs = append(errs, fmt.Errorf("actions(%s, prune): %w", f.Name, err))
 			}
 		}
 	}
@@ -113,7 +112,7 @@ func (s *autobrrSync) cleanup(ctx context.Context) error {
 			errs = append(errs, err)
 		}
 	}
-	return errors.Join(append(errs, s.Owned.CleanupKinds(ctx, s.kinds()))...)
+	return engine.JoinErrors(append(errs, s.Owned.CleanupKinds(ctx, s.kinds()))...)
 }
 
 // filterActions lists a filter's actions as <filter>/<action>.

@@ -112,7 +112,8 @@ Changing a Secret the resource uses, or the resource itself, reconciles it at
 once, whatever the delay.
 
 A resource that reached its app reconciles again after
-`spec.reconcile.intervalSeconds`, 5 minutes by default. Every delay is
+`spec.reconcile.intervalSeconds`, 5 minutes by default, or after 30 seconds
+when everything that failed was a missing Secret or reference. Every delay is
 stretched by up to 10% at random, so resources created together don't all reach
 their app at the same moment.
 

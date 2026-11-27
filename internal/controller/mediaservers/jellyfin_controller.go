@@ -9,7 +9,6 @@ import (
 	"slices"
 	"strconv"
 	"strings"
-	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/events"
@@ -84,7 +83,7 @@ func (r *JellyfinReconciler) connect(ctx context.Context, config *mediaserversv1
 	return conn, nil
 }
 
-func (r *JellyfinReconciler) sync(ctx context.Context, conn *jellyfinConn, config *mediaserversv1alpha1.Jellyfin, pass *engine.Pass) []string {
+func (r *JellyfinReconciler) sync(ctx context.Context, conn *jellyfinConn, config *mediaserversv1alpha1.Jellyfin, pass *engine.Pass) []error {
 	logger := log.FromContext(ctx)
 	jf := conn.jf
 	if !conn.setupComplete {
@@ -94,8 +93,8 @@ func (r *JellyfinReconciler) sync(ctx context.Context, conn *jellyfinConn, confi
 		})
 		if err != nil {
 			logger.Error(err, "failed to run setup wizard")
-			pass.Retry = time.Minute
-			return []string{fmt.Sprintf("setup wizard: %v", err)}
+			pass.Retry = ctrlcommon.SetupRetry(err)
+			return []error{fmt.Errorf("setup wizard: %w", err)}
 		}
 		if pass.Observe {
 			return nil
@@ -103,25 +102,25 @@ func (r *JellyfinReconciler) sync(ctx context.Context, conn *jellyfinConn, confi
 		logger.Info("Jellyfin setup wizard completed")
 		if err := r.signIn(ctx, jf, config, conn.admin); err != nil {
 			_, pass.Retry = ctrlcommon.Classify(err)
-			return []string{fmt.Sprintf("authentication: %v", err)}
+			return []error{fmt.Errorf("authentication: %w", err)}
 		}
 	}
 	initialized := true
 	config.Status.Initialized = &initialized
 
-	var problems []string
+	var problems []error
 	version := jellyfinVersion(ctx, jf)
 	for _, section := range jellyfinSections(config.Spec) {
 		if err := reconcileJellyfinSection(ctx, jf, &pass.Writes, section, version); err != nil {
 			logger.Error(err, "failed to reconcile settings", "section", section.name)
-			problems = append(problems, fmt.Sprintf("%s: %v", section.name, err))
+			problems = append(problems, fmt.Errorf("%s: %w", section.name, err))
 		}
 	}
 	problems = append(problems, reconcileJellyfinTasks(ctx, jf, config.Spec.ScheduledTasks, &pass.Writes)...)
 	for _, lib := range config.Spec.Libraries {
 		if err := reconcileJellyfinLibrary(ctx, jf, &pass.Writes, lib); err != nil {
 			logger.Error(err, "failed to reconcile library", "name", lib.Name)
-			problems = append(problems, fmt.Sprintf("library(%s): %v", lib.Name, err))
+			problems = append(problems, fmt.Errorf("library(%s): %w", lib.Name, err))
 		}
 	}
 	return problems

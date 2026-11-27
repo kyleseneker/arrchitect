@@ -29,7 +29,7 @@ type Integration[T ConfigResource, C any] struct {
 	Check func(ctx context.Context, conn C, obj T) error
 	// Sync brings the app in line with obj, through pass, and returns what
 	// failed. Each failure leaves the rest of the pass to run.
-	Sync func(ctx context.Context, conn C, obj T, pass *engine.Pass) []string
+	Sync func(ctx context.Context, conn C, obj T, pass *engine.Pass) []error
 	// Cleanup deletes the items owned records, for deletionPolicy delete. Nil
 	// when the integration doesn't support it.
 	Cleanup func(ctx context.Context, conn C, owned *engine.Ownership) error
@@ -83,16 +83,18 @@ func (in Integration[T, C]) Reconcile(
 	Reached(obj)
 
 	rc := obj.GetReconcileConfig()
-	pass := engine.NewPass(in.App, Policy(rc), obj.GetConfigStatus().GetManagedResources())
+	pass := engine.NewPass(in.App, OwnerKey(obj), Policy(rc), obj.GetConfigStatus().GetManagedResources())
 	problems := in.Sync(ctx, conn, obj, pass)
 	UpdateStatusManaged(obj, pass.Owned.Managed())
 	EmitPruneEvents(recorder, obj, pass.Owned.Pruned())
-	ReportResult(ctx, c, recorder, obj, pass.Observe, engine.ReconcileResult{
+	retry := ReportResult(ctx, c, recorder, obj, pass.Observe, Result{
 		Synced: pass.SyncedItems(), Errors: problems, Drift: pass.Drift(),
 	})
 	after := NextSync(rc)
-	if pass.Retry > 0 && pass.Retry < after {
-		after = pass.Retry
+	for _, sooner := range []time.Duration{pass.Retry, retry} {
+		if sooner > 0 && sooner < after {
+			after = sooner
+		}
 	}
 	return ctrl.Result{RequeueAfter: after}, nil
 }
@@ -101,19 +103,102 @@ func (in Integration[T, C]) Reconcile(
 // again. A spec problem waits for the spec to change, which requeues the
 // resource anyway.
 func Classify(err error) (string, time.Duration) {
+	if reason, after, ok := failureReason(err); ok {
+		return reason, after
+	}
+	return engine.ReasonAppUnreachable, 60 * time.Second
+}
+
+// syncFailure is the status reason for what a pass failed to sync, and how
+// soon to try again, or zero for the resource's interval. Failures that all
+// have one reason of their own, such as a missing Secret, report it and its
+// retry. Any other mix reads SyncFailed and waits for the interval, so a
+// write the app refused isn't sent again sooner because something else is
+// missing. Refused credentials wait for the interval too: their delay slows
+// down connecting, and mustn't speed up a resource that syncs less often.
+// Failures joined into one count apart.
+func syncFailure(errs []error) (string, time.Duration) {
+	leaves := make([]error, 0, len(errs))
+	for _, err := range errs {
+		leaves = append(leaves, failureLeaves(err)...)
+	}
+	var reason string
+	var retry time.Duration
+	for i, err := range leaves {
+		r, after, ok := failureReason(err)
+		if !ok || (i > 0 && r != reason) {
+			return engine.ReasonSyncFailed, 0
+		}
+		reason, retry = r, after
+	}
+	if reason == engine.ReasonUnauthorized {
+		retry = 0
+	}
+	return reason, retry
+}
+
+// SetupRetry is how soon to try a first-time setup again after err. A minute,
+// as for an app still starting, when nothing in err has a reason of its own;
+// otherwise zero, so the retry ReportResult picks for the reason applies.
+func SetupRetry(err error) time.Duration {
+	for _, leaf := range failureLeaves(err) {
+		if _, _, ok := failureReason(leaf); ok {
+			return 0
+		}
+	}
+	return time.Minute
+}
+
+// failureLeaves splits err into the failures joined into it. A failure with a
+// reason of its own stays whole, with whatever it wraps.
+func failureLeaves(err error) []error {
+	for e := err; e != nil; {
+		if hasOwnReason(e) {
+			return []error{e}
+		}
+		switch u := e.(type) {
+		case interface{ Unwrap() []error }:
+			var leaves []error
+			for _, child := range u.Unwrap() {
+				leaves = append(leaves, failureLeaves(child)...)
+			}
+			return leaves
+		case interface{ Unwrap() error }:
+			e = u.Unwrap()
+		default:
+			return []error{err}
+		}
+	}
+	return []error{err}
+}
+
+// hasOwnReason reports whether err itself, not what it wraps, is a failure
+// failureReason names.
+func hasOwnReason(err error) bool {
+	switch e := err.(type) {
+	case *engine.ConfigError, *reconciler.SecretError, *invalidAppRefError:
+		return true
+	case *engine.APIError:
+		return engine.IsUnauthorized(e)
+	}
+	return err == errAppRefNotFound || err == engine.ErrUnauthorized
+}
+
+// failureReason is the status reason for a failure that has one of its own,
+// and when to try again.
+func failureReason(err error) (string, time.Duration, bool) {
 	_, invalidRef := errors.AsType[*invalidAppRefError](err)
 	switch {
 	case isAppRefNotFound(err):
-		return engine.ReasonReferenceNotFound, 30 * time.Second
+		return engine.ReasonReferenceNotFound, 30 * time.Second, true
 	case invalidRef, engine.IsConfigError(err):
-		return engine.ReasonInvalidConfig, 0
+		return engine.ReasonInvalidConfig, 0, true
 	case reconciler.IsSecretError(err):
-		return engine.ReasonSecretNotFound, 30 * time.Second
+		return engine.ReasonSecretNotFound, 30 * time.Second, true
 	case engine.IsUnauthorized(err):
 		// A Secret change requeues the resource, and some apps lock out a
 		// client that keeps failing to sign in.
-		return engine.ReasonUnauthorized, 5 * time.Minute
-	default:
-		return engine.ReasonAppUnreachable, 60 * time.Second
+		return engine.ReasonUnauthorized, 5 * time.Minute, true
 	}
+	return "", 0, false
 }

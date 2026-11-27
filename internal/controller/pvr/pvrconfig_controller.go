@@ -31,22 +31,22 @@ func pvrIntegration[T ctrlcommon.ConfigResource](
 			return connectPVR(ctx, c, obj, describe(obj).connection, app)
 		},
 		Check: func(ctx context.Context, hc *engine.HTTPClient, _ T) error { return pingPVR(ctx, hc, app) },
-		Sync: func(ctx context.Context, hc *engine.HTTPClient, obj T, pass *engine.Pass) []string {
+		Sync: func(ctx context.Context, hc *engine.HTTPClient, obj T, pass *engine.Pass) []error {
 			cfg, namespace := describe(obj), obj.GetNamespace()
 			opts := cfg.options
 			opts.App = app
 			// A kind whose items name a Secret that can't be read is left out of
 			// the pass, neither written nor pruned, and reported; the rest still
 			// syncs.
-			var unresolved []string
+			var unresolved []error
 			var err error
 			if opts.Notifications, err = ctrlcommon.ResolveNotifications(ctx, c, apps, namespace, opts.Notifications); err != nil {
-				unresolved = append(unresolved, fmt.Sprintf("notifications: %v", err))
+				unresolved = append(unresolved, fmt.Errorf("notifications: %w", err))
 			} else if opts.Notifications, err = ctrlcommon.ResolveNotificationSecrets(ctx, c, namespace, opts.Notifications); err != nil {
-				unresolved = append(unresolved, fmt.Sprintf("notifications: %v", err))
+				unresolved = append(unresolved, fmt.Errorf("notifications: %w", err))
 			}
 			if opts.ImportLists, err = ctrlcommon.ResolveImportListSecrets(ctx, c, namespace, opts.ImportLists); err != nil {
-				unresolved = append(unresolved, fmt.Sprintf("importLists: %v", err))
+				unresolved = append(unresolved, fmt.Errorf("importLists: %w", err))
 			}
 			return append(unresolved, pvrclient.Reconcile(ctx, hc, cfg.spec, opts, pass)...)
 		},
@@ -83,7 +83,6 @@ func connectPVR(
 		return nil, err
 	}
 	hc, err := engine.NewHTTPClient(conn.URL, engine.AuthAPIKey,
-		engine.WithOwner(namespace+"/"+obj.GetName()+"/"+string(obj.GetUID())),
 		engine.WithAPIKey(apiKey), engine.WithTLSConfig(tlsCfg), engine.WithAppLabel(app.Name))
 	if err != nil {
 		return nil, err

@@ -113,34 +113,60 @@ func TestGetAPIKey_Missing(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestGet(t *testing.T) {
-	c := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
-		_ = json.NewEncoder(w).Encode(map[string]any{"key": "val"})
-	})
-	result, err := c.Get(context.Background(), "/api/v1/settings/main")
-	require.NoError(t, err)
-	assert.Equal(t, "val", result["key"])
-}
-
-func TestPost(t *testing.T) {
-	c := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, http.MethodPost, r.Method)
-		_ = json.NewEncoder(w).Encode(map[string]any{"id": float64(1)})
-	})
-	result, err := c.Post(context.Background(), "/api/v1/resource", map[string]any{"name": "test"})
-	require.NoError(t, err)
-	assert.Equal(t, float64(1), result["id"])
-}
-
-func TestPostList(t *testing.T) {
-	c := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, http.MethodPost, r.Method)
-		_ = json.NewEncoder(w).Encode([]map[string]any{{"id": "a"}, {"id": "b"}})
-	})
-	result, err := c.PostList(context.Background(), "/api/v1/resource/sync", map[string]any{})
-	require.NoError(t, err)
-	require.Len(t, result, 2)
-	assert.Equal(t, "b", result[1]["id"])
+// Each method names the endpoint it reads or writes, so the controller and
+// export hold no paths of their own.
+func TestMethodsReachTheirEndpoints(t *testing.T) {
+	body := map[string]any{"name": "x"}
+	for _, tc := range []struct {
+		method, path string
+		list         bool
+		call         func(ctx context.Context, c *Client) error
+	}{
+		{http.MethodGet, "/api/v1/settings/network", false, func(ctx context.Context, c *Client) error { _, err := c.Settings(ctx, "network"); return err }},
+		{http.MethodPost, "/api/v1/settings/plex", false, func(ctx context.Context, c *Client) error { return c.SaveSettings(ctx, "plex", body) }},
+		{http.MethodGet, "/api/v1/settings/metadatas", false, func(ctx context.Context, c *Client) error { _, err := c.MetadataSettings(ctx); return err }},
+		{http.MethodPut, "/api/v1/settings/metadatas", false, func(ctx context.Context, c *Client) error { return c.SaveMetadataSettings(ctx, body) }},
+		{http.MethodGet, "/api/v1/settings/notifications/discord", false, func(ctx context.Context, c *Client) error {
+			_, err := c.NotificationSettings(ctx, "discord")
+			return err
+		}},
+		{http.MethodPost, "/api/v1/settings/notifications/discord", false, func(ctx context.Context, c *Client) error {
+			return c.SaveNotificationSettings(ctx, "discord", body)
+		}},
+		{http.MethodPost, "/api/v1/settings/initialize", false, func(ctx context.Context, c *Client) error { return c.Initialize(ctx) }},
+		{http.MethodGet, "/api/v1/settings/sonarr", true, func(ctx context.Context, c *Client) error { _, err := c.Services(ctx, "sonarr"); return err }},
+		{http.MethodPost, "/api/v1/settings/radarr", false, func(ctx context.Context, c *Client) error { return c.CreateService(ctx, "radarr", body) }},
+		{http.MethodPut, "/api/v1/settings/sonarr/3", false, func(ctx context.Context, c *Client) error { return c.UpdateService(ctx, "sonarr", 3, body) }},
+		{http.MethodDelete, "/api/v1/settings/radarr/4", false, func(ctx context.Context, c *Client) error { return c.DeleteService(ctx, "radarr", 4) }},
+		{http.MethodGet, "/api/v1/settings/jellyfin/library", true, func(ctx context.Context, c *Client) error {
+			_, err := c.Libraries(ctx, "jellyfin")
+			return err
+		}},
+		{http.MethodPost, "/api/v1/settings/plex/library/sync", true, func(ctx context.Context, c *Client) error {
+			_, err := c.SyncLibraries(ctx, "plex")
+			return err
+		}},
+		{http.MethodPut, "/api/v1/settings/jellyfin/library/abc", false, func(ctx context.Context, c *Client) error {
+			return c.EnableLibrary(ctx, "jellyfin", "abc", true)
+		}},
+		{http.MethodGet, "/api/v1/settings/jobs", true, func(ctx context.Context, c *Client) error { _, err := c.Jobs(ctx); return err }},
+		{http.MethodPost, "/api/v1/settings/jobs/plex-sync/schedule", false, func(ctx context.Context, c *Client) error {
+			return c.ScheduleJob(ctx, "plex-sync", "0 0 * * *")
+		}},
+	} {
+		t.Run(tc.method+" "+tc.path, func(t *testing.T) {
+			c := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+				assert.Equal(t, tc.method, r.Method)
+				assert.Equal(t, tc.path, r.URL.Path)
+				if tc.list {
+					_, _ = w.Write([]byte(`[]`))
+					return
+				}
+				_, _ = w.Write([]byte(`{}`))
+			})
+			require.NoError(t, tc.call(context.Background(), c))
+		})
+	}
 }
 
 func TestPing(t *testing.T) {
