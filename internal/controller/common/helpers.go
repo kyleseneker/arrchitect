@@ -341,46 +341,44 @@ func FieldValues(ctx context.Context, c client.Reader, namespace, owner string, 
 	return out, nil
 }
 
-// ResolveIndexerSecrets returns indexers with their field secret references resolved.
-func ResolveIndexerSecrets(ctx context.Context, c client.Reader, namespace string, in []commonv1alpha1.Indexer) ([]commonv1alpha1.Indexer, error) {
-	out := make([]commonv1alpha1.Indexer, len(in))
-	copy(out, in)
+// ResolveItemFields returns a copy of items with each item's field Secret
+// references resolved. what names the kind of item in errors, and fields
+// returns an item's name and its fields.
+func ResolveItemFields[T any](
+	ctx context.Context, c client.Reader, namespace, what string, items []T,
+	fields func(*T) (string, *[]commonv1alpha1.ConfigField),
+) ([]T, error) {
+	out := slices.Clone(items)
 	for i := range out {
-		f, err := ResolveConfigFields(ctx, c, namespace, "indexer "+out[i].Name, out[i].Fields)
+		name, f := fields(&out[i])
+		resolved, err := ResolveConfigFields(ctx, c, namespace, what+" "+name, *f)
 		if err != nil {
 			return nil, err
 		}
-		out[i].Fields = f
+		*f = resolved
 	}
 	return out, nil
+}
+
+// ResolveIndexerSecrets returns indexers with their field secret references resolved.
+func ResolveIndexerSecrets(ctx context.Context, c client.Reader, namespace string, in []commonv1alpha1.Indexer) ([]commonv1alpha1.Indexer, error) {
+	return ResolveItemFields(ctx, c, namespace, "indexer", in, func(i *commonv1alpha1.Indexer) (string, *[]commonv1alpha1.ConfigField) {
+		return i.Name, &i.Fields
+	})
 }
 
 // ResolveNotificationSecrets returns notifications with their field secret references resolved.
 func ResolveNotificationSecrets(ctx context.Context, c client.Reader, namespace string, in []commonv1alpha1.Notification) ([]commonv1alpha1.Notification, error) {
-	out := make([]commonv1alpha1.Notification, len(in))
-	copy(out, in)
-	for i := range out {
-		f, err := ResolveConfigFields(ctx, c, namespace, "notification "+out[i].Name, out[i].Fields)
-		if err != nil {
-			return nil, err
-		}
-		out[i].Fields = f
-	}
-	return out, nil
+	return ResolveItemFields(ctx, c, namespace, "notification", in, func(n *commonv1alpha1.Notification) (string, *[]commonv1alpha1.ConfigField) {
+		return n.Name, &n.Fields
+	})
 }
 
 // ResolveImportListSecrets returns import lists with their field secret references resolved.
 func ResolveImportListSecrets(ctx context.Context, c client.Reader, namespace string, in []commonv1alpha1.ImportList) ([]commonv1alpha1.ImportList, error) {
-	out := make([]commonv1alpha1.ImportList, len(in))
-	copy(out, in)
-	for i := range out {
-		f, err := ResolveConfigFields(ctx, c, namespace, "import list "+out[i].Name, out[i].Fields)
-		if err != nil {
-			return nil, err
-		}
-		out[i].Fields = f
-	}
-	return out, nil
+	return ResolveItemFields(ctx, c, namespace, "import list", in, func(il *commonv1alpha1.ImportList) (string, *[]commonv1alpha1.ConfigField) {
+		return il.Name, &il.Fields
+	})
 }
 
 var secretKeyRefType = reflect.TypeFor[commonv1alpha1.SecretKeyRef]()

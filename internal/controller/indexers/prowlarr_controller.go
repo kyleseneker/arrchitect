@@ -3,7 +3,6 @@ package indexers
 import (
 	"context"
 	"fmt"
-	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/events"
@@ -68,80 +67,43 @@ func (r *ProwlarrReconciler) connect(ctx context.Context, config *indexersv1alph
 }
 
 func (r *ProwlarrReconciler) sync(ctx context.Context, hc *engine.HTTPClient, config *indexersv1alpha1.Prowlarr, pass *engine.Pass) []string {
-	def := prowlarrclient.Definition()
-	// A kind whose items name a Secret that can't be read is left out of the
-	// pass, neither written nor pruned, and reported; the rest still syncs.
+	namespace := config.Namespace
+	opts := prowlarrclient.Options{Tags: config.Spec.Tags, AppProfiles: config.Spec.AppProfiles}
+	// A kind whose items name a Secret or app that can't be read is left out of
+	// the pass, neither written nor pruned, and reported; the rest still syncs.
 	var unresolved []string
-	indexers := make([]indexersv1alpha1.ProwlarrIndexer, len(config.Spec.Indexers))
-	copy(indexers, config.Spec.Indexers)
-	for i := range indexers {
-		f, ferr := ctrlcommon.ResolveConfigFields(ctx, r.Client, config.Namespace, "indexer "+indexers[i].Name, indexers[i].Fields)
-		if ferr != nil {
-			unresolved = append(unresolved, fmt.Sprintf("indexers: %v", ferr))
-			indexers = nil
-			break
-		}
-		indexers[i].Fields = f
+	var err error
+	if opts.Indexers, err = ctrlcommon.ResolveItemFields(ctx, r.Client, namespace, "indexer", config.Spec.Indexers,
+		func(i *indexersv1alpha1.ProwlarrIndexer) (string, *[]commonv1alpha1.ConfigField) {
+			return i.Name, &i.Fields
+		},
+	); err != nil {
+		unresolved = append(unresolved, fmt.Sprintf("indexers: %v", err))
 	}
-	downloadClients := make([]indexersv1alpha1.ProwlarrDownloadClient, len(config.Spec.DownloadClients))
-	copy(downloadClients, config.Spec.DownloadClients)
-	for i := range downloadClients {
-		f, ferr := ctrlcommon.ResolveConfigFields(ctx, r.Client, config.Namespace, "download client "+downloadClients[i].Name, downloadClients[i].Fields)
-		if ferr != nil {
-			unresolved = append(unresolved, fmt.Sprintf("downloadClients: %v", ferr))
-			downloadClients = nil
-			break
-		}
-		downloadClients[i].Fields = f
+	if opts.DownloadClients, err = ctrlcommon.ResolveItemFields(ctx, r.Client, namespace, "download client", config.Spec.DownloadClients,
+		func(dc *indexersv1alpha1.ProwlarrDownloadClient) (string, *[]commonv1alpha1.ConfigField) {
+			return dc.Name, &dc.Fields
+		},
+	); err != nil {
+		unresolved = append(unresolved, fmt.Sprintf("downloadClients: %v", err))
 	}
-
-	// Tags and sync profiles must exist before their IDs can be referenced.
-	prerequisites := prowlarrclient.Resources(prowlarrclient.Options{Tags: config.Spec.Tags, AppProfiles: config.Spec.AppProfiles}, nil)
-	problems := engine.ReconcileApp(ctx, hc, def, nil, prerequisites, pass)
-
-	resolved, tagIDs, terr := prowlarrclient.ResolveReferences(ctx, hc, config.Spec, pass.Observe)
-	if indexers != nil {
-		indexersWithSecrets := indexers
-		indexers = resolved.Indexers
-		for i := range indexers {
-			indexers[i].Fields = indexersWithSecrets[i].Fields
-		}
+	if opts.Notifications, err = ctrlcommon.ResolveNotificationSecrets(ctx, r.Client, namespace, config.Spec.Notifications); err != nil {
+		unresolved = append(unresolved, fmt.Sprintf("notifications: %v", err))
 	}
-	if terr != nil {
-		pass.Retry = time.Minute
-		return append(problems, terr.Error())
+	if opts.Applications, err = r.resolveApplications(ctx, hc, config); err != nil {
+		unresolved = append(unresolved, fmt.Sprintf("applications: %v", err))
 	}
-
-	notifications, nerr := ctrlcommon.ResolveNotificationSecrets(ctx, r.Client, config.Namespace, resolved.Notifications)
-	if nerr != nil {
-		unresolved = append(unresolved, fmt.Sprintf("notifications: %v", nerr))
+	if opts.Proxies, err = r.resolveProxies(ctx, config); err != nil {
+		unresolved = append(unresolved, fmt.Sprintf("proxies: %v", err))
 	}
-	appPayloads, aerr := r.buildApplicationPayloads(ctx, hc, config, tagIDs)
-	if aerr != nil {
-		unresolved = append(unresolved, fmt.Sprintf("applications: %v", aerr))
-	}
-	proxyPayloads, perr := r.buildProxyPayloads(ctx, config, tagIDs)
-	if perr != nil {
-		unresolved = append(unresolved, fmt.Sprintf("proxies: %v", perr))
-	}
-
-	resources := prowlarrclient.Resources(prowlarrclient.Options{
-		Applications:    appPayloads,
-		Indexers:        indexers,
-		Proxies:         proxyPayloads,
-		DownloadClients: downloadClients,
-		Notifications:   notifications,
-	}, tagIDs)
-	problems = append(problems, unresolved...)
-	return append(problems, engine.ReconcileApp(ctx, hc, def, nil, resources, pass)...)
+	return append(unresolved, prowlarrclient.Reconcile(ctx, hc, opts, pass)...)
 }
 
-// buildApplicationPayloads resolves each application's reference and API key
-// Secret and builds its payload.
-func (r *ProwlarrReconciler) buildApplicationPayloads(
-	ctx context.Context, hc *engine.HTTPClient, config *indexersv1alpha1.Prowlarr, tagIDs map[string]int,
-) ([]map[string]any, error) {
-	payloads := make([]map[string]any, 0, len(config.Spec.Applications))
+// resolveApplications resolves each application's reference and Secrets.
+func (r *ProwlarrReconciler) resolveApplications(
+	ctx context.Context, hc *engine.HTTPClient, config *indexersv1alpha1.Prowlarr,
+) ([]prowlarrclient.Application, error) {
+	apps := make([]prowlarrclient.Application, 0, len(config.Spec.Applications))
 	var schema []map[string]any
 	for _, app := range config.Spec.Applications {
 		if app.AppRef != nil {
@@ -180,9 +142,9 @@ func (r *ProwlarrReconciler) buildApplicationPayloads(
 			}
 			secrets[ref.field] = value
 		}
-		payloads = append(payloads, prowlarrclient.BuildApplicationPayload(app, secrets, tagIDs))
+		apps = append(apps, prowlarrclient.Application{ProwlarrApplication: app, Secrets: secrets})
 	}
-	return payloads, nil
+	return apps, nil
 }
 
 // requireApplicationField fails when Prowlarr's schema for the application's
@@ -204,10 +166,9 @@ func requireApplicationField(
 	return nil
 }
 
-// buildProxyPayloads resolves each proxy's credential Secrets and builds its
-// payload.
-func (r *ProwlarrReconciler) buildProxyPayloads(ctx context.Context, config *indexersv1alpha1.Prowlarr, tagIDs map[string]int) ([]map[string]any, error) {
-	payloads := make([]map[string]any, 0, len(config.Spec.Proxies))
+// resolveProxies resolves each proxy's credential Secrets.
+func (r *ProwlarrReconciler) resolveProxies(ctx context.Context, config *indexersv1alpha1.Prowlarr) ([]prowlarrclient.Proxy, error) {
+	proxies := make([]prowlarrclient.Proxy, 0, len(config.Spec.Proxies))
 	for _, p := range config.Spec.Proxies {
 		credentials := map[string]string{}
 		for name, ref := range map[string]*commonv1alpha1.SecretKeyRef{"username": p.UsernameSecretRef, "password": p.PasswordSecretRef} {
@@ -220,9 +181,9 @@ func (r *ProwlarrReconciler) buildProxyPayloads(ctx context.Context, config *ind
 			}
 			credentials[name] = value
 		}
-		payloads = append(payloads, prowlarrclient.BuildProxyPayload(p, credentials, tagIDs))
+		proxies = append(proxies, prowlarrclient.Proxy{ProwlarrProxy: p, Credentials: credentials})
 	}
-	return payloads, nil
+	return proxies, nil
 }
 
 func prowlarrAppRefs(o client.Object) []commonv1alpha1.AppRef {
