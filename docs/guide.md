@@ -189,7 +189,7 @@ The reason is one of:
 | Reason | Meaning |
 | --- | --- |
 | `Synced` | The app matches the resource. |
-| `SyncFailed` | Some settings could not be applied, the pass failed in different ways, or reading a Secret or a referenced resource from the Kubernetes API failed; the message says which, and the reason the app gave. |
+| `SyncFailed` | Some settings could not be applied, the pass failed in different ways, or reading a Secret or an appRef's resource from the Kubernetes API failed during a pass; the message says which, and the reason the app gave. |
 | `AppUnreachable` | The app did not respond, or answered that it is down with a 502, 503 or 504. |
 | `Unauthorized` | The app refused the API key, token or password. |
 | `SecretNotFound` | A Secret or key the resource needs does not exist. |

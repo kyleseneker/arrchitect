@@ -106,7 +106,7 @@ How soon a resource that failed tries again depends on why:
 | Reason | Next try |
 | --- | --- |
 | `AppUnreachable` | After 30 seconds, doubling with each failure in a row, up to 10 minutes |
-| `SyncFailed` from reading a Secret or referenced resource | The same |
+| `SyncFailed` from reading a Secret or an appRef's resource | The same |
 | `SecretNotFound`, `ReferenceNotFound` | When the Secret or resource appears, or after the interval |
 | `Unauthorized`, `InvalidConfig` | When the resource or a Secret it uses changes, or after the interval |
 | `NameConflict`, any other `SyncFailed` | After the interval |
@@ -118,10 +118,12 @@ created together don't all reach their app at once. Changing the resource, or
 a Secret it uses, reconciles it at once.
 
 Refused credentials aren't retried before the interval unless the resource or
-a Secret changes, so an app that locks out failed sign-ins isn't pushed into
-it. A failure to read the resource itself backs off without changing its
-status. A retry that backs off counts in
-`controller_runtime_reconcile_errors_total`.
+a Secret changes, so an app that locks out failed sign-ins sees one attempt per
+interval. A short interval for such an app makes a lockout come sooner.
+
+A failure to read the resource itself, or the app resource an indexer or
+download client belongs to, backs off without changing its status. A retry
+that backs off counts in `controller_runtime_reconcile_errors_total`.
 
 ## Alerting
 
