@@ -328,6 +328,40 @@ func TestDelayProfilesMatchAcrossDeclarations(t *testing.T) {
 	assert.Len(t, app.writeLog(), writes)
 }
 
+// With prune on, the match takes over the profile the operator can't prune
+// and prunes the one it created, though the owned one shares more tags.
+func TestDelayProfilesTakeOverTheProfileThatCantBePruned(t *testing.T) {
+	app := newDelayAPI(false, "a", "b", "c")
+	owned := app.add([]any{float64(1), float64(2)}, nil)
+	handMade := app.add([]any{float64(3)}, nil)
+	hc := app.client(t)
+	managed := map[string][]string{delayProfilesKind: {strconv.Itoa(int(owned))}}
+
+	result := app.reconcile(t, hc, []commonv1alpha1.DelayProfile{{TagLabels: []string{"a", "b", "c"}}}, engine.SyncPolicy{Prune: true}, managed)
+	require.Empty(t, result.Errors)
+	assert.Equal(t, handMade, app.byTags(1, 2, 3)["id"])
+	assert.Nil(t, app.profile(owned))
+}
+
+// A plan that would leave a declared tag in a profile the operator neither
+// takes over nor prunes is refused before it writes anything.
+func TestDelayProfilesRefuseAPlanThatCantFinish(t *testing.T) {
+	app := newDelayAPI(false, "a", "b")
+	app.add([]any{float64(1)}, nil)
+	app.add([]any{float64(2)}, nil)
+	hc := app.client(t)
+
+	result := app.reconcile(t, hc, []commonv1alpha1.DelayProfile{{TagLabels: []string{"a", "b"}}}, engine.SyncPolicy{}, nil)
+	require.Len(t, result.Errors, 1)
+	assert.Contains(t, result.Errors[0], "which no declared profile takes over and the operator can't prune")
+	assert.Empty(t, app.writeLog())
+	_, err := planDelayProfiles([]commonv1alpha1.DelayProfile{{TagLabels: []string{"a", "b"}}},
+		engine.NamedIDs{"a": {1}, "b": {2}},
+		[]map[string]any{{"id": float64(2), "tags": []any{float64(1)}}, {"id": float64(3), "tags": []any{float64(2)}}},
+		func(map[string]any) bool { return false })
+	assert.True(t, engine.IsConfigError(err))
+}
+
 func TestMaxWeightAssignment(t *testing.T) {
 	assert.Equal(t, []int{1, 0}, maxWeightAssignment([][]int64{{5, 4}, {4, 0}}), "the best single pick isn't the best total")
 	assert.Equal(t, []int{0, 1}, maxWeightAssignment([][]int64{{3, 1, 0}, {2, 4, 1}}))
