@@ -1,6 +1,3 @@
-// Package pvr reconciles Sonarr, Radarr, Lidarr and Readarr, which share an
-// API: the definition of each app, the payloads for each kind, and the
-// stages they are written in.
 package pvr
 
 import (
@@ -17,6 +14,7 @@ import (
 	"github.com/kyleseneker/arrchitect/internal/engine"
 	"github.com/kyleseneker/arrchitect/internal/failure"
 	"github.com/kyleseneker/arrchitect/internal/httpapi"
+	"github.com/kyleseneker/arrchitect/internal/provider"
 )
 
 // App holds what differs between Sonarr, Radarr, Lidarr and Readarr.
@@ -433,7 +431,7 @@ func releaseProfileResources(
 			if err != nil {
 				return nil, fmt.Errorf("releaseProfiles(%s): %w", rp.Name, err)
 			}
-			payload["tags"] = buildTagsPayload(tags)
+			payload["tags"] = provider.TagsPayload(tags)
 		}
 		if rp.IndexerName != "" {
 			if indexers == nil {
@@ -465,7 +463,7 @@ func notificationResources(
 			return nil, fmt.Errorf("notifications(%s): %w", n.Name, err)
 		}
 		n.ConfigContract = schemaConfigContract(schema, n.Implementation, n.ConfigContract)
-		payload := BuildNotificationPayload(n, tags)
+		payload := provider.NotificationPayload(n, tags)
 		// Validation reports these; sending them would rewrite the notification forever.
 		for _, event := range unsupportedEvents(schema, n.Implementation, payload) {
 			delete(payload, event)
@@ -691,8 +689,8 @@ func autoTagResources(
 			}
 			specs = append(specs, payload)
 		}
-		payload := map[string]any{"name": at.Name, "tags": buildTagsPayload(tags), "specifications": specs}
-		SetOptionalBool(payload, "removeTagsAutomatically", at.RemoveTagsAutomatically)
+		payload := map[string]any{"name": at.Name, "tags": provider.TagsPayload(tags), "specifications": specs}
+		provider.SetOptionalBool(payload, "removeTagsAutomatically", at.RemoveTagsAutomatically)
 		out = append(out, payload)
 	}
 	return out, nil
@@ -703,7 +701,7 @@ func autoTagResources(
 func autoTagSpecificationPayload(
 	spec commonv1alpha1.AutoTagSpecification, profiles, metadataProfiles, tagIDs engine.NamedIDs,
 ) (map[string]any, error) {
-	fields := BuildFieldsPayload(spec.Fields)
+	fields := provider.FieldsPayload(spec.Fields)
 	for _, ref := range []struct {
 		field, name string
 		ids         engine.NamedIDs
@@ -725,8 +723,8 @@ func autoTagSpecificationPayload(
 		fields = append(fields, map[string]any{"name": "value", "value": id})
 	}
 	payload := map[string]any{"name": spec.Name, "implementation": spec.Implementation, "fields": fields}
-	SetOptionalBool(payload, "negate", spec.Negate)
-	SetOptionalBool(payload, "required", spec.Required)
+	provider.SetOptionalBool(payload, "negate", spec.Negate)
+	provider.SetOptionalBool(payload, "required", spec.Required)
 	return payload, nil
 }
 
@@ -752,7 +750,7 @@ func metadataConsumerResources(
 				mc.Implementation, strings.Join(slices.Sorted(maps.Keys(byImplementation)), ", "))
 		}
 		payload := map[string]any{"implementation": mc.Implementation}
-		SetOptionalBool(payload, "enable", mc.Enable)
+		provider.SetOptionalBool(payload, "enable", mc.Enable)
 		if len(mc.Fields) > 0 {
 			names := make([]string, 0, len(mc.Fields))
 			fields := make([]any, 0, len(mc.Fields))
@@ -832,7 +830,7 @@ func rootFolderResources(
 				return nil, fmt.Errorf("rootFolders(%s): %w", rf.Path, err)
 			}
 			if tags != nil {
-				item["defaultTags"] = buildTagsPayload(tags)
+				item["defaultTags"] = provider.TagsPayload(tags)
 			}
 		}
 		rfs = append(rfs, item)

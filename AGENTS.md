@@ -73,8 +73,9 @@ targets, plus compat and e2e.
 
 - `api/<group>/v1alpha1/`: the API types. `api/common/v1alpha1/` holds the
   types several apps share.
-- `internal/controller/<group>/`: one controller per app, with the payloads
-  and API-model helpers only that app uses.
+- `internal/controller/<group>/`: one controller per app, with its sync logic
+  and the payloads and API-model helpers only that app uses. The PVR apps'
+  shared sync is in `controller/pvr`, and Prowlarr's in `controller/indexers`.
 - `internal/controller/reconciler/`: the pass every controller shares: the
   skeleton, lifecycle and finalizers, the failure table, status, conditions
   and events, each controller's watches, and building connections (`Dial`).
@@ -83,7 +84,10 @@ targets, plus compat and e2e.
   changes.
 - `internal/controller/secretref/`: reading the Secrets a spec's fields name,
   and the indexed watch that requeues a resource when one of them changes.
-- `internal/client/<app>/`: a client for each app's HTTP API.
+- `internal/client/<app>/`: a client for each app's HTTP API, and nothing
+  else. The PVR apps and Prowlarr use `httpapi` directly.
+- `internal/provider/`: the provider payloads and schema listing the PVR apps
+  and Prowlarr share, such as notifications and free-form fields.
 - `internal/engine/`: the sync engine: app definitions, passes and their
   writes, ownership tracking, stages and name lookups.
 - `internal/httpapi/`: the HTTP client every app client builds on, with its
@@ -228,7 +232,7 @@ Never edit these by hand. Change the source, then regenerate.
   Several controllers map fields to app keys through the json tag (Jellyfin
   pascal-cases it, Tdarr sends it as is), so changing a json tag changes what
   the app receives.
-- The PVR clients take a provider's config contract from the app's schema.
+- The PVR sync takes a provider's config contract from the app's schema.
   Prowlarr's guess `<implementation>Settings`.
 - Changing a field from an object to a list breaks server-side apply of
   resources already stored. Avoid it, or put the one-off fix in the release

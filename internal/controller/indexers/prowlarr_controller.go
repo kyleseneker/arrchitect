@@ -10,13 +10,12 @@ import (
 
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
 	indexersv1alpha1 "github.com/kyleseneker/arrchitect/api/indexers/v1alpha1"
-	prowlarrclient "github.com/kyleseneker/arrchitect/internal/client/prowlarr"
-	pvrclient "github.com/kyleseneker/arrchitect/internal/client/pvr"
 	"github.com/kyleseneker/arrchitect/internal/controller/appref"
 	"github.com/kyleseneker/arrchitect/internal/controller/reconciler"
 	"github.com/kyleseneker/arrchitect/internal/controller/secretref"
 	"github.com/kyleseneker/arrchitect/internal/engine"
 	"github.com/kyleseneker/arrchitect/internal/httpapi"
+	"github.com/kyleseneker/arrchitect/internal/provider"
 	"github.com/kyleseneker/arrchitect/internal/secrets"
 )
 
@@ -50,13 +49,13 @@ func (r *ProwlarrReconciler) integration() reconciler.Integration[*indexersv1alp
 		RefKinds: []string{"Sonarr", "Radarr", "Lidarr", "Readarr"},
 		Connect:  r.connect,
 		Check: func(ctx context.Context, hc *httpapi.HTTPClient, _ *indexersv1alpha1.Prowlarr) error {
-			return hc.Ping(ctx, prowlarrclient.Definition().HealthPath)
+			return hc.Ping(ctx, ProwlarrDefinition().HealthPath)
 		},
 		Sync: r.sync,
 		Cleanup: func(ctx context.Context, hc *httpapi.HTTPClient, owned *engine.Ownership) error {
-			return engine.DeleteManagedResources(ctx, hc, prowlarrclient.Definition(), owned)
+			return engine.DeleteManagedResources(ctx, hc, ProwlarrDefinition(), owned)
 		},
-		Deletable: prowlarrclient.Definition().Deletable,
+		Deletable: ProwlarrDefinition().Deletable,
 		Prune:     true,
 	}
 }
@@ -70,7 +69,7 @@ func (r *ProwlarrReconciler) connect(ctx context.Context, config *indexersv1alph
 
 func (r *ProwlarrReconciler) sync(ctx context.Context, hc *httpapi.HTTPClient, config *indexersv1alpha1.Prowlarr, pass *engine.Pass) []error {
 	namespace := config.Namespace
-	opts := prowlarrclient.Options{Tags: config.Spec.Tags, AppProfiles: config.Spec.AppProfiles}
+	opts := prowlarrOptions{Tags: config.Spec.Tags, AppProfiles: config.Spec.AppProfiles}
 	// A kind whose items name a Secret or app that can't be read is left out of
 	// the pass, neither written nor pruned, and reported; the rest still syncs.
 	var unresolved []error
@@ -102,14 +101,14 @@ func (r *ProwlarrReconciler) sync(ctx context.Context, hc *httpapi.HTTPClient, c
 	if opts.Proxies, err = r.resolveProxies(ctx, config); err != nil {
 		unresolved = append(unresolved, fmt.Errorf("proxies: %w", err))
 	}
-	return append(unresolved, prowlarrclient.Reconcile(ctx, hc, opts, pass)...)
+	return append(unresolved, reconcileProwlarr(ctx, hc, opts, pass)...)
 }
 
 // resolveApplications resolves each application's reference and Secrets.
 func (r *ProwlarrReconciler) resolveApplications(
 	ctx context.Context, hc *httpapi.HTTPClient, config *indexersv1alpha1.Prowlarr,
-) ([]prowlarrclient.Application, error) {
-	apps := make([]prowlarrclient.Application, 0, len(config.Spec.Applications))
+) ([]prowlarrApplication, error) {
+	apps := make([]prowlarrApplication, 0, len(config.Spec.Applications))
 	var schema []map[string]any
 	for _, app := range config.Spec.Applications {
 		if app.AppRef != nil {
@@ -148,7 +147,7 @@ func (r *ProwlarrReconciler) resolveApplications(
 			}
 			resolved[ref.field] = value
 		}
-		apps = append(apps, prowlarrclient.Application{ProwlarrApplication: app, Secrets: resolved})
+		apps = append(apps, prowlarrApplication{ProwlarrApplication: app, Secrets: resolved})
 	}
 	return apps, nil
 }
@@ -166,15 +165,15 @@ func requireApplicationField(
 		}
 		*schema = list
 	}
-	if names, ok := pvrclient.SchemaFieldNames(*schema, app.Implementation); ok && !names[field] {
+	if names, ok := provider.SchemaFieldNames(*schema, app.Implementation); ok && !names[field] {
 		return fmt.Errorf("%s applications have no %s in this Prowlarr; it needs Prowlarr 2.4.0 or later", app.Implementation, field)
 	}
 	return nil
 }
 
 // resolveProxies resolves each proxy's credential Secrets.
-func (r *ProwlarrReconciler) resolveProxies(ctx context.Context, config *indexersv1alpha1.Prowlarr) ([]prowlarrclient.Proxy, error) {
-	proxies := make([]prowlarrclient.Proxy, 0, len(config.Spec.Proxies))
+func (r *ProwlarrReconciler) resolveProxies(ctx context.Context, config *indexersv1alpha1.Prowlarr) ([]prowlarrProxy, error) {
+	proxies := make([]prowlarrProxy, 0, len(config.Spec.Proxies))
 	for _, p := range config.Spec.Proxies {
 		credentials := map[string]string{}
 		for name, ref := range map[string]*commonv1alpha1.SecretKeyRef{"username": p.UsernameSecretRef, "password": p.PasswordSecretRef} {
@@ -187,7 +186,7 @@ func (r *ProwlarrReconciler) resolveProxies(ctx context.Context, config *indexer
 			}
 			credentials[name] = value
 		}
-		proxies = append(proxies, prowlarrclient.Proxy{ProwlarrProxy: p, Credentials: credentials})
+		proxies = append(proxies, prowlarrProxy{ProwlarrProxy: p, Credentials: credentials})
 	}
 	return proxies, nil
 }

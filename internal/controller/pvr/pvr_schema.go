@@ -8,35 +8,8 @@ import (
 
 	commonv1alpha1 "github.com/kyleseneker/arrchitect/api/common/v1alpha1"
 	"github.com/kyleseneker/arrchitect/internal/httpapi"
+	"github.com/kyleseneker/arrchitect/internal/provider"
 )
-
-// SchemaFieldNames returns the field names an implementation accepts, taken from
-// the app's own /schema listing. The second return is false when the schema does
-// not describe the implementation, in which case callers must not validate.
-func SchemaFieldNames(schema []map[string]any, implementation string) (map[string]bool, bool) {
-	for _, def := range schema {
-		impl, _ := def["implementation"].(string)
-		if !strings.EqualFold(impl, implementation) {
-			continue
-		}
-		raw, ok := def["fields"].([]any)
-		if !ok {
-			return nil, false
-		}
-		names := make(map[string]bool, len(raw))
-		for _, f := range raw {
-			fm, ok := f.(map[string]any)
-			if !ok {
-				continue
-			}
-			if n, ok := fm["name"].(string); ok {
-				names[n] = true
-			}
-		}
-		return names, len(names) > 0
-	}
-	return nil, false
-}
 
 // schemaConfigContract keeps a declared contract, otherwise takes the one the
 // app's schema lists for the implementation. Contracts follow no single naming
@@ -104,7 +77,7 @@ func schemaDefinition(schema []map[string]any, implementation string) map[string
 // apps store an unknown field and answer 2xx, so an unvalidated typo is inert
 // rather than an error.
 func validateFieldNames(schema []map[string]any, implementation string, fieldNames []string) error {
-	valid, ok := SchemaFieldNames(schema, implementation)
+	valid, ok := provider.SchemaFieldNames(schema, implementation)
 	if !ok {
 		return nil
 	}
@@ -175,7 +148,7 @@ func validateOptionFields(ctx context.Context, client *httpapi.HTTPClient, apiVe
 		schema := opts.schema(ctx, client, apiVersion, "notification")
 		for _, n := range opts.Notifications {
 			check("notification", n.Name, n.Implementation, n.Fields, schema)
-			if events := unsupportedEvents(schema, n.Implementation, BuildNotificationPayload(n, nil)); len(events) > 0 {
+			if events := unsupportedEvents(schema, n.Implementation, provider.NotificationPayload(n, nil)); len(events) > 0 {
 				problems = append(problems, fmt.Errorf("notification(%s): %s has no %s event; it was not sent",
 					n.Name, n.Implementation, strings.Join(events, ", ")))
 			}

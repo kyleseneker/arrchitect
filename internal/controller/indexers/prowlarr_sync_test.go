@@ -1,4 +1,4 @@
-package prowlarr
+package indexers
 
 import (
 	"context"
@@ -19,7 +19,7 @@ import (
 )
 
 func TestProwlarrDefinition(t *testing.T) {
-	def := Definition()
+	def := ProwlarrDefinition()
 	assert.Equal(t, "/api/v1/system/status", def.HealthPath)
 	assert.Empty(t, def.Settings, "Prowlarr has no settings endpoints")
 	assert.True(t, len(def.Resources) >= 6)
@@ -34,21 +34,21 @@ func TestProwlarrDefinition(t *testing.T) {
 }
 
 func TestReconcileWritesEachDeclaredKind(t *testing.T) {
-	app := &fakeProwlarr{}
+	app := &prowlarrAPI{}
 	hc := app.client(t)
-	opts := Options{
+	opts := prowlarrOptions{
 		Tags:         []commonv1alpha1.Tag{{Label: "Public"}},
 		AppProfiles:  []indexersv1alpha1.ProwlarrAppProfile{{Name: "Standard"}},
-		Applications: []Application{{Name: "Sonarr", Implementation: "Sonarr"}},
+		Applications: []prowlarrApplication{{Name: "Sonarr", Implementation: "Sonarr"}},
 		Indexers: []indexersv1alpha1.ProwlarrIndexer{{
 			Name: "idx", Implementation: "Torznab", TagLabels: []string{"public"}, AppProfileName: "Standard",
 		}},
-		Proxies:         []Proxy{{Name: "proxy", Implementation: "Http"}},
+		Proxies:         []prowlarrProxy{{Name: "proxy", Implementation: "Http"}},
 		DownloadClients: []indexersv1alpha1.ProwlarrDownloadClient{{Name: "dc", Protocol: "torrent", Implementation: "QBittorrent"}},
 		Notifications:   []commonv1alpha1.Notification{{Name: "notif", Implementation: "Discord"}},
 	}
 
-	problems := Reconcile(context.Background(), hc, opts, engine.NewPass("prowlarr", "", engine.SyncPolicy{}, nil))
+	problems := reconcileProwlarr(context.Background(), hc, opts, engine.NewPass("prowlarr", "", engine.SyncPolicy{}, nil))
 	require.Empty(t, problems)
 	for _, path := range []string{"tag", "appprofile", "applications", "indexer", "indexerproxy", "downloadclient", "notification"} {
 		assert.Len(t, app.items["/api/v1/"+path], 1, path)
@@ -59,14 +59,14 @@ func TestReconcileWritesEachDeclaredKind(t *testing.T) {
 }
 
 func TestABadTagLeavesOutOnlyItsKind(t *testing.T) {
-	app := &fakeProwlarr{lists: map[string][]map[string]any{"/api/v1/tag": {{"id": 1, "label": "known"}}}}
+	app := &prowlarrAPI{lists: map[string][]map[string]any{"/api/v1/tag": {{"id": 1, "label": "known"}}}}
 	hc := app.client(t)
-	opts := Options{
+	opts := prowlarrOptions{
 		Indexers:        []indexersv1alpha1.ProwlarrIndexer{{Name: "idx", Implementation: "Torznab", TagLabels: []string{"known", "unknown"}}},
 		DownloadClients: []indexersv1alpha1.ProwlarrDownloadClient{{Name: "dc", Protocol: "torrent", Implementation: "QBittorrent", TagLabels: []string{"known"}}},
 	}
 
-	problems := Reconcile(context.Background(), hc, opts, engine.NewPass("prowlarr", "", engine.SyncPolicy{}, nil))
+	problems := reconcileProwlarr(context.Background(), hc, opts, engine.NewPass("prowlarr", "", engine.SyncPolicy{}, nil))
 	require.Len(t, problems, 1)
 	assert.ErrorContains(t, problems[0], "indexers(idx): tag")
 	assert.Empty(t, app.items["/api/v1/indexer"])
@@ -74,9 +74,9 @@ func TestABadTagLeavesOutOnlyItsKind(t *testing.T) {
 }
 
 func TestIndexersFollowARecreatedAppProfile(t *testing.T) {
-	app := &fakeProwlarr{lists: map[string][]map[string]any{"/api/v1/appprofile": {{"id": 3, "name": "Standard"}}}}
+	app := &prowlarrAPI{lists: map[string][]map[string]any{"/api/v1/appprofile": {{"id": 3, "name": "Standard"}}}}
 	hc := app.client(t)
-	opts := Options{Indexers: []indexersv1alpha1.ProwlarrIndexer{{Name: "idx", Implementation: "Torznab", AppProfileName: "Standard"}}}
+	opts := prowlarrOptions{Indexers: []indexersv1alpha1.ProwlarrIndexer{{Name: "idx", Implementation: "Torznab", AppProfileName: "Standard"}}}
 
 	payloads, err := opts.builders(context.Background(), hc, false)["indexers"].Build(nil)
 	require.NoError(t, err)
@@ -90,18 +90,18 @@ func TestIndexersFollowARecreatedAppProfile(t *testing.T) {
 }
 
 func TestIndexersRejectAMissingAppProfile(t *testing.T) {
-	app := &fakeProwlarr{lists: map[string][]map[string]any{"/api/v1/appprofile": {{"id": 3, "name": "Standard"}}}}
+	app := &prowlarrAPI{lists: map[string][]map[string]any{"/api/v1/appprofile": {{"id": 3, "name": "Standard"}}}}
 	hc := app.client(t)
-	opts := Options{Indexers: []indexersv1alpha1.ProwlarrIndexer{{Name: "idx", AppProfileName: "Gone"}}}
+	opts := prowlarrOptions{Indexers: []indexersv1alpha1.ProwlarrIndexer{{Name: "idx", AppProfileName: "Gone"}}}
 
 	_, err := opts.builders(context.Background(), hc, false)["indexers"].Build(nil)
 	assert.ErrorContains(t, err, "indexers(idx): appProfileName")
 }
 
 func TestObserveModePlansWhatTheResourceDeclares(t *testing.T) {
-	app := &fakeProwlarr{}
+	app := &prowlarrAPI{}
 	hc := app.client(t)
-	opts := Options{
+	opts := prowlarrOptions{
 		Tags:        []commonv1alpha1.Tag{{Label: "TV"}},
 		AppProfiles: []indexersv1alpha1.ProwlarrAppProfile{{Name: "Standard"}},
 		Indexers:    []indexersv1alpha1.ProwlarrIndexer{{Name: "x", TagLabels: []string{"tv"}, AppProfileName: "Standard"}},
@@ -109,12 +109,12 @@ func TestObserveModePlansWhatTheResourceDeclares(t *testing.T) {
 	observe := engine.SyncPolicy{Observe: true}
 
 	pass := engine.NewPass("prowlarr", "", observe, nil)
-	require.Empty(t, Reconcile(context.Background(), hc, opts, pass))
+	require.Empty(t, reconcileProwlarr(context.Background(), hc, opts, pass))
 	assert.Empty(t, app.writes)
 	assert.Contains(t, pass.Drift(), "indexers(x)")
 
 	opts.Indexers[0].TagLabels = []string{"typo"}
-	problems := Reconcile(context.Background(), hc, opts, engine.NewPass("prowlarr", "", observe, nil))
+	problems := reconcileProwlarr(context.Background(), hc, opts, engine.NewPass("prowlarr", "", observe, nil))
 	require.Len(t, problems, 1)
 	assert.ErrorContains(t, problems[0], `the app has no item named "typo"`, "a name the resource doesn't declare still fails")
 }
@@ -352,8 +352,8 @@ func TestSetTagsLeavesUndeclaredTagsAlone(t *testing.T) {
 	assert.Equal(t, []any{7, 9}, payload["tags"])
 }
 
-// fakeProwlarr serves lists by path and keeps what's posted to it.
-type fakeProwlarr struct {
+// prowlarrAPI serves lists by path and keeps what's posted to it.
+type prowlarrAPI struct {
 	mu     sync.Mutex
 	lists  map[string][]map[string]any
 	items  map[string][]map[string]any
@@ -361,7 +361,7 @@ type fakeProwlarr struct {
 	nextID int
 }
 
-func (a *fakeProwlarr) client(t *testing.T) *httpapi.HTTPClient {
+func (a *prowlarrAPI) client(t *testing.T) *httpapi.HTTPClient {
 	t.Helper()
 	if a.lists == nil {
 		a.lists = map[string][]map[string]any{}

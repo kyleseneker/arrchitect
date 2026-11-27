@@ -24,7 +24,7 @@ import (
 	"github.com/kyleseneker/arrchitect/internal/httpapi"
 )
 
-func fieldValue(raw string) *commonv1alpha1.FieldValue {
+func rawValue(raw string) *commonv1alpha1.FieldValue {
 	fv := &commonv1alpha1.FieldValue{}
 	_ = fv.UnmarshalJSON([]byte(raw))
 	return fv
@@ -689,7 +689,7 @@ func TestAutoTagsResolveTheProfilesAndTagsTheyNameAndConverge(t *testing.T) {
 			{Name: "Profile", Implementation: "QualityProfileSpecification", Required: new(true), QualityProfileName: "HD-1080p"},
 			{Name: "Anime", Implementation: "TagSpecification", TagLabel: "Anime"},
 			{Name: "Years", Implementation: "YearSpecification", Fields: []commonv1alpha1.ConfigField{
-				{Name: "min", Value: fieldValue("2000")}, {Name: "max", Value: fieldValue("2030")},
+				{Name: "min", Value: rawValue("2000")}, {Name: "max", Value: rawValue("2030")},
 			}},
 		},
 	}}}
@@ -716,7 +716,7 @@ func TestAutoTagsResolveTheProfilesAndTagsTheyNameAndConverge(t *testing.T) {
 
 	opts.AutoTags[0].Specifications[0] = commonv1alpha1.AutoTagSpecification{
 		Name: "Profile", Implementation: "QualityProfileSpecification", QualityProfileName: "HD-1080p",
-		Fields: []commonv1alpha1.ConfigField{{Name: "value", Value: fieldValue("7")}},
+		Fields: []commonv1alpha1.ConfigField{{Name: "value", Value: rawValue("7")}},
 	}
 	both := reconcileOnce(context.Background(), hc, opts, engine.SyncPolicy{}, result.Managed)
 	require.Len(t, both.Errors, 1)
@@ -751,7 +751,7 @@ func TestMetadataConsumersUpdateInPlaceAndConverge(t *testing.T) {
 	hc := app.client(t)
 	opts := Options{MetadataConsumers: []commonv1alpha1.MetadataConsumer{{
 		Implementation: "XbmcMetadata", Enable: new(true),
-		Fields: []commonv1alpha1.MetadataConsumerField{{Name: "episodeImages", Value: fieldValue("true")}},
+		Fields: []commonv1alpha1.MetadataConsumerField{{Name: "episodeImages", Value: rawValue("true")}},
 	}}}
 
 	result := reconcileOnce(context.Background(), hc, opts, engine.SyncPolicy{}, nil)
@@ -777,7 +777,7 @@ func TestMetadataConsumersUpdateInPlaceAndConverge(t *testing.T) {
 
 	opts.MetadataConsumers = []commonv1alpha1.MetadataConsumer{{
 		Implementation: "XbmcMetadata",
-		Fields:         []commonv1alpha1.MetadataConsumerField{{Name: "movieImages", Value: fieldValue("true")}},
+		Fields:         []commonv1alpha1.MetadataConsumerField{{Name: "movieImages", Value: rawValue("true")}},
 	}}
 	unknown := reconcileOnce(context.Background(), hc, opts, engine.SyncPolicy{}, nil)
 	require.Len(t, unknown.Errors, 1)

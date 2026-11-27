@@ -9,12 +9,12 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	pvrclient "github.com/kyleseneker/arrchitect/internal/client/pvr"
+	"github.com/kyleseneker/arrchitect/internal/controller/pvr"
 	"github.com/kyleseneker/arrchitect/internal/httpapi"
 	"github.com/kyleseneker/arrchitect/internal/secrets"
 )
 
-func pvrApp(a pvrclient.App, newObj func() client.Object) app {
+func pvrApp(a pvr.App, newObj func() client.Object) app {
 	return app{
 		auth:   httpapi.AuthAPIKey,
 		apiKey: true,
@@ -29,7 +29,7 @@ func pvrApp(a pvrclient.App, newObj func() client.Object) app {
 
 type pvrExport struct {
 	*reader
-	app pvrclient.App
+	app pvr.App
 	// specType is the resource's spec, whose fields name the settings each
 	// section keeps.
 	specType         reflect.Type
@@ -42,7 +42,7 @@ type pvrExport struct {
 
 func (e *pvrExport) spec() (map[string]any, error) {
 	spec := map[string]any{}
-	for _, s := range pvrclient.Definition(e.app).Settings {
+	for _, s := range pvr.Definition(e.app).Settings {
 		section, err := e.hc.GetJSON(e.ctx, s.Path)
 		if err != nil {
 			return nil, err
@@ -131,7 +131,7 @@ func (e *pvrExport) spec() (map[string]any, error) {
 		}
 	}
 	// The app returns each settings section in full; keep what the spec has.
-	for _, s := range pvrclient.Definition(e.app).Settings {
+	for _, s := range pvr.Definition(e.app).Settings {
 		if section, ok := spec[s.Name].(map[string]any); ok {
 			spec[s.Name] = crdFields(section, e.specType, s.Name)
 		}
