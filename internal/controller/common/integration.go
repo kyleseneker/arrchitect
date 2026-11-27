@@ -132,6 +132,18 @@ func syncFailure(errs []error) (string, time.Duration) {
 	return reason, retry
 }
 
+// SetupRetry is how soon to try a first-time setup again after err. A minute,
+// as for an app still starting, when nothing in err has a reason of its own;
+// otherwise zero, so the retry ReportResult picks for the reason applies.
+func SetupRetry(err error) time.Duration {
+	for _, leaf := range failureLeaves(err) {
+		if _, _, ok := failureReason(leaf); ok {
+			return 0
+		}
+	}
+	return time.Minute
+}
+
 // failureLeaves splits err into the failures joined into it. A failure with a
 // reason of its own stays whole, with whatever it wraps.
 func failureLeaves(err error) []error {

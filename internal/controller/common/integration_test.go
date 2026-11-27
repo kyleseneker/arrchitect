@@ -92,6 +92,17 @@ func TestSyncFailuresKeepTheirReason(t *testing.T) {
 	}
 }
 
+// A first-time setup that fails while the app is still starting tries again
+// in a minute. One that failed for a reason of its own, alone or mixed with
+// others, leaves the retry to that reason.
+func TestSetupRetry(t *testing.T) {
+	refused := fmt.Errorf("radarr: %w", &engine.APIError{StatusCode: 401})
+	assert.Equal(t, time.Minute, SetupRetry(errors.New("connection refused")))
+	assert.Equal(t, time.Minute, SetupRetry(engine.JoinErrors(errors.New("a"), errors.New("b"))))
+	assert.Zero(t, SetupRetry(refused))
+	assert.Zero(t, SetupRetry(fmt.Errorf("initialization failed: %w", engine.JoinErrors(errors.New("a"), refused))))
+}
+
 func TestCleanupSkipsCheck(t *testing.T) {
 	obj, c := deletingSonarr(t)
 	cleaned := false

@@ -8,7 +8,6 @@ import (
 	"slices"
 	"strconv"
 	"strings"
-	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/events"
@@ -99,7 +98,7 @@ func (r *SeerrReconciler) sync(ctx context.Context, conn *seerrConn, config *req
 			return r.setup(ctx, sc, &pass.Writes, pass.Owned, config, conn.media)
 		})
 		if err != nil {
-			pass.Retry = time.Minute
+			pass.Retry = ctrlcommon.SetupRetry(err)
 			return []error{err}
 		}
 		if pass.Observe {

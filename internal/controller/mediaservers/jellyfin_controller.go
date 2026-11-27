@@ -9,7 +9,6 @@ import (
 	"slices"
 	"strconv"
 	"strings"
-	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/events"
@@ -94,7 +93,7 @@ func (r *JellyfinReconciler) sync(ctx context.Context, conn *jellyfinConn, confi
 		})
 		if err != nil {
 			logger.Error(err, "failed to run setup wizard")
-			pass.Retry = time.Minute
+			pass.Retry = ctrlcommon.SetupRetry(err)
 			return []error{fmt.Errorf("setup wizard: %w", err)}
 		}
 		if pass.Observe {
