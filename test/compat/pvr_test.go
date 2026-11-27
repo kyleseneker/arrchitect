@@ -75,7 +75,7 @@ func TestSonarr(t *testing.T) {
 		},
 		newObj: func() ctrlcommon.ConfigResource { return &pvrv1alpha1.Sonarr{} },
 		reconciler: func(c client.Client) reconcile.Reconciler {
-			return &pvr.SonarrReconciler{Client: c, Scheme: c.Scheme(), Recorder: events.NewFakeRecorder(100)}
+			return &pvr.SonarrReconciler{Client: c, Recorder: events.NewFakeRecorder(100)}
 		},
 		objects: map[string]compatKind{
 			"SonarrIndexer": {
@@ -176,7 +176,7 @@ func TestRadarr(t *testing.T) {
 		},
 		newObj: func() ctrlcommon.ConfigResource { return &pvrv1alpha1.Radarr{} },
 		reconciler: func(c client.Client) reconcile.Reconciler {
-			return &pvr.RadarrReconciler{Client: c, Scheme: c.Scheme(), Recorder: events.NewFakeRecorder(100)}
+			return &pvr.RadarrReconciler{Client: c, Recorder: events.NewFakeRecorder(100)}
 		},
 		objects: map[string]compatKind{
 			"RadarrIndexer": {
@@ -266,7 +266,7 @@ func TestLidarr(t *testing.T) {
 		},
 		newObj: func() ctrlcommon.ConfigResource { return &pvrv1alpha1.Lidarr{} },
 		reconciler: func(c client.Client) reconcile.Reconciler {
-			return &pvr.LidarrReconciler{Client: c, Scheme: c.Scheme(), Recorder: events.NewFakeRecorder(100)}
+			return &pvr.LidarrReconciler{Client: c, Recorder: events.NewFakeRecorder(100)}
 		},
 		objects: map[string]compatKind{
 			"LidarrIndexer": {
@@ -358,7 +358,7 @@ func TestReadarr(t *testing.T) {
 		secrets: map[string]string{"api-key": key, "plex-token": "compat-plex-token"},
 		newObj:  func() ctrlcommon.ConfigResource { return &pvrv1alpha1.Readarr{} },
 		reconciler: func(c client.Client) reconcile.Reconciler {
-			return &pvr.ReadarrReconciler{Client: c, Scheme: c.Scheme(), Recorder: events.NewFakeRecorder(100)}
+			return &pvr.ReadarrReconciler{Client: c, Recorder: events.NewFakeRecorder(100)}
 		},
 		objects: map[string]compatKind{
 			"ReadarrIndexer": {

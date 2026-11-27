@@ -163,7 +163,7 @@ func runBazarr(t *testing.T, cfg *subtitlesv1alpha1.Bazarr, objs ...client.Objec
 		b = b.WithObjects(o)
 	}
 	c := b.Build()
-	r := &BazarrReconciler{Client: c, Scheme: scheme, Recorder: events.NewFakeRecorder(50)}
+	r := &BazarrReconciler{Client: c, Recorder: events.NewFakeRecorder(50)}
 	_, err := r.Reconcile(context.Background(), ctrl.Request{
 		Name: "bazarr", Namespace: "media",
 	})

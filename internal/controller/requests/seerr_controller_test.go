@@ -48,7 +48,7 @@ func observeSeerr(t *testing.T, cfg *requestsv1alpha1.Seerr) metav1.Condition {
 	require.NoError(t, requestsv1alpha1.AddToScheme(scheme))
 	c := fake.NewClientBuilder().WithScheme(scheme).
 		WithStatusSubresource(&requestsv1alpha1.Seerr{}).WithObjects(cfg, seerrSecret()).Build()
-	r := &SeerrReconciler{Client: c, Scheme: scheme, Recorder: events.NewFakeRecorder(50)}
+	r := &SeerrReconciler{Client: c, Recorder: events.NewFakeRecorder(50)}
 	key := types.NamespacedName{Namespace: cfg.Namespace, Name: cfg.Name}
 	_, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: key})
 	require.NoError(t, err)
@@ -454,7 +454,7 @@ func runSeerr(t *testing.T, cfg *requestsv1alpha1.Seerr, objs ...client.Object) 
 	c := fake.NewClientBuilder().WithScheme(scheme).
 		WithStatusSubresource(&requestsv1alpha1.Seerr{}).
 		WithObjects(append(objs, cfg, seerrSecret())...).Build()
-	r := &SeerrReconciler{Client: c, Scheme: scheme, Recorder: events.NewFakeRecorder(50)}
+	r := &SeerrReconciler{Client: c, Recorder: events.NewFakeRecorder(50)}
 	_, err := r.Reconcile(context.Background(), ctrl.Request{
 		Name: "seerr", Namespace: "media",
 	})

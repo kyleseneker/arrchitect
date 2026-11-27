@@ -201,15 +201,6 @@ func refusal(data []byte, what string) error {
 	return nil
 }
 
-func (c *Client) SetConfigMulti(ctx context.Context, section string, values map[string]string) error {
-	for k, v := range values {
-		if err := c.SetConfig(ctx, section, k, v); err != nil {
-			return fmt.Errorf("setting %s.%s: %w", section, k, err)
-		}
-	}
-	return nil
-}
-
 // DeleteNamed removes a server or category by name.
 func (c *Client) DeleteNamed(ctx context.Context, section, name string) error {
 	params := c.apiParams("del_config", "")

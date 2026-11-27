@@ -420,11 +420,11 @@ func ResolveImportListSecrets(ctx context.Context, c client.Reader, namespace st
 
 var secretKeyRefType = reflect.TypeFor[commonv1alpha1.SecretKeyRef]()
 
-// ReferencesSecret reports whether a config refers to the named Secret
+// referencesSecret reports whether a config refers to the named Secret
 // anywhere. Every Secret reference in the API is a SecretKeyRef, so walking
 // the config finds new ones as fields are added rather than relying on a list
 // kept by hand.
-func ReferencesSecret(config any, name string) bool {
+func referencesSecret(config any, name string) bool {
 	return slices.ContainsFunc(SecretKeyRefs(config), func(ref commonv1alpha1.SecretKeyRef) bool { return ref.Name == name })
 }
 

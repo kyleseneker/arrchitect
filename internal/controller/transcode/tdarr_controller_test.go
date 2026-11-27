@@ -184,7 +184,7 @@ func runTdarr(t *testing.T, cfg *transcodev1alpha1.Tdarr, withSecret bool) clien
 		b = b.WithObjects(tdarrSecret())
 	}
 	c := b.Build()
-	r := &TdarrReconciler{Client: c, Scheme: scheme, Recorder: events.NewFakeRecorder(50)}
+	r := &TdarrReconciler{Client: c, Recorder: events.NewFakeRecorder(50)}
 	_, err := r.Reconcile(context.Background(), ctrl.Request{
 		Name: "tdarr", Namespace: "media",
 	})

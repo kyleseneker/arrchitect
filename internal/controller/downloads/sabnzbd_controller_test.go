@@ -122,7 +122,7 @@ func runSabnzbd(t *testing.T, cfg *downloadsv1alpha1.Sabnzbd, withSecret bool) {
 		b = b.WithObjects(sabnzbdSecret())
 	}
 	c := b.Build()
-	r := &SabnzbdReconciler{Client: c, Scheme: scheme, Recorder: events.NewFakeRecorder(50)}
+	r := &SabnzbdReconciler{Client: c, Recorder: events.NewFakeRecorder(50)}
 	_, err := r.Reconcile(context.Background(), ctrl.Request{
 		Name: "sabnzbd", Namespace: "media",
 	})
@@ -220,7 +220,7 @@ func TestSabnzbdObserveReportsDriftWithoutWriting(t *testing.T) {
 	require.NoError(t, downloadsv1alpha1.AddToScheme(scheme))
 	c := fake.NewClientBuilder().WithScheme(scheme).
 		WithStatusSubresource(&downloadsv1alpha1.Sabnzbd{}).WithObjects(cfg, sabnzbdSecret()).Build()
-	r := &SabnzbdReconciler{Client: c, Scheme: scheme}
+	r := &SabnzbdReconciler{Client: c}
 	_, err := r.Reconcile(context.Background(), ctrl.Request{Name: "sabnzbd", Namespace: "media"})
 	require.NoError(t, err)
 
@@ -353,7 +353,7 @@ func runSabnzbdConfig(t *testing.T, cfg *downloadsv1alpha1.Sabnzbd) map[string][
 	require.NoError(t, downloadsv1alpha1.AddToScheme(scheme))
 	c := fake.NewClientBuilder().WithScheme(scheme).
 		WithStatusSubresource(&downloadsv1alpha1.Sabnzbd{}).WithObjects(cfg, sabnzbdSecret()).Build()
-	r := &SabnzbdReconciler{Client: c, Scheme: scheme, Recorder: events.NewFakeRecorder(50)}
+	r := &SabnzbdReconciler{Client: c, Recorder: events.NewFakeRecorder(50)}
 	_, err := r.Reconcile(context.Background(), ctrl.Request{Name: "sabnzbd", Namespace: "media"})
 	require.NoError(t, err)
 	var got downloadsv1alpha1.Sabnzbd
@@ -568,7 +568,7 @@ func TestSabnzbdReportsSettingsSABnzbdDidNotKeep(t *testing.T) {
 	require.NoError(t, downloadsv1alpha1.AddToScheme(scheme))
 	c := fake.NewClientBuilder().WithScheme(scheme).
 		WithStatusSubresource(&downloadsv1alpha1.Sabnzbd{}).WithObjects(cfg, sabnzbdSecret()).Build()
-	r := &SabnzbdReconciler{Client: c, Scheme: scheme, Recorder: events.NewFakeRecorder(50)}
+	r := &SabnzbdReconciler{Client: c, Recorder: events.NewFakeRecorder(50)}
 	_, err := r.Reconcile(context.Background(), ctrl.Request{Name: "sabnzbd", Namespace: "media"})
 	require.NoError(t, err)
 

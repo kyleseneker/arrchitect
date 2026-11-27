@@ -102,9 +102,9 @@ func (a Apps) Runs(kind string) bool {
 
 var errAppRefNotFound = errors.New("not found")
 
-// IsAppRefNotFound reports whether err is ResolveAppRef's for a resource that
+// isAppRefNotFound reports whether err is ResolveAppRef's for a resource that
 // doesn't exist.
-func IsAppRefNotFound(err error) bool {
+func isAppRefNotFound(err error) bool {
 	return errors.Is(err, errAppRefNotFound)
 }
 
@@ -127,7 +127,7 @@ func InvalidAppRef(format string, args ...any) error {
 func AppRefFailure(err error) (string, time.Duration) {
 	_, invalid := errors.AsType[*invalidAppRefError](err)
 	switch {
-	case IsAppRefNotFound(err):
+	case isAppRefNotFound(err):
 		return engine.ReasonReferenceNotFound, 30 * time.Second
 	case invalid:
 		return engine.ReasonInvalidConfig, 0
@@ -167,7 +167,7 @@ func ResolveAppAddress(ctx context.Context, c client.Reader, apps Apps, namespac
 	if err != nil {
 		return App{}, Address{}, err
 	}
-	addr, err := SplitURL(app.URL)
+	addr, err := splitURL(app.URL)
 	if err != nil {
 		return App{}, Address{}, InvalidAppRef("%s %q has no usable connection URL", ref.Kind, ref.Name)
 	}
@@ -259,9 +259,9 @@ type Address struct {
 	Base string
 }
 
-// SplitURL breaks an app's URL into an Address, with the scheme's default port
+// splitURL breaks an app's URL into an Address, with the scheme's default port
 // when the URL has none.
-func SplitURL(raw string) (Address, error) {
+func splitURL(raw string) (Address, error) {
 	u, err := url.Parse(raw)
 	if err != nil || u.Hostname() == "" {
 		return Address{}, fmt.Errorf("not an app URL")
@@ -350,7 +350,7 @@ func EnqueueForSecretThroughRefs(c client.Client, apps Apps, list client.ObjectL
 func secretReferrers(c client.Client, apps Apps, list client.ObjectList, refsOf func(client.Object) []commonv1alpha1.AppRef) handler.MapFunc {
 	return func(ctx context.Context, secret client.Object) []reconcile.Request {
 		return listMatching(ctx, c, list, secret.GetNamespace(), func(o client.Object) bool {
-			if ReferencesSecret(o, secret.GetName()) {
+			if referencesSecret(o, secret.GetName()) {
 				return true
 			}
 			for _, ref := range refsOf(o) {
@@ -360,7 +360,7 @@ func secretReferrers(c client.Client, apps Apps, list client.ObjectList, refsOf 
 				}
 				target := kind.newObj()
 				if c.Get(ctx, types.NamespacedName{Namespace: o.GetNamespace(), Name: ref.Name}, target) == nil &&
-					ReferencesSecret(target, secret.GetName()) {
+					referencesSecret(target, secret.GetName()) {
 					return true
 				}
 			}

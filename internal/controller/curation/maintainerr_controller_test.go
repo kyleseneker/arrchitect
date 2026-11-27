@@ -359,7 +359,7 @@ func newMaintainerrRun(t *testing.T, spec curationv1alpha1.MaintainerrSpec, objs
 	c := fake.NewClientBuilder().WithScheme(scheme).
 		WithStatusSubresource(&curationv1alpha1.Maintainerr{}).
 		WithObjects(append(objs, cfg, maintainerrSecrets())...).Build()
-	return &maintainerrRun{c: c, r: &MaintainerrReconciler{Client: c, Scheme: scheme, Recorder: events.NewFakeRecorder(50)}}
+	return &maintainerrRun{c: c, r: &MaintainerrReconciler{Client: c, Recorder: events.NewFakeRecorder(50)}}
 }
 
 func (m *maintainerrRun) reconcile(t *testing.T) {

@@ -385,8 +385,8 @@ func TestReferencesSecretFindsEveryReference(t *testing.T) {
 			}}},
 		},
 	} {
-		assert.True(t, ReferencesSecret(config, "target"), name)
-		assert.False(t, ReferencesSecret(config, "other"), name)
+		assert.True(t, referencesSecret(config, "target"), name)
+		assert.False(t, referencesSecret(config, "other"), name)
 	}
 }
 

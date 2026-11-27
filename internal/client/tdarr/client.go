@@ -100,20 +100,6 @@ func (c *Client) Update(ctx context.Context, collection, docID string, obj map[s
 	return err
 }
 
-// Upsert inserts or updates a document. It attempts a GetByID first;
-// if the document exists it updates, otherwise it inserts.
-func (c *Client) Upsert(ctx context.Context, collection, docID string, obj map[string]any) error {
-	existing, err := c.GetByID(ctx, collection, docID)
-	if err != nil {
-		return fmt.Errorf("looking up %s/%s: %w", collection, docID, err)
-	}
-	// A nil or empty result means the document was not found.
-	if len(existing) == 0 {
-		return c.Insert(ctx, collection, docID, obj)
-	}
-	return c.Update(ctx, collection, docID, obj)
-}
-
 // GetNodes returns all registered Tdarr nodes.
 func (c *Client) GetNodes(ctx context.Context) (map[string]any, error) {
 	return c.hc.GetJSON(ctx, "/api/v2/get-nodes")

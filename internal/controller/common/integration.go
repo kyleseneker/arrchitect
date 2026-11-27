@@ -103,7 +103,7 @@ func (in Integration[T, C]) Reconcile(
 func Classify(err error) (string, time.Duration) {
 	_, invalidRef := errors.AsType[*invalidAppRefError](err)
 	switch {
-	case IsAppRefNotFound(err):
+	case isAppRefNotFound(err):
 		return engine.ReasonReferenceNotFound, 30 * time.Second
 	case invalidRef, engine.IsConfigError(err):
 		return engine.ReasonInvalidConfig, 0

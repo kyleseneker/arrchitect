@@ -89,7 +89,7 @@ var pvrApps = []pvrApp{
 		name: "sonarr", apiVer: "v3",
 		empty: func() ctrlcommon.ConfigResource { return &pvrv1alpha1.Sonarr{} },
 		newRec: func(c client.Client, s *runtime.Scheme) reconcile.Reconciler {
-			return &SonarrReconciler{Client: c, Scheme: s, Recorder: events.NewFakeRecorder(50)}
+			return &SonarrReconciler{Client: c, Recorder: events.NewFakeRecorder(50)}
 		},
 		build: func(url string, o buildOpts) ctrlcommon.ConfigResource {
 			conn, roots, notifications, rec := baseSpec(o)
@@ -109,7 +109,7 @@ var pvrApps = []pvrApp{
 		name: "radarr", apiVer: "v3",
 		empty: func() ctrlcommon.ConfigResource { return &pvrv1alpha1.Radarr{} },
 		newRec: func(c client.Client, s *runtime.Scheme) reconcile.Reconciler {
-			return &RadarrReconciler{Client: c, Scheme: s, Recorder: events.NewFakeRecorder(50)}
+			return &RadarrReconciler{Client: c, Recorder: events.NewFakeRecorder(50)}
 		},
 		build: func(url string, o buildOpts) ctrlcommon.ConfigResource {
 			conn, roots, notifications, rec := baseSpec(o)
@@ -129,7 +129,7 @@ var pvrApps = []pvrApp{
 		name: "lidarr", apiVer: "v1",
 		empty: func() ctrlcommon.ConfigResource { return &pvrv1alpha1.Lidarr{} },
 		newRec: func(c client.Client, s *runtime.Scheme) reconcile.Reconciler {
-			return &LidarrReconciler{Client: c, Scheme: s, Recorder: events.NewFakeRecorder(50)}
+			return &LidarrReconciler{Client: c, Recorder: events.NewFakeRecorder(50)}
 		},
 		build: func(url string, o buildOpts) ctrlcommon.ConfigResource {
 			conn, roots, notifications, rec := baseSpec(o)
@@ -149,7 +149,7 @@ var pvrApps = []pvrApp{
 		name: "readarr", apiVer: "v1",
 		empty: func() ctrlcommon.ConfigResource { return &pvrv1alpha1.Readarr{} },
 		newRec: func(c client.Client, s *runtime.Scheme) reconcile.Reconciler {
-			return &ReadarrReconciler{Client: c, Scheme: s, Recorder: events.NewFakeRecorder(50)}
+			return &ReadarrReconciler{Client: c, Recorder: events.NewFakeRecorder(50)}
 		},
 		build: func(url string, o buildOpts) ctrlcommon.ConfigResource {
 			conn, roots, notifications, rec := baseSpec(o)

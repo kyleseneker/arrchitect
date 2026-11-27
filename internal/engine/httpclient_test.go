@@ -281,8 +281,6 @@ func TestSetters(t *testing.T) {
 	c.SetAPIKey("ak")
 	assert.Equal(t, "ak", c.apiKey)
 
-	c.SetCookieSessionID("sid")
-	assert.Equal(t, "sid", c.cookieSessionID)
 }
 
 // A dial failure must not be reported as an SSRF block; they lead to completely

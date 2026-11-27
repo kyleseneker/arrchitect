@@ -105,7 +105,7 @@ func runFlare(t *testing.T, cfg *indexersv1alpha1.FlareSolverr) client.Client {
 	c := fake.NewClientBuilder().WithScheme(scheme).
 		WithStatusSubresource(&indexersv1alpha1.FlareSolverr{}).
 		WithObjects(cfg).Build()
-	r := &FlareSolverrReconciler{Client: c, Scheme: scheme, Recorder: events.NewFakeRecorder(50)}
+	r := &FlareSolverrReconciler{Client: c, Recorder: events.NewFakeRecorder(50)}
 	_, err := r.Reconcile(context.Background(), ctrl.Request{
 		Name: "flaresolverr", Namespace: "media",
 	})

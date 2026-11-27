@@ -151,7 +151,7 @@ func NewHTTPClient(baseURL string, authType AuthType, opts ...HTTPClientOption) 
 		httpClient: &http.Client{
 			Timeout:       30 * time.Second,
 			Jar:           secureAgnosticJar{jar},
-			Transport:     NewHTTPTransport(nil),
+			Transport:     newHTTPTransport(nil),
 			CheckRedirect: sameHostRedirects,
 		},
 	}
@@ -247,7 +247,7 @@ func isBlockedIP(ip net.IP) bool {
 func WithTLSConfig(tlsCfg *tls.Config) HTTPClientOption {
 	return func(c *HTTPClient) {
 		if tlsCfg != nil {
-			c.httpClient.Transport = NewHTTPTransport(tlsCfg)
+			c.httpClient.Transport = newHTTPTransport(tlsCfg)
 		}
 	}
 }
@@ -284,10 +284,6 @@ func WithAPIKeyHeader(header string) HTTPClientOption {
 
 func WithPlexToken(token string) HTTPClientOption {
 	return func(c *HTTPClient) { c.plexToken = token }
-}
-
-func WithMediaToken(token string) HTTPClientOption {
-	return func(c *HTTPClient) { c.mediaToken = token }
 }
 
 // WithTimeout overrides the default request timeout. Apps that accept large
@@ -341,11 +337,6 @@ func (c *HTTPClient) SetMediaToken(token string) {
 // SetAPIKey updates the API key.
 func (c *HTTPClient) SetAPIKey(key string) {
 	c.apiKey = key
-}
-
-// SetCookieSessionID sets the session cookie for cookie-based auth.
-func (c *HTTPClient) SetCookieSessionID(sid string) {
-	c.cookieSessionID = sid
 }
 
 // SetCookieSession sets the session cookie under a specific name.

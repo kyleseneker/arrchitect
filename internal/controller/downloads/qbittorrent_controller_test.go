@@ -253,7 +253,7 @@ func TestQBObserveReadsWithoutChangingPreferencesOrCategories(t *testing.T) {
 			}
 			secret := &corev1.Secret{Name: "creds", Namespace: "media", Data: map[string][]byte{"user": []byte("user"), "password": []byte("password")}}
 			c := fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(cfg).WithObjects(cfg, secret).Build()
-			rec := &QBittorrentReconciler{Client: c, Scheme: scheme}
+			rec := &QBittorrentReconciler{Client: c}
 			key := types.NamespacedName{Name: cfg.Name, Namespace: cfg.Namespace}
 			_, err = rec.Reconcile(context.Background(), ctrl.Request{NamespacedName: key})
 			require.NoError(t, err)
@@ -320,7 +320,7 @@ func TestQBEnforceWritesOnlyWhatDiffers(t *testing.T) {
 				Data: map[string][]byte{"user": []byte("admin"), "password": []byte("pw")}}
 			c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(cfg, secret).
 				WithStatusSubresource(&downloadsv1alpha1.QBittorrent{}).Build()
-			r := &QBittorrentReconciler{Client: c, Scheme: scheme}
+			r := &QBittorrentReconciler{Client: c}
 			req := ctrl.Request{Name: "qbit", Namespace: "media"}
 			_, err = r.Reconcile(context.Background(), req)
 			require.NoError(t, err)
@@ -386,7 +386,7 @@ func runQB(t *testing.T, cfg *downloadsv1alpha1.QBittorrent) *downloadsv1alpha1.
 		Data: map[string][]byte{"user": []byte("admin"), "password": []byte("pw")}}
 	c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(cfg, secret).
 		WithStatusSubresource(&downloadsv1alpha1.QBittorrent{}).Build()
-	r := &QBittorrentReconciler{Client: c, Scheme: scheme, Recorder: events.NewFakeRecorder(20)}
+	r := &QBittorrentReconciler{Client: c, Recorder: events.NewFakeRecorder(20)}
 	key := types.NamespacedName{Name: "qbit", Namespace: "media"}
 	_, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: key})
 	require.NoError(t, err)

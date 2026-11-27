@@ -191,7 +191,7 @@ func runJellyfin(t *testing.T, objs ...client.Object) client.Client {
 		b = b.WithObjects(o)
 	}
 	c := b.Build()
-	r := &JellyfinReconciler{Client: c, Scheme: scheme, Recorder: events.NewFakeRecorder(50)}
+	r := &JellyfinReconciler{Client: c, Recorder: events.NewFakeRecorder(50)}
 	_, err := r.Reconcile(context.Background(), ctrl.Request{
 		Name: "jellyfin", Namespace: "media",
 	})

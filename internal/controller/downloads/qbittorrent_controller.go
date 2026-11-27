@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -29,7 +28,6 @@ import (
 // QBittorrentReconciler reconciles a QBittorrent object.
 type QBittorrentReconciler struct {
 	client.Client
-	Scheme   *runtime.Scheme
 	Recorder events.EventRecorder
 }
 

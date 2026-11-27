@@ -99,7 +99,7 @@ func TestSeerr(t *testing.T) {
 		},
 		newObj: func() ctrlcommon.ConfigResource { return &requestsv1alpha1.Seerr{} },
 		reconciler: func(c client.Client) reconcile.Reconciler {
-			return &requests.SeerrReconciler{Client: c, Scheme: c.Scheme(), Recorder: events.NewFakeRecorder(100)}
+			return &requests.SeerrReconciler{Client: c, Recorder: events.NewFakeRecorder(100)}
 		},
 		proxy:   proxy,
 		observe: true,

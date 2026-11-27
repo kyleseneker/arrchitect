@@ -47,7 +47,7 @@ func TestOrphanIsTheDefaultAndDoesNotRemove(t *testing.T) {
 	c := newConfig("", time.Minute)
 	cl := testClient(c).Build()
 	called := false
-	handled, err := HandleDeletion(context.Background(), cl, nil, c, func(context.Context) error {
+	handled, err := handleDeletion(context.Background(), cl, nil, c, func(context.Context) error {
 		called = true
 		return nil
 	})
@@ -61,7 +61,7 @@ func TestDeletePolicyRemovesThenReleases(t *testing.T) {
 	c := newConfig(DeletionPolicyDelete, time.Minute)
 	cl := testClient(c).Build()
 	called := false
-	handled, err := HandleDeletion(context.Background(), cl, nil, c, func(context.Context) error {
+	handled, err := handleDeletion(context.Background(), cl, nil, c, func(context.Context) error {
 		called = true
 		return nil
 	})
@@ -75,7 +75,7 @@ func TestDeletePolicyWithNothingOwnedSkipsTheApp(t *testing.T) {
 	c := newConfig(DeletionPolicyDelete, time.Minute)
 	c.SetManagedResources(map[string][]string{"indexers": {}})
 	cl := testClient(c).Build()
-	handled, err := HandleDeletion(context.Background(), cl, nil, c, func(context.Context) error {
+	handled, err := handleDeletion(context.Background(), cl, nil, c, func(context.Context) error {
 		return errors.New("app is gone")
 	})
 	require.NoError(t, err)
@@ -88,7 +88,7 @@ func TestUnreachableAppRetriesButDoesNotWedgeForever(t *testing.T) {
 	c := newConfig(DeletionPolicyDelete, time.Minute)
 	cl := testClient(c).Build()
 	recorder := events.NewFakeRecorder(1)
-	_, err := HandleDeletion(context.Background(), cl, recorder, c, func(context.Context) error {
+	_, err := handleDeletion(context.Background(), cl, recorder, c, func(context.Context) error {
 		return errors.New("app unreachable")
 	})
 	assert.Error(t, err, "expected an error so the request is retried")
@@ -105,7 +105,7 @@ func TestUnreachableAppRetriesButDoesNotWedgeForever(t *testing.T) {
 	c2 := newConfig(DeletionPolicyDelete, DeletionGiveUpAfter+time.Minute)
 	cl2 := testClient(c2).Build()
 	recorder2 := events.NewFakeRecorder(1)
-	handled, err := HandleDeletion(context.Background(), cl2, recorder2, c2, func(context.Context) error {
+	handled, err := handleDeletion(context.Background(), cl2, recorder2, c2, func(context.Context) error {
 		return errors.New("app still unreachable")
 	})
 	require.NoError(t, err)
@@ -122,7 +122,7 @@ func TestDeletionReportsWhatTheAppRefusesAndReleases(t *testing.T) {
 	cl := testClient(c).Build()
 	recorder := events.NewFakeRecorder(1)
 
-	_, err := HandleDeletion(context.Background(), cl, recorder, c, func(context.Context) error {
+	_, err := handleDeletion(context.Background(), cl, recorder, c, func(context.Context) error {
 		return &engine.KeptError{App: "seerr", Kept: []engine.KeptResource{{
 			Type: "sonarr", Name: "Sonarr", Reason: "Seerr refused to delete it: in use",
 		}}}
@@ -147,7 +147,7 @@ func TestUnsupportedOrObserveDeletionDoesNotSilentlySucceed(t *testing.T) {
 			if observe {
 				remove = func(context.Context) error { called = true; return nil }
 			}
-			_, err := HandleDeletion(context.Background(), c, nil, obj, remove)
+			_, err := handleDeletion(context.Background(), c, nil, obj, remove)
 			require.Error(t, err, "expected explicit cleanup failure")
 			require.False(t, called, "observe mode must not invoke cleanup")
 			require.True(t, controllerutil.ContainsFinalizer(obj, Finalizer), "finalizer released without reporting failure")
@@ -258,7 +258,7 @@ func TestFinalizerIsReleasedAfterCleanupUsesUpTheDeadline(t *testing.T) {
 	cl := testClient(c).Build()
 	ctx, cancel := context.WithCancel(context.Background())
 
-	handled, err := HandleDeletion(ctx, cl, nil, c, func(context.Context) error {
+	handled, err := handleDeletion(ctx, cl, nil, c, func(context.Context) error {
 		cancel()
 		return context.Canceled
 	})

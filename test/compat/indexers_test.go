@@ -57,7 +57,7 @@ func TestProwlarr(t *testing.T) {
 		newerFields: []string{"/spec/applications/0/authUsernameSecretRef", "/spec/applications/0/authPasswordSecretRef"},
 		newObj:      func() ctrlcommon.ConfigResource { return &indexersv1alpha1.Prowlarr{} },
 		reconciler: func(c client.Client) reconcile.Reconciler {
-			return &indexers.ProwlarrReconciler{Client: c, Scheme: c.Scheme(), Recorder: events.NewFakeRecorder(100)}
+			return &indexers.ProwlarrReconciler{Client: c, Recorder: events.NewFakeRecorder(100)}
 		},
 		proxy:   proxy,
 		observe: true,
@@ -110,7 +110,7 @@ func TestFlareSolverr(t *testing.T) {
 		vars:    map[string]string{"URL": proxy.url()},
 		newObj:  func() ctrlcommon.ConfigResource { return &indexersv1alpha1.FlareSolverr{} },
 		reconciler: func(c client.Client) reconcile.Reconciler {
-			return &indexers.FlareSolverrReconciler{Client: c, Scheme: c.Scheme(), Recorder: events.NewFakeRecorder(100)}
+			return &indexers.FlareSolverrReconciler{Client: c, Recorder: events.NewFakeRecorder(100)}
 		},
 		proxy: proxy,
 		// Every command is a POST to /v1; listing sessions changes nothing.

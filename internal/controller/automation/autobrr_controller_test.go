@@ -149,7 +149,7 @@ func runAutobrr(t *testing.T, cfg *automationv1alpha1.Autobrr, withSecret bool, 
 		b = b.WithObjects(autobrrSecret())
 	}
 	c := b.Build()
-	r := &AutobrrReconciler{Client: c, Scheme: scheme, Recorder: events.NewFakeRecorder(50)}
+	r := &AutobrrReconciler{Client: c, Recorder: events.NewFakeRecorder(50)}
 	_, err := r.Reconcile(context.Background(), ctrl.Request{
 		Name: "autobrr", Namespace: "media",
 	})

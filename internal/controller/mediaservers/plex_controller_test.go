@@ -109,7 +109,7 @@ func runPlex(t *testing.T, cfg *mediaserversv1alpha1.Plex, withSecret bool) {
 		b = b.WithObjects(plexSecret())
 	}
 	c := b.Build()
-	r := &PlexReconciler{Client: c, Scheme: scheme, Recorder: events.NewFakeRecorder(50)}
+	r := &PlexReconciler{Client: c, Recorder: events.NewFakeRecorder(50)}
 	_, err := r.Reconcile(context.Background(), ctrl.Request{
 		Name: "plex", Namespace: "media",
 	})
@@ -204,7 +204,7 @@ func observePlex(t *testing.T, cfg *mediaserversv1alpha1.Plex) metav1.Condition 
 	require.NoError(t, mediaserversv1alpha1.AddToScheme(scheme))
 	c := fake.NewClientBuilder().WithScheme(scheme).
 		WithStatusSubresource(&mediaserversv1alpha1.Plex{}).WithObjects(cfg, plexSecret()).Build()
-	r := &PlexReconciler{Client: c, Scheme: scheme, Recorder: events.NewFakeRecorder(50)}
+	r := &PlexReconciler{Client: c, Recorder: events.NewFakeRecorder(50)}
 	key := types.NamespacedName{Namespace: cfg.Namespace, Name: cfg.Name}
 	_, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: key})
 	require.NoError(t, err)

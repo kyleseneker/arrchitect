@@ -90,7 +90,7 @@ func controllerCases() []controllerCase {
 				}
 			},
 			newRec: func(c client.Client, s *runtime.Scheme) reconcile.Reconciler {
-				return &subtitles.BazarrReconciler{Client: c, Scheme: s, Recorder: events.NewFakeRecorder(50)}
+				return &subtitles.BazarrReconciler{Client: c, Recorder: events.NewFakeRecorder(50)}
 			},
 		},
 		{
@@ -106,7 +106,7 @@ func controllerCases() []controllerCase {
 				}
 			},
 			newRec: func(c client.Client, s *runtime.Scheme) reconcile.Reconciler {
-				return &curation.MaintainerrReconciler{Client: c, Scheme: s, Recorder: events.NewFakeRecorder(50)}
+				return &curation.MaintainerrReconciler{Client: c, Recorder: events.NewFakeRecorder(50)}
 			},
 		},
 		{
@@ -120,7 +120,7 @@ func controllerCases() []controllerCase {
 				}
 			},
 			newRec: func(c client.Client, s *runtime.Scheme) reconcile.Reconciler {
-				return &automation.AutobrrReconciler{Client: c, Scheme: s, Recorder: events.NewFakeRecorder(50)}
+				return &automation.AutobrrReconciler{Client: c, Recorder: events.NewFakeRecorder(50)}
 			},
 		},
 		{
@@ -134,7 +134,7 @@ func controllerCases() []controllerCase {
 				}
 			},
 			newRec: func(c client.Client, s *runtime.Scheme) reconcile.Reconciler {
-				return &downloads.SabnzbdReconciler{Client: c, Scheme: s, Recorder: events.NewFakeRecorder(50)}
+				return &downloads.SabnzbdReconciler{Client: c, Recorder: events.NewFakeRecorder(50)}
 			},
 		},
 		{
@@ -148,7 +148,7 @@ func controllerCases() []controllerCase {
 				}
 			},
 			newRec: func(c client.Client, s *runtime.Scheme) reconcile.Reconciler {
-				return &pvr.SonarrReconciler{Client: c, Scheme: s, Recorder: events.NewFakeRecorder(50)}
+				return &pvr.SonarrReconciler{Client: c, Recorder: events.NewFakeRecorder(50)}
 			},
 		},
 		{
@@ -198,7 +198,7 @@ func controllerCases() []controllerCase {
 				}
 			},
 			newRec: func(c client.Client, s *runtime.Scheme) reconcile.Reconciler {
-				return &indexers.ProwlarrReconciler{Client: c, Scheme: s, Recorder: events.NewFakeRecorder(50)}
+				return &indexers.ProwlarrReconciler{Client: c, Recorder: events.NewFakeRecorder(50)}
 			},
 		},
 		{
@@ -218,7 +218,7 @@ func controllerCases() []controllerCase {
 				}
 			},
 			newRec: func(c client.Client, s *runtime.Scheme) reconcile.Reconciler {
-				return &mediaservers.JellyfinReconciler{Client: c, Scheme: s, Recorder: events.NewFakeRecorder(50)}
+				return &mediaservers.JellyfinReconciler{Client: c, Recorder: events.NewFakeRecorder(50)}
 			},
 		},
 		{
@@ -236,7 +236,7 @@ func controllerCases() []controllerCase {
 				}
 			},
 			newRec: func(c client.Client, s *runtime.Scheme) reconcile.Reconciler {
-				return &requests.SeerrReconciler{Client: c, Scheme: s, Recorder: events.NewFakeRecorder(50)}
+				return &requests.SeerrReconciler{Client: c, Recorder: events.NewFakeRecorder(50)}
 			},
 		},
 		{
@@ -257,7 +257,7 @@ func controllerCases() []controllerCase {
 				}
 			},
 			newRec: func(c client.Client, s *runtime.Scheme) reconcile.Reconciler {
-				return &downloads.QBittorrentReconciler{Client: c, Scheme: s, Recorder: events.NewFakeRecorder(50)}
+				return &downloads.QBittorrentReconciler{Client: c, Recorder: events.NewFakeRecorder(50)}
 			},
 		},
 		{
@@ -274,7 +274,7 @@ func controllerCases() []controllerCase {
 				}
 			},
 			newRec: func(c client.Client, s *runtime.Scheme) reconcile.Reconciler {
-				return &pvr.RadarrReconciler{Client: c, Scheme: s, Recorder: events.NewFakeRecorder(50)}
+				return &pvr.RadarrReconciler{Client: c, Recorder: events.NewFakeRecorder(50)}
 			},
 		},
 		{
@@ -327,7 +327,7 @@ func controllerCases() []controllerCase {
 				}
 			},
 			newRec: func(c client.Client, s *runtime.Scheme) reconcile.Reconciler {
-				return &pvr.LidarrReconciler{Client: c, Scheme: s, Recorder: events.NewFakeRecorder(50)}
+				return &pvr.LidarrReconciler{Client: c, Recorder: events.NewFakeRecorder(50)}
 			},
 		},
 		{
@@ -380,7 +380,7 @@ func controllerCases() []controllerCase {
 				}
 			},
 			newRec: func(c client.Client, s *runtime.Scheme) reconcile.Reconciler {
-				return &pvr.ReadarrReconciler{Client: c, Scheme: s, Recorder: events.NewFakeRecorder(50)}
+				return &pvr.ReadarrReconciler{Client: c, Recorder: events.NewFakeRecorder(50)}
 			},
 		},
 		{
@@ -433,7 +433,7 @@ func controllerCases() []controllerCase {
 				}
 			},
 			newRec: func(c client.Client, s *runtime.Scheme) reconcile.Reconciler {
-				return &indexers.FlareSolverrReconciler{Client: c, Scheme: s, Recorder: events.NewFakeRecorder(50)}
+				return &indexers.FlareSolverrReconciler{Client: c, Recorder: events.NewFakeRecorder(50)}
 			},
 		},
 		{
@@ -450,7 +450,7 @@ func controllerCases() []controllerCase {
 				}
 			},
 			newRec: func(c client.Client, s *runtime.Scheme) reconcile.Reconciler {
-				return &mediaservers.PlexReconciler{Client: c, Scheme: s, Recorder: events.NewFakeRecorder(50)}
+				return &mediaservers.PlexReconciler{Client: c, Recorder: events.NewFakeRecorder(50)}
 			},
 		},
 		{
@@ -467,7 +467,7 @@ func controllerCases() []controllerCase {
 				}
 			},
 			newRec: func(c client.Client, s *runtime.Scheme) reconcile.Reconciler {
-				return &transcode.TdarrReconciler{Client: c, Scheme: s, Recorder: events.NewFakeRecorder(50)}
+				return &transcode.TdarrReconciler{Client: c, Recorder: events.NewFakeRecorder(50)}
 			},
 		},
 	}
@@ -535,7 +535,7 @@ func TestSecretChangeReconcilesTheConfigReferringToIt(t *testing.T) {
 	})
 	require.NoError(t, err)
 	rec := &indexers.FlareSolverrReconciler{
-		Client: mgr.GetClient(), Scheme: mgr.GetScheme(), Recorder: events.NewFakeRecorder(100),
+		Client: mgr.GetClient(), Recorder: events.NewFakeRecorder(100),
 	}
 	require.NoError(t, rec.SetupWithManager(mgr))
 	ctx, cancel := context.WithCancel(context.Background())
@@ -594,7 +594,7 @@ func TestDeletePolicyReleasesTheObject(t *testing.T) {
 		},
 	}
 	require.NoError(t, c.Create(ctx, cr))
-	r := &transcode.TdarrReconciler{Client: c, Scheme: c.Scheme(), Recorder: events.NewFakeRecorder(50)}
+	r := &transcode.TdarrReconciler{Client: c, Recorder: events.NewFakeRecorder(50)}
 	req := ctrl.Request{Name: cr.Name, Namespace: cr.Namespace}
 
 	_, err := r.Reconcile(ctx, req)
@@ -672,7 +672,7 @@ func TestAppRefChangesReconcileTheReferrer(t *testing.T) {
 	})
 	require.NoError(t, err)
 	rec := &indexers.ProwlarrReconciler{
-		Client: mgr.GetClient(), Scheme: mgr.GetScheme(), Recorder: events.NewFakeRecorder(100),
+		Client: mgr.GetClient(), Recorder: events.NewFakeRecorder(100),
 	}
 	require.NoError(t, rec.SetupWithManager(mgr))
 	ctx, cancel := context.WithCancel(context.Background())
@@ -728,7 +728,7 @@ func TestNotificationAppRefChangesReconcileTheSonarr(t *testing.T) {
 		Client:     operator.ClientOptions(),
 	})
 	require.NoError(t, err)
-	rec := &pvr.SonarrReconciler{Client: mgr.GetClient(), Scheme: mgr.GetScheme(), Recorder: events.NewFakeRecorder(100)}
+	rec := &pvr.SonarrReconciler{Client: mgr.GetClient(), Recorder: events.NewFakeRecorder(100)}
 	require.NoError(t, rec.SetupWithManager(mgr))
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
@@ -793,7 +793,7 @@ func TestBazarrJellyfinAppRefChangesReconcileTheBazarr(t *testing.T) {
 	})
 	require.NoError(t, err)
 	rec := &subtitles.BazarrReconciler{
-		Client: mgr.GetClient(), Scheme: mgr.GetScheme(), Recorder: events.NewFakeRecorder(100),
+		Client: mgr.GetClient(), Recorder: events.NewFakeRecorder(100),
 	}
 	require.NoError(t, rec.SetupWithManager(mgr))
 	ctx, cancel := context.WithCancel(context.Background())

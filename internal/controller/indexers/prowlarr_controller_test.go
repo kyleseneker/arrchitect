@@ -145,7 +145,7 @@ func runProwlarr(t *testing.T, cfg *indexersv1alpha1.Prowlarr, objs ...client.Ob
 		b = b.WithObjects(o)
 	}
 	c := b.Build()
-	r := &ProwlarrReconciler{Client: c, Scheme: scheme, Recorder: events.NewFakeRecorder(50)}
+	r := &ProwlarrReconciler{Client: c, Recorder: events.NewFakeRecorder(50)}
 	_, err := r.Reconcile(context.Background(), ctrl.Request{
 		Name: "prowlarr", Namespace: "media",
 	})

@@ -29,7 +29,6 @@ import (
 // TdarrReconciler reconciles a Tdarr object.
 type TdarrReconciler struct {
 	client.Client
-	Scheme   *runtime.Scheme
 	Recorder events.EventRecorder
 }
 
