@@ -4,9 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net"
 	"net/http"
-	"net/http/httptest"
 	"slices"
 	"sync"
 	"testing"
@@ -47,11 +45,7 @@ func (f *fakeFlareSolverr) ran(cmd, session string) bool {
 
 func (f *fakeFlareSolverr) serve(t *testing.T) string {
 	t.Helper()
-	ln, err := net.Listen("tcp", net.JoinHostPort(testnet.RoutableAddr(t), "0"))
-	if err != nil {
-		t.Skipf("cannot bind a routable listener: %v", err)
-	}
-	srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := testnet.Serve(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
 			Cmd     string `json:"cmd"`
 			Session string `json:"session"`
@@ -70,10 +64,6 @@ func (f *fakeFlareSolverr) serve(t *testing.T) string {
 		}
 		_ = json.NewEncoder(w).Encode(resp)
 	}))
-	_ = srv.Listener.Close()
-	srv.Listener = ln
-	srv.Start()
-	t.Cleanup(srv.Close)
 	return srv.URL
 }
 

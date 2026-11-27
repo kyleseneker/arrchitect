@@ -3,9 +3,7 @@ package downloads
 import (
 	"context"
 	"encoding/json"
-	"net"
 	"net/http"
-	"net/http/httptest"
 	"slices"
 	"strings"
 	"sync"
@@ -199,9 +197,7 @@ func TestQBObserveReadsWithoutChangingPreferencesOrCategories(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			var requests []string
 			var mu sync.Mutex
-			ln, err := net.Listen("tcp", net.JoinHostPort(testnet.RoutableAddr(t), "0"))
-			require.NoError(t, err)
-			srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			srv := testnet.Serve(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				mu.Lock()
 				requests = append(requests, r.Method+" "+r.URL.Path)
 				mu.Unlock()
@@ -224,10 +220,6 @@ func TestQBObserveReadsWithoutChangingPreferencesOrCategories(t *testing.T) {
 					w.WriteHeader(500)
 				}
 			}))
-			_ = srv.Listener.Close()
-			srv.Listener = ln
-			srv.Start()
-			defer srv.Close()
 			scheme := runtime.NewScheme()
 			require.NoError(t, downloadsv1alpha1.AddToScheme(scheme))
 			require.NoError(t, corev1.AddToScheme(scheme))
@@ -255,7 +247,7 @@ func TestQBObserveReadsWithoutChangingPreferencesOrCategories(t *testing.T) {
 			c := fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(cfg).WithObjects(cfg, secret).Build()
 			rec := &QBittorrentReconciler{Client: c}
 			key := types.NamespacedName{Name: cfg.Name, Namespace: cfg.Namespace}
-			_, err = rec.Reconcile(context.Background(), ctrl.Request{NamespacedName: key})
+			_, err := rec.Reconcile(context.Background(), ctrl.Request{NamespacedName: key})
 			require.NoError(t, err)
 			require.NoError(t, c.Get(context.Background(), key, cfg))
 			mu.Lock()
@@ -283,9 +275,7 @@ func TestQBEnforceWritesOnlyWhatDiffers(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			var writes []string
 			var mu sync.Mutex
-			ln, err := net.Listen("tcp", net.JoinHostPort(testnet.RoutableAddr(t), "0"))
-			require.NoError(t, err)
-			srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			srv := testnet.Serve(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				switch r.URL.Path {
 				case "/api/v2/auth/login":
 					http.SetCookie(w, &http.Cookie{Name: "SID", Value: "session", Path: "/"})
@@ -302,10 +292,6 @@ func TestQBEnforceWritesOnlyWhatDiffers(t *testing.T) {
 					mu.Unlock()
 				}
 			}))
-			_ = srv.Listener.Close()
-			srv.Listener = ln
-			srv.Start()
-			defer srv.Close()
 
 			scheme := runtime.NewScheme()
 			require.NoError(t, downloadsv1alpha1.AddToScheme(scheme))
@@ -322,7 +308,7 @@ func TestQBEnforceWritesOnlyWhatDiffers(t *testing.T) {
 				WithStatusSubresource(&downloadsv1alpha1.QBittorrent{}).Build()
 			r := &QBittorrentReconciler{Client: c}
 			req := ctrl.Request{Name: "qbit", Namespace: "media"}
-			_, err = r.Reconcile(context.Background(), req)
+			_, err := r.Reconcile(context.Background(), req)
 			require.NoError(t, err)
 			assert.Equal(t, tt.writes, writes)
 		})
@@ -338,9 +324,7 @@ type fakeQB struct {
 
 func (f *fakeQB) serve(t *testing.T) string {
 	t.Helper()
-	ln, err := net.Listen("tcp", net.JoinHostPort(testnet.RoutableAddr(t), "0"))
-	require.NoError(t, err)
-	srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := testnet.Serve(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		f.mu.Lock()
 		defer f.mu.Unlock()
 		switch r.URL.Path {
@@ -359,10 +343,6 @@ func (f *fakeQB) serve(t *testing.T) string {
 			f.writes = append(f.writes, r.Method+" "+r.URL.Path)
 		}
 	}))
-	_ = srv.Listener.Close()
-	srv.Listener = ln
-	srv.Start()
-	t.Cleanup(srv.Close)
 	return srv.URL
 }
 

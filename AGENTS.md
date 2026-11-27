@@ -186,8 +186,8 @@ Never edit these by hand. Change the source, then regenerate.
   `engine.WithAppLabel`.
 - The engine's HTTP client refuses loopback, link-local, unspecified and cloud
   metadata addresses, follows redirects only on the app's own host and caps
-  response bodies. Don't weaken that. Tests serve on `testnet.RoutableAddr(t)`
-  or pass `engine.WithTransport`.
+  response bodies. Don't weaken that. Tests serve fake apps with
+  `testnet.Serve` or pass `engine.WithTransport`.
 - Prune and `deletionPolicy: delete` only delete items the operator created,
   which `status.managedResources` records. Never delete an item the operator
   didn't create.

@@ -3,9 +3,7 @@ package pvr
 import (
 	"context"
 	"encoding/json"
-	"net"
 	"net/http"
-	"net/http/httptest"
 	"slices"
 	"strings"
 	"sync"
@@ -210,17 +208,9 @@ func (f *fakeArr) path(suffix string) string { return "/api/" + f.apiVer + "/" +
 // the dial hangs for the full timeout, Linux refuses immediately.
 func unhealthyURL(t *testing.T) string {
 	t.Helper()
-	ln, err := net.Listen("tcp", net.JoinHostPort(testnet.RoutableAddr(t), "0"))
-	if err != nil {
-		t.Skipf("cannot bind: %v", err)
-	}
-	srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	srv := testnet.Serve(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 	}))
-	_ = srv.Listener.Close()
-	srv.Listener = ln
-	srv.Start()
-	t.Cleanup(srv.Close)
 	return srv.URL
 }
 
@@ -238,11 +228,7 @@ func newFakeArr(t *testing.T, apiVer string, existing map[string][]map[string]an
 	f := &fakeArr{apiVer: apiVer, existing: existing, bodies: map[string][]map[string]any{}}
 	prefix := "/api/" + apiVer + "/"
 
-	ln, err := net.Listen("tcp", net.JoinHostPort(testnet.RoutableAddr(t), "0"))
-	if err != nil {
-		t.Skipf("cannot bind a routable listener: %v", err)
-	}
-	srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := testnet.Serve(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		f.mu.Lock()
 		f.requests = append(f.requests, r.Method+" "+r.URL.Path)
 		f.mu.Unlock()
@@ -279,10 +265,6 @@ func newFakeArr(t *testing.T, apiVer string, existing map[string][]map[string]an
 			w.WriteHeader(http.StatusOK)
 		}
 	}))
-	_ = srv.Listener.Close()
-	srv.Listener = ln
-	srv.Start()
-	t.Cleanup(srv.Close)
 	return f, srv.URL
 }
 

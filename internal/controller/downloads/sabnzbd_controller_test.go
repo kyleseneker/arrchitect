@@ -5,9 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/json"
 	"maps"
-	"net"
 	"net/http"
-	"net/http/httptest"
 	"net/url"
 	"sync"
 	"testing"
@@ -66,11 +64,7 @@ func (f *fakeSabnzbd) sawMode(mode string) bool {
 
 func (f *fakeSabnzbd) serve(t *testing.T) string {
 	t.Helper()
-	ln, err := net.Listen("tcp", net.JoinHostPort(testnet.RoutableAddr(t), "0"))
-	if err != nil {
-		t.Skipf("cannot bind a routable listener: %v", err)
-	}
-	srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := testnet.Serve(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_ = r.ParseForm()
 		params := url.Values{}
 		maps.Copy(params, r.Form)
@@ -85,10 +79,6 @@ func (f *fakeSabnzbd) serve(t *testing.T) string {
 		}
 		_ = json.NewEncoder(w).Encode(map[string]any{"status": true, "config": config})
 	}))
-	_ = srv.Listener.Close()
-	srv.Listener = ln
-	srv.Start()
-	t.Cleanup(srv.Close)
 	return srv.URL
 }
 

@@ -4,9 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"maps"
-	"net"
 	"net/http"
-	"net/http/httptest"
 	"slices"
 	"strings"
 	"sync"
@@ -79,11 +77,7 @@ func (f *fakeJellyfin) saw(method, path string) bool {
 
 func (f *fakeJellyfin) serve(t *testing.T) string {
 	t.Helper()
-	ln, err := net.Listen("tcp", net.JoinHostPort(testnet.RoutableAddr(t), "0"))
-	if err != nil {
-		t.Skipf("cannot bind a routable listener: %v", err)
-	}
-	srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := testnet.Serve(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		f.mu.Lock()
 		f.requests = append(f.requests, r.Method+" "+r.URL.Path)
 		if f.auth == nil {
@@ -152,10 +146,6 @@ func (f *fakeJellyfin) serve(t *testing.T) string {
 			_ = json.NewEncoder(w).Encode(map[string]any{})
 		}
 	}))
-	_ = srv.Listener.Close()
-	srv.Listener = ln
-	srv.Start()
-	t.Cleanup(srv.Close)
 	return srv.URL
 }
 

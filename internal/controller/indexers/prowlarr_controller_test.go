@@ -3,9 +3,7 @@ package indexers
 import (
 	"context"
 	"encoding/json"
-	"net"
 	"net/http"
-	"net/http/httptest"
 	"strings"
 	"sync"
 	"testing"
@@ -67,11 +65,7 @@ func (f *fakeProwlarr) serve(t *testing.T) string {
 	if f.existing == nil {
 		f.existing = map[string][]map[string]any{}
 	}
-	ln, err := net.Listen("tcp", net.JoinHostPort(testnet.RoutableAddr(t), "0"))
-	if err != nil {
-		t.Skipf("cannot bind a routable listener: %v", err)
-	}
-	srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := testnet.Serve(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		key := r.Method + " " + r.URL.Path
 		w.Header().Set("Content-Type", "application/json")
 
@@ -119,10 +113,6 @@ func (f *fakeProwlarr) serve(t *testing.T) string {
 			w.WriteHeader(http.StatusOK)
 		}
 	}))
-	_ = srv.Listener.Close()
-	srv.Listener = ln
-	srv.Start()
-	t.Cleanup(srv.Close)
 	return srv.URL
 }
 

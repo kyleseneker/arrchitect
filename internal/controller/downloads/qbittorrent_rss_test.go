@@ -2,9 +2,7 @@ package downloads
 
 import (
 	"encoding/json"
-	"net"
 	"net/http"
-	"net/http/httptest"
 	"strings"
 	"sync"
 	"testing"
@@ -43,9 +41,7 @@ func (f *fakeQBRSS) serve(t *testing.T) string {
 	if f.rules == nil {
 		f.rules = map[string]map[string]any{}
 	}
-	ln, err := net.Listen("tcp", net.JoinHostPort(testnet.RoutableAddr(t), "0"))
-	require.NoError(t, err)
-	srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := testnet.Serve(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		f.mu.Lock()
 		defer f.mu.Unlock()
 		if r.Method == http.MethodPost {
@@ -108,10 +104,6 @@ func (f *fakeQBRSS) serve(t *testing.T) string {
 			delete(f.rules, r.Form.Get("ruleName"))
 		}
 	}))
-	_ = srv.Listener.Close()
-	srv.Listener = ln
-	srv.Start()
-	t.Cleanup(srv.Close)
 	return srv.URL
 }
 

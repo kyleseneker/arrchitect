@@ -5,9 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"maps"
-	"net"
 	"net/http"
-	"net/http/httptest"
 	"slices"
 	"strconv"
 	"strings"
@@ -289,15 +287,7 @@ func fakeRuleConstants(radarr bool) map[string]any {
 
 func (f *fakeMaintainerr) serve(t *testing.T) string {
 	t.Helper()
-	ln, err := net.Listen("tcp", net.JoinHostPort(testnet.RoutableAddr(t), "0"))
-	if err != nil {
-		t.Skipf("cannot bind a routable listener: %v", err)
-	}
-	srv := httptest.NewUnstartedServer(http.HandlerFunc(f.handle))
-	_ = srv.Listener.Close()
-	srv.Listener = ln
-	srv.Start()
-	t.Cleanup(srv.Close)
+	srv := testnet.Serve(t, http.HandlerFunc(f.handle))
 	return srv.URL
 }
 
@@ -508,17 +498,9 @@ func TestMaintainerrReportsAnUnknownServerWithoutBlockingTheRest(t *testing.T) {
 }
 
 func TestMaintainerrMarksUnhealthyAppNotReady(t *testing.T) {
-	ln, err := net.Listen("tcp", net.JoinHostPort(testnet.RoutableAddr(t), "0"))
-	if err != nil {
-		t.Skipf("cannot bind: %v", err)
-	}
-	srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	srv := testnet.Serve(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusServiceUnavailable)
 	}))
-	_ = srv.Listener.Close()
-	srv.Listener = ln
-	srv.Start()
-	t.Cleanup(srv.Close)
 
 	run := newMaintainerrRun(t, jellyfinSpec(srv.URL))
 	run.reconcile(t)
