@@ -35,7 +35,7 @@ import (
 
 func TestEmitPruneEvents(t *testing.T) {
 	recorder := events.NewFakeRecorder(2)
-	EmitPruneEvents(recorder, newConfig("", 0), []engine.PrunedResource{
+	EmitPruneEvents(recorder, &pvrv1alpha1.Sonarr{Name: "s", Namespace: "arr"}, []engine.PrunedResource{
 		{Type: "indexers", Name: "old", ID: 7},
 		{Type: "libraryVariables", Name: "movies/stale"},
 	})
@@ -58,9 +58,8 @@ func TestReportResultReportsObservedDrift(t *testing.T) {
 		{"observe error", DriftPolicyObserve, Result{Errors: []error{errors.New("x")}}, metav1.ConditionFalse, ReasonSyncFailed},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			obj := newConfig("", 0)
+			obj, c := statusSonarr(t)
 			obj.Spec.Reconcile = &commonv1alpha1.ReconcileConfig{DriftPolicy: tc.policy}
-			c := testClient(obj).WithStatusSubresource(obj).Build()
 			ReportResult(context.Background(), c, nil, obj, ObserveOnly(obj.Spec.Reconcile), tc.result)
 			require.NoError(t, c.Get(context.Background(), client.ObjectKeyFromObject(obj), obj))
 			condition := meta.FindStatusCondition(obj.Status.Conditions, "Synced")
@@ -76,8 +75,7 @@ func TestReportResultReportsObservedDrift(t *testing.T) {
 // created that it can never prune or clean up.
 func TestUpdateStatusSurvivesASpecEditMidPass(t *testing.T) {
 	ctx := context.Background()
-	obj := newConfig("", 0)
-	cl := testClient(obj).WithStatusSubresource(obj).Build()
+	obj, cl := statusSonarr(t)
 	key := client.ObjectKeyFromObject(obj)
 
 	stale := &pvrv1alpha1.Sonarr{}
@@ -117,8 +115,7 @@ func (l lagging) APIReader() client.Reader { return l.Client }
 
 func TestUpdateStatusReadsPastALaggingCache(t *testing.T) {
 	ctx := context.Background()
-	obj := newConfig("", 0)
-	cl := testClient(obj).WithStatusSubresource(obj).Build()
+	obj, cl := statusSonarr(t)
 	key := client.ObjectKeyFromObject(obj)
 
 	stale := &pvrv1alpha1.Sonarr{}
@@ -138,8 +135,7 @@ func TestUpdateStatusReadsPastALaggingCache(t *testing.T) {
 }
 
 func TestUpdateStatusOutlivesACancelledReconcile(t *testing.T) {
-	obj := newConfig("", 0)
-	cl := testClient(obj).WithStatusSubresource(obj).Build()
+	obj, cl := statusSonarr(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
@@ -191,8 +187,7 @@ func TestReportResultMessages(t *testing.T) {
 			metav1.ConditionFalse, ReasonSyncFailed, "observation failed: x"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			obj := newConfig("", 0)
-			c := testClient(obj).WithStatusSubresource(obj).Build()
+			obj, c := statusSonarr(t)
 			ReportResult(context.Background(), c, nil, obj, tc.observe, tc.result)
 			require.NoError(t, c.Get(context.Background(), client.ObjectKeyFromObject(obj), obj))
 			condition := meta.FindStatusCondition(obj.Status.Conditions, "Synced")
@@ -228,8 +223,7 @@ func TestReportResultRetriesSoonerOnlyForASharedReason(t *testing.T) {
 		{"a spec problem", []error{fmt.Errorf("importLists(a): %w", failure.InvalidConfig(errors.New("x")))}, 0, 0},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			obj := newConfig("", 0)
-			c := testClient(obj).WithStatusSubresource(obj).Build()
+			obj, c := statusSonarr(t)
 			retry := ReportResult(context.Background(), c, nil, obj, false, Result{Errors: tc.errors})
 			assert.GreaterOrEqual(t, retry, tc.min)
 			assert.LessOrEqual(t, retry, tc.max)
@@ -239,8 +233,7 @@ func TestReportResultRetriesSoonerOnlyForASharedReason(t *testing.T) {
 
 // A pass with a great many failures still fits in a condition message.
 func TestReportResultNamesTheFirstTenFailures(t *testing.T) {
-	obj := newConfig("", 0)
-	c := testClient(obj).WithStatusSubresource(obj).Build()
+	obj, c := statusSonarr(t)
 	errs := make([]error, 0, 500)
 	for i := range 500 {
 		errs = append(errs, fmt.Errorf("indexers(%d): %s", i, strings.Repeat("x", 200)))

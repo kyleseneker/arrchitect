@@ -205,8 +205,7 @@ func deletingSonarr(t *testing.T) (*pvrv1alpha1.Sonarr, client.Client) {
 }
 
 func TestConfigChangedPredicate(t *testing.T) {
-	old := newConfig("", 0)
-	old.Generation = 1
+	old := &pvrv1alpha1.Sonarr{Name: "sonarr", Namespace: "media", Generation: 1, Finalizers: []string{Finalizer}}
 	cases := []struct {
 		name   string
 		change func(*pvrv1alpha1.Sonarr)

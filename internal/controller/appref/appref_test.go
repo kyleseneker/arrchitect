@@ -28,9 +28,7 @@ func appRefClient(t *testing.T, objs ...client.Object) client.Client {
 	require.NoError(t, downloadsv1alpha1.AddToScheme(s))
 	require.NoError(t, mediaserversv1alpha1.AddToScheme(s))
 	require.NoError(t, requestsv1alpha1.AddToScheme(s))
-	return fake.NewClientBuilder().WithScheme(s).WithObjects(objs...).
-		WithIndex(&indexersv1alpha1.Prowlarr{}, index, func(o client.Object) []string { return keys(prowlarrRefs(o)) }).
-		Build()
+	return fake.NewClientBuilder().WithScheme(s).WithObjects(objs...).Build()
 }
 
 func ref(name, key string) *commonv1alpha1.SecretKeyRef {
@@ -143,14 +141,4 @@ func TestResolveReadsOnlyAppsTheOperatorRuns(t *testing.T) {
 	got, err := Resolve(context.Background(), c, apps, "media", commonv1alpha1.AppRef{Kind: "Sonarr", Name: "sonarr"})
 	require.NoError(t, err)
 	assert.Equal(t, "http://sonarr:8989", got.URL)
-}
-
-func prowlarrRefs(o client.Object) []commonv1alpha1.AppRef {
-	var refs []commonv1alpha1.AppRef
-	for _, app := range o.(*indexersv1alpha1.Prowlarr).Spec.Applications {
-		if app.AppRef != nil {
-			refs = append(refs, *app.AppRef)
-		}
-	}
-	return refs
 }
