@@ -6,7 +6,9 @@ import (
 	"maps"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -238,11 +240,14 @@ func TestCompleteFormatItemsNamesEveryCustomFormatForANewProfile(t *testing.T) {
 // resolve its formatItems, which is only possible if the CF IDs are looked up
 // after the custom formats have been written.
 func TestQualityProfileResolvesCustomFormatsCreatedInTheSameRun(t *testing.T) {
+	var mu sync.Mutex
 	customFormats := []map[string]any{}
-	var qpBodies []string
+	var qpBodies []map[string]any
 	nextID := 100
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		defer mu.Unlock()
 		switch {
 		case strings.Contains(r.URL.Path, "customformat"):
 			if r.Method == http.MethodPost {
@@ -258,9 +263,12 @@ func TestQualityProfileResolvesCustomFormatsCreatedInTheSameRun(t *testing.T) {
 			_ = json.NewEncoder(w).Encode(customFormats)
 		case strings.Contains(r.URL.Path, "qualityprofile"):
 			if r.Method == http.MethodPost || r.Method == http.MethodPut {
-				b := make([]byte, r.ContentLength)
-				_, _ = r.Body.Read(b)
-				qpBodies = append(qpBodies, string(b))
+				var body map[string]any
+				if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+					http.Error(w, err.Error(), http.StatusBadRequest)
+					return
+				}
+				qpBodies = append(qpBodies, body)
 				w.WriteHeader(http.StatusCreated)
 				_, _ = w.Write([]byte(`{"id":1}`))
 				return
@@ -285,9 +293,15 @@ func TestQualityProfileResolvesCustomFormatsCreatedInTheSameRun(t *testing.T) {
 
 	res := reconcileOnce(context.Background(), hc, opts, engine.SyncPolicy{}, nil)
 	require.Empty(t, res.Errors, "unexpected errors")
-	require.Len(t, customFormats, 1, "expected the custom format to be created")
-	require.NotEmpty(t, qpBodies, "quality profile was never written")
-	assert.Contains(t, qpBodies[0], "101", "quality profile did not reference the newly created custom format id")
+	mu.Lock()
+	formats, bodies := slices.Clone(customFormats), slices.Clone(qpBodies)
+	mu.Unlock()
+	require.Len(t, formats, 1, "expected the custom format to be created")
+	require.NotEmpty(t, bodies, "quality profile was never written")
+	items, _ := bodies[0]["formatItems"].([]any)
+	require.Len(t, items, 1)
+	item, _ := items[0].(map[string]any)
+	assert.Equal(t, formats[0]["id"], item["format"], "quality profile did not reference the newly created custom format id")
 }
 
 func TestKeepGroupIDsReusesTheAppsGroupIDs(t *testing.T) {
@@ -431,9 +445,12 @@ func TestQualityDefinitionsUpdateInPlaceAndConverge(t *testing.T) {
 }
 
 func TestQualityProfileLanguageIsLookedUpByName(t *testing.T) {
+	var mu sync.Mutex
 	var paths []string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
 		paths = append(paths, r.URL.Path)
+		mu.Unlock()
 		if r.URL.Path == "/api/v3/language" {
 			_, _ = w.Write([]byte(`[{"id":-2,"name":"Original"},{"id":1,"name":"English"}]`))
 			return
@@ -452,9 +469,13 @@ func TestQualityProfileLanguageIsLookedUpByName(t *testing.T) {
 	_, err = qualityProfileResources(context.Background(), hc, "v3", []commonv1alpha1.QualityProfile{{Name: "HD", Language: "Klingon"}}, nil)
 	assert.ErrorContains(t, err, `qualityProfiles(HD): language "Klingon" does not exist`)
 
+	mu.Lock()
 	paths = nil
+	mu.Unlock()
 	qps, err = qualityProfileResources(context.Background(), hc, "v3", []commonv1alpha1.QualityProfile{{Name: "HD"}}, nil)
 	require.NoError(t, err)
 	assert.NotContains(t, qps[0], "language")
+	mu.Lock()
+	defer mu.Unlock()
 	assert.NotContains(t, paths, "/api/v3/language", "the languages are read only for a profile that names one")
 }
