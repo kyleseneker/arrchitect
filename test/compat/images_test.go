@@ -24,7 +24,7 @@ const (
 	// renovate: datasource=docker
 	radarrImage = "lscr.io/linuxserver/radarr:7.0.3.10918-ls328"
 	// renovate: datasource=docker
-	lidarrImage = "lscr.io/linuxserver/lidarr:3.1.6.5079-ls47"
+	lidarrImage = "lscr.io/linuxserver/lidarr:3.1.6.5079-ls50"
 	// renovate: datasource=docker
 	readarrImage = "lscr.io/linuxserver/readarr:develop-0.4.18.2805-ls157"
 	// renovate: datasource=docker
