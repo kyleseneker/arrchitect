@@ -1,5 +1,8 @@
 # yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
 reviews:
+  auto_review:
+    ignore_usernames:
+      - renovate[bot]
   path_filters:
     - "!api/**/zz_generated.deepcopy.go"
     - "!config/crd/bases/**"
