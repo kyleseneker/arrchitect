@@ -4,7 +4,7 @@ go 1.27.4
 
 require (
 	github.com/go-logr/logr v1.4.4
-	github.com/moby/moby/api v1.56.1
+	github.com/moby/moby/api v1.57.0
 	github.com/prometheus/client_golang v1.25.0
 	github.com/prometheus/client_model v0.6.3
 	github.com/stretchr/testify v1.12.1
