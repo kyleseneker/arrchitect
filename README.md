@@ -146,7 +146,7 @@ exceptions.
 | Prowlarr | `Prowlarr` | 2.3.0 to 3.0.2 |
 | FlareSolverr | `FlareSolverr` | 3.4.5 to 3.5.2 |
 | Bazarr | `Bazarr` | 1.5.3 to 1.6.2 |
-| qBittorrent | `QBittorrent` | 5.1.4 to 5.3.0 |
+| qBittorrent | `QBittorrent` | 5.1.4 to 5.3.1 |
 | SABnzbd | `Sabnzbd` | 4.5.5 to 5.1.3 |
 | Jellyfin | `Jellyfin` | 10.11.3 to 12.4 |
 | Plex | `Plex` | 1.42.2 to 1.43.5 |
