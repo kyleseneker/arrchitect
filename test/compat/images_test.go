@@ -48,7 +48,7 @@ const (
 	// renovate: datasource=docker
 	plexImage = "docker.io/plexinc/pms-docker:1.43.5.11079-b3b13e506"
 	// renovate: datasource=docker
-	qbittorrentImage = "lscr.io/linuxserver/qbittorrent:5.3.0_v2.1.2-ls486"
+	qbittorrentImage = "lscr.io/linuxserver/qbittorrent:5.3.1_v2.1.3-ls490"
 )
 
 // oldestImages are the oldest release each app is supported at, run with
