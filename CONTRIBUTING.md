@@ -98,7 +98,10 @@ and in a resource.
 Renovate (`renovate.json`) opens PRs on Saturday mornings; none automerge. The
 Kubernetes libraries and controller-runtime arrive as one PR. A controller-tools
 PR needs `make manifests generate sync-crds` run and committed on its branch
-before `verify-crds` passes, and a crd-ref-docs PR needs `make api-docs`.
+before `verify-crds` passes, and a crd-ref-docs PR needs `make api-docs`. A
+compat image PR that moves an app to a new version needs the README's supported
+apps table updated on its branch; `go test ./test/consistency/` fails until the
+newest version there matches the pin.
 
 ## Commit messages and releases
 
@@ -110,6 +113,13 @@ notes and the chart's Artifact Hub changelog are generated from them, so
 `style`, `ci` and other `chore` commits are left out. Mark anything that needs
 action on upgrade with `!` (`feat(maintainerr)!: ...`) and it is listed under
 Breaking changes.
+
+Before tagging a minor release, move the oldest supported versions. `make
+compat-floors` prints, for each app, the oldest release the [support
+policy](docs/stability.md#apps) allows for a range set that day. Move
+`oldestImages` in `test/compat/images_test.go` and the README's supported apps
+table to match, let CI prove the new floors, and list them under Upgrading in
+the release notes. Patch releases leave the floors where they are.
 
 A release is a tag on `main`:
 

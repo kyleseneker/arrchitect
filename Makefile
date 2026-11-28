@@ -47,6 +47,10 @@ test-compat: manifests generate setup-envtest ## Reconcile every app running in 
 	KUBEBUILDER_ASSETS="$$('$(ENVTEST)' use $(ENVTEST_K8S_VERSION) --bin-dir '$(LOCALBIN)' -p path)" \
 		go test -tags=compat ./test/compat/... -count=1 -v -timeout 45m -run '$(COMPAT_RUN)'
 
+.PHONY: compat-floors
+compat-floors: ## Print the oldest release of each app the compat suite should pin for a range set today, or on AS_OF=YYYY-MM-DD. Reads GitHub with GITHUB_TOKEN, or gh's token.
+	GITHUB_TOKEN="$${GITHUB_TOKEN:-$$(gh auth token 2>/dev/null)}" go run ./hack/compatfloors $(if $(AS_OF),-as-of $(AS_OF))
+
 .PHONY: test-e2e
 test-e2e: IMG = arrchitect:e2e
 test-e2e: kind chainsaw docker-build ## Run the Chainsaw tests in a throwaway kind cluster (needs docker). Its kubeconfig is a temporary file. KIND_NODE_IMAGE= picks the Kubernetes version. Each node pulls the app images before the tests start.
