@@ -176,7 +176,7 @@ CRDIFY_VERSION ?= v0.6.0
 # renovate: datasource=go depName=github.com/elastic/crd-ref-docs
 CRD_REF_DOCS_VERSION ?= v0.3.0
 # renovate: datasource=github-releases depName=helm-unittest/helm-unittest
-HELM_UNITTEST_VERSION ?= v1.2.1
+HELM_UNITTEST_VERSION ?= v1.3.0
 # renovate: datasource=go depName=sigs.k8s.io/controller-tools
 CONTROLLER_TOOLS_VERSION ?= v0.23.0
 
