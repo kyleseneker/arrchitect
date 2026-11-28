@@ -28,7 +28,7 @@ const (
 	// renovate: datasource=docker
 	readarrImage = "lscr.io/linuxserver/readarr:develop-0.4.18.2805-ls157"
 	// renovate: datasource=docker
-	prowlarrImage = "lscr.io/linuxserver/prowlarr:3.0.2.5780-ls169"
+	prowlarrImage = "lscr.io/linuxserver/prowlarr:3.1.0.5799-ls170"
 	// renovate: datasource=docker
 	flaresolverrImage = "ghcr.io/flaresolverr/flaresolverr:v3.5.2"
 	// renovate: datasource=docker
