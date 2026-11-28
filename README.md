@@ -143,7 +143,7 @@ exceptions.
 | Radarr | `Radarr`, `RadarrIndexer`, `RadarrDownloadClient` | 6.0.4 to 7.0.3 |
 | Lidarr | `Lidarr`, `LidarrIndexer`, `LidarrDownloadClient` | 3.1.0 to 3.1.6 |
 | Readarr | `Readarr`, `ReadarrIndexer`, `ReadarrDownloadClient` | 0.4.17 to 0.4.18 |
-| Prowlarr | `Prowlarr` | 2.3.0 to 3.0.2 |
+| Prowlarr | `Prowlarr` | 2.3.0 to 3.1.0 |
 | FlareSolverr | `FlareSolverr` | 3.4.5 to 3.5.2 |
 | Bazarr | `Bazarr` | 1.5.3 to 1.6.2 |
 | qBittorrent | `QBittorrent` | 5.1.4 to 5.3.1 |
