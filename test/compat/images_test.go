@@ -42,7 +42,7 @@ const (
 	// renovate: datasource=docker
 	maintainerrImage = "ghcr.io/maintainerr/maintainerr:3.33.0"
 	// renovate: datasource=docker
-	tdarrImage = "ghcr.io/haveagitgat/tdarr:3.08.00"
+	tdarrImage = "ghcr.io/haveagitgat/tdarr:3.10.00"
 	// renovate: datasource=docker
 	sabnzbdImage = "lscr.io/linuxserver/sabnzbd:5.1.3-ls280"
 	// renovate: datasource=docker
