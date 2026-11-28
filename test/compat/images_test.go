@@ -20,7 +20,7 @@ import (
 // each pin, and CI proves the new version before it merges.
 const (
 	// renovate: datasource=docker
-	sonarrImage = "lscr.io/linuxserver/sonarr:4.0.20.3014-ls2"
+	sonarrImage = "lscr.io/linuxserver/sonarr:4.0.20.3014-ls6"
 	// renovate: datasource=docker
 	radarrImage = "lscr.io/linuxserver/radarr:7.0.3.10918-ls328"
 	// renovate: datasource=docker

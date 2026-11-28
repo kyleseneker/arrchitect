@@ -61,7 +61,7 @@ spec:
     spec:
       containers:
         - name: sonarr
-          image: lscr.io/linuxserver/sonarr:4.0.20.3014-ls2
+          image: lscr.io/linuxserver/sonarr:4.0.20.3014-ls6
           env:
             - name: SONARR__AUTH__APIKEY
               valueFrom:
