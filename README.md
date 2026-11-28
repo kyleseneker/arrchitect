@@ -152,7 +152,7 @@ exceptions.
 | Plex | `Plex` | 1.42.2 to 1.43.5 |
 | Seerr | `Seerr` | 3.5.0 to 3.5.2 |
 | Maintainerr | `Maintainerr` | 3.30.0 to 3.33.0 |
-| Tdarr | `Tdarr` | 3.00.00 to 3.08.00 |
+| Tdarr | `Tdarr` | 3.00.00 to 3.10.00 |
 | Autobrr | `Autobrr` | 1.69.0 to 1.91.1 |
 
 ## Other tools
